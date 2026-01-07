@@ -1,13 +1,13 @@
 # Converting IHP Open PDK for use with VACASK
 
-Conversion was tested on version 62c1d640dc1c91f57bc1a8e4e08e537a7a105ae8 of the IHP Open PDK (August 2025). It may or may not work with newer versions. First, clone IHP SG13G2 PDK
+Conversion was tested on version a2bf8ea81aee7d0fcdd6d62168edca0d7d0bcb08 of the IHP Open PDK (January 2026). It may or may not work with newer versions. First, clone IHP SG13G2 PDK
 ```
 git clone https://github.com/IHP-GmbH/IHP-Open-PDK
 ```
-Now you have the latest version of the PDK in a directory named `IHP-Open-PDK`. If conversion fails or the converted PDK does not work, you can try again with version 62c1d640dc1c91f57bc1a8e4e08e537a7a105ae8 by typing (immediately after checkout)
+Now you have the latest version of the PDK in a directory named `IHP-Open-PDK`. If conversion fails or the converted PDK does not work, you can try again with version a2bf8ea81aee7d0fcdd6d62168edca0d7d0bcb08 by typing (immediately after checkout)
 ```
 cd IHP-Open-PDK
-git checkout 62c1d640dc1c91f57bc1a8e4e08e537a7a105ae8
+git checkout a2bf8ea81aee7d0fcdd6d62168edca0d7d0bcb08
 ```
 
 Set environmental variables
