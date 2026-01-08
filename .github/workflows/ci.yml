@@ -167,7 +167,7 @@ jobs:
             CMAKE_ARGS+=("-DCMAKE_PREFIX_PATH=$BREW_PREFIX/opt/boost")
             CMAKE_ARGS+=("-DBoost_DIR=$BOOST_CMAKE_DIR")
             CMAKE_ARGS+=("-DBISON_EXECUTABLE=$BREW_PREFIX/opt/bison/bin/bison")
-            CMAKE_ARGS+=("-DFLEX_INCLUDE_DIR=$BREW_PREFIX/opt/flex/include")
+            CMAKE_ARGS+=("-DFLEX_INCLUDE_DIRS=$BREW_PREFIX/opt/flex/include")
           else
             CMAKE_ARGS+=("-DBoost_ROOT=$BOOST_ROOT")
             CMAKE_ARGS+=("-DCMAKE_PREFIX_PATH=$CMAKE_PREFIX_PATH")

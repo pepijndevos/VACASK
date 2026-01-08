@@ -184,6 +184,6 @@ add_library(simlib STATIC
 target_include_directories(simlib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_BINARY_DIR}
-    ${FLEX_INCLUDE_DIR}
+    ${FLEX_INCLUDE_DIRS}
 )
 # target_compile_definitions(dlib PRIVATE BUILDING_SIM_DLL)

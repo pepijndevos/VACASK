@@ -9,7 +9,7 @@ add_executable(sim
     cmd.cpp 
 )
 set_target_properties(sim PROPERTIES OUTPUT_NAME "${PROGRAM_NAME}")
-target_include_directories(sim PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}" "${FLEX_INCLUDE_DIRS}")
+target_include_directories(sim PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}")
 
 # Program information
 target_compile_definitions(sim PUBLIC PROGRAM_NAME=${PROGRAM_NAME})
