@@ -174,6 +174,8 @@ VACASK has only a few dependencies. You will need a C++20 compiler with an imple
 
 First, install the OpenVAF-reloaded compiler. The latest development version of OpenVAF-reloaded can be found at [https://fides.fe.uni-lj.si/openvaf/download](https://fides.fe.uni-lj.si/openvaf/download/). Make sure you download the OSDI 0.4 version. Of course, you can also take the OpenVAF-reloaded binary from the VACASK binary packages (.deb and .tar.gz for Linux, .zip for Windows). If the OpenVAF binary you pick up is named `openvaf-r` you have the right one (it produces models with the OSDI 0.4 interface). If you decide to build the compiler yourself, git-clone the [OpenVAF-reloaded repository](https://github.com/arpadbuermen/OpenVAF). Instructions for building can be found in the [README.md](https://github.com/arpadbuermen/OpenVAF/blob/master/README.md) file. 
 
+macOS users must build OpenVAF from sources. Make sure you [install all prerequisites](#macos).  Then follow these [short instructions for building OpenVAF](#building-openvaf-reloaded). 
+
 ## Linux
 
 ### Prerequisites
@@ -207,6 +209,7 @@ cpack
 ```
 The packages are created in the `<build directory>`.
 
+<a id="macos"></a>
 ## macOS
 
 ### Prerequisites
@@ -236,7 +239,8 @@ Clone and build OpenVAF-reloaded:
 ```
 git clone https://github.com/arpadbuermen/OpenVAF.git
 cd OpenVAF
-cargo build --release -p openvaf
+./configure
+./build.sh --release
 ```
 The compiler binary will be at `target/release/openvaf`.
 
