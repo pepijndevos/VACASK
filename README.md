@@ -268,7 +268,7 @@ cpack
 ```
 
 ## Windows
-Building for Windows is performed with the Mingw64 compiler. Unfortunately you will have to build all of the prerequisites manually. 
+Building for Windows is performed with the Mingw64 compiler. Unfortunately you will have to build all of the prerequisites manually. Because OpenVAF requires the MSVC linker for building .osdi files under Windows install Visual Studio 2022. 
 
 ### Building the prerequisites
 First, install the compiler and the tools. We will assume everything will be unpacked and built in `e:\`. Adjust the paths accordingly if you are going to use a different drive. Download Msys2 from [https://www.msys2.org/](https://www.msys2.org/) and install it to `e:\msys64`. Start the MSYS prompt and install bison, flex, and binutils. 

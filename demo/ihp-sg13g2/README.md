@@ -4,7 +4,7 @@ Conversion was tested on version a2bf8ea81aee7d0fcdd6d62168edca0d7d0bcb08 of the
 ```
 git clone https://github.com/IHP-GmbH/IHP-Open-PDK
 ```
-Now you have the latest version of the PDK in a directory named `IHP-Open-PDK`. If conversion fails or the converted PDK does not work, you can try again with version a2bf8ea81aee7d0fcdd6d62168edca0d7d0bcb08 by typing (immediately after checkout)
+Now you have the latest version of the PDK in a directory named `IHP-Open-PDK`. If conversion fails or the converted PDK does not work, you can try again with version a2bf8ea81aee7d0fcdd6d62168edca0d7d0bcb08 by typing (immediately after clone)
 ```
 cd IHP-Open-PDK
 git checkout a2bf8ea81aee7d0fcdd6d62168edca0d7d0bcb08
