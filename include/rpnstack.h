@@ -65,6 +65,8 @@ public:
     };
     size_t size() const { return stack.size(); };
     void clear() { stack.clear(); };
+
+    void dump(std::ostream& os);
     
 private:
     std::vector<Value> stack;

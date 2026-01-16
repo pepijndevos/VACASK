@@ -113,7 +113,7 @@ bool RpnEvaluator::evaluate(const Rpn& rpn, Value& result, Status& s) {
                         return false;
                     }
                 } catch (std::exception& exc) {
-                    s.set(Status::Exception, std::string(exc.what())+" detected.");
+                    s.set(Status::Exception, std::string(exc.what()));
                     appendLocation(s, loc);
                     return false;        
                 }

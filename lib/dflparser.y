@@ -586,16 +586,16 @@ expr
   }
   | expr QUESTION expr COLON expr %prec QUESTION {
     // Ternary operator a?b:c, translation to RPM
-    //        a
-    //        branchiffalse false // +3
-    //        b
-    //        jump end // +2
-    // false: c
+    //        a ($1)
+    //        branchiffalse false 
+    //        b ($3)
+    //        jump end 
+    // false: c ($5)
     // end:   op(question) // does nothing during execution, needed by formatting
     $$.extend(std::move($1)); 
-    $$.extend(Rpn::Branch(3, Rpn::BrFalse|Rpn::BrHidden), @2.loc());
+    $$.extend(Rpn::Branch($3.size()+2, Rpn::BrFalse|Rpn::BrHidden), @2.loc());
     $$.extend(std::move($3)); 
-    $$.extend(Rpn::Jump(2, Rpn::BrHidden), @2.loc());
+    $$.extend(Rpn::Jump($5.size()+2, Rpn::BrHidden), @2.loc());
     $$.extend(std::move($5)); 
     $$.extend(Rpn::Op(Rpn::OpQuestion), @2.loc());
   }
