@@ -39,7 +39,7 @@ class RawFile:
 			self.allends.sort()
 			
 			# Beginnings
-			self.allbegins = np.hstack([0, allends[:-1]]);
+			self.allbegins = np.hstack([0, self.allends[:-1]]);
 
 			# Sweep groups
 			self.sweepGroups = self.allbegins.size
