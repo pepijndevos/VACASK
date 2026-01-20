@@ -37,8 +37,7 @@ public:
     };
 
     OsdiDevice(OsdiFile* of, int descriptorIndex, Id asName=Id::none, Loc location=Loc::bad, Status& s=Status::ignore);
-    virtual ~OsdiDevice();
-
+    
     OsdiDevice           (const OsdiDevice&)  = delete;
     OsdiDevice           (      OsdiDevice&&) = default;
     OsdiDevice& operator=(const OsdiDevice&)  = delete;

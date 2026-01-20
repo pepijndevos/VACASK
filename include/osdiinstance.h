@@ -19,7 +19,7 @@ public:
     // The instance is added to the list of instances of the given model so that when
     // a model is destroyed all the instances in the list are destroyed, too. 
     OsdiInstance(OsdiModel* mod, Id name, Instance* parentInstance, const PTInstance& parsedInstance, Status& s=Status::ignore);
-    virtual ~OsdiInstance();
+    ~OsdiInstance();
 
     OsdiInstance           (const OsdiInstance&)  = delete;
     OsdiInstance           (      OsdiInstance&&) = default;

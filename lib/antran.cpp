@@ -10,9 +10,6 @@ Tran::Tran(Id name, Circuit& circuit, PTAnalysis& ptAnalysis)
       tranCore(*this, params.core(), opCore, circuit, commons, jac, solution, states) { 
 }
 
-Tran::~Tran() {
-}
-
 Analysis* Tran::create(PTAnalysis& ptAnalysis, Circuit& circuit, Status& s) {
     auto* an = new Tran(ptAnalysis.name(), circuit, ptAnalysis);
     return an;

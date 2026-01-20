@@ -39,8 +39,7 @@ namespace NAMESPACE {
 template<typename ModelParams, typename InstanceParams, typename InstanceData> class BuiltinDevice : public Device {
 public:
     BuiltinDevice(Id name, const Loc& location=Loc::bad); 
-    virtual ~BuiltinDevice();
-
+    
     BuiltinDevice           (const BuiltinDevice&)  = delete;
     BuiltinDevice           (      BuiltinDevice&&) = default;
     BuiltinDevice& operator=(const BuiltinDevice&)  = delete;
@@ -88,8 +87,7 @@ public:
         DeviceType* device, Id name, Instance* parent, 
         const PTModel& parsedModel, Status& s=Status::ignore
     );
-    virtual ~BuiltinModel();
-
+    
     BuiltinModel           (const BuiltinModel&)  = delete;
     BuiltinModel           (      BuiltinModel&&) = default;
     BuiltinModel& operator=(const BuiltinModel&)  = delete;
@@ -138,8 +136,7 @@ public:
     friend ModelType::DeviceType;
 
     BuiltinInstance(Model* model, Id name, Instance* parent, const PTInstance& parsedInstance, Status &s=Status::ignore);
-    virtual ~BuiltinInstance();
-
+    
     BuiltinInstance           (const BuiltinInstance&)  = delete;
     BuiltinInstance           (      BuiltinInstance&&) = default;
     BuiltinInstance& operator=(const BuiltinInstance&)  = delete;
@@ -257,10 +254,6 @@ void BuiltinDevice<ModelParams, InstanceParams, InstanceData>::buildInternals() 
         nodeNameMap.insert({id, i});
         i++;
     }
-}
-
-template<typename ModelParams, typename InstanceParams, typename InstanceData> 
-BuiltinDevice<ModelParams, InstanceParams, InstanceData>::~BuiltinDevice() {
 }
 
 template<typename ModelParams, typename InstanceParams, typename InstanceData> 
@@ -444,10 +437,6 @@ BuiltinModel<ModelParams, InstanceParams, InstanceData>::BuiltinModel(
 }
 
 template<typename ModelParams, typename InstanceParams, typename InstanceData> 
-BuiltinModel<ModelParams, InstanceParams, InstanceData>::~BuiltinModel() {
-}
-
-template<typename ModelParams, typename InstanceParams, typename InstanceData> 
 std::tuple<bool, bool, bool> BuiltinModel<ModelParams, InstanceParams, InstanceData>::setup(
     Circuit& circuit, CommonData& commons, bool force, DeviceRequests* devReq, Status& s
 ) {
@@ -578,10 +567,6 @@ BuiltinInstance<ModelParams, InstanceParams, InstanceData>::BuiltinInstance(Mode
     }
 
     setFlags(Flags::IsValid);
-}
-
-template<typename ModelParams, typename InstanceParams, typename InstanceData> 
-BuiltinInstance<ModelParams, InstanceParams, InstanceData>::~BuiltinInstance() {
 }
 
 template<typename ModelParams, typename InstanceParams, typename InstanceData> 

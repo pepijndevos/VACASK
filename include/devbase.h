@@ -51,7 +51,7 @@ public:
     friend class Model;
 
     Device(Id name, const Loc& location=Loc::bad); 
-    virtual ~Device();
+    virtual ~Device() = default;
 
     Device           (const Device&)  = delete;
     Device           (      Device&&) = default;
@@ -186,7 +186,7 @@ private:
 class Model : public Parameterized, public FlagBase<ModelFlags> {
 public:
     Model(Device* device, Id name, Instance* parent, const PTModel& parsedModel);
-    virtual ~Model();
+    virtual ~Model() = default;
 
     Model           (const Model&)  = delete;
     Model           (      Model&&) = default;
@@ -328,8 +328,8 @@ public:
     };
 
     Instance(Model* model, Id name, Instance* parent, const PTInstance& parsedInstance);
-    virtual ~Instance();
-
+    virtual ~Instance() = default;
+    
     Instance           (const Instance&)  = delete;
     Instance           (      Instance&&) = default;
     Instance& operator=(const Instance&)  = delete;

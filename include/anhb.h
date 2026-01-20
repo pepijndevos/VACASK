@@ -26,8 +26,6 @@ public:
     HB& operator=(const HB&)  = delete;
     HB& operator=(      HB&&) = delete;
 
-    virtual ~HB();
-    
     virtual void dump(std::ostream& os) const;
 
     virtual Parameterized& parameters() { return params; }; 

@@ -8,9 +8,6 @@ Device::Device(Id name, const Loc& location)
     : name_(name), loc(location), tovh(0), novh(0) {
 }
 
-Device::~Device() {
-}
-
 bool Device::addModel(Model* model) { 
     if (model->device()!=this) {
         return false;
@@ -72,9 +69,6 @@ Model::Model(Device* device, Id name, Instance* parent, const PTModel& parsedMod
     setFlags(Flags::NeedsSetup);
 }
 
-Model::~Model() {
-}
-
 bool Model::addInstance(Instance* instance) { 
     if (instance->model()!=this) {
         return false;
@@ -102,9 +96,6 @@ Instance::Instance(Model* model, Id name, Instance* parent, const PTInstance& pa
         parent->addChild(this);
     }
     setFlags(Flags::NeedsSetup);
-}
-
-Instance::~Instance() {
 }
 
 // TODO: maybe find a faster way for checking this instead of linear search

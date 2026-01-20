@@ -26,13 +26,12 @@ class KluBlockSparseMatrixCore : public KluMatrixCore<IndexType, ValueType>, pub
 public: 
     // Large bucket is needed if we are going to use Jacobian loading with offsets
     KluBlockSparseMatrixCore(bool largeBucket=true);
-    
+    ~KluBlockSparseMatrixCore();
+
     KluBlockSparseMatrixCore           (const KluBlockSparseMatrixCore&)  = delete;
     KluBlockSparseMatrixCore           (      KluBlockSparseMatrixCore&&) = delete;
     KluBlockSparseMatrixCore& operator=(const KluBlockSparseMatrixCore&)  = delete;
     KluBlockSparseMatrixCore& operator=(      KluBlockSparseMatrixCore&&) = delete;
-
-    virtual ~KluBlockSparseMatrixCore();
 
     // BlockSparseMatrixCore specific interface
     // Returns a dense matrix view of a block. 

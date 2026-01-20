@@ -14,9 +14,6 @@ OperatingPoint::OperatingPoint(Id name, Circuit& circuit, PTAnalysis& ptAnalysis
       core(*this, params.core(), circuit, commons, jac, solution, states) {
 };
 
-OperatingPoint::~OperatingPoint() {
-}
-
 Analysis* OperatingPoint::create(PTAnalysis& ptAnalysis, Circuit& circuit, Status& s) {
     auto* an = new OperatingPoint(ptAnalysis.name(), circuit, ptAnalysis);
     return an;

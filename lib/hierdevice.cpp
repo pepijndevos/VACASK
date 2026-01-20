@@ -12,9 +12,6 @@ HierarchicalDevice::HierarchicalDevice(Id name, Status& s) : Device(name) {
     setFlags(Flags::IsValid);
 }
 
-HierarchicalDevice::~HierarchicalDevice() {
-}
-
 bool HierarchicalDevice::operator==(const Device& other) const {
     const HierarchicalDevice* hdOther = dynamic_cast<const HierarchicalDevice*>(&other);
     if (hdOther && hdOther == this) {
@@ -45,9 +42,6 @@ HierarchicalModel::HierarchicalModel(HierarchicalDevice* dev, Id name, Instance*
     clearFlags(Flags::NeedsSetup);
 
     setFlags(Flags::IsValid);
-}
-
-HierarchicalModel::~HierarchicalModel() {
 }
 
 

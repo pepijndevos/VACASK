@@ -72,9 +72,6 @@ CStringPool::CStringPool(size_t blockSize, size_t growthFactor, size_t maxFailur
     : TypedPoolAllocator<char, false>(blockSize, growthFactor, maxFailures) {
 }
 
-CStringPool::~CStringPool() {
-}
-
 const char* CStringPool::allocate(const char* s, size_t n) {
     auto ptr = TypedPoolAllocator<char, false>::allocate(n+1);
     std::strcpy(ptr, s);

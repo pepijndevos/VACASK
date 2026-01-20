@@ -26,7 +26,7 @@ public:
     typedef Analysis* (*AnalysisFactory)(PTAnalysis& ptAnalysis, Circuit& circuit, Status& s);
 
     Analysis(Id name, Circuit& circuit, PTAnalysis& ptAnalysis);
-    virtual ~Analysis();
+    virtual ~Analysis() = default;
 
     Analysis           (const Analysis&)  = delete;
     Analysis           (      Analysis&&) = delete;

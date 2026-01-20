@@ -22,6 +22,9 @@ public:
     Homotopy& operator=(const Homotopy&)  = delete;
     Homotopy& operator=(      Homotopy&&) = delete;
 
+    // Need this because we are going to hold derived objects via a base pointer
+    virtual ~Homotopy() = default;
+
     // Run homotopy
     // Return value: coverged, abort
     virtual std::tuple<bool, bool> run() { return std::make_tuple(false, false); };

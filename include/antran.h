@@ -21,8 +21,6 @@ public:
     Tran& operator=(const Tran&)  = delete;
     Tran& operator=(      Tran&&) = delete;
 
-    virtual ~Tran();
-
     virtual void dump(std::ostream& os) const;
 
     virtual Parameterized& parameters() { return params; }; 

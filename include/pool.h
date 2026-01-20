@@ -69,7 +69,7 @@ protected:
 template<typename T, bool doPlacement=true> class TypedPoolAllocator : public PoolAllocator {
 public:
     TypedPoolAllocator(size_t initialCount=1024, size_t growthFactor=2, size_t maxFailures=4);
-    virtual ~TypedPoolAllocator();
+    ~TypedPoolAllocator();
     virtual void clear();
     template<class... Args> T* allocate(Args&&... args);
     template<class... Args> T* allocate(size_t count, Args&&... args);
@@ -137,7 +137,6 @@ template<typename T, bool doPlacement> template<class... Args> T* TypedPoolAlloc
 template<typename T, bool doPlacement=true> class RecyclingTypedPoolAllocator : private TypedPoolAllocator<T, doPlacement> {
 public:
     RecyclingTypedPoolAllocator(size_t initialCount=1024, size_t growthFactor=2, size_t maxFailures=4);
-    virtual ~RecyclingTypedPoolAllocator();
     virtual void clear();
     
     template<class... Args> T* allocate(Args&&... args);
@@ -149,9 +148,6 @@ private:
 
 template<typename T, bool doPlacement> RecyclingTypedPoolAllocator<T, doPlacement>::RecyclingTypedPoolAllocator(size_t initialCount, size_t growthFactor, size_t maxFailures) 
     : TypedPoolAllocator<T, doPlacement>(initialCount, growthFactor, maxFailures) {
-}
-
-template<typename T, bool doPlacement> RecyclingTypedPoolAllocator<T, doPlacement>::~RecyclingTypedPoolAllocator() {
 }
 
 template<typename T, bool doPlacement> void RecyclingTypedPoolAllocator<T, doPlacement>::clear() {
@@ -184,8 +180,7 @@ template<typename T, bool doPlacement> void RecyclingTypedPoolAllocator<T, doPla
 class CStringPool : public TypedPoolAllocator<char, false> {
 public:
     CStringPool(size_t blockSize=8192, size_t growthFactor=2, size_t maxFailures=4);
-    virtual ~CStringPool();
-
+    
     const char* allocate(const char* s);
     const char* allocate(const char* s, size_t n);
     const char* allocate(const std::string& s);

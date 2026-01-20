@@ -26,8 +26,6 @@ public:
     OperatingPoint& operator=(const OperatingPoint&)  = delete;
     OperatingPoint& operator=(      OperatingPoint&&) = delete;
 
-    virtual ~OperatingPoint();
-    
     virtual void dump(std::ostream& os) const;
 
     virtual Parameterized& parameters() { return params; }; 

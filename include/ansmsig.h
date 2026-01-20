@@ -21,8 +21,6 @@ public:
     SmallSignal& operator=(const SmallSignal&)  = delete;
     SmallSignal& operator=(      SmallSignal&&) = delete;
 
-    virtual ~SmallSignal() {};
-
     virtual Parameterized& parameters() { return params; }; 
     virtual const Parameterized& parameters() const { return params; }; 
 

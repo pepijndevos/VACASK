@@ -9,9 +9,6 @@ Analysis::Analysis(Id name, Circuit& circuit, PTAnalysis& ptAnalysis)
       ptAnalysis(ptAnalysis), progressReporter(nullptr) {
 }
 
-Analysis::~Analysis() {
-}
-
 bool Analysis::registerFactory(Id name, Analysis::AnalysisFactory factory) {
     auto [it, inserted] = getRegistry().insert(std::make_pair(name, factory));
     return inserted;

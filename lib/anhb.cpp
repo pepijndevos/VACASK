@@ -16,9 +16,6 @@ HB::HB(Id name, Circuit& circuit, PTAnalysis& ptAnalysis)
       core(*this, params.core(), circuit, commons, jacColoc, jac, solution) {
 };
 
-HB::~HB() {
-}
-
 Analysis* HB::create(PTAnalysis& ptAnalysis, Circuit& circuit, Status& s) {
     auto* an = new HB(ptAnalysis.name(), circuit, ptAnalysis);
     return an;

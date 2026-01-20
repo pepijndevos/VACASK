@@ -3,8 +3,8 @@
 
 #include <vector>
 #include "identifier.h"
-#include "devbase.h"
 #include "parseroutput.h"
+#include "devbase.h"
 #include "common.h"
 
 
@@ -19,8 +19,7 @@ public:
     friend class HierarchicalModel;
 
     HierarchicalDevice(Id name, Status& s=Status::ignore);
-    virtual ~HierarchicalDevice();
-
+    
     HierarchicalDevice           (const HierarchicalDevice&)  = delete;
     HierarchicalDevice           (      HierarchicalDevice&&) = default;
     HierarchicalDevice& operator=(const HierarchicalDevice&)  = delete;
@@ -50,8 +49,7 @@ public:
     // a device is destroyed all the models in the list are destroyed, too. 
     // HierarchicalModel(HierarchicalDevice* dev, Id name, Status& s=Status::ignore);
     HierarchicalModel(HierarchicalDevice* dev, Id name, Instance* parentInstance, HierarchicalModel* parentModel, const std::string childrenPathPrefix, const PTSubcircuitDefinition& parsedSubcircuit, Status& s=Status::ignore);
-    virtual ~HierarchicalModel();
-
+    
     HierarchicalModel           (const HierarchicalModel&)  = delete;
     HierarchicalModel           (      HierarchicalModel&&) = default;
     HierarchicalModel& operator=(const HierarchicalModel&)  = delete;
@@ -124,7 +122,7 @@ public:
     // The instance is added to the list of instances of the given model so that when
     // a model is destroyed all the instances in the list are destroyed, too. 
     HierarchicalInstance(HierarchicalModel* mod, Id name, Instance* parentInstance, const PTInstance& parsedInstance, Status& s=Status::ignore);
-    virtual ~HierarchicalInstance();
+    ~HierarchicalInstance() override;
 
     HierarchicalInstance           (const HierarchicalInstance&)  = delete;
     HierarchicalInstance           (      HierarchicalInstance&&) = default;

@@ -25,7 +25,7 @@ public:
     // The model is added to the list of models of the given device so that when
     // a device is destroyed all the models in the list are destroyed, too. 
     OsdiModel(OsdiDevice* device, Id name, Instance* parentInstance, const PTModel& parsedModel, Status& s=Status::ignore);
-    virtual ~OsdiModel();
+    ~OsdiModel();
 
     OsdiModel           (const OsdiModel&)  = delete;
     OsdiModel           (      OsdiModel&&) = default;
