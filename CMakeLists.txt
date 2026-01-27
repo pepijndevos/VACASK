@@ -145,10 +145,8 @@ else()
     set(Boost_NO_SYSTEM_PATHS TRUE)
     find_package(Boost 1.88 REQUIRED COMPONENTS filesystem process system)
     include_directories("${Boost_INCLUDE_DIRS}")
-    set(Boost_EXTRA_LINK_DIR "${Boost_INCLUDE_DIRS}/stage/lib")
-    link_directories(${Boost_EXTRA_LINK_DIR})
     message(STATUS "Boost include: ${Boost_INCLUDE_DIRS}")
-    message(STATUS "Boost extra link directory: ${Boost_EXTRA_LINK_DIR}")
+    message(STATUS "Boost libraries: ${Boost_LIBRARIES}")
 
     # toml++ for Linux (passed via -DTOMLPP_DIR=...)
     if (DEFINED TOMLPP_DIR)
@@ -290,7 +288,7 @@ elseif (${SIM_PLATFORM} STREQUAL "Darwin")
 else()
     set(SIM_EXE_LIBRARIES
             dl m klu amd camd colamd ccolamd btf cholmod suitesparseconfig
-            boost_system boost_filesystem boost_process
+            ${Boost_LIBRARIES}
         CACHE STRING "External libraries for creating an executable."
         FORCE
     )
