@@ -141,10 +141,11 @@ else()
     # set(CMAKE_PREFIX_PATH "/usr/lib/x86_64-linux-gnu/cmake/Boost-1.88.0")
     # find_package(Boost CONFIG REQUIRED filesystem)
 
-    # For 1.88 installed manually by user
+    # For 1.88+ installed manually by user
     set(Boost_NO_SYSTEM_PATHS TRUE)
-    find_package(Boost 1.88 REQUIRED COMPONENTS filesystem process system)
+    find_package(Boost 1.88 REQUIRED COMPONENTS filesystem process)
     include_directories("${Boost_INCLUDE_DIRS}")
+    message(STATUS "Boost version: ${Boost_VERSION}")
     message(STATUS "Boost include: ${Boost_INCLUDE_DIRS}")
     message(STATUS "Boost libraries: ${Boost_LIBRARIES}")
 
