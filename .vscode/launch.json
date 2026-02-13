@@ -140,8 +140,8 @@
             // "args": [ "-df", "-dp" ],
             
             "stopAtEntry": false,
-            // "cwd": "${workspaceFolder}/../build.${workspaceRootFolderName}/Debug/test/manual_run",
-            "cwd": "${workspaceFolder}/../todo/micheleq/x1/VaCaskTestCaseforArpad",
+            "cwd": "${workspaceFolder}/../build.${workspaceRootFolderName}/Debug/test/manual_run",
+            // "cwd": "${workspaceFolder}/../todo/micheleq/x1/VaCaskTestCaseforArpad",
             // "cwd": "${workspaceFolder}",
             "environment": [ 
                 // { "name": "SIM_MODULE_PATH", "value": "${workspaceFolder}/../build.${workspaceRootFolderName}/Debug/devices" }, 
