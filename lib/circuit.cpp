@@ -499,6 +499,15 @@ Node* Circuit::getNode(Id name, Node::Flags type, Status& s) {
     auto node = nodePool.allocate(name, type);
     node->incRef();
     nodeMap.insert({name, node});
+
+    // Shunting is performed on potential nodes
+    if (node->maskedFlags(Node::Flags::NodeTypeMask)==Node::Flags::PotentialNode) {
+        node->setFlags(Node::Flags::Shuntable);
+    }
+
+    // By default residual is checked for the equation corresponding to this node
+    node->setFlags(Node::Flags::ResidualCheck);
+
     return node;
 }
 

@@ -414,11 +414,7 @@ template<> std::tuple<ParameterIndex, bool> BuiltinISourceInstance::principalPar
 }
 
 template<> bool BuiltinVSourceInstance::deleteHierarchy(Circuit& circuit, Status& s) { 
-    if (!circuit.releaseNode(nodes_[2], s)) {
-        return false;
-    }
-    nodes_[2] = nullptr;
-    return true; 
+    return unbindInternalNodes(circuit);
 } 
 
 template<> bool BuiltinVSourceInstance::buildHierarchy(Circuit& circuit, RpnEvaluator& evaluator, InstantiationData& idata, Status& s) { 

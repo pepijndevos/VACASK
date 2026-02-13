@@ -160,14 +160,16 @@ bool Instance::getOutvar(Id name, Value& v, Status& s) const {
 }
 
 Node* Instance::getInternalNode(Circuit& circuit, const std::string& name, Node::Flags flags, Status& s) {
-    Id nodeName = translate(name);
+    Id nodeName = translateNode(circuit, name);
     auto node = circuit.getNode(nodeName, flags, s);
     if (node==nullptr) {
         s.extend(std::string("Failed to obtain internal node '"+std::string(nodeName)+"' from simulator."));
         s.extend(location());
         return nullptr;
     }
+    // Residual check is not performed on internal nodes. 
     node->setFlags(Node::Flags::InternalDeviceNode);
+    node->clearFlags(Node::Flags::ResidualCheck);
     return node;
 }
 

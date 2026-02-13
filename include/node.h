@@ -10,12 +10,26 @@
 namespace NAMESPACE {
 
 enum class NodeFlags : uint8_t {
+    // Legacy (SPICE) tolerance management
+    // Node type mask (for bits that define node type)
     NodeTypeMask = 1,
+    // In SPICE tolerance mode use
+    //   vntol, fluxtol for this node's unknown
+    //   abstol, chgtol for this node's equation
     PotentialNode = 0,
+    // In SPICE tolerance mode use
+    //   abstol, chgtol for this node's unknown
+    //   vntol, fluxtol for this node's equation
     FlowNode = 1,
 
-    InternalDeviceNode = 2,
-    Ground = 4,
+    // This node can be shunted
+    Shuntable = 2, 
+    // Skip residual convergence check for corresponding equation
+    ResidualCheck = 4, 
+    // Internal device node, avoid them when choosing representative nodes for unknowns
+    InternalDeviceNode = 8,
+    // Ground node, in node ordering ground nodes come before all others
+    Ground = 16,
 };
 DEFINE_FLAG_OPERATORS(NodeFlags);
 

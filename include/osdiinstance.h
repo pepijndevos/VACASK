@@ -40,9 +40,10 @@ public:
     virtual TerminalIndex terminalCount() const;
     virtual std::tuple<TerminalIndex, bool> nodeIndex(Id name) const;
     virtual Id nodeName(TerminalIndex ndx) const;
-    virtual bool bindTerminal(TerminalIndex n, Node* node, Status& s=Status::ignore);
+    virtual bool bindNode(TerminalIndex n, Node* node, bool dangling=false, Status& s=Status::ignore);
     virtual Node* terminal(TerminalIndex n, Status& s=Status::ignore) const;
     virtual bool unbindTerminals(Circuit& circuit, Status& s=Status::ignore);
+    virtual bool unbindInternalNodes(Circuit& cir, Status& s=Status::ignore);
     virtual bool propagateParameters(Circuit& circuit, RpnEvaluator& evaluator, Status& s=Status::ignore);
     virtual bool deleteHierarchy(Circuit& circuit, Status& s=Status::ignore);
     virtual bool buildHierarchy(Circuit& circuit, RpnEvaluator& evaluator, Status& s=Status::ignore);

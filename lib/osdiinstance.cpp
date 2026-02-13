@@ -55,15 +55,25 @@ Id OsdiInstance::nodeName(TerminalIndex ndx) const {
     return model()->device()->nodeName(ndx);
 }
 
-bool OsdiInstance::bindTerminal(TerminalIndex n, Node* node, Status& s) {
-    if (n>=terminalCount()) {
-        s.set(Status::Range, "Too many connections specified.");
-        return false;
+bool OsdiInstance::bindNode(TerminalIndex n, Node* node, bool dangling, Status& s) {
+    if (dangling) {
+        // For dangling instance nodes make sure the index is below static node count
+        if (n>=staticNodeCount()) {
+            s.set(Status::Range, "Attempt to bind to a nonexistent internal node.");
+            return false;
+        }
+    } else {
+        // For non-dangling instance nodes, make sure the index is below the number of terminals
+        if (n>=terminalCount()) {
+            s.set(Status::Range, "Too many connections specified.");
+            return false;
+        }
     }
     nodes_[n] = node;
-    // Update connected terminal count, assume that there are no unconnected 
+    // If the terminal is not a dangling terminal
+    // update connected terminal count, assume that there are no unconnected 
     // terminals between two connected terminals
-    if (n+1>connectedTerminalCount) {
+    if (!dangling && n+1>connectedTerminalCount) {
         connectedTerminalCount = n+1;
     }
     return true;
@@ -81,6 +91,18 @@ bool OsdiInstance::unbindTerminals(Circuit& circuit, Status& s) {
     for(decltype(connectedTerminalCount) i=0; i<connectedTerminalCount; i++) {
         if (!circuit.releaseNode(nodes_[i], s)) {
             return false;
+        }
+        nodes_[i] = nullptr;
+    }
+    return true;
+}
+
+bool OsdiInstance::unbindInternalNodes(Circuit& circuit, Status& s) {
+    auto n = staticNodeCount();
+    for(decltype(n) i=connectedTerminalCount; i<n; i++) {
+        if (!circuit.releaseNode(nodes_[i], s)) {
+            return false;
+            nodes_[i] = nullptr;
         }
     }
     return true;
@@ -368,13 +390,16 @@ bool OsdiInstance::setStaticTolerancesCore(Circuit& circuit, CommonData& commons
     // Device
     auto dev = model()->device();
 
+    // Get device descriptor
+    auto descr = dev->descriptor();
+
     // Go through nodes
     for(NodeIndex i=0; i<nodes_.size(); i++) {
         // Get unknown index
         auto ui = nodes_[i]->unknownIndex();
         if (spiceMode) {
             // Spice mode
-            if (nodes_[i]->checkFlags(Node::Flags::FlowNode)) {
+            if (descr->nodes[i].is_flow) {
                 // Flow node
                 updateFlowNodeSpiceTolerances(options, commons, ui);
             } else {
@@ -405,34 +430,29 @@ bool OsdiInstance::buildHierarchy(Circuit& circuit, RpnEvaluator& evaluator, Sta
     auto* descr = model()->device()->descriptor();
     auto n = staticNodeCount();
     for(TerminalIndex i=connectedTerminalCount; i<n; i++) {
-        // Create node name
-        Id internalNodeName = translate(nodeName(i)); 
-        
         // Create/get node
-        auto node = circuit.getNode(internalNodeName, descr->nodes[i].is_flow ? Node::Flags::FlowNode : Node::Flags::PotentialNode, s);
+        auto node = getInternalNode(
+            circuit, nodeName(i), 
+            (descr->nodes[i].is_flow ? Node::Flags::FlowNode : Node::Flags::PotentialNode), 
+            s
+        );
         if (node==nullptr) {
-            s.extend(std::string("Failed to obtain internal node '"+std::string(internalNodeName)+"' from simulator."));
+            return false;
+        }
+        
+        // Bind dangling terminal to node
+        if (!bindNode(i, node, true, s)) {
+            s.extend(std::string("Failed to bind terminal ")+std::to_string(i+1)+" of "+std::string(name())+" to internal node.");
             s.extend(location());
             return false;
         }
-        node->setFlags(Node::Flags::InternalDeviceNode);
-        
-        // Bind node
-        nodes_[i] = node;
     }
     return true;
 }
 
 bool OsdiInstance::deleteHierarchy(Circuit& circuit, Status& s) {
-    // Delete internal nodes
-    auto n = staticNodeCount();
-    for(TerminalIndex i=connectedTerminalCount; i<n; i++) {
-        if (!circuit.releaseNode(nodes_[i], s)) {
-            return false;
-        }
-        nodes_[i] = nullptr;
-    }
-    return true;
+    // Unbind internal nodes
+    return unbindInternalNodes(circuit);
 }
 
 bool OsdiInstance::collapseNodesCore(Circuit& circuit, Status& s) {

@@ -440,12 +440,11 @@ bool OpNRSolver::rebuild() {
         }
     }
 
-    // Build flow node flags
-    // TODO: do something with this... use natures instead of PotentialNode flag of a Node
-    isFlow.resize(n+1);
+    // Build flags indicating a shunt can be applied to node
+    shuntable.resize(n+1);
     for(decltype(n) i=1; i<=n; i++) {
         auto* node = circuit.reprNode(i);
-        isFlow[i] = node->maskedFlags(Node::Flags::NodeTypeMask)==Node::Flags::PotentialNode;
+        shuntable[i] = node->checkFlags(Node::Flags::Shuntable);
     }
     
     return true;
@@ -607,7 +606,7 @@ void OpNRSolver::loadShunts(double gshunt, bool loadJacobian) {
     auto nUnknowns = circuit.unknownCount();
     for(decltype(nUnknowns) i=1; i<=nUnknowns; i++) {
         auto ptr = diagPtrs[i];
-        if (!isFlow[i]) {
+        if (shuntable[i]) {
             // Jacobian
             if (loadJacobian) {
                 *ptr += gshunt;
@@ -869,8 +868,8 @@ std::tuple<bool, bool> OpNRSolver::checkResidual() {
     for(decltype(n) i=1; i<=n; i++) {
         // Representative node, associated flow nature index
         auto rn = circuit.reprNode(i);
-        // Skip internal device nodes
-        if (rn->checkFlags(Node::Flags::InternalDeviceNode)) {
+        // Skip this node if residual check is not allowed
+        if (!rn->checkFlags(Node::Flags::ResidualCheck)) {
             continue;
         }
         // Get residual nature index

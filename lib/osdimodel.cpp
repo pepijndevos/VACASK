@@ -68,8 +68,8 @@ Instance* OsdiModel::createInstance(Circuit& circuit, Instance* parentInstance, 
             s.extend(it->location());
             return nullptr;
         }
-        if (!instance->bindTerminal(i, node, s)) {
-            s.extend(std::string("Failed to bind terminal ")+std::to_string(i+1)+".");
+        if (!instance->bindNode(i, node, false, s)) {
+            s.extend(std::string("Failed to bind terminal ")+std::to_string(i+1)+" of "+std::string(instance->name())+".");
             s.extend(it->location());
             return nullptr;
         }

@@ -218,8 +218,9 @@ Instance* HierarchicalModel::createInstance(Circuit& circuit, Instance* parentIn
             s.extend(it->location());
             return nullptr;
         }
-        if (!instance->bindTerminal(i, node, s)) {
-            s.extend(std::string("Failed to bind terminal ")+std::to_string(i+1)+".");
+        // Bind node
+        if (!instance->bindNode(i, node, false, s)) {
+            s.extend(std::string("Failed to bind terminal ")+std::to_string(i+1)+" of "+std::string(instance->name())+".");
             s.extend(it->location());
             return nullptr;
         }
@@ -316,15 +317,25 @@ Id HierarchicalInstance::translateNode(Circuit& circuit, Id nodeName) {
     return Instance::translateNode(circuit, nodeName);
 }
 
-bool HierarchicalInstance::bindTerminal(TerminalIndex n, Node* node, Status& s) {
-    if (n>=terminalCount()) {
-        s.set(Status::Range, "Too many connections specified.");
-        return false;
+bool HierarchicalInstance::bindNode(TerminalIndex n, Node* node, bool dangling, Status& s) {
+    if (dangling) {
+        // For dangling instance nodes make sure the index is below static node count
+        if (n>=staticNodeCount()) {
+            s.set(Status::Range, "Attempt to bind to a nonexistent internal node.");
+            return false;
+        }
+    } else {
+        // For non-dangling instance nodes, make sure the index is below the number of terminals
+        if (n>=terminalCount()) {
+            s.set(Status::Range, "Too many connections specified.");
+            return false;
+        }
     }
     connections[n] = node;
-    // Update connected terminal count, assume that there are no unconnected 
+    // If the terminal is not a dangling terminal
+    // update connected terminal count, assume that there are no unconnected 
     // terminals between two connected terminals
-    if (n+1>connectedTerminalCount) {
+    if (!dangling && n+1>connectedTerminalCount) {
         connectedTerminalCount = n+1;
     }
     return true;
@@ -343,6 +354,18 @@ bool HierarchicalInstance::unbindTerminals(Circuit& circuit, Status& s) {
         if (!circuit.releaseNode(connections[i], s)) {
             return false;
         }
+        connections[i] = nullptr;
+    }
+    return true;
+}
+
+bool HierarchicalInstance::unbindInternalNodes(Circuit& circuit, Status& s) {
+    auto n = staticNodeCount();
+    for(decltype(n) i=connectedTerminalCount; i<n; i++) {
+        if (!circuit.releaseNode(connections[i], s)) {
+            return false;
+        }
+        connections[i] = nullptr;
     }
     return true;
 }
@@ -658,25 +681,19 @@ bool HierarchicalInstance::buildHierarchy(Circuit& circuit, RpnEvaluator& evalua
     // Get parsed subcircuit
     auto& parsedSubcircuit = static_cast<const PTSubcircuitDefinition&>(model()->parsedModel_);
 
-    // Bind unconnected terminals to internal nodes
+    // Create internal nodes for unconnected terminals
     auto& defTerms = parsedSubcircuit.terminals();
     auto i = connectedTerminalCount;
     for(auto it=defTerms.begin()+connectedTerminalCount; it!=defTerms.end(); ++it, i++) {
         auto nodeName = it->name();
-        // Translate unconnected terminal names, but only if we have a parent. 
-        // There is no parent if we are using a subcircuit as one of the toplevel subcircuits in elaboration. 
-        if (parent()) {
-            nodeName = parent()->translateNode(circuit, nodeName);
-        }
         // Terminals are potential nodes
-        auto node = circuit.getNode(nodeName, Node::Flags::PotentialNode, s);
+        auto node = getInternalNode(circuit, nodeName, Node::Flags::PotentialNode, s);
         if (node == nullptr) {
-            s.extend(std::string("Failed to obtain internal node '"+std::string(nodeName)+"'. from simulator"));
-            s.extend(it->location());
             return false;
         }
-        if (!bindTerminal(i, node, s)) { 
-            s.extend(std::string("Failed to bind terminal ")+std::to_string(i+1)+".");
+        // Bind dangling terminal to node
+        if (!bindNode(i, node, true, s)) {
+            s.extend(std::string("Failed to bind terminal ")+std::to_string(i+1)+" of "+std::string(name())+" to internal node.");
             s.extend(it->location());
             return false;
         }
@@ -717,11 +734,11 @@ bool HierarchicalInstance::buildHierarchy(Circuit& circuit, RpnEvaluator& evalua
 bool HierarchicalInstance::deleteHierarchy(Circuit& circuit, Status& s) {
     // Delete instances
     for(auto it=childInstances_.begin(); it!=childInstances_.end(); ++it) {
-        // Delete subhierarchy
+        // Delete subhierarchy (nodes of unconnected terminals are unbound here)
         if (!(*it)->deleteHierarchy(circuit, s)) {
             return false;
         }
-        // Unbind nodes
+        // Unbind nodes of connected terminals
         if (!(*it)->unbindTerminals(circuit, s)) {
             return false;
         }
@@ -735,6 +752,11 @@ bool HierarchicalInstance::deleteHierarchy(Circuit& circuit, Status& s) {
         circuit.remove(*it);
     }
 
+    // Unbind internal nodes
+    if (!unbindInternalNodes(circuit)) {
+        return false;
+    }
+    
     childInstances_.clear();
     childModels_.clear();
 

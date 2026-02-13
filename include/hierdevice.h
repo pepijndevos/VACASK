@@ -141,9 +141,10 @@ public:
     virtual TerminalIndex terminalCount() const { return model()->terminalCount(); };
     virtual std::tuple<TerminalIndex, bool> nodeIndex(Id name) const { return model()->terminalIndex(name); };
     virtual Id nodeName(TerminalIndex ndx) const { return model()->terminalName(ndx); };
-    virtual bool bindTerminal(TerminalIndex n, Node* node, Status& s=Status::ignore);
+    virtual bool bindNode(TerminalIndex n, Node* node, bool dangling=false, Status& s=Status::ignore);
     virtual Node* terminal(TerminalIndex n, Status& s=Status::ignore) const;
     virtual bool unbindTerminals(Circuit& circuit, Status& s=Status::ignore);
+    virtual bool unbindInternalNodes(Circuit& cir, Status& s=Status::ignore);
     virtual std::vector<Instance*>* childInstances() { return &childInstances_; };
     virtual std::vector<Model*>* childModels() { return &childModels_; };
     virtual Id translateNode(Circuit& circuit, Id node);

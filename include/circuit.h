@@ -357,7 +357,9 @@ public:
     NodeIndex nodeCount() const;
     // Lookup node by its index (can be used after nodeOrdering() is called)
     Node* node(NodeIndex i) { return nodeOrder[i]; };
-    // Lookup node, create it if it does not exist, prohibit creation of a node with same name but different type
+    // Lookup node, create it if it does not exist 
+    // Prohibit creation of a node with same name but different type (potential/flow)
+    // Does not set node flags other that PotentialNode, FlowNode. 
     // Increase node reference count
     Node* getNode(Id name, Node::Flags type=Node::Flags::PotentialNode, Status& s=Status::ignore);
     // Decrease node reference count, free it if ref counter reaches 0, return true if node was freed

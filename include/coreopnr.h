@@ -165,8 +165,8 @@ protected:
     Vector<double> globalMaxSolution_;   // across produced solutions, maximal value for each nature, updated on external command
     Vector<double> pointMaxSolution_;    // previous solution, maximal value for each nature
 
-    // Flags indicating nodes are flow nodes
-    Vector<bool> isFlow;
+    // Flags indicating shuntable nodes
+    Vector<bool> shuntable;
 
     // Solution natures and residual natures are currently limited to 
     //   0 .. voltage

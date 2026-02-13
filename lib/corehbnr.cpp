@@ -726,8 +726,8 @@ std::tuple<bool, bool> HBNRSolver::checkResidual() {
     for(decltype(n) i=1; i<=n; i++) {
         // Representative node (1-based index), associated flow nature index
         auto rn = circuit.reprNode(i);
-        // Skip internal device nodes
-        if (rn->checkFlags(Node::Flags::InternalDeviceNode)) {
+        // Skip this node if residual check is not allowed
+        if (!rn->checkFlags(Node::Flags::ResidualCheck)) {
             continue;
         }
         // Get residual nature index

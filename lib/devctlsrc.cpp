@@ -105,7 +105,7 @@ Node* findControl(Circuit& circuit, InstanceType& inst, Id instanceName, Id inte
     if (!peerInstance) {
         return nullptr;
     }
-    Id nodeName = peerInstance->translate(internalNodeName);
+    Id nodeName = peerInstance->translateNode(circuit, internalNodeName);
     auto* node = circuit.findNode(nodeName);
     if (!node) {
         s.set(Status::NotFound, "Controlling unknown '"+std::string(nodeName)+"' not found.");
@@ -310,11 +310,7 @@ template<> std::tuple<ParameterIndex, bool> BuiltinVcvsInstance::principalParame
 }
 
 template<> bool BuiltinVcvsInstance::deleteHierarchy(Circuit& circuit, Status& s) { 
-    if (!circuit.releaseNode(nodes_[4], s)) {
-        return false;
-    }
-    nodes_[4] = nullptr;
-    return true; 
+    return unbindInternalNodes(circuit);
 } 
 
 template<> bool BuiltinVcvsInstance::buildHierarchy(Circuit& circuit, RpnEvaluator& evaluator, InstantiationData& idata, Status& s) { 
@@ -640,11 +636,7 @@ template<> std::tuple<ParameterIndex, bool> BuiltinCcvsInstance::principalParame
 }
 
 template<> bool BuiltinCcvsInstance::deleteHierarchy(Circuit& circuit, Status& s) { 
-    if (!circuit.releaseNode(nodes_[2], s)) {
-        return false;
-    }
-    nodes_[2] = nullptr;
-    return true; 
+    return unbindInternalNodes(circuit);
 } 
 
 template<> bool BuiltinCcvsInstance::buildHierarchy(Circuit& circuit, RpnEvaluator& evaluator, InstantiationData& idata, Status& s) { 

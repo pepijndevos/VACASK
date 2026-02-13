@@ -166,9 +166,10 @@ public:
         }
     };
     virtual Id nodeName(TerminalIndex ndx) const { return model()->device()->nodeIds[ndx]; };
-    virtual bool bindTerminal(TerminalIndex n, Node* node, Status& s=Status::ignore);
+    virtual bool bindNode(TerminalIndex n, Node* node, bool dangling=false, Status& s=Status::ignore);
     virtual Node* terminal(TerminalIndex n, Status& s=Status::ignore) const;
     virtual bool unbindTerminals(Circuit& circuit, Status& s=Status::ignore);
+    virtual bool unbindInternalNodes(Circuit& cir, Status& s=Status::ignore);
     virtual std::tuple<bool, bool> subhierarchyChanged(Circuit& circuit, RpnEvaluator& evaluator, Status& s=Status::ignore) { return std::make_tuple(true, false); }; 
     virtual bool propagateParameters(Circuit& circuit, RpnEvaluator& evaluator, Status& s=Status::ignore) { 
         if (checkFlags(Flags::ParamsChanged)) {
@@ -524,8 +525,8 @@ Instance* BuiltinModel<ModelParams, InstanceParams, InstanceData>::createInstanc
             s.extend(it->location());
             return nullptr;
         }
-        if (!instance->bindTerminal(i, node, s)) {
-            s.extend(std::string("Failed to bind terminal ")+std::to_string(i+1)+".");
+        if (!instance->bindNode(i, node, false, s)) {
+            s.extend(std::string("Failed to bind terminal ")+std::to_string(i+1)+" of "+std::string(instance->name())+".");
             s.extend(it->location());
             return nullptr;
         }
@@ -570,13 +571,23 @@ BuiltinInstance<ModelParams, InstanceParams, InstanceData>::BuiltinInstance(Mode
 }
 
 template<typename ModelParams, typename InstanceParams, typename InstanceData> 
-bool BuiltinInstance<ModelParams, InstanceParams, InstanceData>::bindTerminal(TerminalIndex n, Node* node, Status& s) {
-    if (n>=model()->device()->terminalCount) {
-        s.set(Status::Range, "Too many connections specified.");
-        return false;
+bool BuiltinInstance<ModelParams, InstanceParams, InstanceData>::bindNode(TerminalIndex n, Node* node, bool dangling, Status& s) {
+    if (dangling) {
+        // For dangling instance nodes make sure the index is below static node count
+        if (n>=staticNodeCount()) {
+            s.set(Status::Range, "Attempt to bind to a nonexistent internal node.");
+            return false;
+        }
+    } else {
+        // For non-dangling instance nodes, make sure the index is below the number of terminals
+        if (n>=terminalCount()) {
+            s.set(Status::Range, "Too many connections specified.");
+            return false;
+        }
     }
     nodes_[n] = node;
-    // Update connected terminal count, assume that there are no unconnected 
+    // If the terminal is not a dangling terminal
+    // update connected terminal count, assume that there are no unconnected 
     // terminals between two connected terminals
     if (n+1>connectedTerminalCount) {
         connectedTerminalCount = n+1;
@@ -599,6 +610,19 @@ bool BuiltinInstance<ModelParams, InstanceParams, InstanceData>::unbindTerminals
         if (!circuit.releaseNode(nodes_[i], s)) {
             return false;
         }
+        nodes_[i] = nullptr;
+    }
+    return true;
+}
+
+template<typename ModelParams, typename InstanceParams, typename InstanceData> 
+bool BuiltinInstance<ModelParams, InstanceParams, InstanceData>::unbindInternalNodes(Circuit& circuit, Status& s) {
+    auto n = staticNodeCount();
+    for(decltype(n) i=connectedTerminalCount; i<n; i++) {
+        if (!circuit.releaseNode(nodes_[i], s)) {
+            return false;
+        }
+        nodes_[i] = nullptr;
     }
     return true;
 }
@@ -630,19 +654,18 @@ void BuiltinInstance<ModelParams, InstanceParams, InstanceData>::jacEntryPtr(dou
 template<typename ModelParams, typename InstanceParams, typename InstanceData> 
 bool BuiltinInstance<ModelParams, InstanceParams, InstanceData>::createNodesForUnconnectedTerminals(Circuit& circuit, Status& s) {
     for(TerminalIndex i=connectedTerminalCount; i<model()->device()->terminalCount(); i++) {
-        // Create node name
-        Id nodeName = translate(model()->device()->nodeName(i));
-        
         // Create/get node
-        auto node = circuit.getNode(nodeName, Node::Flags::PotentialNode, s);
+        auto node = getInternalNode(circuit, nodeName, Node::Flags::PotentialNode, s);
         if (node==nullptr) {
-            s.extend(std::string("Failed to obtain internal node '"+std::string(nodeName)+"' from simulator."));
-            s.extend(location());
             return false;
         }
         
-        // Bind node, do not use bindTerminal() because it increases connectedTerminalCount
-        nodes_[i] = node;
+        // Bind dangling terminal to node
+        if (!bindNode(i, node, true, s)) {
+            s.extend(std::string("Failed to bind terminal ")+std::to_string(i+1)+" of "+std::string(name())+" to internal node.");
+            s.extend(location());
+            return false;
+        }
     }
     return true;
 }

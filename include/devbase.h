@@ -375,20 +375,24 @@ public:
     // Number of terminals of this instance
     virtual TerminalIndex terminalCount() const = 0;
 
-    // Node index
+    // Node index for device node name
     virtual std::tuple<TerminalIndex, bool> nodeIndex(Id name) const = 0;
 
-    // Node name
+    // Device node name
     virtual Id nodeName(TerminalIndex ndx) const = 0;
     
-    // Bind a node to a terminal
-    virtual bool bindTerminal(TerminalIndex n, Node* node, Status& s=Status::ignore) = 0;
+    // Bind a node to an instance node, if dangling is true the node is bound to a dangling instance node
+    // Use dangling=true for internal nodes and dangling terminals
+    virtual bool bindNode(TerminalIndex n, Node* node, bool dangling=false, Status& s=Status::ignore) = 0;
 
-    // Return a node bound to a terminal
+    // Return a node bound to an instance node
     virtual Node* terminal(TerminalIndex n, Status& s=Status::ignore) const = 0;
 
-    // Unbind all terminals from nodes
+    // Unbind all non-dangling terminals from nodes
     virtual bool unbindTerminals(Circuit& cir, Status& s=Status::ignore) = 0;
+
+    // Unbind dangling terminals and internal nodes from nodes
+    virtual bool unbindInternalNodes(Circuit& cir, Status& s=Status::ignore) = 0;
 
     // Hierarchy API 
     // Returns a vector of generic child instances
