@@ -78,7 +78,7 @@ install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/inc" DESTINATION "${PROGRAM_LIB_D
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/python" DESTINATION "${PROGRAM_LIB_DIR}"
 	FILE_PERMISSIONS ${install_permissions_file}
 	DIRECTORY_PERMISSIONS ${install_permissions_directory}
-    FILES_MATCHING PATTERN "*.py"
+    FILES_MATCHING PATTERN "*.py" PATTERN "*.tcl"
 )
 
 # License
