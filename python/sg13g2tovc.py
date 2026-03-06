@@ -272,6 +272,8 @@ if __name__=="__main__":
     if pdk is None:
         pdk = "ihp-sg13g2"
 
+    openvafdir = os.getenv("OPENVAF_DIR")
+
     #
     # Technology files and standard cells
     #
@@ -374,7 +376,8 @@ module_path_prefix = [ "$(PDK_ROOT)/$(PDK)/libs.tech/vacask/osdi" ]
 
     # Find OpenVAF
     openvaf = None
-    candidates = [
+    candidates = [ openvafdir ] if openvafdir is not None else []
+    candidates += [
         # <rootdir>/VACASK/python (VS Code build system)
         os.path.join("..", "..", "build.VACASK", "Release", "simulator"), 
         os.path.join("..", "..", "build.VACASK", "Debug", "simulator"), 
@@ -386,19 +389,22 @@ module_path_prefix = [ "$(PDK_ROOT)/$(PDK)/libs.tech/vacask/osdi" ]
 
     print("Looking for OpenVAF candidate")
     for cand in candidates:
-        d = os.path.join(module_path, cand)
+        if os.path.isabs(cand):
+            d = cand
+        else:
+            d = os.path.join(module_path, cand)
         f = os.path.join(d, openvaf_bin)
         f = os.path.realpath(f)
-        print(" ", f)
+        print(" ", d, ":", f)
         if (os.path.isdir(d) and os.path.isfile(f)):
             openvaf = f
-            print("Found.")
+            print("Found in", d)
             break
     
     if openvaf is None:
         print("OpenVAF reloaded not found.")
         sys.exit(1)
-
+    
     # Modules directory
     mdir = os.path.join(pdkroot, pdk, "libs.tech", "vacask", "osdi")
     os.makedirs(mdir, exist_ok=True)
