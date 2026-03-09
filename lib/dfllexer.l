@@ -734,7 +734,7 @@ after INCEND we have
                 yylval->build<Id>(yytext);
                 return(token::IDENTIFIER);
             }
-<LINESTART,BODY>'[0-9a-zA-Z_$:\.\(\)]+' { 
+<LINESTART,BODY>\'[0-9a-zA-Z_$:.()!]+\' { 
                 // Identifier in single quotes, any nonempty alphanumeric sequence with _, $, :, ., (, )
                 BEGIN(BODY);
                 auto n = std::strlen(yytext);
