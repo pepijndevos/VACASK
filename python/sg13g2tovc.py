@@ -5,7 +5,7 @@
 # PDK_ROOT .. directory created by cloning the PDK 
 # PDK .. subdirectory with the PDK, by default ihp-sg13g2
 
-import sys, os, platform, subprocess, shutil
+import sys, os, platform, subprocess, shutil, re
 from pprint import pprint
 from ng2vclib.converter import Converter
 from ng2vclib.dfl import default_config
@@ -85,44 +85,85 @@ def patch_dig(line):
 
     return " ".join(parts)
 
+pat_pinlist_body = re.compile(r'(@pinlist\s*@body)')
+pat_model = re.compile(r'@model')
+pat_identifier_assign = re.compile(r'[A-Za-z_][A-Za-z0-9_]*=')
+
+# 'format=' translator for analog symbols
+def patch_analog(line):
+    """
+    @pinlist @body -> ( @pinlist @body ) 
+    @pinlist -> ( @pinlist ) 
+    
+    Anything after @model of the form <identifier>= -> <lowercase identifier>=
+    """
+    if "format" not in line:
+        return None
+    
+    # Search for pins and body pin
+    m = pat_pinlist_body.search(line)
+
+    if m:
+        # Put parentheses around the matched pattern
+        line = line[:m.start()] + '(' + m.group(0) + ')' + line[m.end():]
+    else:
+        # Parenthesize @pinlist
+        line = line.replace("@pinlist", "( @pinlist )")
+
+    # Find @model
+    m = pat_model.search(line)
+    if m:
+        # Cut in two parts
+        line1 = line[:m.end()]
+        line2 = line[m.end():]
+
+        # In line 2 find all occurences of <identifier>=, lowercase them
+        m1 = list(pat_identifier_assign.finditer(line))
+        for m in reversed(m1):
+            text = m.group(0).lower()
+            line = line[:m.start()] + text + line[m.end():]
+
+    return line.replace("format=", "spectre_format=")
+
+    
 symfiles = [
     # name   spectre formatter (None uses the default)
-    [ "sg13g2_pr/annotate_bip_params.sym", None ],
-    [ "sg13g2_pr/annotate_fet_params.sym", None ],
-    [ "sg13g2_pr/bondpad.sym", None ],
-    [ "sg13g2_pr/cap_cmim.sym", None ],
-    [ "sg13g2_pr/cap_cpara.sym", None ],
-    [ "sg13g2_pr/cap_rfcmim.sym", None ],
-    [ "sg13g2_pr/dantenna.sym", None ],
-    [ "sg13g2_pr/diodevdd_2kv.sym", None ],
-    [ "sg13g2_pr/diodevdd_4kv.sym", None ],
-    [ "sg13g2_pr/diodevss_2kv.sym", None ],
-    [ "sg13g2_pr/diodevss_4kv.sym", None ],
-    [ "sg13g2_pr/dpantenna.sym", None ],
-    [ "sg13g2_pr/nmoscl_2.sym", None ],
-    [ "sg13g2_pr/nmoscl_4.sym", None ],
-    [ "sg13g2_pr/npn13G2_5t.sym", None ],
-    [ "sg13g2_pr/npn13G2l_5t.sym", None ],
-    [ "sg13g2_pr/npn13G2l.sym", None ],
-    [ "sg13g2_pr/npn13G2.sym", None ],
-    [ "sg13g2_pr/npn13G2v_5t.sym", None ],
-    [ "sg13g2_pr/npn13G2v.sym", None ],
-    [ "sg13g2_pr/ntap1.sym", None ],
-    [ "sg13g2_pr/pnpMPA.sym", None ],
-    [ "sg13g2_pr/ptap1.sym", None ],
-    [ "sg13g2_pr/rhigh.sym", None ],
-    [ "sg13g2_pr/rppd.sym", None ],
-    [ "sg13g2_pr/rsil.sym", None ],
-    [ "sg13g2_pr/sg13_hv_nmos.sym", None ],
-    [ "sg13g2_pr/sg13_hv_pmos.sym", None ],
-    [ "sg13g2_pr/sg13_hv_rf_nmos.sym", None ],
-    [ "sg13g2_pr/sg13_hv_rf_pmos.sym", None ],
-    [ "sg13g2_pr/sg13_lv_nmos.sym", None ],
-    [ "sg13g2_pr/sg13_lv_pmos.sym", None ],
-    [ "sg13g2_pr/sg13_lv_rf_nmos.sym", None ],
-    [ "sg13g2_pr/sg13_lv_rf_pmos.sym", None ],
-    [ "sg13g2_pr/sg13_svaricap.sym", None ],
-    [ "sg13g2_pr/sub.sym", None ],
+    [ "sg13g2_pr/annotate_bip_params.sym", patch_analog ],
+    [ "sg13g2_pr/annotate_fet_params.sym", patch_analog ],
+    [ "sg13g2_pr/bondpad.sym", patch_analog ],
+    [ "sg13g2_pr/cap_cmim.sym", patch_analog ],
+    [ "sg13g2_pr/cap_cpara.sym", patch_analog ],
+    [ "sg13g2_pr/cap_rfcmim.sym", patch_analog ],
+    [ "sg13g2_pr/dantenna.sym", patch_analog ],
+    [ "sg13g2_pr/diodevdd_2kv.sym", patch_analog ],
+    [ "sg13g2_pr/diodevdd_4kv.sym", patch_analog ],
+    [ "sg13g2_pr/diodevss_2kv.sym", patch_analog ],
+    [ "sg13g2_pr/diodevss_4kv.sym", patch_analog ],
+    [ "sg13g2_pr/dpantenna.sym", patch_analog ],
+    [ "sg13g2_pr/nmoscl_2.sym", patch_analog ],
+    [ "sg13g2_pr/nmoscl_4.sym", patch_analog ],
+    [ "sg13g2_pr/npn13G2_5t.sym", patch_analog ],
+    [ "sg13g2_pr/npn13G2l_5t.sym", patch_analog ],
+    [ "sg13g2_pr/npn13G2l.sym", patch_analog ],
+    [ "sg13g2_pr/npn13G2.sym", patch_analog ],
+    [ "sg13g2_pr/npn13G2v_5t.sym", patch_analog ],
+    [ "sg13g2_pr/npn13G2v.sym", patch_analog ],
+    [ "sg13g2_pr/ntap1.sym", patch_analog ],
+    [ "sg13g2_pr/pnpMPA.sym", patch_analog ],
+    [ "sg13g2_pr/ptap1.sym", patch_analog ],
+    [ "sg13g2_pr/rhigh.sym", patch_analog ],
+    [ "sg13g2_pr/rppd.sym", patch_analog ],
+    [ "sg13g2_pr/rsil.sym", patch_analog ],
+    [ "sg13g2_pr/sg13_hv_nmos.sym", patch_analog ],
+    [ "sg13g2_pr/sg13_hv_pmos.sym", patch_analog ],
+    [ "sg13g2_pr/sg13_hv_rf_nmos.sym", patch_analog ],
+    [ "sg13g2_pr/sg13_hv_rf_pmos.sym", patch_analog ],
+    [ "sg13g2_pr/sg13_lv_nmos.sym", patch_analog ],
+    [ "sg13g2_pr/sg13_lv_pmos.sym", patch_analog ],
+    [ "sg13g2_pr/sg13_lv_rf_nmos.sym", patch_analog ],
+    [ "sg13g2_pr/sg13_lv_rf_pmos.sym", patch_analog ],
+    [ "sg13g2_pr/sg13_svaricap.sym", patch_analog ],
+    [ "sg13g2_pr/sub.sym", patch_analog ],
     [ "sg13g2_stdcells/sg13g2_a21o_1.sym", patch_dig ], 
     [ "sg13g2_stdcells/sg13g2_a21o_2.sym", patch_dig ], 
     [ "sg13g2_stdcells/sg13g2_a21oi_1.sym", patch_dig ], 
