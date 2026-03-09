@@ -123,7 +123,7 @@
             // "args": [ "-df", "${workspaceFolder}/demo/rpn/sipfx.sim" ], 
             // "args": [ "-df", "${workspaceFolder}/demo/sc/opamp.sim" ], 
             // "args": [ "-df", "${workspaceFolder}/demo/sc/lpfilter.sim" ], 
-             "args": [ "-df", "${workspaceFolder}/demo/gilbert/gilbert.sim" ], 
+            // "args": [ "-df", "${workspaceFolder}/demo/gilbert/gilbert.sim" ], 
             // "args": [ "-dp" ], 
             // "args": [ "-df", "${workspaceFolder}/benchmark/c6288/vacask/runme.sim" ], 
             // "args": [ "-df", "${workspaceFolder}/benchmark/c6288/vacask-ieb/runme.sim" ], 
@@ -176,7 +176,8 @@
             "program": "${workspaceFolder}/../build.${workspaceRootFolderName}/Debug/simulator/vacask",
             // "args": [ "-dp", "-df", "${workspaceFolder}/demo/ihp-sg13g2/mos.sim" ], 
             // "args": [ "-dp", "-df", "${workspaceFolder}/demo/ihp-sg13g2/hbt.sim" ], 
-             "args": [ "-dp", "-df", "${workspaceFolder}/demo/ihp-sg13g2/stdcell.sim" ], 
+            // "args": [ "-dp", "-df", "${workspaceFolder}/demo/ihp-sg13g2/stdcell.sim" ], 
+             "args": [ "-dp", "-df", "${workspaceFolder}/demo/ihp-sg13g2/cmim.sim" ], 
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}/../build.${workspaceRootFolderName}/Debug/test/manual_run",
             "environment": [ 

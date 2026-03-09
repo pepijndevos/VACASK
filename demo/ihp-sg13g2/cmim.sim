@@ -1,0 +1,57 @@
+IHP SG13G2 rfcmim test
+
+include "sg13g2_vacask_common.lib"
+include "cornerCAP.lib" section=cap_typ
+
+load "resistor.osdi"
+model r resistor
+
+model v vsource
+vds (d 0) v dc=0
+
+v1 (p 0) v dc=0 mag=1
+x1 (p 0 'sub!') cap_rfcmim m=1 w=10u l=10u
+rsub ('sub!' 0) r r=10
+
+control
+  print hierarchy
+
+  analysis op1 op
+  analysis ac1 ac from=1M to=10T mode="dec" points=100
+  
+  postprocess(PYTHON, "runme.py")
+endc
+
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+import numpy as np
+import matplotlib.pyplot as plt
+
+fig1 = plt.figure(figsize=(6,6), dpi=100)
+fig1.suptitle('IHP SG13G2 rfcmim test')
+ax_dict = fig1.subplot_mosaic("""
+A
+B
+""")
+
+ax_dict["A"].set_title('rfcmim 10u/10u')
+ax_dict["A"].set_ylabel('abs(Y) [S]')
+ax_dict["B"].set_ylabel('arg(Y) [deg]')
+ax_dict["B"].set_xlabel('f [GHz]')
+
+raw = rawread('ac1.raw')
+plot = raw.get()
+
+f = np.abs(plot['frequency'])/1e9
+y = -plot['v1:flow(br)']
+
+ax_dict["A"].loglog(f, np.abs(y))
+ax_dict["B"].semilogx(f, np.unwrap(np.angle(y))*180/np.pi)
+
+fig1.tight_layout()
+ 
+plt.show()
+>>>FILE
+
+

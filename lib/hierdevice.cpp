@@ -509,9 +509,6 @@ std::tuple<bool, bool> HierarchicalInstance::recomputeBlockConditionsWorker(Circ
                     break;
                 }
             }
-            if (exit) {
-                break;
-            }
         }
     }
 
@@ -539,9 +536,6 @@ bool HierarchicalInstance::recomputeBlockConditions(Circuit& circuit, RpnEvaluat
                 if (exit) {
                     break;
                 }
-            }
-            if (exit) {
-                break;
             }
         }
     }
