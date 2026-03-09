@@ -716,7 +716,7 @@ bool HierarchicalInstance::buildHierarchy(Circuit& circuit, RpnEvaluator& evalua
     if (!buildBlock(circuit, evaluator, idata, parsedSubcircuit.root(), Build::Instances, s)) {
         return false;
     }
-    // ... inconditional blocks
+    // ... in conditional blocks
     for(auto condBlock : activeBlocks) {
         if (!buildBlock(circuit, evaluator, idata, *condBlock, Build::Instances, s)) {
             return false;

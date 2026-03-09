@@ -28,7 +28,7 @@ class InstanceDMixin:
                 raise ConverterError("Cannot handle model at position "+str(mod_index+1)+".")
         
         # Process parameters
-        psplit = self.process_instance_params(params, "d", handle_m=True)
+        psplit = self.process_instance_params(params, "d", handle_m=True, in_sub=in_sub)
         
         txt = lws + annot["output_name"] + " (" + (" ".join(terminals))+") "+annot["output_mod_name"]+" "
 

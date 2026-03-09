@@ -92,6 +92,8 @@ class OutputMixin:
                 # Subcircuit start
                 name = l.split(" ", 2)[1]
                 in_sub = name
+                mname = None
+                graft = False
                 orig_name = annot["origline"].split(" ", 2)[1]
                 
                 if self.cfg.get("original_case_subckt", False):
@@ -107,8 +109,13 @@ class OutputMixin:
                 vcline += " ".join(terminals)
                 vcline +=")"
                 out.append(vcline)
+                if name in self.cfg["subckt_multiplier"]:
+                    mname, graft = self.cfg["subckt_multiplier"][name]
+                    if graft:
+                        out.append("parameters "+mname+"=1")
                 if len(params)>0:
                     out.append(self.format_subckt_params(params, lws))
+                
             elif pat_cidotends.match(l):
                 in_sub = None
                 out.append(lws+"ends")

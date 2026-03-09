@@ -150,17 +150,21 @@ class ParamsMixin:
 
         return txt
 
-    def split_params(self, params, handle_m=False):
+    def split_params(self, params, handle_m=False, m_chain=None):
         """
         Splits a list of parameter assignments into a list of 
         (names, value) pairs. 
 
         Treats boolean parameters as <param>=1. 
 
-        If requested, renames m parameter. 
+        If requested, renames m/_mfactor parameter into $mfactor. 
+
+        If m_chain is given, the existing $mfactor is multiplied with m_chain. 
+        If $mfactor is not in the list of parameters, it is added. 
         """
         psplit = []
-        for p in params:
+        mfact_index = None
+        for ii, p in enumerate(params):
             split = p.split("=")
             if len(split)==1:
                 # Handle booleans
@@ -173,7 +177,19 @@ class ParamsMixin:
                 if split[0]=="m" or split[0]=="_mfactor":
                     split = ( "$mfactor", split[1] )
             
+            # Check if this is $mfactor
+            if split[0]=="$mfactor":
+                mfact_index = ii
+            
             psplit.append(split)
+
+        if m_chain is not None:
+            if mfact_index is not None:
+                # Exists, multiply
+                psplit[ii] = ( psplit[ii][0], "("+psplit[ii][1]+")*"+m_chain )
+            else:
+                # Does not exist, add
+                psplit.append(("$mfactor", m_chain))
         
         return psplit
 
@@ -227,7 +243,7 @@ class ParamsMixin:
         
         return pout
 
-    def process_instance_params(self, params, insttype, handle_m=False):
+    def process_instance_params(self, params, insttype, handle_m=False, in_sub=None):
         """
         Processes instance parameters. 
 
@@ -243,7 +259,8 @@ class ParamsMixin:
             params = self.merge_vectors(params, vecnames)
 
         # Split parameters, default boolean parameters, handle m
-        psplit = self.split_params(params, handle_m=handle_m)
+        m_chain, graft = self.cfg["subckt_multiplier"].get(in_sub, (None, False))
+        psplit = self.split_params(params, handle_m=handle_m, m_chain=m_chain)
 
         # Remove unneeded parameters
         vecnames = self.cfg["remove_instance_params"].get(insttype, None)
@@ -252,6 +269,11 @@ class ParamsMixin:
         
         # Process expressions
         psplit = self.process_expressions(psplit)
+
+        # Parent m name is $mfactor
+        # Look for $mfactor in list
+        # Multiply by $mfactor or introduce $mfactor
+
 
         return psplit
     

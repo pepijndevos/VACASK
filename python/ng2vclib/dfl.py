@@ -103,6 +103,11 @@ def default_config():
             "c": ( "spice/capacitor.osdi", "sp_capacitor" ), 
             "l": ( "spice/inductor.osdi",  "sp_inductor" ), 
         }, 
+        # Identify (graft_flag=False) or add (graft_flag=True) 
+        # multiplier in definition of a subcircuit
+        "subckt_multiplier": {
+            # "subckt_name": [ "multiplier_name", graft_flag ]
+        },
         "default_model_prefix": "defmod_", 
         "as_toplevel": "auto", 
         "read_depth": None,    # Fully recursive

@@ -17,7 +17,7 @@ class InstanceXMixin:
         params = parts[(mod_index+1):]
         
         # Process parameters, do not handle m (keep its name unchanged)
-        psplit = self.process_instance_params(params, "x", handle_m=False)
+        psplit = self.process_instance_params(params, "x", handle_m=False, in_sub=in_sub)
         
         # Do not use output model name from output_mod_name. 
         # Decide based on original_case_subckt value. 
