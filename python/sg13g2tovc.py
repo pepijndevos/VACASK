@@ -105,7 +105,7 @@ def patch_analog(line):
 
     if m:
         # Put parentheses around the matched pattern
-        line = line[:m.start()] + '(' + m.group(0) + ')' + line[m.end():]
+        line = line[:m.start()] + '( ' + m.group(0) + ' )' + line[m.end():]
     else:
         # Parenthesize @pinlist
         line = line.replace("@pinlist", "( @pinlist )")
