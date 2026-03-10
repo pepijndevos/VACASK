@@ -299,11 +299,30 @@ subckt_multiplier_update = {
     "cap_rfcmim": [ "m", True ], 
 }
 
+va_patches = {
+    "r3_cmc/r3_cmc.va": [
+        (
+            "if (abs(Irb/weff_um)>jmax) begin", 
+            "`ifdef SOA_CHECK\n        if (abs(Irb/weff_um)>jmax) begin"
+        ), 
+        (
+            """if (abs(Vc2)>vmax) begin
+            $warning("WARNING: V(i2,c) voltage is greater than specified by vmax");
+        end""", 
+            """if (abs(Vc2)>vmax) begin
+            $warning("WARNING: V(i2,c) voltage is greater than specified by vmax");
+        end
+        `endif"""
+        )
+
+    ]
+}
+
 included_va_files = [
     # file                                     options
+    ( "r3_cmc/r3_cmc.va",     [ "-D__NGSPICE" ] ), 
     ( "psp103/psp103.va",     [ "-D__NGSPICE" ] ), 
     ( "psp103/psp103_nqs.va", [ "-D__NGSPICE" ] ), 
-    ( "r3_cmc/r3_cmc.va",     [ "-D__NGSPICE" ] ), 
     ( "mosvar/mosvar.va",     [ "-D__NGSPICE" ] ), 
 ]
 
@@ -461,7 +480,30 @@ module_path_prefix = [ "$(PDK_ROOT)/$(PDK)/libs.tech/vacask/osdi" ]
     lead_path = os.path.normpath(mdir)
     for fi, extra_opts in included_va_files:
         f = os.path.join(d, fi)
-        fb = os.path.basename(f)
+        fbase = f
+
+        if fi in va_patches:
+            # Rename 
+            root, ext = os.path.splitext(f)
+            fpatched = f"{root}-patched{ext}"
+
+            # Load
+            with open(f, 'r') as file:
+                content = file.read()
+
+            # Apply patches
+            for patch in va_patches[fi]:
+                olds, news = patch
+                content = content.replace(olds, news)
+
+            # Write
+            with open(fpatched, 'w', encoding='utf-8') as file:
+                file.write(content)
+
+            # Set new input file name
+            f = fpatched            
+        
+        fb = os.path.basename(fbase)
         fo = os.path.join(mdir, fb[:-3]+".osdi")
         
         # Remove leading part from fo, add to list
