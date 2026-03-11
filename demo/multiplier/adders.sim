@@ -1,0 +1,79 @@
+16x16 multiplier
+
+load "psp103v4.osdi"
+load "spice/resistor.osdi"
+
+include "models.inc"
+include "cir.inc"
+
+model v vsource
+model r sp_resistor
+
+parameters vdd=1.2
+
+vdd (vdd 0) v dc=vdd
+vss (vss 0) v dc=0
+
+//
+// Various top-level circuits for testing
+//
+
+subckt ha_test()
+  parameters delay=0.1n rise=0.1n fall=0.1n pw=20n
+  x1 (in1 in2 sout cout vdd vss) ha
+  vd1 (in1 0) v type="pulse" val0=0 val1=vdd delay=pw rise=rise fall=fall width=(pw-(rise+fall)/2) period=2*pw
+  vd2 (in2 0) v type="pulse" val0=0 val1=vdd delay=2*pw rise=rise fall=fall width=(2*pw-(rise+fall)/2) period=2*2*pw
+ends
+
+subckt fa_test()
+  parameters delay=0.1n rise=0.1n fall=0.1n pw=20n
+  x1 (in1 in2 cin sout cout vdd vss) fa
+  vd1 (in1 0) v type="pulse" val0=0 val1=vdd delay=pw rise=rise fall=fall width=(pw-(rise+fall)/2) period=2*pw
+  vd2 (in2 0) v type="pulse" val0=0 val1=vdd delay=2*pw rise=rise fall=fall width=(2*pw-(rise+fall)/2) period=2*2*pw
+  vd3 (cin 0) v type="pulse" val0=0 val1=vdd delay=4*pw rise=rise fall=fall width=(4*pw-(rise+fall)/2) period=4*2*pw
+ends
+
+control
+  options nr_convtol=1 nr_bypasstol=1 nr_bypass=0 nr_contbypass=1 
+  options tran_lteratio=1.5
+  // options nr_residualcheck=0
+  // options tran_debug=0
+  // options tran_redofactor=2.5 tran_lteratio=3.5 tran_spicelte=1 
+  
+  elaborate circuit("ha_test")
+  analysis tranha tran stop=90n step=2p icmode="uic"
+  
+  elaborate circuit("fa_test")
+  analysis tranfa tran stop=170n step=2p icmode="uic"
+
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+import numpy as np
+import sys
+
+scaling = 0.8/1.2
+
+import matplotlib.pyplot as plt 
+
+def plot_signals(axes, plot, signals, scaling):
+  for ii, name in enumerate(signals):
+    axes.axhline(0-ii, color="black")
+    axes.plot(tm['time']*1e9, tm[name]*scaling-ii, color="blue", label=name)
+
+fig1, ax1 = plt.subplots(1, 2, figsize=(8, 4), dpi=100, tight_layout=True)
+fig1.axes[0].set_title('Half added')
+fig1.axes[0].set_xlabel('time [ns]')
+fig1.axes[1].set_title('Full adder')
+fig1.axes[1].set_xlabel('time [ns]')
+
+tm = rawread('tranha.raw').get()
+plot_signals(fig1.axes[0], tm, ["in1", "in2", "sout", "cout"], scaling)
+
+tm = rawread('tranfa.raw').get()
+plot_signals(fig1.axes[1], tm, ["in1", "in2", "cin", "sout", "cout"], scaling)
+
+plt.show()
+>>>FILE

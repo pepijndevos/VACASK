@@ -108,6 +108,7 @@ control
   save v(b8) v(b9) v(b10) v(b11) v(b12) v(b13) v(b14) v(b15)
   
   elaborate circuit("c6288_test")
+  print counts
   
   // options op_skipinitial=1 homotopy_debug=1 op_homotopy=["src", "gdev"]
   // options homotopy_srcscale=3 // homotopy_srcsteps=2
