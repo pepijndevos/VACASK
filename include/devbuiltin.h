@@ -129,6 +129,7 @@ private:
 };
 
 
+// Dangling terminal policy: require all terminals to be connected
 template<typename ModelParams, typename InstanceParams, typename InstanceData> class BuiltinInstance : public Instance {
 public:
     using ModelType = BuiltinModel<ModelParams, InstanceParams, InstanceData>;

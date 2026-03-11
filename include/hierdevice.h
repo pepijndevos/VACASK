@@ -113,6 +113,7 @@ private:
 };
 
 
+// Dangling terminal policy: connect dangling terminals to internal nodes
 class HierarchicalInstance : public Instance {
 public:
     friend class HierarchicalModel;

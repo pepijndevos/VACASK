@@ -12,6 +12,7 @@ namespace NAMESPACE {
 
 class Circuit;
 
+// Dangling terminal policy: connect dangling terminals to internal nodes
 class OsdiInstance : public Instance {
 public:
     friend class OsdiDevice;
