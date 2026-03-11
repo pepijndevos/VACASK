@@ -623,6 +623,9 @@ bool cmd_print(CommandInterpreter& interpreter, PTCommand& cmd, Status& s) {
                     f->dump(2, Simulator::out());
                 }
             }
+        } else if (what=="counts") {
+            Simulator::out() << "Circuit complexity:\n";
+            circuit.dumpDeviceCounts(2, Simulator::out());
         } else if (what=="devices") {
             Simulator::out() << "Devices:\n";
             circuit.dumpDevices(2, Simulator::out());
@@ -724,6 +727,7 @@ bool cmd_print(CommandInterpreter& interpreter, PTCommand& cmd, Status& s) {
             s.set(Status::NotFound, "Unknown keyword '"+std::string(what)+"'.");
             return false;
         }
+        Simulator::out() << "\n";
     } else {
         // Expressions
         std::vector<Value> values;

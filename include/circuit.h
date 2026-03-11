@@ -464,7 +464,8 @@ public:
     void dumpUnknowns(int indent, std::ostream& os) const;
     void dumpSparsity(int indent, std::ostream& os) const;
     void dumpTolerances(int indent, CommonData& commons, std::ostream& os) const;
-    
+    void dumpDeviceCounts(int indent, std::ostream& os) const;
+
     // Create a new stored solution, if exists, return existing solution
     AnnotatedSolution* newStoredSolution(Id typeCode, Id name);
 

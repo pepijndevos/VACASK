@@ -1575,4 +1575,25 @@ void Circuit::dumpTolerances(int indent, CommonData& commons, std::ostream& os) 
     }
 }
 
+void Circuit::dumpDeviceCounts(int indent, std::ostream& os) const {
+    auto nDev = deviceCount();
+    std::string pfx = std::string(indent, ' ');
+    os << pfx << "Node count:    " << nodeCount() << "\n";
+    os << pfx << "Unknown count: " << unknownCount() << "\n";
+    os << pfx << "Devices:\n";
+    for(decltype(nDev) id=0; id<nDev; id++) {
+        auto dev = devices[id].get();
+        auto nMod = dev->modelCount();
+        auto nDevInst = dev->instanceCount();
+        if (nMod==0 && nDevInst==0) {
+            continue;
+        }
+        os << pfx << "  " << std::string(dev->name()) << ": " << nMod << " model(s), " << nDevInst << " instance(s)\n";
+        for(decltype(nMod) im=0; im<nMod; im++) {
+            auto mod = dev->models()[im];
+            os << pfx << "    " << std::string(mod->name()) << ": " << mod->instanceCount() << " instance(s)\n";
+        }
+    }
+}
+
 }
