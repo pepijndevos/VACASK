@@ -682,11 +682,21 @@ after INCEND we have
             }
 <LINESTART>analysis {
                 BEGIN(BODY);
-                return (token::ANALYSIS);
+                if (inControl) {
+                    return (token::ANALYSIS);
+                } else {
+                    yylval->build<Id>(yytext);
+                    return (token::IDENTIFIER);
+                }
             }
 <LINESTART>sweep {
                 BEGIN(BODY);
-                return (token::SWEEP);
+                if (inControl) {
+                    return (token::SWEEP);
+                } else {
+                    yylval->build<Id>(yytext);
+                    return (token::IDENTIFIER);
+                }
             }
 <LINESTART>load {
                 BEGIN(BODY);
