@@ -35,7 +35,7 @@
             // "args": [ "-df", "${workspaceFolder}/test/test_sweepvar.sim" ],
             // "args": [ "-df", "${workspaceFolder}/test/test_sweepvec.sim" ],
             // "args": [ "-df", "${workspaceFolder}/test/test_dcinc.sim" ],
-            // "args": [ "-df", "${workspaceFolder}/test/test_dctf.sim" ],
+             "args": [ "-df", "${workspaceFolder}/test/test_dcxf.sim" ],
             // "args": [ "-df", "${workspaceFolder}/test/test_ac.sim" ],
             // "args": [ "-df", "${workspaceFolder}/test/test_actf.sim" ],
             // "args": [ "-df", "${workspaceFolder}/test/test_tran.sim" ],
