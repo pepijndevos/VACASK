@@ -18,6 +18,7 @@ tech_files = [
     # "capacitors_stat.lib", 
     
     ( "cornerCAP.lib", 0, 0, "../../vacask/models/cornerCAP.lib"),  
+    ( "cornerDIO.lib", 0, 0, "../../vacask/models/cornerDIO.lib"),  
     ( "cornerHBT.lib", 0, 0, "../../vacask/models/cornerHBT.lib"), 
     ( "cornerMOShv.lib", 0, 0, "../../vacask/models/cornerMOShv.lib" ), 
     ( "cornerMOSlv.lib", 0, 0, "../../vacask/models/cornerMOSlv.lib" ), 
@@ -30,6 +31,8 @@ tech_files = [
     # "resistors_stat.lib", 
     
     ( "sg13g2_bondpad.lib", 1, None, "../../vacask/models/sg13g2_bondpad.lib" ), 
+    
+    ( "sg13g2_dschottky_nbl1_mod.lib", 1, None, "../../vacask/models/sg13g2_dschottky_nbl1_mod.lib" ), 
     
     ( "sg13g2_esd.lib", 1, None, "../../vacask/models/sg13g2_esd.lib" ), 
     
