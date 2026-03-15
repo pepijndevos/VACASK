@@ -6,6 +6,7 @@
 # PDK .. subdirectory with the PDK, by default ihp-sg13g2
 
 import sys, os, platform, subprocess, shutil, re
+from pathlib import Path
 from pprint import pprint
 from ng2vclib.converter import Converter
 from ng2vclib.dfl import default_config
@@ -127,123 +128,6 @@ def patch_analog(line):
             line = line[:m.start()] + text + line[m.end():]
 
     return line.replace("format=", "spectre_format=")
-
-    
-symfiles = [
-    # name   spectre formatter (None uses the default)
-    [ "sg13g2_pr/annotate_bip_params.sym", patch_analog ],
-    [ "sg13g2_pr/annotate_fet_params.sym", patch_analog ],
-    [ "sg13g2_pr/bondpad.sym", patch_analog ],
-    [ "sg13g2_pr/cap_cmim.sym", patch_analog ],
-    [ "sg13g2_pr/cap_cpara.sym", patch_analog ],
-    [ "sg13g2_pr/cap_rfcmim.sym", patch_analog ],
-    [ "sg13g2_pr/dantenna.sym", patch_analog ],
-    [ "sg13g2_pr/diodevdd_2kv.sym", patch_analog ],
-    [ "sg13g2_pr/diodevdd_4kv.sym", patch_analog ],
-    [ "sg13g2_pr/diodevss_2kv.sym", patch_analog ],
-    [ "sg13g2_pr/diodevss_4kv.sym", patch_analog ],
-    [ "sg13g2_pr/dpantenna.sym", patch_analog ],
-    [ "sg13g2_pr/nmoscl_2.sym", patch_analog ],
-    [ "sg13g2_pr/nmoscl_4.sym", patch_analog ],
-    [ "sg13g2_pr/npn13G2_5t.sym", patch_analog ],
-    [ "sg13g2_pr/npn13G2l_5t.sym", patch_analog ],
-    [ "sg13g2_pr/npn13G2l.sym", patch_analog ],
-    [ "sg13g2_pr/npn13G2.sym", patch_analog ],
-    [ "sg13g2_pr/npn13G2v_5t.sym", patch_analog ],
-    [ "sg13g2_pr/npn13G2v.sym", patch_analog ],
-    [ "sg13g2_pr/ntap1.sym", patch_analog ],
-    [ "sg13g2_pr/pnpMPA.sym", patch_analog ],
-    [ "sg13g2_pr/ptap1.sym", patch_analog ],
-    [ "sg13g2_pr/rhigh.sym", patch_analog ],
-    [ "sg13g2_pr/rppd.sym", patch_analog ],
-    [ "sg13g2_pr/rsil.sym", patch_analog ],
-    [ "sg13g2_pr/sg13_hv_nmos.sym", patch_analog ],
-    [ "sg13g2_pr/sg13_hv_pmos.sym", patch_analog ],
-    [ "sg13g2_pr/sg13_hv_rf_nmos.sym", patch_analog ],
-    [ "sg13g2_pr/sg13_hv_rf_pmos.sym", patch_analog ],
-    [ "sg13g2_pr/sg13_lv_nmos.sym", patch_analog ],
-    [ "sg13g2_pr/sg13_lv_pmos.sym", patch_analog ],
-    [ "sg13g2_pr/sg13_lv_rf_nmos.sym", patch_analog ],
-    [ "sg13g2_pr/sg13_lv_rf_pmos.sym", patch_analog ],
-    [ "sg13g2_pr/sg13_svaricap.sym", patch_analog ],
-    [ "sg13g2_pr/sub.sym", patch_analog ],
-    [ "sg13g2_stdcells/sg13g2_a21o_1.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_a21o_2.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_a21oi_1.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_a21oi_2.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_a221oi_1.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_a22oi_1.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_and2_1.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_and2_2.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_and3_1.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_and3_2.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_and4_1.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_and4_2.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_antennanp.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_buf_16.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_buf_1.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_buf_2.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_buf_4.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_buf_8.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_decap_4.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_decap_8.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_dfrbp_1.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_dfrbp_2.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_dlhq_1.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_dlhr_1.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_dlhrq_1.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_dllr_1.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_dllrq_1.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_dlygate4sd1_1.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_dlygate4sd2_1.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_dlygate4sd3_1.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_ebufn_2.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_ebufn_4.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_ebufn_8.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_einvn_2.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_einvn_4.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_einvn_8.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_fill_1.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_fill_2.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_fill_4.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_fill_8.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_inv_16.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_inv_1.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_inv_2.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_inv_4.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_inv_8.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_lgcp_1.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_mux2_1.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_mux2_2.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_mux4_1.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_nand2_1.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_nand2_2.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_nand2b_1.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_nand2b_2.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_nand3_1.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_nand3b_1.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_nand4_1.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_nor2_1.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_nor2_2.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_nor2b_1.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_nor2b_2.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_nor3_1.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_nor3_2.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_nor4_1.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_nor4_2.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_o21ai_1.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_or2_1.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_or2_2.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_or3_1.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_or3_2.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_or4_1.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_or4_2.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_sdfbbp_1.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_sighold.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_slgcp_1.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_xnor2_1.sym", patch_dig ], 
-    [ "sg13g2_stdcells/sg13g2_xor2_1.sym", patch_dig ], 
-]
 
 patches = {
     # A bug in Ngspice sg13g2_esd.lib
@@ -415,6 +299,18 @@ module_path_prefix = [ "$(PDK_ROOT)/$(PDK)/libs.tech/vacask/osdi" ]
 
     # Process xschem symbol files
     xschem_path_pfx = os.path.realpath(os.path.join(pdkroot, pdk, "libs.tech", "xschem"))
+
+    symfiles = []
+
+    # All files in xschem_path_pfx/sg13g2_pr
+    directory = Path(xschem_path_pfx) / "sg13g2_pr"
+    files = [str(p.resolve()) for p in directory.iterdir() if p.is_file()]
+    symfiles += [[f, patch_analog] for f in files]
+
+    # All files in sg13g2_stdcells
+    directory = Path(xschem_path_pfx) / "sg13g2_stdcells"
+    files = [str(p.resolve()) for p in directory.iterdir() if p.is_file()]
+    symfiles += [[f, patch_dig] for f in files]
 
     print("Processing Xschem symbol files")
     for fn, symcvt in symfiles:
