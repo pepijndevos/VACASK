@@ -29,11 +29,23 @@ execute_process(
     OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 if (NOT GIT_DESCRIBE_ERROR_CODE)
-    # Zero return code (OK)
+    # Zero return code (OK), strip leading underscore from tag
     string(SUBSTRING "${GIT_DESCRIBE_VERSION}" 1 -1 PROGRAM_VERSION)
 else()
-    message(STATUS "Failed to retrieve version from git")
-    set(PROGRAM_VERSION "unknown")
+    # No matching tag found, fall back to short git hash
+    execute_process(
+        COMMAND git rev-parse --short HEAD
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+        OUTPUT_VARIABLE GIT_SHORT_HASH
+        RESULT_VARIABLE GIT_HASH_ERROR_CODE
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    if (NOT GIT_HASH_ERROR_CODE)
+        set(PROGRAM_VERSION "${GIT_SHORT_HASH}")
+    else()
+        message(STATUS "Failed to retrieve version from git")
+        set(PROGRAM_VERSION "unknown")
+    endif()
 endif()
 message(STATUS "Program version: ${PROGRAM_VERSION}")
 
