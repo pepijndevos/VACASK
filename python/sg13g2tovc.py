@@ -245,14 +245,15 @@ symfiles = [
     [ "sg13g2_stdcells/sg13g2_xor2_1.sym", patch_dig ], 
 ]
 
-# A bug in Ngspice sg13g2_esd.lib
 patches = {
+    # A bug in Ngspice sg13g2_esd.lib
     "sg13g2_esd.lib": [
         (
             ".MODEL diodevss_mod D (tnom = 27 level = 1 is=9.017E-019 rs=200   n=1.03 isr=3.776E-015   ikf=0.0001754 cj0=9.42E-016  m=0.3012  vj=0.6684 bv=11.28 ibv=1E-009 8 nbv=1.324   eg=1.17 xti=3  )", 
             ".MODEL diodevss_mod D (tnom = 27 level = 1 is=9.017E-019 rs=200   n=1.03 isr=3.776E-015   ikf=0.0001754 cj0=9.42E-016  m=0.3012  vj=0.6684 bv=11.28 ibv=1E-009 nbv=1.324   eg=1.17 xti=3  )"
         ), 
     ],
+    # A bug in sg13g2_svaricaphv_mod.lib
     "sg13g2_svaricaphv_mod.lib": [
         (
             "+ stuac 40", 

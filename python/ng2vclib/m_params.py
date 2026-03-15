@@ -191,7 +191,18 @@ class ParamsMixin:
                 # Does not exist, add
                 psplit.append(("$mfactor", m_chain))
         
-        return psplit
+        # Remove duplicates
+        seen = {}
+        pl = []
+        for pn, pv in psplit:
+            if pn in seen:
+                if pv != seen[pn]:
+                    print("Warning: redefinition of parameter '"+pn+"'")
+                continue
+            pl.append((pn, pv))
+            seen[pn] = pv
+
+        return pl
 
     def remove_params(self, params, to_remove=set()):
         """
