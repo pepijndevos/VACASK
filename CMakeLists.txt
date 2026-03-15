@@ -15,7 +15,7 @@ enable_testing()
 
 message(STATUS "CMake version ${CMAKE_VERSION}")
 set(PROGRAM_NAME "vacask")
-set(PROGRAM_COPYRIGHT "2023-2025")
+set(PROGRAM_COPYRIGHT "2023-2026")
 set(PROGRAM_VENDOR "EDA Lab FE Uni-Lj")
 set(PROGRAM_HOMEPAGE "https://codeberg.org/arpadbuermen/VACASK")
 
