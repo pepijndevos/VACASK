@@ -19,7 +19,7 @@ OsdiDevice::OsdiDevice(OsdiFile* of, int descriptorIndex, Id asName, Loc locatio
         setFlags(Flags::Bypassable);
     }}
 
-bool OsdiDevice::operator==(const Device& other) const {
+bool OsdiDevice::operator==(const Device& other) const & {
     const OsdiDevice* devOther = dynamic_cast<const OsdiDevice*>(&other);
     if (devOther && devOther->osdiFile==osdiFile && devOther->index_==index_) {
         return true;

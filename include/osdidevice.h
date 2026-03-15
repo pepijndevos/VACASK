@@ -43,7 +43,7 @@ public:
     OsdiDevice& operator=(const OsdiDevice&)  = delete;
     OsdiDevice& operator=(      OsdiDevice&&) = default;
 
-    virtual bool operator==(const Device& other) const; 
+    virtual bool operator==(const Device& other) const &; 
     Id name() const { return name_; };
     virtual std::tuple<bool, bool, bool> setup(Circuit& circuit, CommonData& commons, bool force, DeviceRequests* devReq, Status& s=Status::ignore);
     virtual bool setStaticTolerances(Circuit& circuit, CommonData& commons, Status& s=Status::ignore);

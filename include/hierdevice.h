@@ -25,7 +25,7 @@ public:
     HierarchicalDevice& operator=(const HierarchicalDevice&)  = delete;
     HierarchicalDevice& operator=(      HierarchicalDevice&&) = default;
 
-    virtual bool operator==(const Device& other) const;
+    virtual bool operator==(const Device& other) const &;
     virtual bool isHierarchical() const { return true; }; 
     // Generic model creation is not allowed, constructor must be used
     virtual Model* createModel(Circuit& circuit, Instance* parentInstance, RpnEvaluator& evaluator, const PTModel& parsedSubcircuit, Status& s=Status::ignore) {

@@ -59,7 +59,7 @@ public:
     Device& operator=(      Device&&) = default;
 
     // Checks if this device is the same as some other device
-    virtual bool operator==(const Device& other) const = 0;
+    virtual bool operator==(const Device& other) const & = 0;
 
     // Device location in input files
     const Loc location() const { return loc; };
@@ -148,7 +148,7 @@ public:
 
 protected:
     Id name_;
-    const Loc& loc;
+    const Loc loc;
     std::vector<Model*> models_;
     size_t instanceCount_;
 };

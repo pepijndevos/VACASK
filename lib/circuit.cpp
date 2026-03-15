@@ -252,31 +252,32 @@ Circuit::Circuit(ParserTables& tab, SourceCompiler* compiler, Status& s)
     //   [ "*", "pfx_*" ] loads all modules and prefixes the names with "pfx_"
     //   If there are multiple pairs with <from>="*" only the first one is used. 
 
-    for(auto it=tables_.loads().cbegin(); it!=tables_.loads().cend(); ++it) {
-        auto fileName = it->file();
+    // for(auto itld=tables_.loads().cbegin(); itld!=tables_.loads().cend(); ++itld) {
+    for(auto& itld : tables_.loads()) {
+        auto fileName = itld.file();
         auto extension = std::filesystem::path(fileName).extension();
         
         const StringVector* map = nullptr;
         
         // Get parameters
-        for(auto &par : it->parameters().values()) {
+        for(auto &par : itld.parameters().values()) {
             Id nameId = par.name();
             if (nameId==loadMapId) {
                 if (!par.val().isVector()) {
                     s.set(Status::BadArguments, "Parameter must be a vector.");
-                    s.extend(it->location());
+                    s.extend(itld.location());
                     return;
                 } else if (par.val().size()>0) {
                     if (par.val().type()!=Value::Type::StringVec) {
                         s.set(Status::BadArguments, "Parameter must be a string vector.");
-                        s.extend(it->location());
+                        s.extend(itld.location());
                         return;
                     } else {
                         // Get map
                         map = &par.val().val<const StringVector>();
                         if (map->size() % 2 != 0) {
                             s.set(Status::BadArguments, "Name map must have an even number of elements.");
-                            s.extend(it->location());
+                            s.extend(itld.location());
                             return;
                         }
                     }
@@ -284,13 +285,13 @@ Circuit::Circuit(ParserTables& tab, SourceCompiler* compiler, Status& s)
             } else {
                 // Don't know this parameter
                 s.set(Status::BadArguments, "Parameter is not supported.");
-                s.extend(it->location());
+                s.extend(itld.location());
                 return;
             }
         }
 
         // Get the canonical path of the file where the load directive is located
-        auto [fs, pos, line, offset] = it->location().data();
+        auto [fs, pos, line, offset] = itld.location().data();
         auto loadDirectiveCanonicalPath = pos!=FileStack::badFileId ? fs->canonicalName(pos) : "";
             
         // Canonical path to osdi file
@@ -324,7 +325,7 @@ Circuit::Circuit(ParserTables& tab, SourceCompiler* compiler, Status& s)
         // Not found
         if (!found) {
             s.set(Status::NotFound, std::string("File '")+fileName+"' not found.");
-            s.extend(it->location());
+            s.extend(itld.location());
             return;
         }
 
@@ -341,7 +342,7 @@ Circuit::Circuit(ParserTables& tab, SourceCompiler* compiler, Status& s)
             ok = true;
         }
         if (!ok) {
-            s.extend(it->location());
+            s.extend(itld.location());
             return;
         }
         if (compiled) {
@@ -349,10 +350,10 @@ Circuit::Circuit(ParserTables& tab, SourceCompiler* compiler, Status& s)
         }
 
         // Open possibly compiled file
-        auto* osf = OsdiFile::open(canonicalPath, it->location(), s);
+        auto* osf = OsdiFile::open(canonicalPath, itld.location(), s);
         if (!osf) {
             s.set(Status::NotFound, std::string("Failed to open OSDI file '")+fileName+"'.");
-            s.extend(it->location());
+            s.extend(itld.location());
             return;
         }
 
@@ -386,13 +387,14 @@ Circuit::Circuit(ParserTables& tab, SourceCompiler* compiler, Status& s)
                 asName = devName;
             }
             if (accept) {
-                auto* dev = osf->createDevice(i, asName, it->location(), s);
+                auto* dev = osf->createDevice(i, asName, itld.location(), s);
                 if (!add(dev, s)) {
                     s.extend("Failed to add device.");
-                    s.extend(it->location());
+                    s.extend(itld.location());
                     delete dev;
                     return;
                 }
+                auto aa = dev->name();
             }
         }
     }
@@ -548,25 +550,27 @@ bool Circuit::addGround(Id name, Status& s) {
 }
 
 bool Circuit::add(Device* dev, Status& s) {
-    auto [it, inserted] = deviceIndex.insert({dev->name(), devices.size()});
-    
-    // Insertion failed because there is a device present with the same name
-    if (!inserted) {
-        // Is it also the same device with different name
+    auto name = dev->name();
+    decltype(deviceIndex)::iterator it = deviceIndex.find(name);
+    if (it!=deviceIndex.end()) {
         auto other = devices[it->second].get();
         if (*dev==*other) {
             // Same type, same device, ignore (because we already have it)
+            // Need to consume dev (i.e. delete it, store it) or return an error
+            delete dev;
             return true;
+        } else {
+            // Not same type, same device, this is bad
+            s.set(Status::Redefinition, std::string("A device with name '")+std::string(dev->name())+"' already exists.");
+            if (other->location()) {
+                s.extend("The existing device was first defined here");
+                s.extend(other->location());
+            }
+            return false;
         }
-        s.set(Status::Redefinition, std::string("A device with name '")+std::string(dev->name())+"' already exists.");
-        if (other->location()) {
-            s.extend("The existing device was first defined here");
-            s.extend(other->location());
-        }
-        return false;
-    }
-    devices.push_back(std::unique_ptr<Device>(dev));
-    deviceIndex[dev->name()] = devices.size()-1;
+    } 
+    devices.emplace_back(dev);
+    deviceIndex.emplace(name, devices.size() - 1);
     return true;
 }
 

@@ -12,7 +12,7 @@ HierarchicalDevice::HierarchicalDevice(Id name, Status& s) : Device(name) {
     setFlags(Flags::IsValid);
 }
 
-bool HierarchicalDevice::operator==(const Device& other) const {
+bool HierarchicalDevice::operator==(const Device& other) const & {
     const HierarchicalDevice* hdOther = dynamic_cast<const HierarchicalDevice*>(&other);
     if (hdOther && hdOther == this) {
         return true;

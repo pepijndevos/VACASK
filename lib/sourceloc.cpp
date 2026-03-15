@@ -126,7 +126,9 @@ std::string Loc::toString() const {
 }
 
 std::ostream& operator<<(std::ostream& ostr, const Loc& p) {
-    ostr << p.toString();
+    if (p) {
+        ostr << p.toString();
+    }
     return ostr;
 }
 

@@ -45,7 +45,7 @@ public:
     BuiltinDevice& operator=(const BuiltinDevice&)  = delete;
     BuiltinDevice& operator=(      BuiltinDevice&&) = default;
 
-    virtual bool operator==(const Device& other) const { return dynamic_cast<const BuiltinDevice<ModelParams, InstanceParams, InstanceData>*>(&other)!=nullptr; };
+    virtual bool operator==(const Device& other) const & { return dynamic_cast<const BuiltinDevice<ModelParams, InstanceParams, InstanceData>*>(&other)!=nullptr; };
     virtual bool isHierarchical() const { return false; };
     virtual std::tuple<bool, bool, bool> setup(Circuit& circuit, CommonData& commons, bool force, DeviceRequests* devReq, Status& s=Status::ignore);
     virtual bool setStaticTolerances(Circuit& circuit, CommonData& commons, Status& s=Status::ignore);
