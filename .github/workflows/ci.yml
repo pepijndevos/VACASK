@@ -243,16 +243,15 @@ jobs:
         shell: msys2 {0}
         run: |
           BINARY=build/simulator/vacask.exe
-          LIBDIR=build/simulator/lib
-          mkdir -p "$LIBDIR"
+          BINDIR=$(dirname "$BINARY")
 
-          # Copy all MinGW64 DLLs the binary depends on
+          # Windows finds DLLs in the same directory as the .exe — no rpath needed
           ldd "$BINARY" | awk '/mingw64/ {print $3}' | while read -r lib; do
-            cp "$lib" "$LIBDIR/"
+            cp "$lib" "$BINDIR/"
           done
 
-          echo "Bundled libraries:"
-          ls -la "$LIBDIR"
+          echo "Bundled DLLs:"
+          ls "$BINDIR"/*.dll
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
