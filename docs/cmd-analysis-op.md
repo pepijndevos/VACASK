@@ -40,12 +40,18 @@ Operating point analysis supports the following save directives to control what 
 | `default`     | Saves all node voltages and branch currents (default behavior). |
 | `full`        | Saves all unknowns (even those belonging to collapsed ones). |
 | `v(node)`     | Saves the voltage at the specified node as `node`. |
-| `i(instance)` | Saves the current through the specified instance. Equivalent to `v('instance:flow(br)')`. |
+| `i(instance)` | Saves the current through the specified instance. Only instances that introduce a current variable in the MNA system are valid (e.g. voltage sources, inductors). Equivalent to `v('instance:flow(br)')`. |
 | `p(instance,outvar)` | Saves the specified output variable (opvar) from the given instance as `instance.opvar`|
 
 ## Output
 
 - A file `<analysis>.*` containing the operating point.
+
+| Variable | Description |
+|----------|-------------|
+| `node` | DC value at the given node. Saved by `v(node)` or `default`. |
+| `instance:flow(br)` | DC branch flow through the given instance. Saved by `i(instance)` or `default`. |
+| `instance.outvar` | Output variable `outvar` from the given instance. Saved by `p(instance,outvar)`. |
 
 ## Examples
 
@@ -82,11 +88,48 @@ sweep vds instance="vdd" parameter="dc" from=-0.8 to=1.8 mode="lin" points=100
   analysis dc1 op
 ```
 
-**2-dimensional DC sweep**
+**2-dimensional DC sweep (MOSFET Id–Vds characteristics):**
+
 ```text
-sweep vgs instance="vgg" parameter="dc" values=[0, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8]
-  sweep vds instance="vdd" parameter="dc" from=-0.8 to=1.8 mode="lin" points=100
+2D DC sweep
+
+load "spice/mos1.osdi"
+
+model vsource vsource
+model nm sp_mos1 (type=1 tox=50e-10 ld=0.21e-6 lambda=0.05
+  gamma=0.4 nsub=35e14 uo=700 vto=1
+  cgso=2.8e-10 cgdo=2.8e-10 cj=5.75e-5 cjsw=2.48e-10
+  pb=0.7 mj=0.5 mjsw=0.3)
+
+vgs (g 0) vsource dc=0
+vds (d 0) vsource dc=0
+m1 (d g 0 0) nm w=10u l=1u
+
+control
+  sweep vgs instance="vgs" parameter="dc" from=1 to=3 step=0.5
+  sweep vds instance="vds" parameter="dc" from=0 to=5 step=0.1
     analysis dc1 op
+  postprocess(PYTHON, "plot.py")
+endc
+
+embed "plot.py" <<<FILE
+import matplotlib.pyplot as plt
+from rawfile import rawread
+
+plot = rawread('dc1.raw').get(sweeps=1)
+
+fig1, ax1 = plt.subplots(1, 1)
+fig1.suptitle('NMOS Id-Vds characteristics')
+ax1.set_ylabel('Id [mA]')
+ax1.set_xlabel('Vds [V]')
+for ii in range(plot.sweepGroups):
+    sdata = plot.sweepData(ii)
+    ax1.plot(plot[ii, 'd'], -plot[ii, 'vds:flow(br)']*1e3,
+             label='Vgs=%.1f' % sdata['vgs'])
+ax1.legend(loc='upper left')
+ax1.grid(True)
+plt.show()
+>>>FILE
 ```
 
 ## Convergence

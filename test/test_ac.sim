@@ -68,12 +68,12 @@ else:
     fig1.axes[0].set_ylabel('Magnitude [dB]')
     h = v3/v2
     hmag = 20*np.log10(np.abs(h))
-    fig1.axes[0].semilogx(f, hmag, label="mag(H)")
+    fig1.axes[0].semilogx(f.real, hmag, label="mag(H)")
     
     fig1.axes[1].set_ylabel('Phase [deg]')
     fig1.axes[1].set_xlabel('f [Hz]')
     hph = np.unwrap(np.angle(h))*180/np.pi
-    fig1.axes[1].semilogx(f, hph, label="ph(H)")
+    fig1.axes[1].semilogx(f.real, hph, label="ph(H)")
     
     plt.show()
 >>>FILE

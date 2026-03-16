@@ -47,3 +47,6 @@
 ## When generating docs
 - Do not invent modules or commands.
 - Follow the existing docs structure in `docs/`.
+- In examples do not declare node `0` as ground (it is by default the ground node anyway)
+- In long examples the first line should be the title of a circuit. 
+- Look at docs of similar subjects and follow their style and outline. 

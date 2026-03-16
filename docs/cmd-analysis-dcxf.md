@@ -49,7 +49,21 @@ The `dcxf` analysis supports the following save directives:
 
 In addition, `dcxf` supports all operating point save directives (e.g.
 `v(node)`, `i(instance)`, `p(instance,outvar)`) because it reuses the operating
-point core.
+point core. These directives apply to the operating point results and specify
+which operating point results to write when `writeop=1`.
+
+## Output
+
+- A file `<analysis>.*` containing the requested transfer functions, impedances,
+  and admittances.
+- If `writeop=1`, an additional `<analysis>.op.*raw*` file containing the operating
+  point solution.
+
+| Variable | Description |
+|----------|-------------|
+| `tf(source)` | Transfer function from `source` to the output. |
+| `zin(source)` | Input impedance seen by `source`. |
+| `yin(source)` | Input admittance seen by `source`. |
 
 ## Example
 
@@ -61,11 +75,3 @@ analysis xf1 dcxf out="out_node"
 // Output is a voltage between nodes
 analysis xf1 dcxf out=["outp", "outn"]
 ```
-
-## Output
-
-- A file `<analysis>.*` containing the requested transfer functions, impedances, 
-  and admittances.
-- If `writeop=1`, an additional `<analysis>.op.*raw*` file containing the operating
-  point solution.
-

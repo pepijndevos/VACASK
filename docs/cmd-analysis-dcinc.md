@@ -17,15 +17,13 @@ analysis name dcinc [parameters]
 
 1. VACASK first performs an operating point (OP) analysis to obtain the DC
    operating point (node voltages, currents, device states).
-2. It linearizes the circuit by computing the resistive Jacobian (derivatives of
+2. It linearizes the circuit by computing the resistive Jacobian $J_r$ (derivatives of
    the resistive residuals) at the operating point.
 3. It solves
 
-   ```text
-   Jr * dx = du
-   ```
+   $$J_r\, \Delta x = \Delta u$$
 
-   where `dx` is the incremental change of unknowns and `du` are the incremental
+   where $\Delta x$ is the incremental change of unknowns and $\Delta u$ are the incremental
    excitations set by the `mag` parameters of independent sources.
 
 ## Parameters
@@ -49,11 +47,29 @@ DC incremental analysis supports the following save directives:
 | `default` | Save all incremental node voltages and branch currents (default). |
 | `full` | Save all incremental node voltages only. |
 | `dv(node)` | Save the incremental voltage at the given node as `node`. |
-| `di(instance)` | Save the incremental current through the given instance. Equivalent to `dv('instance:flow(br)')` |
+| `di(instance)` | Save the incremental current through the given instance. Only instances that introduce a current variable in the MNA system are valid (e.g. voltage sources, inductors). Equivalent to `dv('instance:flow(br)')`. |
 
 In addition, dcinc supports all operating point save directives (such as
-`v(node)`, `i(instance)`, and `p(instance,outvar)`), because it reuses the
-operating point core.
+`v(node)`, `i(instance)`, and `p(instance,outvar)`) because it runs an operating
+point core internally. These directives apply to the operating point results and
+specify which operating point results to write when `writeop=1`.
+
+## Output
+
+- A file `<analysis>.*` containing the requested incremental results.
+- If `writeop=1`, an additional `<analysis>.op.*raw*` file containing the operating
+  point solution.
+
+| Variable | Description |
+|----------|-------------|
+| `node` | Incremental value at the given node. Saved by `dv(node)` or `default`. |
+| `instance:flow(br)` | Incremental branch flow through the given instance. Saved by `di(instance)` or `default`. |
+
+## Notes
+
+- The incremental solution is linear; it does not include nonlinear terms.
+- The sign of the `mag` parameter of independent sources determines the direction of the
+  incremental excitation.
 
 ## Example
 
@@ -66,15 +82,3 @@ save dv(node1)
 save di(Vdd)
 analysis dc2 dcinc
 ```
-
-## Output
-
-- A file `<analysis>.*` containing the requested incremental results.
-- If `writeop=1`, an additional `<analysis>.op.*raw*` file containing the operating
-  point solution.
-
-## Notes
-
-- The incremental solution is linear; it does not include nonlinear terms.
-- The sign of the `mag` parameter of independent sources determines the direction of the
-  incremental excitation.
