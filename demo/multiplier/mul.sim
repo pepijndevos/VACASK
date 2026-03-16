@@ -4,8 +4,12 @@ load "psp103v4.osdi"
 load "spice/resistor.osdi"
 
 include "models.inc"
+// include "mul8.inc"
 // include "mul16.inc"
-include "mul64.inc"
+// include "mul32.inc"
+// include "mul64.inc"
+// include "mul128.inc"
+ include "mul256.inc"
 
 model v vsource
 model r sp_resistor
@@ -24,12 +28,12 @@ control
   
   elaborate circuit("mul_test")
   print counts
-  // analysis tranmul tran stop=2n step=2p icmode="uic"
-  analysis tranmul tran stop=10p step=2p icmode="uic"
+  analysis tranmul tran stop=2n step=2p icmode="uic"
+  // analysis tranmul tran stop=10p step=2p icmode="uic"
   
   print stats
   
-  postprocess(PYTHON, "runme.py")
+  // postprocess(PYTHON, "runme.py")
 endc
 
 embed "runme.py" <<<FILE

@@ -4,7 +4,7 @@ load "psp103v4.osdi"
 load "spice/resistor.osdi"
 
 include "models.inc"
-include "cir.inc"
+include "mul8.inc"
 
 model v vsource
 model r sp_resistor
