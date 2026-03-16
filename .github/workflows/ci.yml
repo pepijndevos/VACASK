@@ -264,6 +264,12 @@ jobs:
             done
           done
 
+          # openvaf-r delay-loads LLVM (not visible to ldd), copy it explicitly
+          LLVM_DLL=$(find /mingw64/bin -name "libLLVM*.dll" 2>/dev/null | head -1)
+          if [ -n "$LLVM_DLL" ]; then
+            cp "$LLVM_DLL" "$BINDIR/"
+          fi
+
           echo "Dependencies:"
           ldd "$BINDIR"/vacask.exe
           ldd "$BINDIR"/openvaf-r.exe
