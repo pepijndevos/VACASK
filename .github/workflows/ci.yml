@@ -246,12 +246,15 @@ jobs:
           BINDIR=$(dirname "$BINARY")
 
           # Windows finds DLLs in the same directory as the .exe — no rpath needed
-          ldd "$BINARY" | awk '/mingw64/ {print $3}' | while read -r lib; do
+          # Copy all non-system DLLs (MinGW runtime + any shared libs)
+          ldd "$BINARY" | awk '/mingw64|clang|ucrt64/ {print $3}' | while read -r lib; do
             cp "$lib" "$BINDIR/"
           done
 
+          echo "Dependencies:"
+          ldd "$BINARY"
           echo "Bundled DLLs:"
-          ls "$BINDIR"/*.dll
+          ls "$BINDIR"/*.dll 2>/dev/null || echo "(none — binary is statically linked)"
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
