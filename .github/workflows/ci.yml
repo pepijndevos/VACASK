@@ -210,20 +210,25 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get install -y patchelf
-          BINARY=build/simulator/vacask
           LIBDIR=build/simulator/lib
           mkdir -p "$LIBDIR"
 
-          # Bundle all shared libraries except glibc/libstdc++ base
-          ldd "$BINARY" | awk '/=> \// {print $3}' | while read -r lib; do
-            case "$(basename "$lib")" in
-              libc.so*|libm.so*|libdl.so*|libpthread.so*|librt.so*) continue ;;
-              libstdc++.so*|libgcc_s.so*|ld-linux*) continue ;;
-            esac
-            cp -L "$lib" "$LIBDIR/"
-          done
+          bundle_linux() {
+            local bin="$1"
+            ldd "$bin" | awk '/=> \// {print $3}' | while read -r lib; do
+              case "$(basename "$lib")" in
+                libc.so*|libm.so*|libdl.so*|libpthread.so*|librt.so*) continue ;;
+                libstdc++.so*|libgcc_s.so*|ld-linux*) continue ;;
+              esac
+              cp -Ln "$lib" "$LIBDIR/" 2>/dev/null || true
+            done
+            patchelf --set-rpath '$ORIGIN/lib' "$bin"
+          }
 
-          patchelf --set-rpath '$ORIGIN/lib' "$BINARY"
+          # Place openvaf-r next to vacask so they share the same lib/ directory
+          cp openvaf-cache/openvaf-r build/simulator/
+          bundle_linux build/simulator/vacask
+          bundle_linux build/simulator/openvaf-r
 
           echo "Bundled libraries:"
           ls -la "$LIBDIR"
@@ -232,7 +237,11 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           brew install dylibbundler
+          # Place openvaf-r next to vacask so they share the same lib/ directory
+          cp openvaf-cache/openvaf-r build/simulator/
           dylibbundler -od -b -x build/simulator/vacask \
+            -d build/simulator/lib/ -p @executable_path/lib/
+          dylibbundler -od -b -x build/simulator/openvaf-r \
             -d build/simulator/lib/ -p @executable_path/lib/
           echo "Bundled libraries:"
           ls -la build/simulator/lib/
@@ -243,13 +252,15 @@ jobs:
         if: runner.os == 'Windows'
         shell: msys2 {0}
         run: |
-          BINARY=build/simulator/vacask.exe
-          BINDIR=$(dirname "$BINARY")
+          BINDIR=build/simulator
+          cp openvaf-cache/openvaf-r.exe "$BINDIR/"
 
           # Windows finds DLLs in the same directory as the .exe — no rpath needed
           # Copy all non-system DLLs (MinGW runtime + any shared libs)
-          ldd "$BINARY" | awk '/mingw64|clang|ucrt64/ {print $3}' | while read -r lib; do
-            cp "$lib" "$BINDIR/"
+          for bin in "$BINDIR"/vacask.exe "$BINDIR"/openvaf-r.exe; do
+            ldd "$bin" | awk '/mingw64|clang|ucrt64/ {print $3}' | while read -r lib; do
+              cp -n "$lib" "$BINDIR/" 2>/dev/null || true
+            done
           done
 
           echo "Dependencies:"
@@ -264,10 +275,10 @@ jobs:
           path: |
             build/simulator/vacask
             build/simulator/vacask.exe
+            build/simulator/openvaf-r
+            build/simulator/openvaf-r.exe
             build/simulator/lib/
             build/lib/vacask/
-            openvaf-cache/openvaf-r
-            openvaf-cache/openvaf-r.exe
           if-no-files-found: warn
 
   release:
