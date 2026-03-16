@@ -148,30 +148,55 @@ jobs:
           LIBDIR=build/simulator/lib
           mkdir -p "$LIBDIR"
 
+          BREW_PREFIX="$(brew --prefix)"
+
+          # Resolve a library reference to an actual file path
+          resolve_lib() {
+            local ref="$1"
+            if [ -f "$ref" ]; then
+              echo "$ref"
+            else
+              # Search Homebrew for @rpath or other unresolved references
+              local name
+              name=$(basename "$ref")
+              find "$BREW_PREFIX/opt" "$BREW_PREFIX/lib" -name "$name" -type f 2>/dev/null | head -1
+            fi
+          }
+
           # Recursively collect all non-system dylibs (transitive deps)
           collect_deps() {
-            otool -L "$1" | awk '/homebrew/ {print $1}' | while read -r lib; do
-              libname=$(basename "$lib")
-              if [ ! -f "$LIBDIR/$libname" ]; then
-                cp "$lib" "$LIBDIR/$libname"
+            otool -L "$1" | awk 'NR>1 {print $1}' | while read -r ref; do
+              # Skip system libraries
+              case "$ref" in /usr/lib/*|/System/*) continue ;; esac
+              local libname
+              libname=$(basename "$ref")
+              [ -f "$LIBDIR/$libname" ] && continue
+              local actual
+              actual=$(resolve_lib "$ref")
+              if [ -n "$actual" ] && [ -f "$actual" ]; then
+                cp "$actual" "$LIBDIR/$libname"
                 chmod u+w "$LIBDIR/$libname"
-                # Recurse into this lib's dependencies
                 collect_deps "$LIBDIR/$libname"
               fi
             done
           }
           collect_deps "$BINARY"
 
-          # Rewrite all Homebrew references in the main binary
-          otool -L "$BINARY" | awk '/homebrew/ {print $1}' | while read -r lib; do
-            install_name_tool -change "$lib" "@executable_path/lib/$(basename "$lib")" "$BINARY"
-          done
-
-          # Rewrite all Homebrew references in bundled dylibs
-          for bundled in "$LIBDIR"/*.dylib; do
-            otool -L "$bundled" | awk '/homebrew/ {print $1}' | while read -r lib; do
-              install_name_tool -change "$lib" "@executable_path/lib/$(basename "$lib")" "$bundled"
+          # Rewrite all non-system references in the binary and bundled dylibs
+          rewrite_refs() {
+            local target="$1"
+            otool -L "$target" | awk 'NR>1 {print $1}' | while read -r ref; do
+              case "$ref" in /usr/lib/*|/System/*) continue ;; esac
+              local libname
+              libname=$(basename "$ref")
+              if [ -f "$LIBDIR/$libname" ]; then
+                install_name_tool -change "$ref" "@executable_path/lib/$libname" "$target"
+              fi
             done
+          }
+          rewrite_refs "$BINARY"
+          for bundled in "$LIBDIR"/*.dylib; do
+            rewrite_refs "$bundled"
           done
 
           # Re-sign everything (install_name_tool invalidates signatures)
