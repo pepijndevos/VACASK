@@ -154,6 +154,12 @@ typedef struct EvalSetup {
         }
         if (states) {
             oldStates = states->data();
+        } else if (dummyStates) {
+            // No states given, use dummyStates for oldStates (if dummyStates given)
+            // Looks like OSDI devices in eval() still access states, even when 
+            // ENABLE_LIM and INIT_LIM are not set. 
+            // TODO: research this on MIR level. 
+            oldStates = dummyStates->data();
         }
         if (dummyStates) {
             // Dummy states are given when we want to avoid tainting future states
