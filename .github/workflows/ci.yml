@@ -266,6 +266,8 @@ jobs:
             build/simulator/vacask.exe
             build/simulator/lib/
             build/lib/vacask/
+            openvaf-cache/openvaf-r
+            openvaf-cache/openvaf-r.exe
           if-no-files-found: warn
 
   release:
