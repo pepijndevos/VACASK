@@ -117,11 +117,11 @@ jobs:
           CMAKE_ARGS+=("-DOPENVAF_DIR=$OPENVAF_DIR")
 
           if [ "$RUNNER_OS" == "macOS" ]; then
-            # CMakeLists.txt auto-detects most Homebrew paths, but
-            # FLEX_INCLUDE_DIR (singular) is not set by CMakeLists.txt
-            # and find_package(FLEX) can't find it in keg-only paths.
             BREW_PREFIX="$(brew --prefix)"
+            # FLEX_INCLUDE_DIR (singular) needed; find_package(FLEX) can't find keg-only flex
             CMAKE_ARGS+=("-DFLEX_INCLUDE_DIR=$BREW_PREFIX/opt/flex/include")
+            # Static Boost so the binary doesn't depend on Homebrew at runtime
+            CMAKE_ARGS+=("-DBoost_USE_STATIC_LIBS=ON")
           else
             # Linux: pass paths per README build instructions
             CMAKE_ARGS+=("-DBoost_ROOT=/tmp/boost_1_88_0/stage")
@@ -141,11 +141,43 @@ jobs:
           cd build
           ctest --output-on-failure --timeout 60
 
+      - name: Bundle shared libraries (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          BINARY=build/simulator/vacask
+          LIBDIR=build/simulator/lib
+          mkdir -p "$LIBDIR"
+
+          # Copy all non-system dylibs referenced by the binary
+          otool -L "$BINARY" | awk '/homebrew/ {print $1}' | while read -r lib; do
+            cp "$lib" "$LIBDIR/"
+            libname=$(basename "$lib")
+            chmod u+w "$LIBDIR/$libname"
+            # Rewrite the binary's reference to use @executable_path/lib/
+            install_name_tool -change "$lib" "@executable_path/lib/$libname" "$BINARY"
+          done
+
+          # Also fix inter-library references within the bundled dylibs
+          for bundled in "$LIBDIR"/*.dylib; do
+            otool -L "$bundled" | awk '/homebrew/ {print $1}' | while read -r lib; do
+              libname=$(basename "$lib")
+              if [ -f "$LIBDIR/$libname" ]; then
+                install_name_tool -change "$lib" "@executable_path/lib/$libname" "$bundled"
+              fi
+            done
+          done
+
+          echo "Bundled libraries:"
+          ls -la "$LIBDIR"
+          echo "Binary dependencies after bundling:"
+          otool -L "$BINARY"
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: vacask-${{ matrix.os }}
           path: |
             build/simulator/vacask
+            build/simulator/lib/
             build/lib/*.osdi
           if-no-files-found: warn
