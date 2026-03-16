@@ -148,22 +148,29 @@ jobs:
           LIBDIR=build/simulator/lib
           mkdir -p "$LIBDIR"
 
-          # Copy all non-system dylibs referenced by the binary
+          # Recursively collect all non-system dylibs (transitive deps)
+          collect_deps() {
+            otool -L "$1" | awk '/homebrew/ {print $1}' | while read -r lib; do
+              libname=$(basename "$lib")
+              if [ ! -f "$LIBDIR/$libname" ]; then
+                cp "$lib" "$LIBDIR/$libname"
+                chmod u+w "$LIBDIR/$libname"
+                # Recurse into this lib's dependencies
+                collect_deps "$LIBDIR/$libname"
+              fi
+            done
+          }
+          collect_deps "$BINARY"
+
+          # Rewrite all Homebrew references in the main binary
           otool -L "$BINARY" | awk '/homebrew/ {print $1}' | while read -r lib; do
-            cp "$lib" "$LIBDIR/"
-            libname=$(basename "$lib")
-            chmod u+w "$LIBDIR/$libname"
-            # Rewrite the binary's reference to use @executable_path/lib/
-            install_name_tool -change "$lib" "@executable_path/lib/$libname" "$BINARY"
+            install_name_tool -change "$lib" "@executable_path/lib/$(basename "$lib")" "$BINARY"
           done
 
-          # Also fix inter-library references within the bundled dylibs
+          # Rewrite all Homebrew references in bundled dylibs
           for bundled in "$LIBDIR"/*.dylib; do
             otool -L "$bundled" | awk '/homebrew/ {print $1}' | while read -r lib; do
-              libname=$(basename "$lib")
-              if [ -f "$LIBDIR/$libname" ]; then
-                install_name_tool -change "$lib" "@executable_path/lib/$libname" "$bundled"
-              fi
+              install_name_tool -change "$lib" "@executable_path/lib/$(basename "$lib")" "$bundled"
             done
           done
 
