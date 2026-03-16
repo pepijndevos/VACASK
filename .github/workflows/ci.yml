@@ -24,7 +24,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install dependencies (Linux)
         if: runner.os == 'Linux'
@@ -82,7 +82,7 @@ jobs:
 
       - name: Cache OpenVAF build
         id: cache-openvaf
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: openvaf-cache
           key: openvaf-${{ matrix.os }}-${{ runner.arch }}-v5
@@ -257,7 +257,7 @@ jobs:
           ls "$BINDIR"/*.dll 2>/dev/null || echo "(none — binary is statically linked)"
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: vacask-${{ matrix.os }}
           path: |
