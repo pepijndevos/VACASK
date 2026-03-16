@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: [main]
+    tags: ['_*']
   pull_request:
     branches: [main]
 
@@ -266,3 +267,43 @@ jobs:
             build/simulator/lib/
             build/lib/vacask/
           if-no-files-found: warn
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/_')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v6
+        with:
+          path: artifacts
+
+      - name: Package release archives
+        run: |
+          VERSION="${GITHUB_REF_NAME#_}"
+          echo "Version: $VERSION"
+
+          cd artifacts
+
+          # Linux tar.gz
+          tar czf "../vacask_${VERSION}_linux-x86_64.tar.gz" -C vacask-ubuntu-24.04 .
+
+          # macOS tar.gz
+          tar czf "../vacask_${VERSION}_darwin-arm64.tar.gz" -C vacask-macos-14 .
+
+          # Windows zip
+          cd vacask-windows-latest
+          zip -r "../../vacask_${VERSION}_windows-x86_64.zip" .
+          cd ..
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: VACASK ${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            vacask_*.tar.gz
+            vacask_*.zip
