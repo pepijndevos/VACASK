@@ -159,7 +159,7 @@ jobs:
               # Search Homebrew for @rpath or other unresolved references
               local name
               name=$(basename "$ref")
-              find "$BREW_PREFIX/opt" "$BREW_PREFIX/lib" -name "$name" -type f 2>/dev/null | head -1
+              find -L "$BREW_PREFIX/opt" "$BREW_PREFIX/lib" -name "$name" -type f 2>/dev/null | head -1
             fi
           }
 
