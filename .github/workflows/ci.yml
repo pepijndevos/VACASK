@@ -281,11 +281,7 @@ jobs:
         with:
           name: vacask-${{ matrix.os }}
           path: |
-            build/simulator/vacask
-            build/simulator/vacask.exe
-            build/simulator/openvaf-r
-            build/simulator/openvaf-r.exe
-            build/simulator/lib/
+            build/simulator/
             build/lib/vacask/
           if-no-files-found: warn
 
