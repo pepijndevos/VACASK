@@ -116,14 +116,18 @@ jobs:
           CMAKE_ARGS=(-G Ninja -S . -B build -DCMAKE_BUILD_TYPE=Release)
           CMAKE_ARGS+=("-DOPENVAF_DIR=$OPENVAF_DIR")
 
-          if [ "$RUNNER_OS" != "macOS" ]; then
+          if [ "$RUNNER_OS" == "macOS" ]; then
+            # CMakeLists.txt auto-detects most Homebrew paths, but
+            # FLEX_INCLUDE_DIR (singular) is not set by CMakeLists.txt
+            # and find_package(FLEX) can't find it in keg-only paths.
+            BREW_PREFIX="$(brew --prefix)"
+            CMAKE_ARGS+=("-DFLEX_INCLUDE_DIR=$BREW_PREFIX/opt/flex/include")
+          else
             # Linux: pass paths per README build instructions
             CMAKE_ARGS+=("-DBoost_ROOT=/tmp/boost_1_88_0/stage")
             CMAKE_ARGS+=("-DSuiteSparse_DIR=/usr")
             CMAKE_ARGS+=("-DTOMLPP_DIR=/usr/local")
           fi
-          # macOS: CMakeLists.txt auto-detects Homebrew paths for
-          # Boost, SuiteSparse, toml++, bison, and flex.
 
           echo "Running: cmake ${CMAKE_ARGS[*]}"
           cmake "${CMAKE_ARGS[@]}"
