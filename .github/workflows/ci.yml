@@ -16,6 +16,8 @@ jobs:
             name: Ubuntu 24.04
           - os: macos-14
             name: macOS
+          - os: windows-latest
+            name: Windows
 
     name: Build (${{ matrix.name }})
     runs-on: ${{ matrix.os }}
@@ -54,6 +56,17 @@ jobs:
             suite-sparse boost tomlplusplus \
             python3 numpy scipy
 
+      - name: Setup MSYS2 (Windows)
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          install: git bison flex
+          pacboy: >-
+            gcc:p cmake:p ninja:p boost:p suitesparse:p
+            tomlplusplus:p llvm:p clang:p lld:p rust:p python:p
+            python-numpy:p python-scipy:p
+
       - name: Build Boost 1.88 (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -71,11 +84,11 @@ jobs:
         id: cache-openvaf
         uses: actions/cache@v4
         with:
-          path: ~/.openvaf
-          key: openvaf-${{ matrix.os }}-${{ runner.arch }}-v4
+          path: openvaf-cache
+          key: openvaf-${{ matrix.os }}-${{ runner.arch }}-v5
 
-      - name: Build OpenVAF-reloaded
-        if: steps.cache-openvaf.outputs.cache-hit != 'true'
+      - name: Build OpenVAF-reloaded (Unix)
+        if: steps.cache-openvaf.outputs.cache-hit != 'true' && runner.os != 'Windows'
         run: |
           # Install Rust
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
@@ -95,23 +108,46 @@ jobs:
           ./build.sh --release
 
           # Install to cache location (binary may be named openvaf-r or openvaf)
-          mkdir -p ~/.openvaf
+          mkdir -p "$GITHUB_WORKSPACE/openvaf-cache"
           if [ -f target/release/openvaf-r ]; then
-            cp target/release/openvaf-r ~/.openvaf/
+            cp target/release/openvaf-r "$GITHUB_WORKSPACE/openvaf-cache/"
           elif [ -f target/release/openvaf ]; then
-            cp target/release/openvaf ~/.openvaf/openvaf-r
+            cp target/release/openvaf "$GITHUB_WORKSPACE/openvaf-cache/openvaf-r"
           else
             echo "ERROR: Could not find OpenVAF binary"
             ls -la target/release/openvaf* 2>/dev/null || true
             exit 1
           fi
 
-      - name: Setup OpenVAF path
+      - name: Build OpenVAF-reloaded (Windows)
+        if: steps.cache-openvaf.outputs.cache-hit != 'true' && runner.os == 'Windows'
+        shell: msys2 {0}
         run: |
-          chmod +x "$HOME/.openvaf/openvaf-r"
-          echo "OPENVAF_DIR=$HOME/.openvaf" >> "$GITHUB_ENV"
+          git clone https://github.com/arpadbuermen/OpenVAF.git /tmp/openvaf
+          cd /tmp/openvaf
 
-      - name: Configure VACASK
+          LLVM_VERSION=$(llvm-config --version | cut -d. -f1)
+          echo "Detected LLVM version: $LLVM_VERSION"
+          cargo build --release --features "llvm${LLVM_VERSION}" --bin openvaf-r
+
+          CACHE_DIR="$(cygpath -u "$GITHUB_WORKSPACE")/openvaf-cache"
+          mkdir -p "$CACHE_DIR"
+          cp target/release/openvaf-r.exe "$CACHE_DIR/"
+
+      - name: Setup OpenVAF path (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          chmod +x "$GITHUB_WORKSPACE/openvaf-cache/openvaf-r"
+          echo "OPENVAF_DIR=$GITHUB_WORKSPACE/openvaf-cache" >> "$GITHUB_ENV"
+
+      - name: Setup OpenVAF path (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: |
+          echo "OPENVAF_DIR=$(cygpath -u "$GITHUB_WORKSPACE")/openvaf-cache" >> "$GITHUB_ENV"
+
+      - name: Configure VACASK (Unix)
+        if: runner.os != 'Windows'
         run: |
           CMAKE_ARGS=(-G Ninja -S . -B build -DCMAKE_BUILD_TYPE=Release)
           CMAKE_ARGS+=("-DOPENVAF_DIR=$OPENVAF_DIR")
@@ -132,11 +168,39 @@ jobs:
           echo "Running: cmake ${CMAKE_ARGS[*]}"
           cmake "${CMAKE_ARGS[@]}"
 
-      - name: Build VACASK
+      - name: Configure VACASK (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: |
+          cmake -G Ninja -S . -B build -DCMAKE_BUILD_TYPE=Release \
+            -DOPENVAF_DIR="$OPENVAF_DIR" \
+            -DSuiteSparse_DIR=/mingw64 \
+            -DTOMLPP_DIR=/mingw64 \
+            -DBoost_ROOT=/mingw64 \
+            -DBISON_EXECUTABLE=/usr/bin/bison \
+            -DFLEX_EXECUTABLE=/usr/bin/flex \
+            -DFLEX_INCLUDE_DIR=/usr/include
+
+      - name: Build VACASK (Unix)
+        if: runner.os != 'Windows'
         run: |
           cmake --build build -j"$(nproc 2>/dev/null || sysctl -n hw.ncpu)"
 
-      - name: Run tests
+      - name: Build VACASK (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: |
+          cmake --build build -j$(nproc)
+
+      - name: Run tests (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          cd build
+          ctest --output-on-failure --timeout 60
+
+      - name: Run tests (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
         run: |
           cd build
           ctest --output-on-failure --timeout 60
@@ -174,12 +238,29 @@ jobs:
           echo "Binary dependencies after bundling:"
           otool -L build/simulator/vacask
 
+      - name: Bundle shared libraries (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: |
+          BINARY=build/simulator/vacask.exe
+          LIBDIR=build/simulator/lib
+          mkdir -p "$LIBDIR"
+
+          # Copy all MinGW64 DLLs the binary depends on
+          ldd "$BINARY" | awk '/mingw64/ {print $3}' | while read -r lib; do
+            cp "$lib" "$LIBDIR/"
+          done
+
+          echo "Bundled libraries:"
+          ls -la "$LIBDIR"
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: vacask-${{ matrix.os }}
           path: |
             build/simulator/vacask
+            build/simulator/vacask.exe
             build/simulator/lib/
             build/lib/vacask/
           if-no-files-found: warn
