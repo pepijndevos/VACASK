@@ -656,7 +656,7 @@ template<typename ModelParams, typename InstanceParams, typename InstanceData>
 bool BuiltinInstance<ModelParams, InstanceParams, InstanceData>::createNodesForUnconnectedTerminals(Circuit& circuit, Status& s) {
     for(TerminalIndex i=connectedTerminalCount; i<model()->device()->terminalCount(); i++) {
         // Create/get node
-        auto node = getInternalNode(circuit, nodeName, Node::Flags::PotentialNode, s);
+        auto node = getInternalNode(circuit, nodeName(i), Node::Flags::PotentialNode, s);
         if (node==nullptr) {
             return false;
         }
