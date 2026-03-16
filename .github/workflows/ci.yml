@@ -241,7 +241,8 @@ jobs:
           cp openvaf-cache/openvaf-r build/simulator/
           dylibbundler -od -b -x build/simulator/vacask \
             -d build/simulator/lib/ -p @executable_path/lib/
-          dylibbundler -od -b -x build/simulator/openvaf-r \
+          # No -od on second call to preserve libs from first call
+          dylibbundler -b -x build/simulator/openvaf-r \
             -d build/simulator/lib/ -p @executable_path/lib/
           echo "Bundled libraries:"
           ls -la build/simulator/lib/
