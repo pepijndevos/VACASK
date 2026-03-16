@@ -264,7 +264,8 @@ jobs:
           done
 
           echo "Dependencies:"
-          ldd "$BINARY"
+          ldd "$BINDIR"/vacask.exe
+          ldd "$BINDIR"/openvaf-r.exe
           echo "Bundled DLLs:"
           ls "$BINDIR"/*.dll 2>/dev/null || echo "(none — binary is statically linked)"
 
