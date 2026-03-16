@@ -179,5 +179,5 @@ jobs:
           path: |
             build/simulator/vacask
             build/simulator/lib/
-            build/lib/*.osdi
+            build/lib/vacask/
           if-no-files-found: warn
