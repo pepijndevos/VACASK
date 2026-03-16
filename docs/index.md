@@ -44,11 +44,11 @@
    10. [Error Handling](cmd-abort.md)
 5. Circuit Analyses
    1. [Operating Point Analysis](cmd-analysis-op.md)
-   2. [DC Incremental Small-signal Analysis](cmd-analysis-dcinc.md)
-   3. [DC Incremental Small-signal Transfer Function Analysis](cmd-analysis-dcxf.md)
+   2. [DC Small-Signal Analysis](cmd-analysis-dcinc.md)
+   3. [DC Small-Signal Transfer Function Analysis](cmd-analysis-dcxf.md)
    4. [AC Small-signal Analysis](cmd-analysis-ac.md)
    5. [AC Small-signal Transfer function analysis](cmd-analysis-acxf.md)
-   6. [Small-signal Noise Analysis](cmd-analysis-noise.md)
+   6. [Small-Signal Noise Analysis](cmd-analysis-noise.md)
    7. [Transient Analysis](cmd-analysis-tran.md)
    8. [Harmonic Balance Analysis](cmd-analysis-hb.md)
 6. VACASK Startup and Configuration
