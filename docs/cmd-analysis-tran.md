@@ -46,7 +46,7 @@ The integration method is selected via the simulator option `tran_method`. Avail
 | Directive | Description |
 |-----------|-------------|
 | `default` | Save all node values and branch flows (default behavior). |
-| `full` | Save all node values only. |
+| `full` | Saves all unknowns (even those belonging to collapsed nodes). |
 | `v(node)` | Save the value at the given node. |
 | `i(instance)` | Save the branch flow through the given instance. Only instances that introduce a current variable in the MNA system are valid (e.g. voltage sources, inductors). Equivalent to `v('instance:flow(br)')`. |
 | `p(instance,outvar)` | Save the output variable `outvar` from the given instance. |

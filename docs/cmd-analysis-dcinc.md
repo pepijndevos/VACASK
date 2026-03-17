@@ -45,7 +45,7 @@ DC incremental analysis supports the following save directives:
 | Directive | Description |
 |-----------|-------------|
 | `default` | Save all incremental node voltages and branch currents (default). |
-| `full` | Save all incremental node voltages only. |
+| `full` | Saves all unknowns (even those belonging to collapsed nodes). |
 | `dv(node)` | Save the incremental voltage at the given node as `node`. |
 | `di(instance)` | Save the incremental current through the given instance. Only instances that introduce a current variable in the MNA system are valid (e.g. voltage sources, inductors). Equivalent to `dv('instance:flow(br)')`. |
 

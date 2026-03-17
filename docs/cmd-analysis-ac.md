@@ -42,7 +42,7 @@ AC analysis exposes the operating point parameters and adds sweep and output con
 | `step` | real | `0` | Frequency step size (Hz) for a linear stepped sweep. |
 | `mode` | string | — | Sweep mode: `"lin"` (linear), `"dec"` (logarithmic per decade), or `"oct"` (logarithmic per octave). |
 | `points` | integer | `0` | Number of points (total for `"lin"`, per decade for `"dec"`, per octave for `"oct"`). |
-| `values` | list | — | Explicit list of frequencies (Hz). Overrides `from`/`to`/`step`/`mode`/`points`. |
+| `values` | real vector | — | Explicit vector of frequencies (Hz). Overrides `from`/`to`/`step`/`mode`/`points`. |
 | `write` | boolean | `1` | Write the analysis results to a file. |
 | `writeop` | boolean | `0` | Also write the operating point results to `<analysis>.op.*`. |
 
@@ -54,14 +54,14 @@ AC analysis exposes the operating point parameters and adds sweep and output con
 | Linear | `from`, `to`, `mode="lin"`, `points` | `points` linearly spaced frequencies from `from` to `to`. |
 | Decade | `from`, `to`, `mode="dec"`, `points` | `points` frequencies per decade, logarithmically spaced. |
 | Octave | `from`, `to`, `mode="oct"`, `points` | `points` frequencies per octave, logarithmically spaced. |
-| Explicit | `values=[f1, f2, …]` | Frequencies taken directly from the list. |
+| Explicit | `values=[f1, f2, …]` | Frequencies taken directly from the vector. |
 
 ## Save directives
 
 | Directive | Description |
 |-----------|-------------|
 | `default` | Save all AC node voltages and branch currents (default behavior). |
-| `full` | Save all AC node voltages only. |
+| `full` | Saves all unknowns (even those belonging to collapsed nodes). |
 | `dv(node)` | Save the AC phasor voltage at the given node. |
 | `di(instance)` | Save the AC phasor current through the given instance. Only instances that introduce a current variable in the MNA system are valid (e.g. voltage sources, inductors). Equivalent to `dv('instance:flow(br)')`. |
 

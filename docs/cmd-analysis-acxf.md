@@ -30,7 +30,7 @@ analysis name acxf [parameters]
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `out` | string or list | `""` | Output node or node pair. A single string specifies a node to ground; a two-element list specifies a node pair. |
+| `out` | string or string vector | `""` | Output node or node pair. A single string specifies a node to ground; a two-element vector specifies a node pair. |
 | `nodeset` | string or list | `""` | Initial guess for the operating point. See [Operating Point Analysis](cmd-analysis-op.md) for syntax. |
 | `store` | string | `""` | Save the computed operating point under the given name. See [Operating Point Analysis](cmd-analysis-op.md). |
 | `from` | real | `0` | Start frequency (Hz). |
@@ -38,7 +38,7 @@ analysis name acxf [parameters]
 | `step` | real | `0` | Frequency step size (Hz) for a stepped linear sweep. |
 | `mode` | string | — | Sweep mode: `"lin"`, `"dec"`, or `"oct"`. |
 | `points` | integer | `0` | Number of points (total for `"lin"`, per decade for `"dec"`, per octave for `"oct"`). |
-| `values` | list | — | Explicit list of frequencies (Hz). Overrides `from`/`to`/`step`/`mode`/`points`. |
+| `values` | real vector | — | Explicit list of frequencies (Hz). Overrides `from`/`to`/`step`/`mode`/`points`. |
 | `write` | boolean | `1` | Write the analysis results to a file. |
 | `writeop` | boolean | `0` | Also write the operating point results to `<analysis>.op.*`. |
 

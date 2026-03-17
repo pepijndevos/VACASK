@@ -38,7 +38,7 @@ Operating point analysis supports the following save directives to control what 
 | Directive     | Description |
 |---------------|-------------|
 | `default`     | Saves all node voltages and branch currents (default behavior). |
-| `full`        | Saves all unknowns (even those belonging to collapsed ones). |
+| `full`        | Saves all unknowns (even those belonging to collapsed nodes). |
 | `v(node)`     | Saves the voltage at the specified node as `node`. |
 | `i(instance)` | Saves the current through the specified instance. Only instances that introduce a current variable in the MNA system are valid (e.g. voltage sources, inductors). Equivalent to `v('instance:flow(br)')`. |
 | `p(instance,outvar)` | Saves the specified output variable (opvar) from the given instance as `instance.opvar`|
