@@ -26,7 +26,7 @@
    4. [Builtin Constants](input-expr-constants.md)
    5. [Operators](input-expr-operators.md)
    6. [Builtin Functions](input-expr-functions.md)
-   8. Special Identifiers
+   7. [Special Identifiers](input-expr-special.md)
    7. Identifier Value Lookup
 4. The Control Block
    1. [Analysis Statements](cmd-analysis.md)
