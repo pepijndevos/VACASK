@@ -25,7 +25,7 @@
    3. Circuit Variables
    4. [Builtin Constants](input-expr-constants.md)
    5. [Operators](input-expr-operators.md)
-   6. Builtin Functions
+   6. [Builtin Functions](input-expr-functions.md)
    8. Special Identifiers
    7. Identifier Value Lookup
 4. The Control Block
