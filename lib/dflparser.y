@@ -392,6 +392,10 @@ subckt
     $1.def.add(std::move($1.parameters)); 
     $$ = std::move($1.def);
   }
+  | subckt_build ENDS IDENTIFIER NEWLINE {
+    $1.def.add(std::move($1.parameters)); 
+    $$ = std::move($1.def); 
+  }
 
 // Conditional block building
 condblock_build 

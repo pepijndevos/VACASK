@@ -151,7 +151,7 @@ vacask demo/bsim3-ptm-amp/toplevel.sim
 
 If you have Python 3, [NumPy](https://numpy.org/), and [Matplotlib](https://matplotlib.org/) installed the results will be plotted by the postprocessor script. Note that some of the demos also require [SciPy](https://scipy.org/). 
 
-You can learn about the netlist syntax by studying the demos in the [`demo`](demo) directory and the system tests in the [`test`](test) directory. Documentation is planned for the future. :)
+You can learn about the netlist syntax by studying the demos in the [`demo`](demo) directory and the system tests in the [`test`](test) directory. We also started to write [VACASK documentation](docs/index.md). It is a work in progress so be patient. 
 
 If VACASK fails to find something, first check all the paths by typing
 ```
