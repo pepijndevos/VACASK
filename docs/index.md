@@ -9,10 +9,10 @@
    6. [Including a File](input-include.md)
    7. [Embedded Files](input-embed.md)
 2. Circuit Description and Elaboration
-   1. [Loading Devices](input-cir-loading.md)
-   2. [Nodes](input-cir-nodes.md)
-   3. [Masters (Models and Subcircuits)](input-cir-masters.md)
-   4. [Instances](input-cir-instance.md)
+   1. [Loading Devices](cir-loading.md)
+   2. [Nodes](cir-nodes.md)
+   3. [Masters (Models and Subcircuits)](cir-masters.md)
+   4. [Instances](cir-instance.md)
    5. Subcircuits and Hierarchy
    6. Parametrization
    7. Parallel Devices (`$mfactor`)
@@ -23,10 +23,10 @@
    1. Scalar Data Types
    2. Vectors and Lists
    3. Circuit Variables
-   4. [Builtin Constants](input-expr-constants.md)
-   5. [Operators](input-expr-operators.md)
-   6. [Builtin Functions](input-expr-functions.md)
-   7. [Special Identifiers](input-expr-special.md)
+   4. [Builtin Constants](expr-constants.md)
+   5. [Operators](expr-operators.md)
+   6. [Builtin Functions](expr-functions.md)
+   7. [Special Identifiers](expr-special.md)
    7. Identifier Value Lookup
 4. The Control Block
    1. Analysis Statements
