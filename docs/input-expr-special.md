@@ -5,7 +5,7 @@ Special identifiers are predefined read-only names that reflect simulator state.
 | Identifier | Maps to option | Default | Description |
 |------------|----------------|---------|-------------|
 | `$temp` | `temp` | `27` | Ambient temperature (°C). |
-| `$scale` | `scale` | `1.0` | Global instance scaling factor. |
+| `$scale` | `scale` | `1.0` | Global instance length scaling factor. |
 
 Both identifiers track their corresponding simulator option. When `temp` or `scale` is changed with the `options` command, all parameterized expressions that reference `$temp` or `$scale` are re-evaluated.
 

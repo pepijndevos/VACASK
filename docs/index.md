@@ -13,12 +13,12 @@
    2. [Nodes](input-cir-nodes.md)
    3. [Masters (Models and Subcircuits)](input-cir-masters.md)
    4. [Instances](input-cir-instance.md)
-   5. [Subcircuits and Hierarchy](input-cir-subcircuit.md)
-   6. [Parametrization](input-cir-param.md)
-   7. [Parallel Devices (`$mfactor`)](input-cir-multiplier.md)
-   8. [Conditional Netlist Blocks](input-cir-cond.md)
-   9. [Automated Binning](input-cir-binning.md)
-   10. [Circuit Elaboration](input-cir-elaboration.md)
+   5. Subcircuits and Hierarchy
+   6. Parametrization
+   7. Parallel Devices (`$mfactor`)
+   8. Conditional Netlist Blocks
+   9. Automated Binning
+   10. Circuit Elaboration
 3. Data Types and Expressions
    1. Scalar Data Types
    2. Vectors and Lists
@@ -29,19 +29,19 @@
    7. [Special Identifiers](input-expr-special.md)
    7. Identifier Value Lookup
 4. The Control Block
-   1. [Analysis Statements](cmd-analysis.md)
-   2. [Sweeping](cmd-sweep.md)
-   3. [Saving Results](cmd-save.md)
-   4. [Simulator Options](cmd-options.md)
-      1. [Setting Simulator Options](cmd-options-set.md)
-      2. [Options Causing Circuit Reelaboration](cmd-options-elaborate.md)
-      3. [List of Simulator Options](cmd-options-list.md)
-   5. [Circuit Variables](cmd-var.md)
-   6. [Modifying Parameters](cmd-alter.md)
-   7. [Circuit Elaboration](cmd-elaborate.md)
-   8. [Printing](cmd-print.md)
-   9. [Postprocessing](cmd-postprocess.md)
-   10. [Error Handling](cmd-abort.md)
+   1. Analysis Statements
+   2. Sweeping
+   3. Saving Results
+   4. Simulator Options
+      1. Setting Simulator Options
+      2. Options Causing Circuit Reelaboration
+      3. List of Simulator Options
+   5. Circuit Variables
+   6. Modifying Parameters
+   7. Circuit Elaboration
+   8. Printing
+   9. Postprocessing
+   10. Error Handling
 5. Circuit Analyses
    1. [Operating Point Analysis](cmd-analysis-op.md)
    2. [DC Small-Signal Analysis](cmd-analysis-dcinc.md)
@@ -54,7 +54,7 @@
 6. VACASK Startup and Configuration
 7. Python Helpers
 8. Device Model Library
-   1. [Builtin Devices](input-cir-builtin.md)
+   1. Builtin Devices
       1. Independent Sources
       2. Linear Controlled Sources
       3. Inductive Coupling
