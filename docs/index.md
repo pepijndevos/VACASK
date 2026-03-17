@@ -13,7 +13,7 @@
    2. [Nodes](input-cir-nodes.md)
    3. [Masters (Models and Subcircuits)](input-cir-masters.md)
    4. [Instances](input-cir-instance.md)
-   5. [Subcircuits Revisited](input-cir-subcircuit.md)
+   5. [Subcircuits and Hierarchy](input-cir-subcircuit.md)
    6. [Parametrization](input-cir-param.md)
    7. [Parallel Devices (`$mfactor`)](input-cir-multiplier.md)
    8. [Conditional Netlist Blocks](input-cir-cond.md)
@@ -23,8 +23,8 @@
    1. Scalar Data Types
    2. Vectors and Lists
    3. Circuit Variables
-   4. Builtin Constants
-   5. Operators
+   4. [Builtin Constants](input-expr-constants.md)
+   5. [Operators](input-expr-operators.md)
    6. Builtin Functions
    8. Special Identifiers
    7. Identifier Value Lookup
