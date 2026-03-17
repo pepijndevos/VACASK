@@ -5,6 +5,7 @@
 #include "status.h"
 #include <cmath>
 #include <type_traits>
+#include <numbers>
 #include "libplatform.h"
 #include "common.h"
 
@@ -339,7 +340,11 @@ struct FwHypot {
 };
 
 struct FwAtan2 { 
-    Real operator()(Real x1, Real x2) { return std::atan(x1/x2); }; 
+    Real operator()(Real x1, Real x2) { 
+        auto ph = std::atan(x1/x2); 
+        //               Q1 Q4          Q3                      Q2
+        return (x1>=0) ? ph : ((x2<0) ? (ph-std::numbers::pi) : (ph+std::numbers::pi)); 
+    }; 
     bool ok(Real x1, Real x2, Status& s) { return true; }; 
 };
 
