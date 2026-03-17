@@ -17,7 +17,7 @@
    6. Parametrization
    7. Parallel Devices (`$mfactor`)
    8. [Conditional Netlist Blocks](cir-conditional.md)
-   9. Automated Binning
+   9. [Automated Binning](cir-binning.md)
    10. Circuit Elaboration
 3. Data Types and Expressions
    1. [Scalar Data Types](expr-scalars.md)

@@ -4,7 +4,7 @@ Circuit variables are named values set and updated from the control block. They 
 
 ## Setting variables
 
-The `var` command assigns one or more variables:
+The `var` control block statement assigns one or more variables:
 
 ```text
 var name=value [name2=expr ...]
