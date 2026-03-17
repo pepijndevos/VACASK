@@ -22,12 +22,12 @@
 3. Data Types and Expressions
    1. [Scalar Data Types](expr-scalars.md)
    2. [Vectors and Lists](expr-vectors.md)
-   3. Circuit Variables
-   4. [Builtin Constants](expr-constants.md)
-   5. [Operators](expr-operators.md)
-   6. [Builtin Functions](expr-functions.md)
-   7. [Special Identifiers](expr-special.md)
-   7. Identifier Value Lookup
+   3. [Builtin Constants](expr-constants.md)
+   4. [Operators](expr-operators.md)
+   5. [Builtin Functions](expr-functions.md)
+   6. [Special Identifiers](expr-special.md)
+   7. [Circuit Variables](expr-cirvars.md)
+   8. Identifier Value Lookup
 4. The Control Block
    1. Analysis Statements
    2. Sweeping
