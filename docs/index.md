@@ -20,8 +20,8 @@
    9. Automated Binning
    10. Circuit Elaboration
 3. Data Types and Expressions
-   1. Scalar Data Types
-   2. Vectors and Lists
+   1. [Scalar Data Types](expr-scalars.md)
+   2. [Vectors and Lists](expr-vectors.md)
    3. Circuit Variables
    4. [Builtin Constants](expr-constants.md)
    5. [Operators](expr-operators.md)
