@@ -602,7 +602,7 @@ bool HierarchicalInstance::buildBlock(Circuit& circuit, RpnEvaluator& evaluator,
     // Create models
     if (what==Build::Models) {
         for(auto it=block.models().cbegin(); it!=block.models().cend(); ++it) {
-            // Find devicetranslate(
+            // Find device
             // This returns a Device* pointer
             auto* dev = circuit.findDevice(it->device());
             if (!dev || dev->isHierarchical()) {
@@ -629,7 +629,7 @@ bool HierarchicalInstance::buildBlock(Circuit& circuit, RpnEvaluator& evaluator,
             // 2) try local definitions of hierarchical devices
             //    (prefix by definition path)
             if (!mod) {
-                // This is a hierarchical instacne and its model is a hierarchical model
+                // This is a hierarchical instance and its model is a hierarchical model
                 auto hmod = static_cast<HierarchicalModel*>(model_);
                 auto localDefId = hmod->translate(it->masterName());
                 mod = circuit.findModel(localDefId);

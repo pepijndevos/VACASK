@@ -427,6 +427,8 @@ bool OsdiInstance::propagateParameters(Circuit& circuit, RpnEvaluator& evaluator
 bool OsdiInstance::buildHierarchy(Circuit& circuit, RpnEvaluator& evaluator, Status& s) {
     // Create internal nodes
     // Start at the node following the last conected terminal
+    // TODO: maybe create internal nodes only for non-terminal nodes
+    //       resolve this with BJT and BSIM3SOI models
     auto* descr = model()->device()->descriptor();
     auto n = staticNodeCount();
     for(TerminalIndex i=connectedTerminalCount; i<n; i++) {
