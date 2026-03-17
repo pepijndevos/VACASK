@@ -7,17 +7,20 @@ Circuit variables are named values set and updated from the control block. They 
 The `var` control block statement assigns one or more variables:
 
 ```text
-var name=value [name2=expr ...]
+var name=expr [name2=expr ...]
 ```
 
-`value` or `expr` may be any scalar expression, including references to other variables and builtin constants. Variables are evaluated left to right. First all expression listed on a `var` statement are evaluated, upon which results are written to their destinations. If an expression references a variable that was assigned earlier in the same `var` statement, the value of the variable before the execution of the statement is used, 
-
+Example:
 ```text
-var vdd=1.8 vss=0
-var gain=5
-var gain=10 rfb=gain*1k // gain=5 is used
-vat rin=gain*1k         // gain=10 is used
+control
+  ...
+  var vdd=1.8
+  var gain=5
+  ...
+endc
 ```
+
+For details see [Modifying Circuit Variables](cmd-var.md).
 
 ## Scope and availability
 
@@ -42,6 +45,3 @@ sweep vsweep variable="vdd" start=1.0 stop=1.8 step=0.1
 
 Each step updates `vdd`, triggers re-evaluation of all dependent parameters, and runs the nested analysis block.
 
-## Clearing variables
-
-The `var` command only adds or updates names; it never removes them. To remove all  variables use the `clear variables` control block statement. 

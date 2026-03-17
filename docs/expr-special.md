@@ -2,10 +2,10 @@
 
 Special identifiers are predefined read-only names that reflect simulator state. They are available in all parameter expressions — instance parameters, model parameters, and subcircuit parameters.
 
-| Identifier | Maps to option | Default | Description |
-|------------|----------------|---------|-------------|
-| `$temp` | `temp` | `27` | Ambient temperature (°C). |
-| `$scale` | `scale` | `1.0` | Global instance length scaling factor. |
+| Identifier | Maps to option | Description |
+|------------|----------------|-------------|
+| `$temp` | `temp` | Ambient temperature (°C). |
+| `$scale` | `scale` | Global instance length scaling factor. |
 
 Both identifiers track their corresponding simulator option. When `temp` or `scale` is changed with the `options` command, all parameterized expressions that reference `$temp` or `$scale` are re-evaluated.
 

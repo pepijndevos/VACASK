@@ -36,7 +36,7 @@
       1. Setting Simulator Options
       2. Options Causing Circuit Reelaboration
       3. List of Simulator Options
-   5. Circuit Variables
+   5. [Modifying Circuit Variables](cmd-var.md)
    6. Modifying Parameters
    7. Circuit Elaboration
    8. Printing
