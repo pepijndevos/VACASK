@@ -17,11 +17,10 @@
       1. [Defining a Subcircuit](cir-subckt.md)
       2. [Instance Hierarchy](cir-hier.md)
       3. [Nested Subcircuit Definitions](cir-subckt-nested.md)
-   6. Parametrization
-   7. Parallel Devices (`$mfactor`)
-   8. [Conditional Netlist Blocks](cir-conditional.md)
-   9. [Automated Binning](cir-binning.md)
-   10. Circuit Elaboration
+   6. [Parallel Devices (`$mfactor`)](cir-mfactor.md)
+   7. [Conditional Netlist Blocks](cir-conditional.md)
+   8. [Automated Binning](cir-binning.md)
+   9. Circuit Elaboration
 3. Data Types and Expressions
    1. [Scalar Data Types](expr-scalars.md)
    2. [Vectors and Lists](expr-vectors.md)
@@ -59,8 +58,11 @@
 8. Device Model Library
    1. Builtin Devices
       1. Independent Sources
-      2. Linear Controlled Sources
-      3. Inductive Coupling
+      2. Voltage-controlled voltage source
+      3. Voltage-controlled current source
+      4. Current-controlled voltage source
+      5. Current-controlled current source
+      6. Inductive Coupling
    2. VACASK Verilog-A Devices
    3. 3rd Party Verilog-A Devices
    4. Converted SPICE Devices

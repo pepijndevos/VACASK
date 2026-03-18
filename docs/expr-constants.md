@@ -33,3 +33,7 @@ Builtin constants are predefined identifiers available in all expressions. They 
 | `P_EPS0` | $8.854187924 \times 10^{-12}$ | F/m | Permittivity of vacuum |
 | `P_U0` | $4\pi \times 10^{-7}$ | H/m | Permeability of vacuum |
 | `P_CELSIUS0` | $273.15$ | K | Zero Celsius in Kelvin |
+
+## Constant names are reserved
+
+Note that you cannot create a variable or a parameter that would have the same name as a constant and by that shadow it. 

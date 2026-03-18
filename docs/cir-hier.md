@@ -29,8 +29,14 @@ Output variables of an instance (currents, charges, and device-specific quantiti
 
 A subcircuit has its own scope for models. When resolving a model name, the simulator searches the local scope, followed by the enclosing top-level scope. A master defined in a the local scope shadows a same-named master from the top-level scope.
 
-Parameter expressions inside a subcircuit are resolved first in the subcircuit's own scope followed by the enclosing top-level scope. A parameter defined in a lower scope shadows a same-named parameter from the top-level scope.
+Parameter expressions inside a subcircuit are resolved first in the subcircuit's own scope followed by the enclosing top-level scope. 
 
-TODO: circuit variables and constants
+When VACASK encounters an identifier in a parameterized expression it searches for a value in the following order
 
-TODO: hierarchical subcircuit definitions
+- the subcircuit's own scope 
+- the top-level scope 
+- circuit variables 
+- constants 
+- special identifiers (see [Special Identifiers](expr-special.md))
+
+A parameter defined in a lower scope shadows a same-named parameter from the top-level scope. 

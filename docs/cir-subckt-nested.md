@@ -13,7 +13,35 @@ subckt outer (a b)
 ends
 ```
 
-The inner subcircuit can be instantiated freely within the enclosing definition. It is not accessible by name outside of it.
+The inner subcircuit can be instantiated freely anywhere within the enclosing
+definition. It is not accessible by name from outside.
+
+## Example
+
+```text
+subckt ota (inp inn outp outn vdd vss)
+  parameters ibias=100u
+
+  // Local helper subcircuit — not visible outside ota
+  subckt diff_pair (inp inn tail outp outn vdd vss)
+    parameters w=4u l=180n
+    mn1 (outp inn tail vss) nmos w=w l=l
+    mn2 (outn inp tail vss) nmos w=w l=l
+  ends
+
+  // Local helper subcircuit — not visible outside ota
+  subckt load_mirror (in out vdd)
+    mp1 (in  in  vdd vdd) pmos w=2u l=180n
+    mp2 (out in  vdd vdd) pmos w=2u l=180n
+  ends
+
+  // Instantiate local helper subcircuits
+  xdp  (inp inn tail outp outn vdd vss) diff_pair
+  xlm  (outp outn vdd) load_mirror
+
+  ibias_src (tail vss) isource dc=ibias
+ends
+```
 
 ## Naming of nested definitions
 
@@ -21,14 +49,12 @@ Subcircuit definitions use `::` as the separator between nesting levels. A subci
 
 | Path | Meaning |
 |------|---------|
-| `inv` | Subcircuit `inv` defined at top level |
-| `inv::tristate` | Subcircuit `tristate` defined inside `inv` |
+| `ota` | Subcircuit `ota` defined at top level |
+| `ota::diff_pair` | Subcircuit `diff_pair` defined inside `ota` |
 | `inv::tristate::cell` | Subcircuit `cell` defined inside `tristate` inside `inv` |
 
-These qualified names appear in `print models` output and in `alter` commands that target a model within a specific definition context.
-
-Models defined inside a subcircuit that has been instantiated are visible under the instance path using `:`, for example `x1:ressub` for model `ressub` defined inside the subcircuit instantiated as `x1`.
+Nested subcircuit definitions do not affect how instance hierarchy is handled. Defining a subcircuit within a subcircuit only limits the visibility of that subcircuit definition. 
 
 ## Scope
 
-An inner subcircuit definition is resolved only within the scope of its enclosing definition. It shadows any same-named definition from the top level for instances within that scope. The top-level scope is always searched as a fallback if a name is not found locally.
+An inner subcircuit definition is resolved only within the scope of its enclosing definition. It shadows any same-named definition from the top-level for instances within that scope. The top-level scope is always searched as a fallback if a subcircuit definition name is not found locally.
