@@ -98,7 +98,7 @@ sweep fmax_sweep variable="fmax" values=[1k, 2k, 5k, 10k]
   analysis ac1 ac from=1 to=fmax mode="lin" points=100
 ```
 
-When sweeping a string parameter via `values` the swept value stored in the .raw file is the index of the value specified in the `values` vector/list. 
+When sweeping a string parameter via `values` the swept value stored in the raw file is the index of the value specified in the `values` vector/list. 
 
 ```text
 var corners=["tt", "ff", "ss", "fs", "sf"]
@@ -118,7 +118,7 @@ sweep s variable="corner" values=["tt", "ff", "ss"] continuation=0
 
 ## Output
 
-The swept variable appears as a vector named after the sweep in the output file alongside the analysis results. For nested sweeps each sweep has its own vector. For a nested n-dimensional sweep the first n columns (vectors) in a .raw file correspond to the swept properties. The results are concatenated in 1-dimensional vectors in the .raw file. 
+The swept variable appears as a vector named after the sweep in the output file alongside the analysis results. For nested sweeps each sweep has its own vector. For a nested n-dimensional sweep the first n columns (vectors) in a raw file correspond to the swept properties. The results are concatenated in 1-dimensional vectors in the raw file. 
 
 ## Example 
 

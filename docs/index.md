@@ -28,7 +28,7 @@
    5. [Builtin Functions](expr-functions.md)
    6. [Circuit Variables](expr-cirvars.md)
    7. [Special Identifiers](expr-special.md)
-4. [The Control Block](cmd-control.md)
+4. [The Control Block](cmd-overview.md)
    1. [Analysis Statements](cmd-analysis.md)
    2. [Sweeping](cmd-sweep.md)
    3. [Saving Results](cmd-save.md)
@@ -51,7 +51,7 @@
    8. Printing
    9. [Postprocessing](cmd-postprocess.md)
    10. Error Handling
-5. Circuit Analyses
+5. [Circuit Analyses](cmd-analysis-overview.md)
    1. [Operating Point Analysis](cmd-analysis-op.md)
    2. [DC Small-Signal Analysis](cmd-analysis-dcinc.md)
    3. [DC Small-Signal Transfer Function Analysis](cmd-analysis-dcxf.md)
