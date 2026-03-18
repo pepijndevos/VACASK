@@ -1,10 +1,20 @@
+# VACASK Documentation
+
+VACASK (Verilog-A Circuit Analysis Kernel) is an analog circuit simulator built around the [OSDI](https://openvaf.semimod.de/docs/details/osdi/) device model interface. Device models are written in Verilog-A, compiled to shared libraries by the [OpenVAF-reloaded](https://github.com/arpadbuermen/OpenVAF) compiler, and loaded on demand at runtime. This clean separation between the simulator core and its device library makes it straightforward to use industry-standard compact models or to develop new ones without modifying the simulator itself.
+
+VACASK is not a SPICE clone. Its netlist language has a Spectre-like syntax with a richer expression system, fully parameterized hierarchical circuit descriptions, and conditional netlist blocks. The control block — the part of the netlist that drives simulation — is a small scripting language that sequences analyses, sweeps, circuit modifications, and postprocessing steps in a single run. Almost any circuit or simulator parameter can be swept or modified between analyses without reloading the netlist. Furthermore, the circuit's topology can also be changed without reloading the circuit. 
+
+The simulator supports operating-point, DC small-signal, AC small-signal, noise, transient, and harmonic balance analyses. The nonlinear solver uses residual-based convergence testing and several homotopy strategies for difficult operating-point problems. Numerical linear algebra is handled by the KLU sparse matrix library. Results are written in SPICE raw file format and can be postprocessed by external scripts, with built-in Python integration for launching postprocessors directly from the netlist.
+
+VACASK is developed at the EDA Laboratory, University of Ljubljana, and is released under the GNU Affero General Public License 3.0.
+
+---
+
 # Table of Contents
 
-1. VACASK Startup and Configuration
-   1. Command Line Options
-   2. Startup Sequence
-   3. Search Paths
-   4. TOML Configuration Files
+1. [VACASK Startup and Configuration](startup-overview.md)
+   1. [Command Line Options and Startup Sequence](startup-options.md)
+   2. [Search Paths and Configuration Files](startup-paths.md)
 2. [Input File](input-overview.md)
    1. [Numbers](input-numbers.md)
    2. [Strings](input-strings.md)
@@ -78,4 +88,5 @@
    3. [3rd Party Verilog-A Devices](dev-3rdparty.md)
    4. [Converted SPICE Devices](dev-spice.md)
 8. Python Helpers
+   1. rawfile.py — Reading Raw Files
 9. [C++ API](cpp-api.md)

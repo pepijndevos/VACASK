@@ -10,7 +10,7 @@ control
 endc
 ```
 
-The `control` and `endc` keywords must each appear at the start of a line. Only one control block is allowed per netlist file. It must be part of the top-level circuit definition — control blocks inside subcircuit definitions are not allowed.
+The `control` and `endc` keywords must each appear at the start of a line. Only one control block is allowed per input file. It must be part of the top-level circuit definition — control blocks inside subcircuit definitions are not allowed.
 
 ## Execution model
 

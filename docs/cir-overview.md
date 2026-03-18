@@ -2,9 +2,9 @@
 
 The circuit description is the part of the netlist that defines what the circuit looks like: its nodes, device instances, models, and subcircuits. It is written outside the `control`/`endc` block.
 
-## Structure of a netlist file
+## Structure of an input file
 
-A netlist file begins with a title line, followed by the circuit description, and optionally a control block:
+A an input file (also referred to as the netlist) begins with a title line, followed by the circuit description, and optionally a control block:
 
 ```text
 Title of the circuit
