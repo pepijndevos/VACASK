@@ -35,6 +35,12 @@ const Value* Circuit::getVariable(Id name, Status& s) const {
 //   the ParameterSweeper for setting a variable
 //   the command interpreter when runing the var command and setting the PYTHON variable
 std::tuple<bool, bool> Circuit::setVariable(Id name, const Value& v, Status& s) {
+    // Prevent insertion of constants - this must be done manually as Context accepts
+    // everything while ContextStack checks automatically if insertion is allowed. 
+    if (ContextStack::isConstant(name)) {
+        s.set(Status::Redefinition, "Redefinition of constants is not allowed.");
+        return std::make_tuple(false, false);
+    }
     auto [inserted, changed] = variables.insertAndCheck(name, v);
     // Newly inserted variable or a change to an existing variable sets the VariablesChnaged flag
     changed |= inserted;
