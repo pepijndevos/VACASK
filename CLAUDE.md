@@ -4,16 +4,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 # Repository layout
 
-Look in copilot-instructions.md in .github directory. 
+Look in copilot-instructions.md in the .github directory. 
 
 # Writing documentation
 
-Look in copilot-instructions.md in .github directory for instructions. 
+Look in copilot-instructions.md in the .github directory for instructions. 
 
 # Binary 
 
-It is in workspace_directory/build.VACASK/Release/simulator/vacask
+It is in workspace_directory/../build.VACASK/Release/simulator/vacask
 
 Make sure it is freshly built before running. 
 
-If you run VACASK, make your working directory /tmp before running. 
+If you run VACASK, make /tmp your working directory before running. 
