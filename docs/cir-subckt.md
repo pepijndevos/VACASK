@@ -6,7 +6,7 @@ A subcircuit is a reusable, named circuit block. It encapsulates nodes, device i
 
 ```text
 subckt name (terminal1 terminal2 ...)
-[parameters p1=default1 p2=default2 ...]
+[parameters p1=expr1 p2=expr2 ...]
 [models, instances, conditional blocks, nested subcircuit definitions]
 ends
 ```
@@ -17,7 +17,7 @@ The `ends` keyword closes the definition. Optionally the subcircuit name may fol
 
 ## Parameters
 
-Parameters declared inside a subcircuit are local to it. Each parameter must have a default value. An instance can override any subset of the parameters:
+Parameters declared inside a subcircuit are local to it. Each parameter must have amn expression. If the expression is a constant or can be evaluated to a constant during parsing it is the default value of the parameter and an instance can override the default value of the parameter. Such parameters are primary parameters:
 
 ```text
 subckt lp_filter (in out)
@@ -35,9 +35,7 @@ x2 (sig filt2) lp_filter r=10k c=100p
 
 ## Dependent parameters
 
-A parameter whose default is an expression may reference parameters declared earlier
-in the same `parameters` block. This lets you derive secondary values from a small
-set of primary inputs:
+A parameter whose expression references parameters declared earlier or circuit variables is a dependent parameter. This lets you derive secondary values from a small set of primary inputs:
 
 ```text
 subckt amp (in out)
@@ -48,10 +46,9 @@ parameters rin=av/gm         // rin = 10k (av already computed)
 ends
 ```
 
-Constant parameters (right-hand side is a literal value or can be computed from builtin constants) are all committed to the context before any dependent parameters are evaluated, regardless of declaration order. Dependent parameters are then evaluated in declaration order; each one sees the fully resolved values of all constants and all expression parameters declared before it.
+Parameters with default values (right-hand side is a literal value or can be computed during parsing) are all committed to the context before any dependent parameters are evaluated, regardless of declaration order. Dependent parameters are then evaluated in declaration order; each one sees the fully resolved values of all constants and all dependent parameters declared before it.
 
-An instance-supplied override for a primary parameter automatically propagates to
-derived parameters that depend on it:
+An instance-supplied override for a primary parameter automatically propagates to derived parameters that depend on it:
 
 ```text
 // x1 uses gm=20m; av and rin are recomputed from the new gm
@@ -62,34 +59,54 @@ When creating a subcircuit instance you cannot override the values of dependent 
 
 ## Internal nodes
 
-Nodes that appear inside a subcircuit but are not listed as terminals and are not global/ground nodes are internal nodes. They are invisible outside the subcircuit and are created fresh for each instance.
+Nodes that appear inside a subcircuit but are not listed as terminals and are not global/ground nodes are internal nodes. They are invisible outside the subcircuit and are created fresh for each instance. 
+
+```text
+...
+global vdd vss
+
+subckt and in1 in2 out
+  // Global nodes  : vdd, vss
+  // Terminals     : in1, in2, out
+  // Internal nodes: n1, out1 
+  // NAND gate
+  mp1 (out1 in1 vdd vdd) pmos w=2u l=0.18u
+  mp2 (out1 in2 vdd vdd) pmos w=2u l=0.18u
+  mn1 (out1 in1 n1  vss) nmos w=1u l=0.18u
+  mn2 (n1   in2 vss vss) nmos w=1u l=0.18u
+  // Inverter
+  mp3 (out out1 vdd vdd) pmos w=2u l=0.18u
+  mn3 (out out1 vss vss) nmos w=1u l=0.18u
+ends
+```
 
 ## Defaut top-level circuit
 
-Instances, models, and parameters defined outside `subckt`/`ends` blocks constitute the default top-level circuit. The default top-level circuit has no terminals. This is where the circuit elaboration starts by default - by instantiating the default top-level circuit. 
+Instances, models, and parameters defined outside `subckt`/`ends` blocks constitute the default top-level circuit. The default top-level circuit has no terminals. This is where the circuit elaboration starts by default - by creating an instance of the default top-level circuit. 
 
-## Hierarchical names of nodes, instances, and models
+```text
+Sample circuit
 
-Every instance, internal node, and locally defined model is given a hierarchical name that reflects its position in the instance tree. These names are used in save directives, `alter`, `print hierarchy`, and output file column headers.
+load "spice/resistor.osdi"
+load "spice/bjt.osdi"
 
-The separator between levels is `:`. Top-level instances have no prefix; instances inside a subcircuit instance are prefixed with that instance's name:
+// These models are part of the top-level circuit definition
+model vsrc vsource
+model resistor resistor
 
-| Path | Meaning |
-|------|---------|
-| `rtop` | Top-level instance `rtop` |
-| `x1` | Top-level instance `x1` |
-| `x1:r1` | Instance `r1` inside instance `x1` |
-| `x1:xa:r1` | Instance `r1` inside `xa`, which is inside `x1` |
+// These instances are part of the top-level circuit definition
+vdd (vp 0) vsrc dc=5
+vin (exc 0) vsrc dc=0
+rl (resp 0) resistor r=1k
+xamp (exc resp vp 0) amplifier
 
-Internal nodes and models defined inside a subcircuit definition follow the same rule: a node named `mid` inside instance `x1` is referred to as `x1:mid`.
-
-Global and ground nodes (declared with `global` or `ground`) are never prefixed — their name is the same everywhere in the hierarchy.
-
-For the naming rules that apply to nested subcircuit definitions see [Nested Subcircuit Definitions](cir-subckt-nested.md).
-
-### Output variables
-
-Output variables of an instance (currents, charges, and device-specific quantities exposed by a device model) are referred to as `instance.outvar`, for example `x1:m1.id` for the drain current of device `m1` inside instance `x1`.
+subckt amplifier in out vcc vee
+  // These models and instances are part of the amplifier subcircuit definition
+  model t2n2222 sp_bjt type=1 ...
+  q1 (out in vee) t2n2222
+  rc (vcc out) resistor r=1k
+ends
+```
 
 ## Allowed contents
 
@@ -106,9 +123,3 @@ The following are allowed only at the top level and are errors inside a subcircu
 - `global` and `ground` directives
 - `load` and `embed` directives
 - The `control` block
-
-## Scope
-
-A subcircuit has its own scope for models and nested subcircuit definitions. When resolving a master name, the simulator searches the local scope first, then the enclosing top-level scope, and finally the scope of the top-level circuit definition. A master defined in a lower scope shadows a same-named master from a higher scope.
-
-Parameter expressions inside a subcircuit are resolved first in the subcircuit's own scope followed by the parameters defined at the enclosing top-level scope, and finally the scope of the top-level circuit definition. A parameter defined in a lower scope shadows a same-named parameter from a higher scope.

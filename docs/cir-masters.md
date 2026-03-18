@@ -4,17 +4,16 @@ A *master* is a named template that instances reference. VACASK has two kinds of
 
 ## Models
 
-A model binds a `name` to a loaded device type and optionally sets parameter values that are common to all instances of a model:
+A model binds a `name` to a loaded device module and optionally sets parameter values that are common to all instances of a model:
 
 ```text
 model name device_type [parameters]
 ```
 
-`device_type` must be the name of a device module that has been loaded with the `load` directive or the name of a builtin device model. Parameters given on the `model` line are common to all instances that references this model. In some cases an instance can further override a subset of these parameters.
+`device_type` must be the name of a device module that has been loaded with the `load` directive or the name of a builtin device model. Parameters given on the `model` line are common to all instances that reference this model. In some cases an instance can further override a subset of these parameters.
 
 ```text
-model r resistor
-model r10k resistor r=10k
+model r sp_resistor tc1=0.01
 model d sp_diode is=1e-12 n=2
 ```
 
@@ -24,12 +23,14 @@ A subcircuit is a reusable block of models and instances:
 
 ```text
 subckt name(terminal1 terminal2 ...)
-  [parameters keyword]
+  [parameters]
   [models and instances]
+  [conditional blocks]
+  [subcircuit definitions]
 ends
 ```
 
-The terminals listed in parentheses are the connection points exposed to the parent. Subcircuits can contain models, instances, nested subcircuit definitions, and blocks of`parameters`.
+The terminals listed in parentheses are the connection points exposed to the parent. Subcircuits can contain models, instances, conditional blocks, nested subcircuit definitions, and blocks of`parameters`.
 
 ```text
 subckt divider(in out)
@@ -44,3 +45,13 @@ Subcircuit instances are created the same way as device instances — the subcir
 ## Scope
 
 Models and subcircuits are resolved by searching first in the current scope (the enclosing subcircuit), then in the top level scope. A locally defined master shadows a same-named master from the top level scope.
+
+## Parameterized expressions
+
+Model parameters can be specified with arithmetic expressions. Expressions can reference parameters defined with the `parameters` keyword in the enclosing scope, constants, and circuit variables:
+
+```text
+parameters vth0=0.5 dvth0=0.1
+
+model nmos mos1 type=1 vto=vth0+dvth0 ...
+```

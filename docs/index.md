@@ -15,7 +15,8 @@
    4. [Instances](cir-instance.md)
    5. Subcircuits and Hierarchy
       1. [Defining a Subcircuit](cir-subckt.md)
-      2. [Nested Subcircuit Definitions](cir-subckt-nested.md)
+      2. [Instance Hierarchy](cir-hier.md)
+      3. [Nested Subcircuit Definitions](cir-subckt-nested.md)
    6. Parametrization
    7. Parallel Devices (`$mfactor`)
    8. [Conditional Netlist Blocks](cir-conditional.md)

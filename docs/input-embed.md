@@ -75,7 +75,7 @@ embed "postprocess.py" <<<PYEOF
 
 ## Environment variables in postprocessing
 
-VACASK sets the `PYTHON` circuit variable to the full path of the Python 3
+VACASK sets the `PYTHON` circuit variable to the full path of the Python
 interpreter (if available). Use this in the control block to invoke Python
 portably:
 

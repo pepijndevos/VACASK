@@ -23,7 +23,7 @@ definitions and instance definitions. For a particular instance a parameter spec
 in an instance definition overrides the parameter specified in the corresponding model 
 definition. 
 
-Subcircuits can be parameterized. Each subcircuit parameter has a default value specified in the subcircuit difinition. If that parameter is specified in a subcircuit instance definition the instance value overrides the default. 
+Subcircuits can be parameterized. Each subcircuit parameter has a default value specified in the subcircuit definition. If that parameter is specified for a subcircuit instance the instance value overrides the default value. 
 
 ## Unconnected terminal handling 
 
@@ -44,9 +44,9 @@ x1 (a b c) mysubckt gain=2
 
 Subcircuit instances conventionally use the `x` prefix but this is not required by the simulator.
 
-## Expressions in parameters
+## Parameterized expressions
 
-Instance parameters accept arithmetic expressions. Expressions can reference parameters defined with the `parameters` keyword in the enclosing scope:
+Instance parameters can be specified with arithmetic expressions. Expressions can reference parameters defined with the `parameters` keyword in the enclosing scope, constants, and circuit variables:
 
 ```text
 parameters vcc=3.3 rin=1k

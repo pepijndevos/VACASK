@@ -28,6 +28,6 @@ beginning of a line and are case‑sensitive.
 | `@end`       | End of conditional netlist block. |
 
 > **Note:** the `save`, `sweep`, and `analysis` keywords are only treated specially 
-> inside the control block; outside of `control` they are parsed as a regular identifiers.
+> inside the control block; outside of `control` they are parsed as regular identifiers.
 
 Quoted identifiers (single quotes) may still use these words as names.
