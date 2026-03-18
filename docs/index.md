@@ -53,9 +53,7 @@
    6. [Small-Signal Noise Analysis](cmd-analysis-noise.md)
    7. [Transient Analysis](cmd-analysis-tran.md)
    8. [Harmonic Balance Analysis](cmd-analysis-hb.md)
-6. VACASK Startup and Configuration
-7. Python Helpers
-8. Device Model Library
+6. Device Model Library
    1. Builtin Devices
       1. Independent Sources
       2. Voltage-controlled voltage source
@@ -63,7 +61,9 @@
       4. Current-controlled voltage source
       5. Current-controlled current source
       6. Inductive Coupling
-   2. VACASK Verilog-A Devices
-   3. 3rd Party Verilog-A Devices
-   4. Converted SPICE Devices
+   2. [VACASK Verilog-A Devices](dev-vacask.md)
+   3. [3rd Party Verilog-A Devices](dev-3rdparty.md)
+   4. [Converted SPICE Devices](dev-spice.md)
+7. VACASK Startup and Configuration
+8. Python Helpers
 9. C++ API
