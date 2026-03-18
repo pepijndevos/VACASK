@@ -26,16 +26,25 @@
    3. [Builtin Constants](expr-constants.md)
    4. [Operators](expr-operators.md)
    5. [Builtin Functions](expr-functions.md)
-   6. [Special Identifiers](expr-special.md)
-   7. [Circuit Variables](expr-cirvars.md)
+   6. [Circuit Variables](expr-cirvars.md)
+   7. [Special Identifiers](expr-special.md)
 4. [The Control Block](cmd-control.md)
    1. [Analysis Statements](cmd-analysis.md)
    2. [Sweeping](cmd-sweep.md)
    3. [Saving Results](cmd-save.md)
-   4. Simulator Options
-      1. Setting Simulator Options
-      2. Options Causing Circuit Reelaboration
-      3. List of Simulator Options
+   4. [Simulator Options](cmd-options.md)
+      1. [Setting Simulator Options](cmd-options-set.md)
+      2. [Options with Special Behavior](cmd-options-special.md)
+      3. [Temperature, Scale, and Conductances](cmd-options-temp.md)
+      4. [Tolerances](cmd-options-tol.md)
+      5. [Relative Tolerance Reference](cmd-options-relref.md)
+      6. [Newton-Raphson Solver](cmd-options-nr.md)
+      7. [Homotopy Algorithms](cmd-options-homotopy.md)
+      8. [Operating Point Options](cmd-options-op.md)
+      9. [Small-Signal Analysis Options](cmd-options-smsig.md)
+      10. [Transient Analysis Options](cmd-options-tran.md)
+      11. [Harmonic Balance Options](cmd-options-hb.md)
+      12. [Output and Sweep Options](cmd-options-output.md)
    5. [Modifying Circuit Variables](cmd-var.md)
    6. Modifying Parameters
    7. [Circuit Elaboration](cmd-elaboration.md)
@@ -51,6 +60,7 @@
    6. [Small-Signal Noise Analysis](cmd-analysis-noise.md)
    7. [Transient Analysis](cmd-analysis-tran.md)
    8. [Harmonic Balance Analysis](cmd-analysis-hb.md)
+   9. Verilog-A Natures and Tolerances
 6. Device Model Library
    1. Builtin Devices
       1. Independent Sources

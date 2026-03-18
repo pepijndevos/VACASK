@@ -7,7 +7,9 @@ Special identifiers are predefined read-only names that reflect simulator state.
 | `$temp` | `temp` | Ambient temperature (°C). |
 | `$scale` | `scale` | Global instance length scaling factor. |
 
-Both identifiers track their corresponding simulator option. When `temp` or `scale` is changed with the `options` command, all parameterized expressions that reference `$temp` or `$scale` are re-evaluated.
+Both identifiers track their corresponding simulator option. When `temp` or `scale` is changed with the `options` command, all parameterized expressions that reference `$temp` or `$scale` are re-evaluated. 
+
+A special identifier can be shadowed by defining a circuit variable or a parameter with the same name. 
 
 ## Example
 
