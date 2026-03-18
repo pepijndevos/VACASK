@@ -244,11 +244,12 @@ const OutputDescriptor::Type OutdSolComponent             = 0;
 const OutputDescriptor::Type OutdPinCurrent               = 1; 
 const OutputDescriptor::Type OutdOutvar                   = 2;
 const OutputDescriptor::Type OutdTf                       = 3;
-const OutputDescriptor::Type OutdZin                      = 4;
-const OutputDescriptor::Type OutdYin                      = 5;
+const OutputDescriptor::Type OutdZ                        = 4;
+const OutputDescriptor::Type OutdY                        = 5;
 const OutputDescriptor::Type OutdNoiseContribInst         = 6;
 const OutputDescriptor::Type OutdNoiseContribInstPartial  = 7;
 
+const OutputDescriptor::Type OutdGain                     = 59;
 const OutputDescriptor::Type OutdOutputNoise              = 60;
 const OutputDescriptor::Type OutdPowerGain                = 61;
 const OutputDescriptor::Type OutdFrequency                = 62;

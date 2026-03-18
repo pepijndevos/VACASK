@@ -38,6 +38,7 @@
             // "args": [ "-df", "${workspaceFolder}/test/test_dcxf.sim" ],
             // "args": [ "-df", "${workspaceFolder}/test/test_ac.sim" ],
             // "args": [ "-df", "${workspaceFolder}/test/test_actf.sim" ],
+             "args": [ "-df", "${workspaceFolder}/test/test_acstb.sim" ],
             // "args": [ "-df", "${workspaceFolder}/test/test_tran.sim" ],
             // "args": [ "-df", "${workspaceFolder}/test/test_tranic.sim" ],
             // "args": [ "-df", "${workspaceFolder}/test/test_noise.sim" ],
@@ -136,7 +137,6 @@
             // "args": [ "-df", "${workspaceFolder}/demo/natures/ddt.sim" ], 
             // "args": [ "-df", "${workspaceFolder}/demo/hierarchy/hier.sim" ], 
             // "args": [ "-df", "/home/arpadb/rram/test.sim" ], 
-            //  "args": [ "-df", "t1.sp" ], 
             // "args": [ "-df", "-dp" ],
             
             "stopAtEntry": false,

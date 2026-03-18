@@ -183,7 +183,7 @@ bool AnalysisCore::addAllTfZin(const PTSave& save, std::unordered_map<Id,size_t>
                 auto name1 = std::string("tf(") + std::string(objName) + ")";
                 addOutputDescriptor(OutputDescriptor(OutdTf, name1, objName, ndx));
                 auto name2 = std::string("zin(") + std::string(objName) + ")";
-                addOutputDescriptor(OutputDescriptor(OutdZin, name2, objName, ndx));
+                addOutputDescriptor(OutputDescriptor(OutdZ, name2, objName, ndx));
             }
         }
     }
@@ -231,7 +231,7 @@ bool AnalysisCore::addZin(const PTSave& save, std::unordered_map<Id,size_t>& nam
     }
     // Create descriptor
     auto name = std::string("zin(") + std::string(save.objName()) + ")";
-    addOutputDescriptor(OutputDescriptor(OutdZin, name, save.objName(), ndx));
+    addOutputDescriptor(OutputDescriptor(OutdZ, name, save.objName(), ndx));
     savesCount++;
     return true;
 }
@@ -253,7 +253,7 @@ bool AnalysisCore::addYin(const PTSave& save, std::unordered_map<Id,size_t>& nam
     }
     // Create descriptor
     auto name = std::string("yin(") + std::string(save.objName()) + ")";
-    addOutputDescriptor(OutputDescriptor(OutdYin, name, save.objName(), ndx));
+    addOutputDescriptor(OutputDescriptor(OutdY, name, save.objName(), ndx));
     savesCount++;
     return true;
 }
@@ -450,7 +450,7 @@ bool AnalysisCore::addOutvarOutputSource(bool strict, Id instance, Id outvar) {
     return true;
 }
 
-std::tuple<bool, UnknownIndex, UnknownIndex> AnalysisCore::getOutput(Value& v) {
+std::tuple<bool, UnknownIndex, UnknownIndex> AnalysisCore::getDiffNodePair(Value& v) {
     clearError();
     if (v.type()==Value::Type::String) {
         // Output is a string
@@ -508,7 +508,7 @@ std::tuple<bool, UnknownIndex, UnknownIndex> AnalysisCore::getOutput(Value& v) {
     }
 }
 
-std::tuple<bool, Instance*> AnalysisCore::getInput(Id name) {
+std::tuple<bool, Instance*> AnalysisCore::getExcitation(Id name) {
     clearError();
     auto inst = circuit.findInstance(name);
     if (!inst) {

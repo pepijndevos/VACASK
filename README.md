@@ -86,6 +86,22 @@ Certain devices (independent voltage and current sources, linear controlled sour
 
 VACASK is being developed by Árpád Bűrmen at the EDA Laboratory, University of Ljubljana, Slovenia. It is written in C++20 and is free software released under the [GNU Affero General Public License 3.0](LICENSE). 
 
+
+# Supported analyses
+
+|Name    |   |
+|--------|---|
+|op      |DC operating point |
+|dcinc   |incremental DC analysis (i.e. ac analysis at 0Hz) |
+|dcxf    |small-signal DC transfer functions from independent sources to given output (i.e. acxf analysis at 0Hz) |
+|ac      |small-signal AC analysis |
+|acxf    |small-signal AC transfer functions from independent sources to given output |
+|acstb   |small-signal AC stability analysis (open loop gain without breaking the loop) |
+|noise   |small-signal noise analysis |
+|tran    |transient (time-domain) analysis |
+|hb      |harmonic balance analysis |
+
+
 # What about device models? 
 
 The following device models are supplied with VACASK. 

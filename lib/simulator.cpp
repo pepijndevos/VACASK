@@ -5,6 +5,7 @@
 #include "andcxf.h"
 #include "anac.h"
 #include "anacxf.h"
+#include "anacstb.h"
 #include "antran.h"
 #include "annoise.h" 
 #include "anhb.h" 
@@ -71,6 +72,7 @@ bool Simulator::setup(
     ok &= registerAnalysis<DCXF>("dcxf", s);
     ok &= registerAnalysis<AC>("ac", s);
     ok &= registerAnalysis<ACXF>("acxf", s);
+    ok &= registerAnalysis<ACStb>("acstb", s);
     ok &= registerAnalysis<Noise>("noise", s);
     ok &= registerAnalysis<Tran>("tran", s);
     ok &= registerAnalysis<HB>("hb", s);

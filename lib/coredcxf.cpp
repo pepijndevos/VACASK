@@ -60,8 +60,8 @@ bool DCXFCore::resolveOutputDescriptors(bool strict) {
         Instance *inst;
         switch (it->type) {
             case OutdTf:
-            case OutdZin:    
-            case OutdYin:
+            case OutdZ:    
+            case OutdY:
                 // Get instance name and index
                 name = it->idNdx.id;
                 ndx = it->idNdx.ndx;
@@ -96,10 +96,10 @@ bool DCXFCore::resolveOutputDescriptors(bool strict) {
         case OutdTf:
             outputSources.emplace_back(&tf, ndx);
             break;
-        case OutdZin:
+        case OutdZ:
             outputSources.emplace_back(&zin, ndx);
             break;
-        case OutdYin:
+        case OutdY:
             outputSources.emplace_back(&yin, ndx);
             break; 
         default:
@@ -183,7 +183,7 @@ CoreCoroutine DCXFCore::coroutine(bool continuePrevious) {
     zin.resize(sources.size());
 
     // Get output unknowns
-    auto [ok, up, un] = getOutput(params.out);
+    auto [ok, up, un] = getDiffNodePair(params.out);
     if (!ok) {
         co_yield CoreState::Aborted;
     }

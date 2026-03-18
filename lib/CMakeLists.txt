@@ -77,6 +77,7 @@ add_library(simlib STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/coredcxf.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/coreac.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/coreacxf.h 
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include/coreacstb.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/corenoise.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/coretrancoef.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/coretrannr.h 
@@ -92,6 +93,7 @@ add_library(simlib STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/andcxf.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/anac.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/anacxf.h 
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include/anacstb.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/annoise.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/antran.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/anhb.h 
@@ -154,6 +156,7 @@ add_library(simlib STATIC
     coredcxf.cpp 
     coreac.cpp 
     coreacxf.cpp 
+    coreacstb.cpp 
     corenoise.cpp
     coretrancoef.cpp 
     coretrannr.cpp 
@@ -172,6 +175,7 @@ add_library(simlib STATIC
     andcxf.cpp 
     anac.cpp 
     anacxf.cpp 
+    anacstb.cpp 
     annoise.cpp 
     antran.cpp 
     anhb.cpp

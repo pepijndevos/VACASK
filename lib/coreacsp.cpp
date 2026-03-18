@@ -1,7 +1,7 @@
 #include <iomanip>
 #include <cmath>
 #include <filesystem>
-#include "coreacxf.h"
+#include "coreacsp.h"
 #include "simulator.h"
 #include "answeep.h"
 #include "context.h"
@@ -11,12 +11,12 @@
 namespace NAMESPACE {
 
 // Default parameters
-ACXFParameters::ACXFParameters() {
+ACSPParameters::ACSPParameters() {
     opParams.write = 0;
 }
 
-template<> int Introspection<ACXFParameters>::setup() {
-    registerMember(out);
+template<> int Introspection<ACSPParameters>::setup() {
+    registerMember(ports);
     registerMember(from);
     registerMember(to);
     registerMember(step);
@@ -27,21 +27,20 @@ template<> int Introspection<ACXFParameters>::setup() {
     registerMember(write);
     registerNamedMember(opParams.nodeset, "nodeset");
     registerNamedMember(opParams.store, "store");
-
+    
     return 0;
 }
-instantiateIntrospection(ACXFParameters);
+instantiateIntrospection(ACSPParameters);
 
 
-ACXFCore::ACXFCore(
-    OutputDescriptorResolver& parentResolver, ACXFParameters& params, OperatingPointCore& opCore, std::unordered_map<Id,size_t>& sourceIndex, 
-    Circuit& circuit, CommonData& commons, 
+ACSPCore::ACSPCore(
+    OutputDescriptorResolver& parentResolver, ACSPParameters& params, OperatingPointCore& opCore, Circuit& circuit, 
+    CommonData& commons, 
     KluRealMatrix& dcJacobian, VectorRepository<double>& dcSolution, VectorRepository<double>& dcStates, 
-    KluComplexMatrix& acMatrix, Vector<Complex>& acSolution, 
-    std::vector<Instance*>& sources, Vector<Complex>& tf, Vector<Complex>& yin, Vector<Complex>& zin
-) : AnalysisCore(parentResolver, circuit, commons), params(params), outfile(nullptr), opCore_(opCore), sourceIndex(sourceIndex), 
+    KluComplexMatrix& acMatrix, Vector<Complex>& acSolution, Vector<Complex>& resultsVector
+) : AnalysisCore(parentResolver, circuit, commons), params(params), outfile(nullptr), opCore_(opCore), 
     dcSolution(dcSolution), dcStates(dcStates), dcJacobian(dcJacobian), 
-    acMatrix(acMatrix), acSolution(acSolution), sources(sources), tf(tf), yin(yin), zin(zin) {
+    acMatrix(acMatrix), acSolution(acSolution), resultsVector(resultsVector) {
     
     // Set analysis type for the initial operating point analysis
     auto& elsSystem = opCore_.solver().evalSetup();
@@ -50,73 +49,32 @@ ACXFCore::ACXFCore(
     elsSystem.acAnalysis = true;
 }
 
-ACXFCore::~ACXFCore() {
+ACSPCore::~ACSPCore() {
     delete outfile;
 }
 
-bool ACXFCore::resolveOutputDescriptors(bool strict) {
-    clearError();
+// Converts an OutputDescriptor into an OutputSource. 
+// The former can be used to recreate the latter if the set of unknowns changes. 
+bool ACSPCore::resolveOutputDescriptors(bool strict) {
     // Clear output sources
     outputSources.clear();
-    // Clear source instance pointers, initialize to nullptrs
-    sources.clear();
-    sources.resize(sourceIndex.size(), nullptr);
     // Resolve output descriptors
     bool ok = true; 
     for (auto it = outputDescriptors.cbegin(); it != outputDescriptors.cend(); ++it) {
-        Id name;
-        size_t ndx;
-        Instance *inst;
         switch (it->type) {
-            case OutdTf:
-            case OutdZ:    
-            case OutdY:
-                // Get instance name and index
-                name = it->idNdx.id;
-                ndx = it->idNdx.ndx;
-                // Find instance
-                inst = circuit.findInstance(name);
-                sources[ndx] = inst;
-                if (strict) {
-                    if (!inst) {
-                        setError(ACXFError::NotFound);
-                        errorInstance = name;
-                        ok = false;
-                        break;
-                    }
-                }
-                // Instance found, but is not a source... this is always an error
-                if (inst && !inst->model()->device()->isSource()) {
-                    setError(ACXFError::NotSource);
-                    errorInstance = name; 
-                    ok = false;
-                    break;
-                }
-                // No instance and we reached this point, create constant source
-                if (!inst) {
-                    outputSources.emplace_back();
-                }
-                break;
-        }
-        if (!ok) {
+        case OutdGain:
+            outputSources.emplace_back(&resultsVector, it->ndx);
             break;
-        }
-        switch (it->type) {
+        case OutdY:
+            outputSources.emplace_back(&resultsVector, it->ndx);
+            break;
         case OutdFrequency:
             outputSources.emplace_back(&frequency);
             break;
-        case OutdTf:
-            outputSources.emplace_back(&tf, ndx);
-            break;
-        case OutdZ:
-            outputSources.emplace_back(&zin, ndx);
-            break;
-        case OutdY:
-            outputSources.emplace_back(&yin, ndx);
-            break; 
         default:
             // Delegate to parent
             ok = parentResolver.resolveOutputDescriptor(*it, outputSources, strict);
+            break;
         }
         if (!ok) {
             break;
@@ -125,7 +83,8 @@ bool ACXFCore::resolveOutputDescriptors(bool strict) {
     return ok;
 }
 
-bool ACXFCore::addCoreOutputDescriptors() {
+// These OutputDescriptors are always added
+bool ACSPCore::addCoreOutputDescriptors() {
     clearError();
     // If output is suppressed, skip all this work
     if (!params.write || Simulator::noOutput()) {
@@ -136,21 +95,58 @@ bool ACXFCore::addCoreOutputDescriptors() {
         errorId = "frequency";
         return false;
     }
+    // Forward/reverse/total open loop gain
+    if (!addOutputDescriptor(OutputDescriptor(OutdGain, "wf", to_int(StbResult::Wf)))) {
+        lastError = Error::Descriptor;
+        errorId = "forward open-loop gain";
+        return false;
+    }
+    if (!addOutputDescriptor(OutputDescriptor(OutdGain, "wr", to_int(StbResult::Wr)))) {
+        lastError = Error::Descriptor;
+        errorId = "reverse open-loop gain";
+        return false;
+    }
+    if (!addOutputDescriptor(OutputDescriptor(OutdGain, "w", to_int(StbResult::W)))) {
+        lastError = Error::Descriptor;
+        errorId = "open-loop gain";
+        return false;
+    }
+    if (!addOutputDescriptor(OutputDescriptor(OutdY, "y_1_1", to_int(StbResult::y11)))) {
+        lastError = Error::Descriptor;
+        errorId = "y11";
+        return false;
+    }
+    if (!addOutputDescriptor(OutputDescriptor(OutdY, "y_1_2", to_int(StbResult::y12)))) {
+        lastError = Error::Descriptor;
+        errorId = "y12";
+        return false;
+    }
+    if (!addOutputDescriptor(OutputDescriptor(OutdY, "y_2_1", to_int(StbResult::y21)))) {
+        lastError = Error::Descriptor;
+        errorId = "y21";
+        return false;
+    }
+    if (!addOutputDescriptor(OutputDescriptor(OutdY, "y_2_2", to_int(StbResult::y22)))) {
+        lastError = Error::Descriptor;
+        errorId = "y22";
+        return false;
+    }
     return true;
 }
 
-bool ACXFCore::addDefaultOutputDescriptors() {
+// These OutputDescriptors are added if no save directives are given
+bool ACSPCore::addDefaultOutputDescriptors() {
     // If output is suppressed, skip all this work
     if (!params.write || Simulator::noOutput()) {
         return true;
     }
     if (savesCount==0) {
-        return addAllTfZin(PTSave("default", Id(), Id()), sourceIndex);
     }
     return true;
 }
 
-bool ACXFCore::initializeOutputs(Id name, Status& s) {
+bool ACSPCore::initializeOutputs(Id name, Status& s) {
+    // If output is suppressed, skip all this work
     if (!params.write || Simulator::noOutput()) {
         return true;
     }
@@ -161,14 +157,14 @@ bool ACXFCore::initializeOutputs(Id name, Status& s) {
             (circuit.simulatorOptions().core().rawfile==SimulatorOptions::rawfileBinary ? OutputRawfile::Flags::Binary : OutputRawfile::Flags::None) |
                 OutputRawfile::Flags::Padded | OutputRawfile::Flags::Complex);
         outfile->setTitle(circuit.title());
-        outfile->setPlotname("AC Small Signal Transfer Function Analysis");
+        outfile->setPlotname("AC S-parameter Analysis");
     }
     outfile->prologue();
 
     return true;
 }
 
-bool ACXFCore::finalizeOutputs(Status& s) {
+bool ACSPCore::finalizeOutputs(Status& s) {
     if (outfile) {
         outfile->epilogue();
         delete outfile;
@@ -177,7 +173,7 @@ bool ACXFCore::finalizeOutputs(Status& s) {
     return true;
 }
 
-bool ACXFCore::deleteOutputs(Id name, Status& s) {
+bool ACSPCore::deleteOutputs(Id name, Status& s) {
     if (!params.write || Simulator::noOutput()) {
         return true;
     }
@@ -189,11 +185,12 @@ bool ACXFCore::deleteOutputs(Id name, Status& s) {
     }
     return true;
 }
-    
-bool ACXFCore::rebuild(Status& s) {
+
+bool ACSPCore::rebuild(Status& s) {
+    clearError();
     // AC analysis matrix
     if (!acMatrix.rebuild(circuit.sparsityMap(), circuit.unknownCount())) {
-        acMatrix.formatError(s);
+        setError(SPError::MatrixError);
         return false;
     }
     
@@ -208,29 +205,61 @@ bool ACXFCore::rebuild(Status& s) {
 
 // System of equations is 
 //   (G(x) + i C(x)) dx = dJ
-CoreCoroutine ACXFCore::coroutine(bool continuePrevious) {
+CoreCoroutine ACSPCore::coroutine(bool continuePrevious) {
     acMatrix.setAccounting(circuit.tables().accounting());
     
     clearError();
-
+    
     auto n = circuit.unknownCount(); 
     // Make sure structures are large enough
     acSolution.resize(n+1);
-    tf.resize(sources.size());
-    yin.resize(sources.size());
-    zin.resize(sources.size());
 
-    // Get output unknowns
-    auto [ok, up, un] = getDiffNodePair(params.out);
-    if (!ok) {
+    // Get probe voltage source
+    auto [probeOk, probeSource] = getExcitation(params.probe);
+    if (!probeOk) {
         co_yield CoreState::Aborted;
     }
+
+    // Is probe source a voltage source? 
+    auto sdev = probeSource->model()->device();
+    if (!(sdev->isSource() && sdev->isVoltageSource())) {
+        setError(StbError::BadProbe);
+        co_yield CoreState::Aborted;
+    }
+
+    // Get response scaling factor
+    auto probeResponseScalingFactor = probeSource->responseScalingFactor();
+
+    // Extract DUT input (pnode) and output (nnode) node
+    auto np = probeSource->terminal(0);
+    auto nn = probeSource->terminal(1);
+    auto pnodeUnknown = probeSource->terminal(0)->unknownIndex();
+    auto nnodeUnknown = probeSource->terminal(1)->unknownIndex();
+
+    // Get probe response unknown
+    auto [r1, r2] = probeSource->sourceResponse(circuit);
+    auto [e1, e2] = probeSource->sourceExcitation(circuit);
+    
+    // Get reference ground node
+    UnknownIndex refGnd = 0;
+    // Valid Id and not an empty string. 
+    if (params.localgnd && *params.localgnd.c_str()!=0) {
+        auto node = circuit.findNode(params.localgnd);
+        if (!node) {
+            setError(StbError::BadLocalGnd);
+            co_yield CoreState::Aborted;
+        }
+        refGnd = node->unknownIndex();
+    }
+
+    // Make space for results at the given frequency
+    resultsVector.resize(to_int(StbResult::COUNT));
     
     // Compute operating point
     errorFreq = 0;
     auto opOk = opCore_.run(continuePrevious);
     if (!opOk) {
-        setError(ACXFError::OperatingPointError);
+        setError(StbError::OperatingPointError);
         co_yield CoreState::Aborted;
     }
 
@@ -238,12 +267,12 @@ CoreCoroutine ACXFCore::coroutine(bool continuePrevious) {
     Int debug = options.smsig_debug;
 
     if (debug>0) {
-        Simulator::dbg() << "Starting AC small-signal transfer function analysis.\n";
+        Simulator::dbg() << "Starting AC stability analysis.\n";
     }
     
     // Evaluate resistive and reactive Jacobian, bypass is not allowed
     EvalSetup esReactive { 
-        // Inputs, can be set here (we do not rotate)
+        // Inputs
         .solution = &dcSolution, 
         .states = &dcStates, 
         
@@ -260,11 +289,11 @@ CoreCoroutine ACXFCore::coroutine(bool continuePrevious) {
         // Outputs
         .loadResistiveJacobian = false, 
         .loadReactiveJacobian = true, 
+        // Do not load AC RHS (AC residual)
+        // .acResidual = acSolution.data()
     };
 
-    // Copy OP Jacobian to real part of acMatrix, zero out imaginary part. 
-    // Because the real part is taken from OP Jacobian it includes
-    // the shunt resistors. 
+    // Copy OP Jacobian to real part of acMatrix, zero out imaginary part
     auto nnz = dcJacobian.nnz();
     auto Jr = dcJacobian.data();
     auto M = acMatrix.data();
@@ -278,7 +307,7 @@ CoreCoroutine ACXFCore::coroutine(bool continuePrevious) {
     // We do both here in case OpenVAF has bugs with this corner case :)
     if (!circuit.evalAndLoad(commons, &esReactive, nullptr, nullptr)) {
         // Load error
-        setError(ACXFError::EvalAndLoad);
+        setError(StbError::EvalAndLoad);
         if (debug>0) {
             Simulator::dbg() << "Error in AC Jacobian evaluation.\n";
         }
@@ -305,10 +334,10 @@ CoreCoroutine ACXFCore::coroutine(bool continuePrevious) {
         co_yield CoreState::Stopped;
     }
 
-    // Create sweeper, put it in unique ptr to free it when method returns
+    // Create sweeper
     ScalarSweep sweeper;
     if (!sweeper.setup(params, errorStatus)) {
-        setError(ACXFError::Sweeper);
+        setError(StbError::Sweeper);
         co_yield CoreState::Aborted;
     }
     if (progressReporter) {
@@ -328,14 +357,17 @@ CoreCoroutine ACXFCore::coroutine(bool continuePrevious) {
         // Compute should always succeed
         Value v;
         if (!sweeper.compute(v, errorStatus)) {
-            setError(ACXFError::SweepCompute);
+            setError(StbError::SweepCompute);
             error = true;
             break;
         }
 
         // The value, however, must be convertible to real
         if (!v.convertInPlace(Value::Type::Real, errorStatus)) {
-            setError(ACXFError::BadFrequency);
+            setError(StbError::BadFrequency);
+            if (debug>0) {
+                Simulator::dbg() << "Frequency value cannot be converted to real.\n";
+            }
             error = true;
             break;
         }
@@ -347,31 +379,34 @@ CoreCoroutine ACXFCore::coroutine(bool continuePrevious) {
             Simulator::dbg() << "frequency=" << ss.str() << "\n";
         }
 
-        // Load AC matrix, we must update the imaginary part only
+        // Zero out imaginary part, and RHS. 
+        // Because the real part is taken from OP Jacobian it includes
+        // the shunt resistors. 
+        // Load imaginary part and AC residual. 
         acMatrix.zero(Component::Imaginary);
+        zero(acSolution);
         lsReactive.reactiveJacobianFactor = omega;
         if (!circuit.evalAndLoad(commons, nullptr, &lsReactive, nullptr)) {
             // Load error
-            setError(ACXFError::EvalAndLoad);
+            setError(StbError::EvalAndLoad);
             if (debug>0) {
                 Simulator::dbg() << "Error in AC Jacobian load.\n";
             }
             error = true;
             break;
         }
-
+        
         if (debug>=101) {
             Simulator::dbg() << "Linear system matrix\n";
             acMatrix.dump(Simulator::dbg()); 
             Simulator::dbg() << "\n";
         }
-        
+
         // Check if matrix entries are finite, no need to check RHS 
         // since we loaded it without any computation (i.e. we only used mag and phase)
         if (options.matrixcheck && !acMatrix.isFinite(true, true)) {
-            auto nr = UnknownNameResolver(circuit);
-            setError(ACXFError::MatrixError);
-            if (debug>2) {
+            setError(StbError::MatrixError);
+            if (debug>0) {
                 Simulator::dbg() << "A matrix entry is not finite.\n";
             }
             error = true;
@@ -391,7 +426,7 @@ CoreCoroutine ACXFCore::coroutine(bool continuePrevious) {
             // Full factorization
             if (!acMatrix.factor()) {
                 // Failed, give up
-                setError(ACXFError::MatrixError);
+                setError(StbError::MatrixError);
                 if (debug>0) {
                     Simulator::dbg() << "LU factorization failed.\n";
                 }
@@ -403,7 +438,7 @@ CoreCoroutine ACXFCore::coroutine(bool continuePrevious) {
         if (options.rcondcheck>0) { 
             double rcond;
             if (!acMatrix.rcond(rcond)) {
-                setError(ACXFError::MatrixError);
+                setError(StbError::MatrixError);
                 if (debug>0) {
                     Simulator::dbg() << "Condition number estimation failed.\n";
                 }
@@ -411,110 +446,101 @@ CoreCoroutine ACXFCore::coroutine(bool continuePrevious) {
                 break;
             }
             if (rcond<options.rcondcheck) {
-                setError(ACXFError::MatrixError);
                 if (debug>0) {
                     Simulator::dbg() << "Matrix is close to singular.\n";
                 }
+                setError(StbError::SingularMatrix);
                 error = true;
                 break;
             }
         }
 
-        // Go through all sources listed in sources
-        auto nSrc = sources.size();
-        for(decltype(nSrc) i=0; i<nSrc; i++) {
-            // Prepare RHS
-            zero(acSolution); 
+        // Step 1 - inject current between positive probe node and localgnd
+        zero(acSolution);
+        acSolution[pnodeUnknown] += -1;
+        acSolution[refGnd]       -= -1;
 
-            // Get instance
-            auto inst = sources[i];
-            // No instance, continue to next
-            if (!inst) {
-                continue;
+        // Solve, set bucket to 0.0
+        if (!acMatrix.solve(dataWithoutBucket(acSolution))) {
+            setError(StbError::MatrixError);
+            if (debug>2) {
+                Simulator::dbg() << "Failed to solve factored system for injected current.\n";
             }
-
-            if (debug>1) {
-                Simulator::dbg() << "Computing response to '" << std::string(inst->name()) << "'.\n";
-            }
-
-            // Get excitation equations and response unknowns
-            auto [e1, e2] = inst->sourceExcitation(circuit);
-            auto [r1, r2] = inst->sourceResponse(circuit);
-            
-            // Set RHS, load negated residual to get the true value of delta after solve()
-            acSolution[e1] += -inst->scaledUnityExcitation();
-            acSolution[e2] -= -inst->scaledUnityExcitation();
-
-            // Set RHS bucket
-            acSolution[0] = 0.0;
-
-            if (debug>=100) {
-                Simulator::dbg() << "Linear system for instance " << inst->name() << "\n";
-                acMatrix.dump(Simulator::dbg(), dataWithoutBucket(acSolution)); 
-                Simulator::dbg() << "\n";
-            }
-
-            // Solve, set bucket to 0.0
-            if (!acMatrix.solve(dataWithoutBucket(acSolution))) {
-                setError(ACXFError::MatrixError);
-                if (debug>2) {
-                    Simulator::dbg() << "Failed to solve factored system.\n";
-                }
-                error = true;
-                break;
-            }
-            acSolution[0] = 0.0;
-
-            if (options.solutioncheck && !acMatrix.isFinite(dataWithoutBucket(acSolution), true, true)) {
-                setError(ACXFError::SolutionError);
-                if (options.smsig_debug) {
-                    Simulator::dbg() << "A solution entry is not finite. Solver failed.\n";
-                }
-                error = true;
-                break;
-            }
-
-            // Collect results
-            tf[i] = acSolution[up] - acSolution[un];
-
-            // Compute Yin and Zin
-            if (inst->model()->device()->isVoltageSource()) {
-                // Voltage source excitation
-                yin[i] = (acSolution[r1] - acSolution[r2])*inst->responseScalingFactor()/inst->scaledUnityExcitation();
-                if (yin[i]!=0.0) {
-                    zin[i] = 1.0/yin[i];
-                } else {
-                    // Infinity
-                    zin[i] = 1e20;
-                }
-            } else {
-                // Current source excitation
-                zin[i] = (acSolution[r1] - acSolution[r2])*inst->responseScalingFactor()/inst->scaledUnityExcitation();
-                if (zin[i]!=0.0) {
-                    yin[i] = 1.0/zin[i];
-                } else {
-                    // Infinity
-                    yin[i] = 1e20;
-                }
-            }
+            error = true;
+            break;
         }
-        
-        if (error) {
+        acSolution[0] = 0.0;
+
+        if (options.solutioncheck && !acMatrix.isFinite(dataWithoutBucket(acSolution), true, true)) {
+            setError(StbError::SolutionError);
+            if (options.smsig_debug) {
+                Simulator::dbg() << "A solution entry for injected current is not finite. Solver failed.\n";
+            }
+            error = true;
             break;
         }
 
-        // Dump solution
+        // Extract A and C
+        auto A = (acSolution[r1] - acSolution[r2])*probeResponseScalingFactor;
+        auto C = acSolution[pnodeUnknown] - acSolution[refGnd];
+
+        // Step 2 - inject voltage into the feedback loop, no need to apply scaledUnityExcitation()
+        // because we know the probe is a voltage source and the factor is 1. 
+        zero(acSolution);
+        acSolution[e1] += -1;
+        acSolution[e2] -= -1;
+
+        // Solve, set bucket to 0.0
+        if (!acMatrix.solve(dataWithoutBucket(acSolution))) {
+            setError(StbError::MatrixError);
+            if (debug>2) {
+                Simulator::dbg() << "Failed to solve factored system for injected voltage.\n";
+            }
+            error = true;
+            break;
+        }
+        acSolution[0] = 0.0;
+
+        if (options.solutioncheck && !acMatrix.isFinite(dataWithoutBucket(acSolution), true, true)) {
+            setError(StbError::SolutionError);
+            if (options.smsig_debug) {
+                Simulator::dbg() << "A solution entry for injected voltage is not finite. Solver failed.\n";
+            }
+            error = true;
+            break;
+        }
+
+        // Extract B and D
+        auto B = (acSolution[r1] - acSolution[r2])*probeResponseScalingFactor;
+        auto D = acSolution[pnodeUnknown] - acSolution[refGnd];
+
+        // Compute admittance parameters
+        auto ADBC = A*D - B*C;
+        resultsVector[to_int(StbResult::y11)] = (1.0+ADBC-A-D)/C;
+        resultsVector[to_int(StbResult::y12)] = (-ADBC+D)/C;
+        resultsVector[to_int(StbResult::y21)] = (-ADBC+A)/C;
+        resultsVector[to_int(StbResult::y22)] = ADBC/C;
+
+        // Compute forward and reverse open-loop gain
+        auto den = 1.0+2.0*ADBC-A-D;
+        auto Wf = (-ADBC+A)/den;
+        auto Wr = (-ADBC+D)/den;
+        resultsVector[to_int(StbResult::Wf)] = Wf;
+        resultsVector[to_int(StbResult::Wr)] = Wr;
+        resultsVector[to_int(StbResult::W)] = Wf + Wr;
+
+        // Dump solution point
         if (params.write && !Simulator::noOutput() && outfile) {
             outfile->addPoint();
         }
-
+        
         finished = sweeper.advance();
-
+        
         setProgress(sweeper.at(), frequency);
     } while (!finished && !error);
-
+    
     if (debug>0) {
-        Simulator::dbg() << "AC transfer function frequency sweep " << (finished ? "completed" : "exited prematurely") << ".\n";
+        Simulator::dbg() << "AC stability frequency sweep " << (finished ? "completed" : "exited prematurely") << ".\n";
     }
 
     if (!finished) {
@@ -532,7 +558,7 @@ CoreCoroutine ACXFCore::coroutine(bool continuePrevious) {
     }
 }
 
-bool ACXFCore::run(bool continuePrevious) {
+bool ACSPCore::run(bool continuePrevious) {
     auto c = coroutine(continuePrevious);
     bool ok = true;
     while (!c.done()) {
@@ -544,7 +570,7 @@ bool ACXFCore::run(bool continuePrevious) {
     return ok;
 }
 
-bool ACXFCore::formatError(Status& s) const {
+bool ACSPCore::formatError(Status& s) const {
     auto nr = UnknownNameResolver(circuit);
     std::stringstream ss;
     ss << std::scientific << std::setprecision(4);
@@ -555,36 +581,36 @@ bool ACXFCore::formatError(Status& s) const {
         return false;
     }
     
-    // Then handle ACXFCore errors
-    switch (lastAcTfError) {
-        case ACXFError::NotFound:
-            s.set(Status::Analysis, std::string("Source '")+std::string(errorInstance)+"' not found.");
-            break;
-        case ACXFError::NotSource:
-            s.set(Status::Analysis, std::string("Instance '")+std::string(errorInstance)+"' is not a source.");
-            break;
-        case ACXFError::Sweeper:
-        case ACXFError::SweepCompute:
+    // Then handle ACSPCore errors
+    switch (lastAcError) {
+        case StbError::Sweeper:
+        case StbError::SweepCompute:
             s.set(errorStatus);
             break;
-        case ACXFError::EvalAndLoad:
+        case StbError::EvalAndLoad:
             s.set(Status::Analysis, "Jacobian evaluation failed.");
             break;
-        case ACXFError::MatrixError:
+        case StbError::MatrixError:
             acMatrix.formatError(s, &nr);
             break;
-        case ACXFError::SolutionError:
+        case StbError::SolutionError:
             acMatrix.formatError(s, &nr);
             s.extend("Solution component is not finite.");
             break;
-        case ACXFError::OperatingPointError:
+        case StbError::OperatingPointError:
             opCore_.formatError(s);
             break;
-        case ACXFError::SingularMatrix:
+        case StbError::SingularMatrix:
             s.set(Status::Analysis, "Matrix is close to singular.");
             break;
-        case ACXFError::BadFrequency:
+        case StbError::BadFrequency:
             s.set(Status::Analysis, "Frequency value cannot be converted to real.");
+            break;
+        case StbError::BadProbe:
+            s.set(Status::Analysis, "Probe must be a voltage source.");
+            break;
+        case StbError::BadLocalGnd:
+            s.set(Status::Analysis, "Local ground node not found.");
             break;
         default:
             return true;
@@ -598,18 +624,19 @@ bool ACXFCore::formatError(Status& s) const {
     return false;
 }
 
-void ACXFCore::dump(std::ostream& os) const {
+void ACSPCore::dump(std::ostream& os) const {
     AnalysisCore::dump(os);
     os << "  Results\n";
-    auto nSrc = sources.size();
-    for(decltype(nSrc) i=0; i<nSrc; i++) {
-        auto inst = sources[i];
-        if (!inst) {
-            continue;
+    auto n = circuit.unknownCount();
+    for(decltype(n) i=1; i<=n; i++) {
+        auto rn = circuit.reprNode(i);
+        auto c = resultsVector.data()[i];
+        os << "    " << i << " : " << c.real();
+        if (c.imag()>=0) {
+            os << "+";
         }
-        os << "    tf(" << inst->name() << ") " << tf[i] << "\n";
-        os << "    zin(" << inst->name() << ") " << zin[i] << "\n";
-        os << "    yin(" << inst->name() << ") " << yin[i] << "\n";
+        os << c.imag();
+        os << "i\n";
     }
 }
 

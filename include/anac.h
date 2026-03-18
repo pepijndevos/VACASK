@@ -19,16 +19,16 @@ protected:
 };
 
 // Constructor specialization
-template<> SmallSignal<AcCore, AcData>::SmallSignal(Id name, Circuit& circuit, PTAnalysis& ptAnalysis);
+template<> SmallSignal<ACCore, AcData>::SmallSignal(Id name, Circuit& circuit, PTAnalysis& ptAnalysis);
 
 // Resolve save specialization
-template<> bool SmallSignal<AcCore, AcData>::resolveSave(const PTSave& save, bool verify, Status& s);
+template<> bool SmallSignal<ACCore, AcData>::resolveSave(const PTSave& save, bool verify, Status& s);
 
 // Dump specialization
-template<> void SmallSignal<AcCore, AcData>::dump(std::ostream& os) const;
+template<> void SmallSignal<ACCore, AcData>::dump(std::ostream& os) const;
 
 // Typedef AC
-typedef SmallSignal<AcCore, AcData> AC;
+typedef SmallSignal<ACCore, AcData> AC;
 
 }
 

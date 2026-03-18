@@ -1,0 +1,106 @@
+STB analysis
+
+ground 0 
+
+load "resistor.osdi"
+load "capacitor.osdi"
+load "opamp.osdi"
+
+model r resistor noisy=1
+model c capacitor
+model oa opamp rin=100k rout=100 gain=1e4 fp1=1k fp2=100k fp3=1M
+model vsrc vsource
+
+r1 (1 n) r r=1k
+r2 (n n1) r r=10k
+x1 (0 n out) oa 
+vin (1 0) vsrc dc=0
+
+subckt probefwd()
+  vprobe (n1 out) vsrc dc=0
+ends
+
+subckt proberev()
+  vprobe (out n1) vsrc dc=0
+ends
+
+control
+  abort always
+  elaborate circuit("probefwd")
+  print device("opamp")
+  print instance("x1")
+  print model("oa")
+
+  sweep vin instance="vin" parameter="dc" from=-2 to=2 step=0.01
+    analysis op1 op
+
+  // options rawfile="binary" reltol=1e-14 vntol=1e-12 op_debug=0 // smsig_debug=102
+  analysis stb1 acstb probe="vprobe" from=1 to=100M mode="dec" points=10
+
+  elaborate circuit("proberev")
+  analysis stb2 acstb probe="vprobe" from=1 to=100M mode="dec" points=10
+
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+from runtest import *
+import numpy as np
+import sys
+import diocalc
+
+tests = []
+
+dc1 = rawread('op1.raw').get()
+stb1 = rawread('stb1.raw').get()
+stb2 = rawread('stb2.raw').get()
+
+# r1 in parallel with rin
+rin1 = 1.0 / (1/100e3 + 1/1e3)
+f = np.real(stb1["frequency"])
+wexact = rin1/(rin1+10e3+100)*1e4 / (1+1j*f/1e3) / (1+1j*f/100e3) / (1+1j*f/1e6)
+
+wf = stb1["wf"]
+status = (relDiff(wf, wexact, 1e-9) < 1e-3).all()
+tests.append(status)
+print("Wf f", status)
+
+wr = stb1["wr"]
+status = (relDiff(wr, 0.0, 1e-9) < 1e-3).all()
+tests.append(status)
+print("Wr f", status)
+
+
+wf = stb2["wf"]
+status = (relDiff(wf, 0.0, 1e-9) < 1e-3).all()
+tests.append(status)
+print("Wf r", status)
+
+wr = stb2["wr"]
+status = (relDiff(wr, wexact, 1e-9) < 1e-3).all()
+tests.append(status)
+print("Wr r", status)
+
+if isTest():
+    sys.exit(not all(tests))
+else:
+    import matplotlib.pyplot as plt 
+
+    fig1, ax1 = plt.subplots(1, 1)
+    fig1.suptitle('DC analysis')
+    fig1.set_dpi(100)
+    fig1.axes[0].set_ylabel('out [V]')
+    fig1.axes[0].set_xlabel('in [V]')
+    fig1.axes[0].plot(dc1["vin"], dc1["out"])
+
+    fig1, ax1 = plt.subplots(1, 1)
+    fig1.suptitle('STB analysis')
+    fig1.set_dpi(100)
+    fig1.axes[0].set_ylabel('W')
+    fig1.axes[0].set_xlabel('f [Hz]')
+    fig1.axes[0].semilogx(stb1["frequency"], 20*np.log10(np.abs(stb1["w"])))
+    fig1.axes[0].semilogx(stb1["frequency"], 20*np.log10(np.abs(wexact)), marker=".", linestyle="")
+    
+    plt.show()
+>>>FILE

@@ -186,8 +186,8 @@ protected:
 
     CommonData& commons;
 
-    std::tuple<bool, UnknownIndex, UnknownIndex> getOutput(Value& v);
-    std::tuple<bool, Instance*> getInput(Id name);
+    std::tuple<bool, UnknownIndex, UnknownIndex> getDiffNodePair(Value& v);
+    std::tuple<bool, Instance*> getExcitation(Id name);
     OutputDescriptorResolver& parentResolver;
     Circuit& circuit;
     Output::DescriptorList outputDescriptors;

@@ -255,13 +255,13 @@ CoreCoroutine NoiseCore::coroutine(bool continuePrevious) {
     zero(results);
     
     // Get output unknowns
-    auto [outOk, up, un] = getOutput(params.out);
+    auto [outOk, up, un] = getDiffNodePair(params.out);
     if (!outOk) {
         co_yield CoreState::Aborted;
     }
 
     // Get input source
-    auto [inOk, inputSource] = getInput(params.in);
+    auto [inOk, inputSource] = getExcitation(params.in);
     if (!inOk) {
         co_yield CoreState::Aborted;
     }

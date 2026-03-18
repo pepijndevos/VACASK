@@ -54,7 +54,7 @@ namespace NAMESPACE {
 // 
 // See coreop.h on how to specify nodesets. 
 
-typedef struct AcParameters {
+typedef struct ACParameters {
     OperatingPointParameters opParams;
 
     Real from {0};    // Start frequency for step and dec/oct/lin sweep
@@ -69,13 +69,13 @@ typedef struct AcParameters {
 
     Int write {1};    // Write the results to a file
 
-    AcParameters();
-} AcParameters;
+    ACParameters();
+} ACParameters;
 
 
-class AcCore : public AnalysisCore {
+class ACCore : public AnalysisCore {
 public:
-    typedef AcParameters Parameters;
+    typedef ACParameters Parameters;
     enum class AcError {
         OK, 
         Sweeper, 
@@ -88,18 +88,18 @@ public:
         BadFrequency, 
     };
        
-    AcCore(
-        OutputDescriptorResolver& parentResolver, AcParameters& params, OperatingPointCore& opCore, Circuit& circuit, 
+    ACCore(
+        OutputDescriptorResolver& parentResolver, ACParameters& params, OperatingPointCore& opCore, Circuit& circuit, 
         CommonData& commons, 
         KluRealMatrix& dcJacobian, VectorRepository<double>& dcSolution, VectorRepository<double>& dcStates, 
         KluComplexMatrix& acMatrix, Vector<Complex>& acSolution
     ); 
-    ~AcCore();
+    ~ACCore();
     
-    AcCore           (const AcCore&)  = delete;
-    AcCore           (      AcCore&&) = delete;
-    AcCore& operator=(const AcCore&)  = delete;
-    AcCore& operator=(      AcCore&&) = delete;
+    ACCore           (const ACCore&)  = delete;
+    ACCore           (      ACCore&&) = delete;
+    ACCore& operator=(const ACCore&)  = delete;
+    ACCore& operator=(      ACCore&&) = delete;
 
     // Format error, return false on error - this function is not cheap (works with strings)
     bool formatError(Status& s=Status::ignore) const; 
@@ -134,7 +134,7 @@ protected:
     KluRealMatrix& dcJacobian;
     KluComplexMatrix& acMatrix;
     Vector<Complex>& acSolution;
-    AcParameters& params;
+    ACParameters& params;
 
     double frequency;
 };

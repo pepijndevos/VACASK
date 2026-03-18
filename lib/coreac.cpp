@@ -11,11 +11,11 @@
 namespace NAMESPACE {
 
 // Default parameters
-AcParameters::AcParameters() {
+ACParameters::ACParameters() {
     opParams.write = 0;
 }
 
-template<> int Introspection<AcParameters>::setup() {
+template<> int Introspection<ACParameters>::setup() {
     registerMember(from);
     registerMember(to);
     registerMember(step);
@@ -29,11 +29,11 @@ template<> int Introspection<AcParameters>::setup() {
     
     return 0;
 }
-instantiateIntrospection(AcParameters);
+instantiateIntrospection(ACParameters);
 
 
-AcCore::AcCore(
-    OutputDescriptorResolver& parentResolver, AcParameters& params, OperatingPointCore& opCore, Circuit& circuit, 
+ACCore::ACCore(
+    OutputDescriptorResolver& parentResolver, ACParameters& params, OperatingPointCore& opCore, Circuit& circuit, 
     CommonData& commons, 
     KluRealMatrix& dcJacobian, VectorRepository<double>& dcSolution, VectorRepository<double>& dcStates, 
     KluComplexMatrix& acMatrix, Vector<Complex>& acSolution
@@ -48,11 +48,11 @@ AcCore::AcCore(
     elsSystem.acAnalysis = true;
 }
 
-AcCore::~AcCore() {
+ACCore::~ACCore() {
     delete outfile;
 }
 
-bool AcCore::resolveOutputDescriptors(bool strict) {
+bool ACCore::resolveOutputDescriptors(bool strict) {
     // Clear output sources
     outputSources.clear();
     // Resolve output descriptors
@@ -79,7 +79,7 @@ bool AcCore::resolveOutputDescriptors(bool strict) {
     return ok;
 }
 
-bool AcCore::addCoreOutputDescriptors() {
+bool ACCore::addCoreOutputDescriptors() {
     clearError();
     // If output is suppressed, skip all this work
     if (!params.write || Simulator::noOutput()) {
@@ -93,7 +93,7 @@ bool AcCore::addCoreOutputDescriptors() {
     return true;
 }
 
-bool AcCore::addDefaultOutputDescriptors() {
+bool ACCore::addDefaultOutputDescriptors() {
     // If output is suppressed, skip all this work
     if (!params.write || Simulator::noOutput()) {
         return true;
@@ -104,7 +104,7 @@ bool AcCore::addDefaultOutputDescriptors() {
     return true;
 }
 
-bool AcCore::initializeOutputs(Id name, Status& s) {
+bool ACCore::initializeOutputs(Id name, Status& s) {
     // If output is suppressed, skip all this work
     if (!params.write || Simulator::noOutput()) {
         return true;
@@ -123,7 +123,7 @@ bool AcCore::initializeOutputs(Id name, Status& s) {
     return true;
 }
 
-bool AcCore::finalizeOutputs(Status& s) {
+bool ACCore::finalizeOutputs(Status& s) {
     if (outfile) {
         outfile->epilogue();
         delete outfile;
@@ -132,7 +132,7 @@ bool AcCore::finalizeOutputs(Status& s) {
     return true;
 }
 
-bool AcCore::deleteOutputs(Id name, Status& s) {
+bool ACCore::deleteOutputs(Id name, Status& s) {
     if (!params.write || Simulator::noOutput()) {
         return true;
     }
@@ -145,7 +145,7 @@ bool AcCore::deleteOutputs(Id name, Status& s) {
     return true;
 }
     
-bool AcCore::rebuild(Status& s) {
+bool ACCore::rebuild(Status& s) {
     clearError();
     // AC analysis matrix
     if (!acMatrix.rebuild(circuit.sparsityMap(), circuit.unknownCount())) {
@@ -164,7 +164,7 @@ bool AcCore::rebuild(Status& s) {
 
 // System of equations is 
 //   (G(x) + i C(x)) dx = dJ
-CoreCoroutine AcCore::coroutine(bool continuePrevious) {
+CoreCoroutine ACCore::coroutine(bool continuePrevious) {
     acMatrix.setAccounting(circuit.tables().accounting());
     
     clearError();
@@ -428,7 +428,7 @@ CoreCoroutine AcCore::coroutine(bool continuePrevious) {
     }
 }
 
-bool AcCore::run(bool continuePrevious) {
+bool ACCore::run(bool continuePrevious) {
     auto c = coroutine(continuePrevious);
     bool ok = true;
     while (!c.done()) {
@@ -440,7 +440,7 @@ bool AcCore::run(bool continuePrevious) {
     return ok;
 }
 
-bool AcCore::formatError(Status& s) const {
+bool ACCore::formatError(Status& s) const {
     auto nr = UnknownNameResolver(circuit);
     std::stringstream ss;
     ss << std::scientific << std::setprecision(4);
@@ -451,7 +451,7 @@ bool AcCore::formatError(Status& s) const {
         return false;
     }
     
-    // Then handle AcCore errors
+    // Then handle ACCore errors
     switch (lastAcError) {
         case AcError::Sweeper:
         case AcError::SweepCompute:
@@ -488,7 +488,7 @@ bool AcCore::formatError(Status& s) const {
     return false;
 }
 
-void AcCore::dump(std::ostream& os) const {
+void ACCore::dump(std::ostream& os) const {
     AnalysisCore::dump(os);
     os << "  Results\n";
     auto n = circuit.unknownCount();

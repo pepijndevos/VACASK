@@ -6,7 +6,7 @@ load "resistor.osdi"
 load "capacitor.osdi"
 load "simdio.va"
 
-model resistor resistor has_noise=1
+model resistor resistor noisy=1
 model capacitor capacitor
 model vsource vsource
 model d simdio is=1e-12 n=2 kf=1e-15 af=1.2 ef=1.5 debug=0
