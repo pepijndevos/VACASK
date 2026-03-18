@@ -125,7 +125,7 @@ ax1.set_xlabel('Vds [V]')
 for ii in range(plot.sweepGroups):
     sdata = plot.sweepData(ii)
     ax1.plot(plot[ii, 'd'], -plot[ii, 'vds:flow(br)']*1e3,
-             label='Vgs=%.1f' % sdata['vgs'])
+             label=f"Vgs={sdata['vgs']:.1f}")
 ax1.legend(loc='upper left')
 ax1.grid(True)
 plt.show()

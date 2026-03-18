@@ -1,19 +1,18 @@
 # Table of Contents
 
-1. Input File
-   1. [Overview](input-overview.md)
-   2. [Numbers](input-numbers.md)
-   3. [Strings](input-strings.md)
-   4. [Identifiers](input-identifiers.md)
-   5. [Reserved Words](input-reserved.md)
-   6. [Including a File](input-include.md)
-   7. [Embedded Files](input-embed.md)
-2. Circuit Description and Elaboration
+1. [Input File](input-overview.md)
+   1. [Numbers](input-numbers.md)
+   2. [Strings](input-strings.md)
+   3. [Identifiers](input-identifiers.md)
+   4. [Reserved Words](input-reserved.md)
+   5. [Including a File](input-include.md)
+   6. [Embedded Files](input-embed.md)
+2. [Circuit Description and Elaboration](cir-overview.md)
    1. [Loading Devices](cir-loading.md)
    2. [Nodes](cir-nodes.md)
    3. [Masters (Models and Subcircuits)](cir-masters.md)
    4. [Instances](cir-instance.md)
-   5. Subcircuits and Hierarchy
+   5. [Subcircuits and Hierarchy](cir-hierarchy.md)
       1. [Defining a Subcircuit](cir-subckt.md)
       2. [Instance Hierarchy](cir-hier.md)
       3. [Nested Subcircuit Definitions](cir-subckt-nested.md)
@@ -21,7 +20,7 @@
    7. [Conditional Netlist Blocks](cir-conditional.md)
    8. [Automated Binning](cir-binning.md)
    9. [Circuit Elaboration](cir-elaboration.md)
-3. Data Types and Expressions
+3. [Data Types and Expressions](expr-overview.md)
    1. [Scalar Data Types](expr-scalars.md)
    2. [Vectors and Lists](expr-vectors.md)
    3. [Builtin Constants](expr-constants.md)
@@ -29,17 +28,17 @@
    5. [Builtin Functions](expr-functions.md)
    6. [Special Identifiers](expr-special.md)
    7. [Circuit Variables](expr-cirvars.md)
-4. The Control Block
-   1. Analysis Statements
-   2. Sweeping
-   3. Saving Results
+4. [The Control Block](cmd-control.md)
+   1. [Analysis Statements](cmd-analysis.md)
+   2. [Sweeping](cmd-sweep.md)
+   3. [Saving Results](cmd-save.md)
    4. Simulator Options
       1. Setting Simulator Options
       2. Options Causing Circuit Reelaboration
       3. List of Simulator Options
    5. [Modifying Circuit Variables](cmd-var.md)
    6. Modifying Parameters
-   7. Circuit Elaboration
+   7. [Circuit Elaboration](cmd-elaboration.md)
    8. Printing
    9. Postprocessing
    10. Error Handling
@@ -65,4 +64,4 @@
    4. [Converted SPICE Devices](dev-spice.md)
 7. VACASK Startup and Configuration
 8. Python Helpers
-9. C++ API
+9. [C++ API](cpp-api.md)

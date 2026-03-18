@@ -55,7 +55,7 @@ If the circuit has not yet been elaborated when `elaborate changes` is issued, a
 
 ## Controlling toplevel names
 
-The `topdef` and `topinst` keyword arguments to the `elaborate` control block command override the internal names used for the toplevel definition and instance (`__topdef__` and `__topinst__` by default):
+The `topdef` and `topinst` keyword arguments to the `elaborate` control block command override the internal names used for the toplevel definitions and instances (`__topdef__` and `__topinst__` by default):
 
 ```text
 elaborate circuit topdef="mytop" topinst="myinst"
