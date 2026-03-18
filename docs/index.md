@@ -20,7 +20,7 @@
    6. [Parallel Devices (`$mfactor`)](cir-mfactor.md)
    7. [Conditional Netlist Blocks](cir-conditional.md)
    8. [Automated Binning](cir-binning.md)
-   9. Circuit Elaboration
+   9. [Circuit Elaboration](cir-elaboration.md)
 3. Data Types and Expressions
    1. [Scalar Data Types](expr-scalars.md)
    2. [Vectors and Lists](expr-vectors.md)
@@ -29,7 +29,6 @@
    5. [Builtin Functions](expr-functions.md)
    6. [Special Identifiers](expr-special.md)
    7. [Circuit Variables](expr-cirvars.md)
-   8. Identifier Value Lookup
 4. The Control Block
    1. Analysis Statements
    2. Sweeping

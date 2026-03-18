@@ -28,7 +28,7 @@ The converter will process the Ngspice models and
 * create directory `ihp-sg13g2/libs.ref/sg13g2_stdcell/vacask` with the converted standard cells
 * create directory `ihp-sg13g2/libs.ref/sg13g2_io/vacask` with the converted I/O cells
 * create a VACASK config file `ihp-sg13g2/libs.tech/vacask/.vacaskrc.toml`
-  (copy this file to the directory where your top level netlist is located)
+  (copy this file to the directory where your toplevel netlist is located)
 * patch xschem symbols with the VACASK netlisting pattern (`sg13g2_pr` and `sg13g2_stdcells` directories)
 * patch the Xschem configuration file `ihp-sg13g2/libs.tech/xschem/xschemrc`
 * add a VACASK customization file for Xschem (`ihp-sg13g2/libs.tech/xschem/xschem-vacask`)

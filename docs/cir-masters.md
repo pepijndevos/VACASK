@@ -1,6 +1,6 @@
 # Masters: Models and Subcircuits
 
-A *master* is a named template that instances reference. VACASK has two kinds of masters: models and subcircuits. Both can be defined at the top level or inside a subcircuit definition.
+A *master* is a named template that instances reference. VACASK has two kinds of masters: models and subcircuits. Both can be defined at the toplevel or inside a subcircuit definition.
 
 ## Models
 
@@ -44,7 +44,7 @@ Subcircuit instances are created the same way as device instances — the subcir
 
 ## Scope
 
-Models and subcircuits are resolved by searching first in the current scope (the enclosing subcircuit), then in the top level scope. A locally defined master shadows a same-named master from the top level scope.
+Models and subcircuits are resolved by searching first in the current scope (the enclosing subcircuit), then in the toplevel scope. A locally defined master shadows a same-named master from the toplevel scope.
 
 ## Parameterized expressions
 

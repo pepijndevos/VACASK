@@ -1,6 +1,6 @@
 # Nested Subcircuit Definitions
 
-A subcircuit definition may contain other subcircuit definitions. The inner definition is local to the enclosing one and is not directly visible from the top level.
+A subcircuit definition may contain other subcircuit definitions. The inner definition is local to the enclosing one and is not directly visible from the toplevel.
 
 ## Syntax
 
@@ -45,11 +45,11 @@ ends
 
 ## Naming of nested definitions
 
-Subcircuit definitions use `::` as the separator between nesting levels. A subcircuit defined at the top level has just its name; one defined inside another is qualified with its enclosing definition's name:
+Subcircuit definitions use `::` as the separator between nesting levels. A subcircuit defined at the toplevel has just its name; one defined inside another is qualified with its enclosing definition's name:
 
 | Path | Meaning |
 |------|---------|
-| `ota` | Subcircuit `ota` defined at top level |
+| `ota` | Subcircuit `ota` defined at toplevel |
 | `ota::diff_pair` | Subcircuit `diff_pair` defined inside `ota` |
 | `inv::tristate::cell` | Subcircuit `cell` defined inside `tristate` inside `inv` |
 
@@ -57,4 +57,4 @@ Nested subcircuit definitions do not affect how instance hierarchy is handled. D
 
 ## Scope
 
-An inner subcircuit definition is resolved only within the scope of its enclosing definition. It shadows any same-named definition from the top-level for instances within that scope. The top-level scope is always searched as a fallback if a subcircuit definition name is not found locally.
+An inner subcircuit definition is resolved only within the scope of its enclosing definition. It shadows any same-named definition from the toplevel for instances within that scope. The toplevel scope is always searched as a fallback if a subcircuit definition name is not found locally.

@@ -80,9 +80,9 @@ subckt and in1 in2 out
 ends
 ```
 
-## Defaut top-level circuit
+## Defaut toplevel circuit
 
-Instances, models, and parameters defined outside `subckt`/`ends` blocks constitute the default top-level circuit. The default top-level circuit has no terminals. This is where the circuit elaboration starts by default - by creating an instance of the default top-level circuit. 
+Instances, models, and parameters defined outside `subckt`/`ends` blocks constitute the default toplevel circuit. The default toplevel circuit has no terminals. This is where the circuit elaboration starts by default - by creating an instance of the default toplevel circuit. 
 
 ```text
 Sample circuit
@@ -90,11 +90,11 @@ Sample circuit
 load "spice/resistor.osdi"
 load "spice/bjt.osdi"
 
-// These models are part of the top-level circuit definition
+// These models are part of the toplevel circuit definition
 model vsrc vsource
 model resistor resistor
 
-// These instances are part of the top-level circuit definition
+// These instances are part of the toplevel circuit definition
 vdd (vp 0) vsrc dc=5
 vin (exc 0) vsrc dc=0
 rl (resp 0) resistor r=1k
@@ -118,7 +118,7 @@ Inside a subcircuit definition you may use:
 - Nested subcircuit definitions
 - Conditional blocks (`@if` ... `@end`)
 
-The following are allowed only at the top level and are errors inside a subcircuit:
+The following are allowed only at the toplevel and are errors inside a subcircuit:
 
 - `global` and `ground` directives
 - `load` and `embed` directives

@@ -4,12 +4,12 @@
 
 Every instance, internal node, and locally defined model is given a hierarchical name that reflects its position in the instance tree. These names are used for referring to particular models, instances, and internal nodes. 
 
-The separator between levels is `:`. Top-level instances have no prefix; instances inside a subcircuit instance are prefixed with that instance's name:
+The separator between levels is `:`. toplevel instances have no prefix; instances inside a subcircuit instance are prefixed with that instance's name:
 
 | Path | Meaning |
 |------|---------|
-| `rtop` | Top-level instance `rtop` |
-| `x1` | Top-level instance `x1` |
+| `rtop` | toplevel instance `rtop` |
+| `x1` | toplevel instance `x1` |
 | `x1:r1` | Instance `r1` inside instance `x1` |
 | `x1:xa:r1` | Instance `r1` inside `xa`, which is inside `x1` |
 
@@ -27,16 +27,16 @@ Output variables of an instance (currents, charges, and device-specific quantiti
 
 ## Scope
 
-A subcircuit has its own scope for models. When resolving a model name, the simulator searches the local scope, followed by the enclosing top-level scope. A master defined in a the local scope shadows a same-named master from the top-level scope.
+A subcircuit has its own scope for models. When resolving a model name, the simulator searches the local scope, followed by the enclosing toplevel scope. A master defined in a the local scope shadows a same-named master from the toplevel scope.
 
-Parameter expressions inside a subcircuit are resolved first in the subcircuit's own scope followed by the enclosing top-level scope. 
+Parameter expressions inside a subcircuit are resolved first in the subcircuit's own scope followed by the enclosing toplevel scope. 
 
 When VACASK encounters an identifier in a parameterized expression it searches for a value in the following order
 
 - the subcircuit's own scope 
-- the top-level scope 
+- the toplevel scope 
 - circuit variables 
 - constants 
 - special identifiers (see [Special Identifiers](expr-special.md))
 
-A parameter defined in a lower scope shadows a same-named parameter from the top-level scope. 
+A parameter defined in a lower scope shadows a same-named parameter from the toplevel scope. 
