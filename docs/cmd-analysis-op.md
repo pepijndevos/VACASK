@@ -88,50 +88,6 @@ sweep vds instance="vdd" parameter="dc" from=-0.8 to=1.8 mode="lin" points=100
   analysis dc1 op
 ```
 
-**2-dimensional DC sweep (MOSFET Id–Vds characteristics):**
-
-```text
-2D DC sweep
-
-load "spice/mos1.osdi"
-
-model vsource vsource
-model nm sp_mos1 (type=1 tox=50e-10 ld=0.21e-6 lambda=0.05
-  gamma=0.4 nsub=35e14 uo=700 vto=1
-  cgso=2.8e-10 cgdo=2.8e-10 cj=5.75e-5 cjsw=2.48e-10
-  pb=0.7 mj=0.5 mjsw=0.3)
-
-vgs (g 0) vsource dc=0
-vds (d 0) vsource dc=0
-m1 (d g 0 0) nm w=10u l=1u
-
-control
-  sweep vgs instance="vgs" parameter="dc" from=1 to=3 step=0.5
-  sweep vds instance="vds" parameter="dc" from=0 to=5 step=0.1
-    analysis dc1 op
-  postprocess(PYTHON, "plot.py")
-endc
-
-embed "plot.py" <<<FILE
-import matplotlib.pyplot as plt
-from rawfile import rawread
-
-plot = rawread('dc1.raw').get(sweeps=1)
-
-fig1, ax1 = plt.subplots(1, 1)
-fig1.suptitle('NMOS Id-Vds characteristics')
-ax1.set_ylabel('Id [mA]')
-ax1.set_xlabel('Vds [V]')
-for ii in range(plot.sweepGroups):
-    sdata = plot.sweepData(ii)
-    ax1.plot(plot[ii, 'd'], -plot[ii, 'vds:flow(br)']*1e3,
-             label=f"Vgs={sdata['vgs']:.1f}")
-ax1.legend(loc='upper left')
-ax1.grid(True)
-plt.show()
->>>FILE
-```
-
 ## Convergence
 
 VACASK uses advanced convergence techniques:

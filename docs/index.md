@@ -40,7 +40,7 @@
    6. Modifying Parameters
    7. [Circuit Elaboration](cmd-elaboration.md)
    8. Printing
-   9. Postprocessing
+   9. [Postprocessing](cmd-postprocess.md)
    10. Error Handling
 5. Circuit Analyses
    1. [Operating Point Analysis](cmd-analysis-op.md)
