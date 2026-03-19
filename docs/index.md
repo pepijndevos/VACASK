@@ -77,7 +77,7 @@ VACASK is developed at the EDA Laboratory, University of Ljubljana, and is relea
    8. [Harmonic Balance Analysis](cmd-analysis-hb.md)
    9. [Verilog-A Natures and Tolerances](cmd-analysis-natures.md)
 7. [Device Model Library](dev-overview.md)
-   1. Builtin Devices
+   1. [Builtin Devices](dev-builtin.md)
       1. Independent Sources
       2. Voltage-controlled voltage source
       3. Voltage-controlled current source
