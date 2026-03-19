@@ -9,7 +9,7 @@ model vsource vsource
 model isource isource
 
 // Sine
-i1 (0 1) isource type="sine" sinedc=0.5 ampl=2.0 freq=1k phase=-90 theta=100
+i1 (0 1) isource type="sine" sinedc=0.5 ampl=2.0 freq=1k sinephase=-90 theta=100
 r1 (1 0) resistor r=1
 
 // Step
@@ -25,11 +25,11 @@ i4 (0 4) isource type="pulse" val0=1 val1=2 rise=1u fall=2u width=2m period=4m d
 r4 (4 0) resistor r=1
 
 // AM
-i5 (0 5) isource type="am" sinedc=0.5 ampl=2.0 freq=1000 phase=-90 modfreq=50 modphase=90 modindex=0.5
+i5 (0 5) isource type="am" sinedc=0.5 ampl=2.0 freq=1000 sinephase=-90 modfreq=50 modphase=90 modindex=0.5
 r5 (5 0) resistor r=1
 
 // FM
-i6 (0 6) isource type="fm" sinedc=0.5 ampl=2.0 freq=1000 phase=-90 modfreq=50 modphase=90 modindex=10
+i6 (0 6) isource type="fm" sinedc=0.5 ampl=2.0 freq=1000 sinephase=-90 modfreq=50 modphase=90 modindex=10
 r6 (6 0) resistor r=1
 
 // Exponential

@@ -240,13 +240,13 @@ std::tuple<double, double> sourceCompute(const InstanceParams& params, InstanceD
     case IndependentSourceType::Sine:
         if (time<params.delay) {
             // For t < delay the value is equal to value at t=delay
-            val = params.sinedc+params.ampl*std::sin(params.phase*PI/180);
+            val = params.sinedc+params.ampl*std::sin(params.sinephase*PI/180);
             nextBreak = params.delay;
         } else {
             // For t >= delay start sine at given phase
             val = params.sinedc+
                   params.ampl
-                    *std::sin(2*PI*params.freq*(time-params.delay)+params.phase*PI/180)
+                    *std::sin(2*PI*params.freq*(time-params.delay)+params.sinephase*PI/180)
                     *std::exp(-params.theta*(time-params.delay));
         }
         break;
@@ -273,13 +273,13 @@ std::tuple<double, double> sourceCompute(const InstanceParams& params, InstanceD
     case IndependentSourceType::Am:
         if (time<params.delay) {
             // For t < delay the value is equal to value at t=delay
-            val = params.sinedc+params.ampl*std::sin(params.phase*PI/180)*(
+            val = params.sinedc+params.ampl*std::sin(params.sinephase*PI/180)*(
                 1+params.modindex*std::sin(params.modphase*PI/180)
             );
             nextBreak = params.delay;
         } else {
             // For t >= delay start sine at given phase
-            val = params.sinedc+params.ampl*std::sin(2*PI*params.freq*(time-params.delay)+params.phase*PI/180)*(
+            val = params.sinedc+params.ampl*std::sin(2*PI*params.freq*(time-params.delay)+params.sinephase*PI/180)*(
                 1+params.modindex*std::sin(2*PI*params.modfreq*(time-params.delay)+params.modphase*PI/180)
             );
         }
@@ -288,14 +288,14 @@ std::tuple<double, double> sourceCompute(const InstanceParams& params, InstanceD
         if (time<params.delay) {
             // For t < delay the value is equal to value at t=delay
             val = params.sinedc+params.ampl*std::sin(
-                params.phase*PI/180+
+                params.sinephase*PI/180+
                 params.modindex*std::sin(params.modphase*PI/180)
             );
             nextBreak = params.delay;
         } else {
             // For t >= delay start sine at given phase
             val = params.sinedc+params.ampl*std::sin(
-                2*PI*params.freq*(time-params.delay)+params.phase*PI/180+
+                2*PI*params.freq*(time-params.delay)+params.sinephase*PI/180+
                 params.modindex*std::sin(2*PI*params.modfreq*(time-params.delay)+params.modphase*PI/180)
             );
         }
