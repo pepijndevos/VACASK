@@ -61,7 +61,7 @@ VACASK is developed at the EDA Laboratory, University of Ljubljana, and is relea
       11. [Harmonic Balance Options](cmd-options-hb.md)
       12. [Output and Sweep Options](cmd-options-output.md)
    5. [Modifying Circuit Variables](cmd-var.md)
-   6. Modifying Parameters
+   6. [Modifying Parameters](cmd-alter.md)
    7. [Circuit Elaboration](cmd-elaboration.md)
    8. Printing
    9. [Postprocessing](cmd-postprocess.md)
