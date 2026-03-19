@@ -65,7 +65,7 @@ VACASK is developed at the EDA Laboratory, University of Ljubljana, and is relea
    7. [Circuit Elaboration](cmd-elaboration.md)
    8. Printing
    9. [Postprocessing](cmd-postprocess.md)
-   10. Error Handling
+   10. [Error Handling](cmd-errorhandling.md)
 6. [Circuit Analyses](cmd-analysis-overview.md)
    1. [Operating Point Analysis](cmd-analysis-op.md)
    2. [DC Small-Signal Analysis](cmd-analysis-dcinc.md)
