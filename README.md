@@ -31,6 +31,12 @@ The following results were obtained on the above-mentioned [C6288 16x16 multipli
 
 The increased Ngspice memory usage when KLU is used as the solver is probably due to the extra data structures Ngspice uses for setting up the sparse matrix for KLU. 
 
+# Do you have a user's manual? 
+
+Yes we do. It is bundled with the binary packages. [The user's manual](docs/index.md) is written in markdown. To read it in [Firefox](https://www.firefox.com/en-US/), instal the [Markdown Viewer Add-on](https://addons.mozilla.org/en-US/firefox/addon/markdown-viewer-chrome/) or the [Markdown Reader Add-on](https://addons.mozilla.org/en-US/firefox/addon/markdown-reader-ext/). 
+
+Want a quick overview? Want to get started right away? Or maybe you want to build it or even extend it yourself? Read on. 
+
 # What does VACASK offer? 
 
 - user defined global and ground nodes
@@ -151,7 +157,7 @@ vacask demo/bsim3-ptm-amp/toplevel.sim
 
 If you have Python 3, [NumPy](https://numpy.org/), and [Matplotlib](https://matplotlib.org/) installed the results will be plotted by the postprocessor script. Note that some of the demos also require [SciPy](https://scipy.org/). 
 
-You can learn about the netlist syntax by studying the demos in the [`demo`](demo) directory and the system tests in the [`test`](test) directory. We also started to write [VACASK documentation](docs/index.md). It is a work in progress so be patient. 
+You can learn about the netlist syntax by studying the demos in the [`demo`](demo) directory and the system tests in the [`test`](test) directory. We also have a [VACASK User's Manual](docs/index.md). 
 
 If VACASK fails to find something, first check all the paths by typing
 ```

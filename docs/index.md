@@ -1,4 +1,4 @@
-# VACASK Documentation
+# VACASK User's Manual
 
 VACASK (Verilog-A Circuit Analysis Kernel) is an analog circuit simulator built around the [OSDI](https://openvaf.semimod.de/docs/details/osdi/) device model interface. Device models are written in Verilog-A, compiled to shared libraries by the [OpenVAF-reloaded](https://github.com/arpadbuermen/OpenVAF) compiler, and loaded on demand at runtime. This clean separation between the simulator core and its device library makes it straightforward to use industry-standard compact models or to develop new ones without modifying the simulator itself.
 
