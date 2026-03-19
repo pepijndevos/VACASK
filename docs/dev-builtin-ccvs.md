@@ -25,7 +25,7 @@ Two terminals must be connected: `p n`. The controlling current is taken from an
 |-----------|------|---------|-------------|
 | `gain` | real | 1 | Transresistance in ohms. Output voltage = gain × controlling current. |
 | `ctlinst` | string | — | Name of the instance that provides the controlling current. Required. |
-| `ctlnode` | string | `flow(br)` | Internal node of the controlling instance whose unknown is used as the controlling current. The default reads the branch current of a voltage source. |
+| `ctlnode` | string | `"flow(br)"` | Internal node of the controlling instance whose unknown is used as the controlling current. The default reads the branch current of a voltage source. |
 | `$mfactor` | real | 1 | Number of parallel instances. |
 
 ## Output variables

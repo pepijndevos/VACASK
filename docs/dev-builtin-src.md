@@ -21,7 +21,7 @@ Both devices have two terminals that must be connected: `p n`.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `type` | string | `dc` | Waveform type. One of `dc`, `sine`, `pulse`, `exp`, `am`, `fm`. |
+| `type` | string | `"dc"` | Waveform type. One of `"dc"`, `"sine"`, `"pulse"`, `"exp"`, `"am"`, `"fm"`. |
 | `delay` | real | 0 | Start time (s). Before this time the source holds the value it would have at t = `delay`. |
 | `mag` | real | 0 | Small-signal excitation amplitude. For `vsource`: voltage in V. For `isource`: current per instance in A. |
 | `phase` | real | 0 | Small-signal excitation phase in degrees. |

@@ -83,7 +83,7 @@ VACASK is developed at the EDA Laboratory, University of Ljubljana, and is relea
       3. [Voltage-Controlled Current Source](dev-builtin-vccs.md)
       4. [Current-Controlled Voltage Source](dev-builtin-ccvs.md)
       5. [Current-Controlled Current Source](dev-builtin-cccs.md)
-      6. Inductive Coupling
+      6. [Inductive Coupling](dev-builtin-mutual.md)
    2. [VACASK Verilog-A Devices](dev-vacask.md)
    3. [3rd Party Verilog-A Devices](dev-3rdparty.md)
    4. [Converted SPICE Devices](dev-spice.md)
