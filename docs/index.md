@@ -87,6 +87,7 @@ VACASK is developed at the EDA Laboratory, University of Ljubljana, and is relea
    2. [VACASK Verilog-A Devices](dev-vacask.md)
    3. [3rd Party Verilog-A Devices](dev-3rdparty.md)
    4. [Converted SPICE Devices](dev-spice.md)
-8. Python Helpers
-   1. rawfile.py — Reading Raw Files
+8. [Python Helpers](python-overview.md)
+   1. [rawfile.py — Reading Raw Files](python-rawfile.md)
+   2. [runtest.py — Test Helpers](python-runtest.md)
 9. [C++ API](cpp-api.md)
