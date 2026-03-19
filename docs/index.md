@@ -63,7 +63,7 @@ VACASK is developed at the EDA Laboratory, University of Ljubljana, and is relea
    5. [Modifying Circuit Variables](cmd-var.md)
    6. [Modifying Parameters](cmd-alter.md)
    7. [Circuit Elaboration](cmd-elaboration.md)
-   8. Printing
+   8. [Printing](cmd-print.md)
    9. [Postprocessing](cmd-postprocess.md)
    10. [Error Handling](cmd-errorhandling.md)
 6. [Circuit Analyses](cmd-analysis-overview.md)

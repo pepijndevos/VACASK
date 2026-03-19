@@ -7,6 +7,8 @@
 
 namespace NAMESPACE {
 
+// TODO: print instance should also print output variables
+
 // Current status
 // Virtual functions are marked with +
 // Device
