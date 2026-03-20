@@ -35,7 +35,13 @@ The increased Ngspice memory usage when KLU is used as the solver is probably du
 
 Yes we do. It is bundled with the binary packages. [The user's manual](docs/index.md) is written in markdown. To read it in [Firefox](https://www.firefox.com/en-US/), instal the [Markdown Viewer Add-on](https://addons.mozilla.org/en-US/firefox/addon/markdown-viewer-chrome/) or the [Markdown Reader Add-on](https://addons.mozilla.org/en-US/firefox/addon/markdown-reader-ext/). 
 
-Want a quick overview? Want to get started right away? Or maybe you want to build it or even extend it yourself? Read on. 
+**Want a quick overview of VACASK?**
+
+**Want to get started with VACASK right away?**
+
+**Maybe you want to build VACASK yourself or contribute to its codebase?**
+
+***Read on!***
 
 # What does VACASK offer? 
 
