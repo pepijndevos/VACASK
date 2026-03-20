@@ -52,7 +52,7 @@ Yes we do. It is bundled with the binary packages. [The user's manual](docs/inde
 - integer, real, and string data types
 - vectors (homogeneous containers) and lists (heterogeneous containers)
 - a library of [built-in functions and constants](lib/context.cpp) for use in parameterized expressions
-- [operating point](include/coreop.h), [DC small-signal](include/coredcinc.h), [DC transfer function](include/coredcxf.h), [AC small-signal](include/coreac.h), [AC transfer function](include/coreacxf.h), [noise](include/corenoise.h), [transient](include/coretran.h), and [(multitone) harmonic balance](include/corehb.h) analyses 
+- all SPICE analyses + [many more](#supported-analyses)
 - [options](lib/options.cpp) for fine tuning the simulator
 - selection of what should be saved during simulation (save directives)
 - collection of output variables (OSDI opvars) computed by device models
@@ -91,15 +91,15 @@ VACASK is being developed by Árpád Bűrmen at the EDA Laboratory, University o
 
 |Name    |   |
 |--------|---|
-|op      |DC operating point |
-|dcinc   |incremental DC analysis (i.e. ac analysis at 0Hz) |
-|dcxf    |small-signal DC transfer functions from independent sources to given output (i.e. acxf analysis at 0Hz) |
-|ac      |small-signal AC analysis |
-|acxf    |small-signal AC transfer functions from independent sources to given output |
-|acstb   |small-signal AC stability analysis (open loop gain without breaking the loop) |
-|noise   |small-signal noise analysis |
-|tran    |transient (time-domain) analysis |
-|hb      |harmonic balance analysis |
+|op      |[DC operating point](include/coreop.h) |
+|dcinc   |[incremental DC analysis (i.e. ac analysis at 0Hz)](include/coredcinc.h) |
+|dcxf    |[small-signal DC transfer functions from independent sources to given output (i.e. acxf analysis at 0Hz)](include/coredcxf.h) |
+|ac      |[small-signal AC analysis](include/coreac.h) |
+|acxf    |[small-signal AC transfer functions from independent sources to given output](include/coreacxf.h) |
+|acstb   |[small-signal AC stability analysis (open loop gain without breaking the loop)](include/coreacstb.h) |
+|noise   |[small-signal noise analysis](include/corenoise.h) |
+|tran    |[transient (time-domain) analysis](include/coretran.h) |
+|hb      |[(multitone) harmonic balance analysis](include/corehb.h) |
 
 
 # What about device models? 
