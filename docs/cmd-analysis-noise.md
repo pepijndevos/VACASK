@@ -29,7 +29,7 @@ analysis name noise [parameters]
 5. Contributions are accumulated per instance and summed into the total output noise.
 6. The power gain $G = |H_\text{in}|^2$ is computed by additionally solving the system with 
    unity excitation at the input source. It can be used for computing the equivalent total input noise. 
-7. Steps 3–6 are repeated across the frequency sweep.
+7. Steps 3-6 are repeated across the frequency sweep.
 
 ## Parameters
 
@@ -42,9 +42,9 @@ analysis name noise [parameters]
 | `from` | real | `0` | Start frequency (Hz). |
 | `to` | real | `0` | Stop frequency (Hz). |
 | `step` | real | `0` | Frequency step size (Hz) for a stepped linear sweep. |
-| `mode` | string | — | Sweep mode: `"lin"`, `"dec"`, or `"oct"`. |
+| `mode` | string | - | Sweep mode: `"lin"`, `"dec"`, or `"oct"`. |
 | `points` | integer | `0` | Number of points (total for `"lin"`, per decade for `"dec"`, per octave for `"oct"`). |
-| `values` | real vector | — | Explicit vector of frequencies (Hz). Overrides `from`/`to`/`step`/`mode`/`points`. |
+| `values` | real vector | - | Explicit vector of frequencies (Hz). Overrides `from`/`to`/`step`/`mode`/`points`. |
 | `write` | boolean | `1` | Write the analysis results to a file. |
 | `writeop` | boolean | `0` | Also write the operating point results to `<analysis>.op.*`. |
 

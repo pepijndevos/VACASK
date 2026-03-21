@@ -1,6 +1,6 @@
 # Special Identifiers
 
-Special identifiers are predefined read-only names that reflect simulator state. They are available in all parameter expressions — instance parameters, model parameters, and subcircuit parameters.
+Special identifiers are predefined read-only names that reflect simulator state. They are available in all parameter expressions - instance parameters, model parameters, and subcircuit parameters.
 
 | Identifier | Maps to option | Description |
 |------------|----------------|-------------|

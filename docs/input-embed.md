@@ -12,7 +12,7 @@ file contents here
 >>>MARKER
 ```
 
-The marker is a user‑chosen identifier (alphanumeric and underscores only) that
+The marker is a user-chosen identifier (alphanumeric and underscores only) that
 delineates the start and end of the embedded content. Everything between these 
 markers is preserved exactly as written, including newlines and whitespace. 
 The content between markers is literal. There is no variable substitution or
@@ -20,7 +20,7 @@ macro expansion within embedded text.
 
 ## Common use cases
 
-**Embedded postprocessing scripts** – The most common application. Scripts
+**Embedded postprocessing scripts** - The most common application. Scripts
 (typically Python) perform analysis, visualization, or validation of
 simulation results.
 
@@ -35,7 +35,7 @@ plt.show()
 >>>PYEOF
 ```
 
-**Test data or lookup tables** – Store small datasets directly in the input file.
+**Test data or lookup tables** - Store small datasets directly in the input file.
 
 ```text
 embed "lookup.csv" <<<DATA
@@ -73,7 +73,7 @@ embed "postprocess.py" <<<PYEOF
 >>>PYEOF
 ```
 
-## Environment variables in postprocessing
+## `PYTHON` circuit variable
 
 VACASK sets the `PYTHON` circuit variable to the full path of the Python
 interpreter (if available). Use this in the control block to invoke Python

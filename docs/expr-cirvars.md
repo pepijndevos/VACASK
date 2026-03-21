@@ -24,7 +24,7 @@ For details see [Modifying Circuit Variables](cmd-var.md).
 
 ## Scope and availability
 
-Variables live in a global context that is shared across the entire netlist. Any parameter expression — in instances, models, subcircuits, analyses, or sweeps — can reference a circuit variable by name. If a variable is set before elaboration, it participates in the initial parameter evaluation. If it is changed afterward, all parameterized values that depend on it are re-evaluated before the next analysis runs.
+Variables live in a global context that is shared across the entire netlist. Any parameter expression - in instances, models, subcircuits, analyses, or sweeps - can reference a circuit variable by name. If a variable is set before elaboration, it participates in the initial parameter evaluation. If it is changed afterward, all parameterized values that depend on it are re-evaluated before the next analysis runs.
 
 ## Built-in variables
 

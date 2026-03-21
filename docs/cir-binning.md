@@ -1,6 +1,6 @@
 # Automated Binning
 
-Binning is a technique used in process design kits to improve model accuracy across a range of device geometries. A PDK may supply several model variants — bins — each calibrated for a specific window of width and length. The simulator during elaboration selects the appropriate bin based on the actual device dimensions (automated binning).
+Binning is a technique used in process design kits to improve model accuracy across a range of device geometries. A PDK may supply several model variants - bins - each calibrated for a specific window of width and length. The simulator during elaboration selects the appropriate bin based on the actual device dimensions (automated binning).
 
 In VACASK, automated binning is implemented with [conditional netlist blocks](cir-conditional.md). A wrapper subcircuit receives the geometry parameters and uses `@if`/`@elseif`/`@else` to instantiate the correct binned model.
 

@@ -15,14 +15,14 @@ include "common.inc"
 The filename must be enclosed in double quotes. Path resolution follows this
 order:
 
-1. **Directory of the including file** – If the current input file is in
+1. **Directory of the including file** - If the current input file is in
    `/home/user/circuits/main.sim` and it includes `"models.inc"`, VACASK looks
    for `/home/user/circuits/models.inc`.
 
-2. **Current working directory** – If not found in the including file's
+2. **Current working directory** - If not found in the including file's
    directory, VACASK checks the directory where VACASK was started.
 
-3. **Include path** – Finally, VACASK searches the include path. This defaults
+3. **Include path** - Finally, VACASK searches the include path. This defaults
    to `<VACASK_LIB>/inc` but can be overridden with the `SIM_INCLUDE_PATH`
    environment variable. Use colons to separate multiple directories (semicolons
    on Windows).
@@ -94,7 +94,7 @@ prevents infinite recursion by tracking the file stack.
 
 ## Use cases
 
-**Modular circuit design** – Split large circuits into functional blocks:
+**Modular circuit design** - Split large circuits into functional blocks:
 
 ```text
 // main.sim
@@ -105,7 +105,7 @@ include "digital.inc"
 // Circuit definition here
 ```
 
-**Reusable model libraries** – Create libraries of device models:
+**Reusable model libraries** - Create libraries of device models:
 
 ```text
 // models.lib

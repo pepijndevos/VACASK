@@ -10,4 +10,4 @@ Before the input file is parsed, VACASK sets up its runtime environment: it read
 
 Command line flags control diagnostic output and let you suppress embedded file extraction, postprocessing, or result file writing. A full reference along with the startup sequence is in [Command Line Options and Startup Sequence](startup-options.md).
 
-Run `vacask -dp` whenever a file cannot be found — it prints the path of every file the simulator is trying to read.
+Run `vacask -dp` whenever a file cannot be found - it prints the path of every file the simulator is trying to read.

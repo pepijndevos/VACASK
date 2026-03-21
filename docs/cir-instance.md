@@ -8,10 +8,10 @@ An instance places a master (model or subcircuit) into the circuit and connects 
 name (node1 node2 ...) master [parameters]
 ```
 
-- `name` — unique identifier for the instance within its scope.
-- `(node1 node2 ...)` — node connections in the order defined by the master's terminal list.
-- `master` — name of the model or subcircuit to instantiate.
-- `parameters` — optional. 
+- `name` - unique identifier for the instance within its scope.
+- `(node1 node2 ...)` - node connections in the order defined by the master's terminal list.
+- `master` - name of the model or subcircuit to instantiate.
+- `parameters` - optional. 
 
 ## Parameter override order
 

@@ -40,7 +40,7 @@ subckt divider(in out)
 ends
 ```
 
-Subcircuit instances are created the same way as device instances — the subcircuit name is used as the master name.
+Subcircuit instances are created the same way as device instances - the subcircuit name is used as the master name.
 
 ## Scope
 

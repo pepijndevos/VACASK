@@ -12,7 +12,7 @@
 | Name | Type | Default | Allowed | Description |
 |------|------|---------|---------|-------------|
 | `hb_skipinitial` | boolean | 1 | 0, 1 | Skip the initial direct solve and go straight to homotopy. |
-| `hb_homotopy` | list | `["src"]` | — | Ordered list of homotopy algorithms to try when the initial solve fails. |
+| `hb_homotopy` | list | `["src"]` | - | Ordered list of homotopy algorithms to try when the initial solve fails. |
 
 ## Debugging
 

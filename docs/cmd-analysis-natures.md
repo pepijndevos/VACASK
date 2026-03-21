@@ -1,6 +1,6 @@
 # Verilog-A Natures and Tolerances
 
-Natures and disciplines from Verilog-A device models determine how absolute tolerances are applied to circuit unknowns and residuals during simulation. VACASK supports three tolerance modes — SPICE-compatible (`spice`), Verilog-A (`va`), and mixed (`mixed`) — selectable via the `tolmode` simulator option.
+Natures and disciplines from Verilog-A device models determine how absolute tolerances are applied to circuit unknowns and residuals during simulation. VACASK supports three tolerance modes - SPICE-compatible (`spice`), Verilog-A (`va`), and mixed (`mixed`) - selectable via the `tolmode` simulator option.
 
 ## Tolerance modes
 
@@ -49,7 +49,7 @@ The output includes an "Absolute tolerances in Verilog-A mode" section listing t
 
 ### Names from Verilog-A files
 
-Each `.osdi` file has its own set of natures and disciplines that apply only to the models defined in that file. Nature names are used to identify the same nature across different `.osdi` files — for example, when computing global maxima for relative tolerance reference in the nonlinear solver. Two natures from different files are considered the same nature if their names match.
+Each `.osdi` file has its own set of natures and disciplines that apply only to the models defined in that file. Nature names are used to identify the same nature across different `.osdi` files - for example, when computing global maxima for relative tolerance reference in the nonlinear solver. Two natures from different files are considered the same nature if their names match.
 
 In `print tolerances` output, tolerance names are derived from discipline names rather than being resolved to the underlying nature name, because a discipline declaration can override nature attributes including `abstol`. The naming convention is:
 
@@ -85,10 +85,10 @@ Tolerances on unknowns are always enforced. Tolerances on residuals are enforced
 
 If convergence problems occur due to small residual reference values, try:
 
-- `options relrefres="pointglobal"` — use the maximum contribution across all residuals of the same nature at the current timepoint as the reference.
-- `options relrefres="global"` — use the maximum across all timepoints seen so far.
-- `options relref="allglobal"` — equivalent to setting `relrefsol`, `relrefres`, and `relreflte` all to `"pointglobal"`.
-- `options nr_residualcheck=0` — disable residual tolerance checks entirely.
+- `options relrefres="pointglobal"` - use the maximum contribution across all residuals of the same nature at the current timepoint as the reference.
+- `options relrefres="global"` - use the maximum across all timepoints seen so far.
+- `options relref="allglobal"` - equivalent to setting `relrefsol`, `relrefres`, and `relreflte` all to `"pointglobal"`.
+- `options nr_residualcheck=0` - disable residual tolerance checks entirely.
 
 ## Inspecting natures and tolerances
 

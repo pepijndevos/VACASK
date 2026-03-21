@@ -24,7 +24,7 @@ analysis name acxf [parameters]
 4. From $X$ it computes:
    - Transfer function $H = V_\text{out}/V_\text{excitation}$ to the designated output
    - Input impedance $Z_\text{in}$ and input admittance $Y_\text{in}$ at the source terminals
-5. Steps 3–4 are repeated across the frequency sweep.
+5. Steps 3-4 are repeated across the frequency sweep.
 
 ## Parameters
 
@@ -36,9 +36,9 @@ analysis name acxf [parameters]
 | `from` | real | `0` | Start frequency (Hz). |
 | `to` | real | `0` | Stop frequency (Hz). |
 | `step` | real | `0` | Frequency step size (Hz) for a stepped linear sweep. |
-| `mode` | string | — | Sweep mode: `"lin"`, `"dec"`, or `"oct"`. |
+| `mode` | string | - | Sweep mode: `"lin"`, `"dec"`, or `"oct"`. |
 | `points` | integer | `0` | Number of points (total for `"lin"`, per decade for `"dec"`, per octave for `"oct"`). |
-| `values` | real vector | — | Explicit list of frequencies (Hz). Overrides `from`/`to`/`step`/`mode`/`points`. |
+| `values` | real vector | - | Explicit list of frequencies (Hz). Overrides `from`/`to`/`step`/`mode`/`points`. |
 | `write` | boolean | `1` | Write the analysis results to a file. |
 | `writeop` | boolean | `0` | Also write the operating point results to `<analysis>.op.*`. |
 

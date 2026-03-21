@@ -122,7 +122,7 @@ The swept variable appears as a vector named after the sweep in the output file 
 
 ## Example 
 
-**2-dimensional DC sweep (MOSFET Id–Vds characteristics):**
+**2-dimensional DC sweep (MOSFET Id-Vds characteristics):**
 
 ```text
 2D DC sweep

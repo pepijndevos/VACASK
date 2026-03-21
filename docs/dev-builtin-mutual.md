@@ -6,9 +6,7 @@ A `mutual` instance couples two inductors by adding the off-diagonal terms of th
 
 The mutual inductance is computed from the coupling coefficient and the individual inductances:
 
-```text
-M = k × sqrt(L1 × L2)
-```
+$$M = k \sqrt{L_1 L_2}$$
 
 L1 and L2 are divided by the `$mparam` value of the respective inductor. 
 
@@ -25,8 +23,8 @@ m12 () mutual k=0.9 ind1="l1" ind2="l2"
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `k` | real | 0 | Coupling coefficient. Must be in [0, 1]. |
-| `ind1` | string | — | Name of the first inductor instance. Required. |
-| `ind2` | string | — | Name of the second inductor instance. Required. |
+| `ind1` | string | - | Name of the first inductor instance. Required. |
+| `ind2` | string | - | Name of the second inductor instance. Required. |
 | `ctlnode1` | string | `"flow(br)"` | Internal flow node of `ind1` that carries its branch current. |
 | `ctlnode2` | string | `"flow(br)"` | Internal flow node of `ind2` that carries its branch current. |
 
@@ -66,4 +64,4 @@ control
 endc
 ```
 
-`l1` and `l2` form a transformer with a turns ratio of approximately 1:2 (since `sqrt(L2/L1) = 2`). The coupling coefficient `k=0.95` sets the leakage. `m12` adds the mutual terms; the computed mutual inductance is `M = 0.95 × sqrt(10m × 40m) ≈ 19 mH`.
+`l1` and `l2` form a transformer with a turns ratio of 1:2 (since $\sqrt{L_2/L_1} = 2$). The coupling coefficient $k = 0.95$ sets the leakage. `m12` adds the mutual terms; the computed mutual inductance is $M = 0.95 \times \sqrt{10\,\text{mH} \times 40\,\text{mH}} \approx 19\,\text{mH}$.

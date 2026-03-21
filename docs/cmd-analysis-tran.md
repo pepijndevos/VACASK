@@ -20,8 +20,8 @@ where $f$ is the resistive residual and $q$ is the reactive residual. At each ti
 
 Two modes are available via the `icmode` parameter:
 
-- **`op`** (default) — Solves an operating point at $t=0$ with any specified initial conditions (`ic`) applied as forced constraints. This gives a consistent initial state.
-- **`uic`** — Skips the operating point solve and directly sets reactive component states from `ic`. Equivalent to SPICE3 `uic` transient. If the initial state is not consistent the timepoint at $t=0$ is not correct (like in SPICE). 
+- **`op`** (default) - Solves an operating point at $t=0$ with any specified initial conditions (`ic`) applied as forced constraints. This gives a consistent initial state.
+- **`uic`** - Skips the operating point solve and directly sets reactive component states from `ic`. Equivalent to SPICE3 `uic` transient. If the initial state is not consistent the timepoint at $t=0$ is not correct (like in SPICE). 
 
 Initial conditions use the same format as nodesets: a list alternating node names and values. Single-node: `["node"; value; ...]`. Differential: `["node1"; "node2"; value; ...]`. A stored solution name may also be given as a string.
 

@@ -15,7 +15,7 @@ The separator between levels is `:`. toplevel instances have no prefix; instance
 
 Internal nodes and models defined inside a subcircuit definition follow the same rule: a node named `mid` inside instance `x1` is referred to as `x1:mid`. A model named `bjtmod` inside instance `x1` is referred to as `x1:bjtmod`.
 
-Global and ground nodes (declared with `global` or `ground`) are never prefixed — their name is the same everywhere in the hierarchy. 
+Global and ground nodes (declared with `global` or `ground`) are never prefixed - their name is the same everywhere in the hierarchy. 
 
 Nodes for terminals are inherited from the enclosing instances or connected to global/ground nodes according to the list specified when the subcircuit instance is created. 
 

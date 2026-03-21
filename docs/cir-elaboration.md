@@ -45,7 +45,7 @@ When the circuit is already elaborated and parameters, options, or circuit varia
 elaborate changes
 ```
 
-The simulator checks each instance for topology changes — cases where a conditional block (`@if`) evaluates differently than it did at the previous elaboration. Only instances where topology changed, and their descendants, are torn down and rebuilt. Instances unaffected by the change are left intact. 
+The simulator checks each instance for topology changes - cases where a conditional block (`@if`) evaluates differently than it did at the previous elaboration. Only instances where topology changed, and their descendants, are torn down and rebuilt. Instances unaffected by the change are left intact. 
 
 If there are no topology changes parameter changes are propagated down the hierarchy. If a parameter change causes a change in node collapsing the system of equations is rebuilt. 
 

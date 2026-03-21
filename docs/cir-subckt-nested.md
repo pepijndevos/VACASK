@@ -22,14 +22,14 @@ definition. It is not accessible by name from outside.
 subckt ota (inp inn outp outn vdd vss)
   parameters ibias=100u
 
-  // Local helper subcircuit — not visible outside ota
+  // Local helper subcircuit - not visible outside ota
   subckt diff_pair (inp inn tail outp outn vdd vss)
     parameters w=4u l=180n
     mn1 (outp inn tail vss) nmos w=w l=l
     mn2 (outn inp tail vss) nmos w=w l=l
   ends
 
-  // Local helper subcircuit — not visible outside ota
+  // Local helper subcircuit - not visible outside ota
   subckt load_mirror (in out vdd)
     mp1 (in  in  vdd vdd) pmos w=2u l=180n
     mp2 (out in  vdd vdd) pmos w=2u l=180n

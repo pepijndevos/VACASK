@@ -4,9 +4,7 @@ Module name: `vccs`
 
 A `vccs` instance drives a current proportional to a controlling voltage:
 
-```text
-I(p→n, through device) = gain × (V(cp) − V(cn))
-```
+$$I_{p \to n} = \text{gain} \times (V(cp) - V(cn))$$
 
 It introduces no internal unknowns and contributes no reactive terms, so it is purely resistive in the MNA stamp.
 
@@ -25,7 +23,7 @@ Four terminals must be connected: `p n cp cn`.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `gain` | real | 1 | Transconductance in siemens. Output current = gain × controlling voltage. |
+| `gain` | real | 1 | Transconductance in siemens. |
 | `$mfactor` | real | 1 | Number of parallel instances. |
 
 ## Output variables

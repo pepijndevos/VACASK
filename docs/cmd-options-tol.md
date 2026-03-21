@@ -4,7 +4,7 @@
 
 | Name | Type | Default | Allowed | Description |
 |------|------|---------|---------|-------------|
-| `tolmode` | string | `spice` | `spice`, `va`, `mixed` | Tolerance assignment strategy. `spice` uses `vntol`/`abstol`/`chgtol`/`fluxtol` for all unknowns. `va` uses Verilog-A natures and disciplines where available and enforces no tolerance where they are absent. `mixed` uses VA natures where available, falling back to SPICE tolerances. |
+| `tolmode` | string | `"spice"` | `"spice"`, `"va"`, `"mixed"` | Tolerance assignment strategy. `"spice"` uses `vntol`/`abstol`/`chgtol`/`fluxtol` for all unknowns. `"va"` uses Verilog-A natures and disciplines where available and enforces no tolerance where they are absent. `"mixed"` uses VA natures where available, falling back to SPICE tolerances. |
 | `tolscale` | real | 1.0 | >0 | Global scaling factor applied to all absolute tolerances. |
 | `reltol`   | real | 1e-3 | 0 < x < 1 | Relative convergence tolerance. |
 

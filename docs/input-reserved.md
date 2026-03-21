@@ -2,14 +2,14 @@
 
 Certain words have special meaning in the netlist language and cannot be used
 as unquoted identifiers. They are recognised only when they appear at the
-beginning of a line and are case‑sensitive.
+beginning of a line and are case-sensitive.
 
 | Word         | Description |
 |--------------|-------------|
 | `include`    | Include (a part) of another file into the netlist. |
 | `section`    | Start of a file section. |
 | `endsection` | End of a file section. |
-| `load`       | Load a device model (Verilog‑A source). |
+| `load`       | Load a device model (Verilog-A source). |
 | `model`      | Declare a model. |
 | `global`     | Declare one or more global nodes. |
 | `ground`     | Declare one or more ground/reference nodes. |

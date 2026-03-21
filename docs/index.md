@@ -2,7 +2,7 @@
 
 VACASK (Verilog-A Circuit Analysis Kernel) is an analog circuit simulator built around the [OSDI](https://openvaf.semimod.de/docs/details/osdi/) device model interface. Device models are written in Verilog-A, compiled to shared libraries by the [OpenVAF-reloaded](https://github.com/arpadbuermen/OpenVAF) compiler, and loaded on demand at runtime. This clean separation between the simulator core and its device library makes it straightforward to use industry-standard compact models or to develop new ones without modifying the simulator itself.
 
-VACASK is not a SPICE clone. Its netlist language has a Spectre-like syntax with a richer expression system, fully parameterized hierarchical circuit descriptions, and conditional netlist blocks. The control block — the part of the netlist that drives simulation — is a small scripting language that sequences analyses, sweeps, circuit modifications, and postprocessing steps in a single run. Almost any circuit or simulator parameter can be swept or modified between analyses without reloading the netlist. Furthermore, the circuit's topology can also be changed without reloading the circuit. 
+VACASK is not a SPICE clone. Its netlist language has a Spectre-like syntax with a richer expression system, fully parameterized hierarchical circuit descriptions, and conditional netlist blocks. The control block - the part of the netlist that drives simulation - is a small scripting language that sequences analyses, sweeps, circuit modifications, and postprocessing steps in a single run. Almost any circuit or simulator parameter can be swept or modified between analyses without reloading the netlist. Furthermore, the circuit's topology can also be changed without reloading the circuit. 
 
 The simulator supports operating-point, DC small-signal, AC small-signal, noise, transient, and harmonic balance analyses. The nonlinear solver uses residual-based convergence testing and several homotopy strategies for difficult operating-point problems. Numerical linear algebra is handled by the KLU sparse matrix library. Results are written in SPICE raw file format and can be postprocessed by external scripts, with built-in Python integration for launching postprocessors directly from the netlist.
 
@@ -88,6 +88,6 @@ VACASK is developed at the EDA Laboratory, University of Ljubljana, and is relea
    3. [3rd Party Verilog-A Devices](dev-3rdparty.md)
    4. [Converted SPICE Devices](dev-spice.md)
 8. [Python Helpers](python-overview.md)
-   1. [rawfile.py — Reading Raw Files](python-rawfile.md)
-   2. [runtest.py — Test Helpers](python-runtest.md)
+   1. [rawfile.py - Reading Raw Files](python-rawfile.md)
+   2. [runtest.py - Test Helpers](python-runtest.md)
 9. [C++ API](cpp-api.md)

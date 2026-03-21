@@ -8,9 +8,9 @@ An analysis statement runs a simulation and writes results to output file(s). It
 analysis name type [parameters]
 ```
 
-- `name` — unique identifier for this analysis run. Used as the base name for the output file (`name.raw`).
-- `type` — the kind of analysis to run. See the analysis chapters for available types and their parameters.
-- `parameters` — analysis-specific parameters given as `key=value` pairs.
+- `name` - unique identifier for this analysis run. Used as the base name for the output file (`name.raw`).
+- `type` - the kind of analysis to run. See the analysis chapters for available types and their parameters.
+- `parameters` - analysis-specific parameters given as `key=value` pairs.
 
 ```text
 control

@@ -4,9 +4,7 @@ Module name: `vcvs`
 
 A `vcvs` instance enforces the voltage constraint
 
-```text
-V(p) − V(n) = gain × (V(cp) − V(cn))
-```
+$$V(p) - V(n) = \text{gain} \times (V(cp) - V(cn))$$
 
 It introduces one internal unknown (the branch current) and contributes no reactive terms, so it is purely resistive in the MNA stamp.
 
@@ -25,7 +23,7 @@ Four terminals must be connected: `p n cp cn`.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `gain` | real | 1 | Voltage gain (dimensionless). Output voltage = gain × controlling voltage. |
+| `gain` | real | 1 | Voltage gain (dimensionless). |
 | `$mfactor` | real | 1 | Number of parallel instances. |
 
 ## Output variables

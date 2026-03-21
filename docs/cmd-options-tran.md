@@ -4,9 +4,9 @@
 
 | Name | Type | Default | Allowed | Description |
 |------|------|---------|---------|-------------|
-| `tran_method` | string | `trap` | `am`, `bdf`, `gear`, `euler`, `trap`, `am2`, `gear2`, `bdf2` | Numerical integration algorithm.  |
-| `tran_maxord` | int | 2 | — | Maximum integration order for variable-order `am` and `bdf`/`gear` methods. |
-| `tran_xmu` | real | 0.5 | 0–0.5 | Euler/trapezoidal mixture for Adams-Moulton order 2. 0 = pure Euler, 0.5 = pure trapezoidal. |
+| `tran_method` | string | `"trap"` | `"am"`, `"bdf"`, `"gear"`, `"euler"`, `"trap"`, `"am2"`, `"gear2"`, `"bdf2"` | Numerical integration algorithm.  |
+| `tran_maxord` | int | 2 | - | Maximum integration order for variable-order `am` and `bdf`/`gear` methods. |
+| `tran_xmu` | real | 0.5 | 0-0.5 | Euler/trapezoidal mixture for Adams-Moulton order 2. 0 = pure Euler, 0.5 = pure trapezoidal. |
 | `tran_trapltefilter` | boolean | 1 | 0, 1 | Enable trap ringing filter for predictor and LTE computation (AM order 2 only). |
 | `tran_spicelte` | boolean | 0 | 0, 1 | Use SPICE-compatible (incorrect) LTE handling. |
 
@@ -23,8 +23,8 @@
 | `tran_fs` | real | 0.25 | 0 < x ≤ 0.5 | Fraction of the simulation interval used as the initial timestep, and as the maximum step between consecutive breakpoints. |
 | `tran_ffmax` | real | 0.25 | ≥0 | Limits the initial timestep to this fraction of the maximum excitation period. 0 disables. |
 | `tran_fbr` | real | 0.2501 | 0 < x ≤ 1/3 | Maximum fraction of a breakpoint interval for the timestep. Must be ≤ 1/3 to guarantee at least three points between any two breakpoints. |
-| `tran_rmax` | real | 0.0 | — | Upper limit on timestep expressed as a ratio to the simulation step. Values < 1 disable this limit. |
-| `tran_minpts` | int | 50 | — | Minimum number of output timepoints from start to stop, excluding the start point. Values < 1 disable. |
+| `tran_rmax` | real | 0.0 | - | Upper limit on timestep expressed as a ratio to the simulation step. Values < 1 disable this limit. |
+| `tran_minpts` | int | 50 | - | Minimum number of output timepoints from start to stop, excluding the start point. Values < 1 disable. |
 
 ## Newton-Raphson per timepoint
 

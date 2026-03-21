@@ -29,16 +29,16 @@ Within double-quoted strings, the following escape sequences are recognized:
 | `\f`     | Form feed           | U+000C  |
 | `\"`     | Double quote        | U+0022  |
 | `\\`     | Backslash           | U+005C  |
-| `\`*ooo* | Octal escape (1–3 digits) | *varies* |
+| `\`*ooo* | Octal escape (1-3 digits) | *varies* |
 | `\`*x*   | Any other character *x*   | *x*      |
 
 The last two rows merit explanation:
 
-**Octal escapes** – `\123` represents the character with octal value 123
+**Octal escapes** - `\123` represents the character with octal value 123
 (decimal 83, the letter `S`). Sequences may be 1, 2, or 3 octal digits. For
 example, `\7` is bell (U+0007), `\101` is `A` (U+0041).
 
-**Arbitrary escapes** – `\x` for any character not listed above yields that
+**Arbitrary escapes** - `\x` for any character not listed above yields that
 character. For example, `\$` yields `$`, and `\#` yields `#`. This is useful
 when the character has special meaning in other contexts.
 

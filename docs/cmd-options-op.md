@@ -12,8 +12,8 @@
 | Name | Type | Default | Allowed | Description |
 |------|------|---------|---------|-------------|
 | `op_skipinitial` | boolean | 0 | 0, 1 | Skip the initial direct NR solve and go straight to homotopy. |
-| `op_homotopy` | list | `["gdev","gshunt","src"]` | — | Ordered list of homotopy algorithms to try when the initial solve fails. |
-| `op_srchomotopy` | list | `["gdev","gshunt"]` | — | Homotopy sequence used when source stepping itself fails at source factor = 0. |
+| `op_homotopy` | list | `["gdev","gshunt","src"]` | - | Ordered list of homotopy algorithms to try when the initial solve fails. |
+| `op_srchomotopy` | list | `["gdev","gshunt"]` | - | Homotopy sequence used when source stepping itself fails at source factor = 0. |
 
 ## Nodesets
 

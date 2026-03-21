@@ -4,7 +4,7 @@
 
 | Name | Type | Default | Allowed | Description |
 |------|------|---------|---------|-------------|
-| `rawfile` | string | `binary` | `ascii`, `binary` | Raw file format. `binary` is more compact; `ascii` is human-readable. |
+| `rawfile` | string | `"binary"` | `"ascii"`, `"binary"` | Raw file format. `"binary"` is more compact; `"ascii"` is human-readable. |
 | `strictoutput` | int | 2 | 0, 1, 2 | Raw file cleanup on error. 0 = leave files in place. 1 = delete on error. 2 = delete before analysis starts. |
 
 ## Save binding

@@ -4,9 +4,7 @@ Module name: `cccs`
 
 A `cccs` instance drives a current proportional to the branch current of another instance:
 
-```text
-I(p→n, through device) = gain × I(ctlinst)
-```
+$$I_{p \to n} = \text{gain} \times I(\text{ctlinst})$$
 
 It introduces no internal unknowns and contributes no reactive terms, so it is purely resistive in the MNA stamp.
 
@@ -23,8 +21,8 @@ Two terminals must be connected: `p n`. The controlling current is taken from an
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `gain` | real | 1 | Current gain (dimensionless). Output current = gain × controlling current. |
-| `ctlinst` | string | — | Name of the instance that provides the controlling current. Required. |
+| `gain` | real | 1 | Current gain (dimensionless). |
+| `ctlinst` | string | - | Name of the instance that provides the controlling current. Required. |
 | `ctlnode` | string | `"flow(br)"` | Internal node of the controlling instance whose unknown is used as the controlling current. The default reads the branch current of a voltage source. |
 | `$mfactor` | real | 1 | Number of parallel instances. |
 

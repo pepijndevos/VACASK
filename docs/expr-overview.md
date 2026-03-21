@@ -1,6 +1,6 @@
 # Data Types and Expressions
 
-VACASK expressions are used wherever a parameter value appears — in instance and model parameters, subcircuit parameters, top-level parameters, sweep ranges, analysis parameters, and conditional block conditions.
+VACASK expressions are used wherever a parameter value appears - in instance and model parameters, subcircuit parameters, top-level parameters, sweep ranges, analysis parameters, and conditional block conditions.
 
 ## Scalar types
 
@@ -36,5 +36,5 @@ See [Vectors and Lists](expr-vectors.md) for details.
 - [Special identifiers](expr-special.md) (`$temp`, `$scale`)
 - [Circuit variables](expr-cirvars.md) set with the `var` command
 - Parameters declared with the `parameters` keyword in the enclosing scope
-- [Operators](expr-operators.md) — arithmetic, comparison, logical, bitwise, ternary
-- [Builtin functions](expr-functions.md) — math, type conversion, string, vector operations
+- [Operators](expr-operators.md) - arithmetic, comparison, logical, bitwise, ternary
+- [Builtin functions](expr-functions.md) - math, type conversion, string, vector operations

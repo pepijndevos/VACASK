@@ -30,7 +30,7 @@ Inside a conditional branch you may place:
 
 Conditions are evaluated during circuit elaboration, after parameters have been resolved. Branches are tested in order; the first branch whose condition is true is activated and the rest are skipped. If no branch is true and there is no `@else`, the block contributes nothing.
 
-Because evaluation happens at elaboration time, the topology actually assembled — nodes, instances, models — depends on the parameter values in effect at that moment. If elaboration is re-triggered (e.g., because a swept parameter crosses a boundary), conditions are re-evaluated.
+Because evaluation happens at elaboration time, the topology actually assembled - nodes, instances, models - depends on the parameter values in effect at that moment. If elaboration is re-triggered (e.g., because a swept parameter crosses a boundary), conditions are re-evaluated.
 
 ## Example
 

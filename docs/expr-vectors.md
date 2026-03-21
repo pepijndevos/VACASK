@@ -61,7 +61,7 @@ Lists are used where parameters accept heterogeneous data, such as initial condi
 analysis tran1 tran ic=["vout"; 3.3; "vgate"; 0.8]
 ```
 
-Unlike vectors, list elements are stored intact — nested lists remain as sub-lists.
+Unlike vectors, list elements are stored intact - nested lists remain as sub-lists.
 
 ## Merged lists
 

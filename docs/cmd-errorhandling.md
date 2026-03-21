@@ -19,13 +19,13 @@ By default the simulator aborts on any error except a failed `analysis`. A faile
 
 ## Variants
 
-**`abort always`** — stop the run on any error, including failed analyses. Use this when all steps must succeed for the result to be valid.
+**`abort always`** - stop the run on any error, including failed analyses. Use this when all steps must succeed for the result to be valid.
 
-**`abort never`** — print errors to standard error and continue regardless. Useful for exploratory runs where some analyses are expected to fail.
+**`abort never`** - print errors to standard error and continue regardless. Useful for exploratory runs where some analyses are expected to fail.
 
-**`abort on cmd1 cmd2 ...`** — abort only when the listed commands fail; ignore errors in everything else.
+**`abort on cmd1 cmd2 ...`** - abort only when the listed commands fail; ignore errors in everything else.
 
-**`abort except cmd1 cmd2 ...`** — abort on every error except failures in the listed commands.
+**`abort except cmd1 cmd2 ...`** - abort on every error except failures in the listed commands.
 
 Each `abort` statement replaces the previous policy completely.
 
@@ -61,7 +61,7 @@ control
 endc
 ```
 
-Change policy mid-run — abort on analysis failures during a critical section, then relax it:
+Change policy mid-run - abort on analysis failures during a critical section, then relax it:
 
 ```text
 control

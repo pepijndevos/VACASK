@@ -4,9 +4,9 @@
 
 VACASK uses two search paths.
 
-**Module path** — searched when a `load` directive specifies a relative path to an `.osdi` or `.va` file. Default: `<library directory>/mod`. Override with the `SIM_MODULE_PATH` environment variable or the `[Paths]` section of the configuration file.
+**Module path** - searched when a `load` directive specifies a relative path to an `.osdi` or `.va` file. Default: `<library directory>/mod`. Override with the `SIM_MODULE_PATH` environment variable or the `[Paths]` section of the configuration file.
 
-**Include path** — searched when an `include` directive specifies a relative path. Default: `<library directory>/inc`. Override with `SIM_INCLUDE_PATH` or the configuration file.
+**Include path** - searched when an `include` directive specifies a relative path. Default: `<library directory>/inc`. Override with `SIM_INCLUDE_PATH` or the configuration file.
 
 For relative paths VACASK always searches first in the directory of the file that issued the directive, then the current working directory, and finally the configured path. Absolute paths bypass the search entirely.
 

@@ -34,7 +34,7 @@ Three truncation schemes control which intermodulation products are included in 
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `freq` | real vector | — | Fundamental frequencies (Hz). Required. A single value for single-tone; a list for multi-tone. |
+| `freq` | real vector | - | Fundamental frequencies (Hz). Required. A single value for single-tone; a list for multi-tone. |
 | `nharm` | integer or integer vector | `4` | Number of harmonics per fundamental. Scalar applies to all; a vector sets per-tone limits. |
 | `immax` | integer | `0` | Maximum intermodulation order for `"diamond"` truncation. If ≤ 0, defaults to the largest component of `nharm`. |
 | `truncate` | string | `"diamond"` | Spectrum truncation scheme: `"diamond"`, `"box"`, or `"raw"`. |

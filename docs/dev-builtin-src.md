@@ -13,7 +13,7 @@ Both devices have two terminals that must be connected: `p n`.
 | `p` | Positive terminal |
 | `n` | Negative terminal |
 
-`vsource` enforces V(p) − V(n) = waveform value. It introduces one internal unknown (the branch current) and has a `flow(br)` internal node that current-controlled sources can reference.
+`vsource` enforces $V(p) - V(n) =$ waveform value. It introduces one internal unknown (the branch current) and has a `flow(br)` internal node that current-controlled sources can reference.
 
 `isource` drives a current equal to the waveform value from `p` to `n` through the device (i.e., the current exits into the circuit at terminal `n`).
 
@@ -31,7 +31,7 @@ Both devices have two terminals that must be connected: `p n`.
 
 | Variable | Description |
 |----------|-------------|
-| `v` | Terminal voltage V(p) − V(n) |
+| `v` | Terminal voltage $V(p) - V(n)$ |
 | `i` | Current through one parallel instance. For `vsource`: positive when flowing into terminal `p` (passive sign convention). For `isource`: equals the instantaneous waveform value, positive when flowing from `p` to `n` through the device. |
 
 ## Waveform types
@@ -58,9 +58,7 @@ type="sine"  sinedc=0 ampl=1 freq=1k phase=0 delay=0 theta=0
 
 Damped sinusoid. Before `delay` the source holds the value it would produce at t = `delay`.
 
-```text
-v(t) = sinedc + ampl × sin(2π × freq × (t − delay) + phase × π/180) × exp(−theta × (t − delay))
-```
+$$v(t) = \text{sinedc} + \text{ampl} \cdot \sin\!\left(2\pi \cdot \text{freq} \cdot (t - \text{delay}) + \frac{\text{phase} \cdot \pi}{180}\right) \cdot \exp\!\left(-\text{theta} \cdot (t - \text{delay})\right)$$
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
@@ -85,7 +83,7 @@ Piecewise-linear pulse waveform. The waveform starts at `val0`, rises linearly t
 | `val0` | real | 0 | Base value. |
 | `val1` | real | 1 | Pulse value. |
 | `rise` | real | 1n | Rise time (s). Must be greater than 0. |
-| `fall` | real | 0 | Fall time (s). Zero or negative: no fall — stays at `val1`. |
+| `fall` | real | 0 | Fall time (s). Zero or negative: no fall - stays at `val1`. |
 | `width` | real | 0 | Flat-top duration (s) between end of rise and start of fall. Zero: no flat top. |
 | `period` | real | 0 | Repetition period (s). Zero or negative: single pulse. Must be greater than `rise + fall + width` when positive. |
 
@@ -99,12 +97,17 @@ type="exp"  val0=0 val1=1 delay=0 td2=... tau1=... tau2=...
 
 Double-exponential: a rising exponential followed by a falling one.
 
-```text
-t < delay:              v(t) = val0
-delay ≤ t < delay+td2: v(t) = val0 + (val1−val0) × (1 − exp(−(t−delay)/tau1))
-t ≥ delay+td2:          v(t) = val0 + (val1−val0) × (1 − exp(−(t−delay)/tau1))
-                               + (val0−val1) × (1 − exp(−(t−delay−td2)/tau2))
-```
+For $t < \text{delay}$:
+
+$$v(t) = \text{val0}$$
+
+For $\text{delay} \le t < \text{delay} + \text{td2}$:
+
+$$v(t) = \text{val0} + (\text{val1} - \text{val0})\left(1 - e^{-(t-\text{delay})/\text{tau1}}\right)$$
+
+For $t \ge \text{delay} + \text{td2}$:
+
+$$v(t) = \text{val0} + (\text{val1} - \text{val0})\left(1 - e^{-(t-\text{delay})/\text{tau1}}\right) + (\text{val0} - \text{val1})\left(1 - e^{-(t-\text{delay}-\text{td2})/\text{tau2}}\right)$$
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
@@ -124,10 +127,7 @@ type="am"  sinedc=0 ampl=1 freq=1k phase=0 delay=0 modfreq=1k modphase=0 modinde
 
 Amplitude-modulated sinusoid.
 
-```text
-v(t) = sinedc + ampl × sin(2π × freq × (t−delay) + phase×π/180)
-              × (1 + modindex × sin(2π × modfreq × (t−delay) + modphase×π/180))
-```
+$$v(t) = \text{sinedc} + \text{ampl} \cdot \sin\!\left(2\pi \cdot \text{freq} \cdot (t - \text{delay}) + \frac{\text{phase} \cdot \pi}{180}\right) \cdot \left(1 + \text{modindex} \cdot \sin\!\left(2\pi \cdot \text{modfreq} \cdot (t - \text{delay}) + \frac{\text{modphase} \cdot \pi}{180}\right)\right)$$
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
@@ -149,10 +149,7 @@ type="fm"  sinedc=0 ampl=1 freq=1k phase=0 delay=0 modfreq=1k modphase=0 modinde
 
 Frequency-modulated sinusoid.
 
-```text
-v(t) = sinedc + ampl × sin(2π × freq × (t−delay) + phase×π/180
-              + modindex × sin(2π × modfreq × (t−delay) + modphase×π/180))
-```
+$$v(t) = \text{sinedc} + \text{ampl} \cdot \sin\!\left(2\pi \cdot \text{freq} \cdot (t - \text{delay}) + \frac{\text{phase} \cdot \pi}{180} + \text{modindex} \cdot \sin\!\left(2\pi \cdot \text{modfreq} \cdot (t - \text{delay}) + \frac{\text{modphase} \cdot \pi}{180}\right)\right)$$
 
 Parameters are the same as for `am`.
 

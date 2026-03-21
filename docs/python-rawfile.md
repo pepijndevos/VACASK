@@ -1,4 +1,4 @@
-# rawfile.py — Reading Raw Files
+# rawfile.py - Reading Raw Files
 
 `rawfile` reads SPICE binary raw files produced by VACASK. The only public entry point is `rawread`.
 
