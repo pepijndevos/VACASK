@@ -1,0 +1,60 @@
+stages:
+  - build
+
+build-linux:
+  stage: build
+  image: ubuntu:24.04
+  script:
+    - ci/install-deps.sh
+    - ci/build-openvaf.sh "$CI_PROJECT_DIR/openvaf-cache"
+    - ci/build-vacask.sh --openvaf-dir "$CI_PROJECT_DIR/openvaf-cache"
+    - ci/bundle.sh --openvaf-dir "$CI_PROJECT_DIR/openvaf-cache"
+  artifacts:
+    paths:
+      - build/simulator/
+      - build/lib/vacask/
+    expire_in: 1 week
+  cache:
+    key: openvaf-linux-${CI_RUNNER_EXECUTABLE_ARCH}-v5
+    paths:
+      - openvaf-cache/
+
+build-macos:
+  stage: build
+  tags:
+    - saas-macos-medium-m1
+  image: macos-14-xcode-15
+  script:
+    - ci/install-deps.sh
+    - ci/build-openvaf.sh "$CI_PROJECT_DIR/openvaf-cache"
+    - ci/build-vacask.sh --openvaf-dir "$CI_PROJECT_DIR/openvaf-cache"
+    - ci/bundle.sh --openvaf-dir "$CI_PROJECT_DIR/openvaf-cache"
+  artifacts:
+    paths:
+      - build/simulator/
+      - build/lib/vacask/
+    expire_in: 1 week
+  cache:
+    key: openvaf-macos-arm64-v5
+    paths:
+      - openvaf-cache/
+
+build-windows:
+  stage: build
+  tags:
+    - saas-windows-medium-amd64
+  script:
+    - choco install msys2 -y --no-progress
+    - $env:MSYSTEM='MINGW64'; C:\tools\msys64\usr\bin\bash -lc "pacman -S --noconfirm --needed git bison flex mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja mingw-w64-x86_64-boost mingw-w64-x86_64-suitesparse mingw-w64-x86_64-tomlplusplus mingw-w64-x86_64-llvm mingw-w64-x86_64-clang mingw-w64-x86_64-lld mingw-w64-x86_64-rust mingw-w64-x86_64-python mingw-w64-x86_64-python-numpy mingw-w64-x86_64-python-scipy"
+    - $env:MSYSTEM='MINGW64'; C:\tools\msys64\usr\bin\bash -lc 'cd "$CI_PROJECT_DIR" && ci/build-openvaf.sh "$CI_PROJECT_DIR/openvaf-cache"'
+    - $env:MSYSTEM='MINGW64'; C:\tools\msys64\usr\bin\bash -lc 'cd "$CI_PROJECT_DIR" && ci/build-vacask.sh --openvaf-dir "$CI_PROJECT_DIR/openvaf-cache"'
+    - $env:MSYSTEM='MINGW64'; C:\tools\msys64\usr\bin\bash -lc 'cd "$CI_PROJECT_DIR" && ci/bundle.sh --openvaf-dir "$CI_PROJECT_DIR/openvaf-cache"'
+  artifacts:
+    paths:
+      - build/simulator/
+      - build/lib/vacask/
+    expire_in: 1 week
+  cache:
+    key: openvaf-windows-amd64-v5
+    paths:
+      - openvaf-cache/
