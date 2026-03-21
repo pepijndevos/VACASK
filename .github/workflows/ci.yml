@@ -2,7 +2,8 @@ name: CI
 
 on:
   push:
-    branches: [main, macos-fixes]
+    branches: [main]
+    tags: ['_*']
   pull_request:
     branches: [main]
 
@@ -14,184 +15,129 @@ jobs:
         include:
           - os: ubuntu-24.04
             name: Ubuntu 24.04
-          - os: ubuntu-22.04
-            name: Ubuntu 22.04
           - os: macos-14
             name: macOS
+          - os: windows-latest
+            name: Windows
 
     name: Build (${{ matrix.name }})
     runs-on: ${{ matrix.os }}
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install LLVM 18 (Ubuntu 22.04)
-        if: matrix.os == 'ubuntu-22.04'
-        run: |
-          # Ubuntu 22.04 has LLVM 14 by default, but OpenVAF requires LLVM 18+
-          # Install LLVM 18 from official apt.llvm.org repository
-          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
-          echo "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main" | sudo tee /etc/apt/sources.list.d/llvm-18.list
-          sudo apt-get update
-          sudo apt-get install -y llvm-18-dev libclang-18-dev clang-18 lld-18
-          # Set up alternatives so llvm tools point to version 18
-          sudo update-alternatives --install /usr/bin/llvm-config llvm-config /usr/bin/llvm-config-18 100
-          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-18 100
-          # Add LLVM 18 bin directory to PATH for tools like llvm-lib
-          echo "/usr/lib/llvm-18/bin" >> "$GITHUB_PATH"
-          echo "LLVM_SYS_180_PREFIX=/usr/lib/llvm-18" >> "$GITHUB_ENV"
+        uses: actions/checkout@v6
 
       - name: Install dependencies (Linux)
         if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            cmake \
-            ninja-build \
-            bison \
-            flex \
-            libfl-dev \
-            libsuitesparse-dev \
-            python3 \
-            python3-numpy \
-            python3-scipy
-          # Install default LLVM on Ubuntu 24.04 (which has LLVM 18+)
-          if [ "${{ matrix.os }}" != "ubuntu-22.04" ]; then
-            sudo apt-get install -y llvm-dev libclang-dev clang
-          fi
-
-      - name: Install toml++ (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          # toml++ is header-only, install from source
-          cd /tmp
-          curl -L -o tomlplusplus.tar.gz https://github.com/marzer/tomlplusplus/archive/refs/tags/v3.4.0.tar.gz
-          tar xzf tomlplusplus.tar.gz
-          sudo mkdir -p /usr/local/include
-          sudo cp -r tomlplusplus-3.4.0/include/toml++ /usr/local/include/
-          echo "TOMLPP_DIR=/usr/local" >> "$GITHUB_ENV"
+        run: ci/install-deps.sh
 
       - name: Install dependencies (macOS)
         if: runner.os == 'macOS'
-        run: |
-          brew install \
-            cmake \
-            ninja \
-            bison \
-            flex \
-            suite-sparse \
-            boost \
-            tomlplusplus \
-            llvm \
-            python3 \
-            numpy \
-            scipy
+        run: ci/install-deps.sh
 
-      - name: Build Boost 1.88 (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          # VACASK requires Boost 1.88 with process component
-          # Install Boost and create symlink for VACASK's expected layout
-          cd /tmp
-          curl -L -o boost.tar.gz https://github.com/boostorg/boost/releases/download/boost-1.88.0/boost-1.88.0-b2-nodocs.tar.gz
-          tar xzf boost.tar.gz
-          cd boost-1.88.0
-          ./bootstrap.sh --with-libraries=filesystem,process,system --prefix=/tmp/boost-install
-          ./b2 "-j$(nproc)" variant=release link=static,shared threading=multi install
-          # VACASK expects libs at Boost_INCLUDE_DIR/stage/lib, create symlink
-          mkdir -p /tmp/boost-install/include/stage
-          ln -s /tmp/boost-install/lib /tmp/boost-install/include/stage/lib
-          echo "BOOST_ROOT=/tmp/boost-install" >> "$GITHUB_ENV"
-          echo "CMAKE_PREFIX_PATH=/tmp/boost-install" >> "$GITHUB_ENV"
+      - name: Setup MSYS2 (Windows)
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          install: git bison flex
+          pacboy: >-
+            gcc:p cmake:p ninja:p boost:p suitesparse:p
+            tomlplusplus:p llvm:p clang:p lld:p rust:p python:p
+            python-numpy:p python-scipy:p
 
       - name: Cache OpenVAF build
         id: cache-openvaf
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
-          path: ~/.openvaf
-          key: openvaf-${{ matrix.os }}-${{ runner.arch }}-v3
+          path: openvaf-cache
+          key: openvaf-${{ matrix.os }}-${{ runner.arch }}-v5
 
-      - name: Build OpenVAF-reloaded
-        if: steps.cache-openvaf.outputs.cache-hit != 'true'
+      - name: Build OpenVAF-reloaded (Unix)
+        if: steps.cache-openvaf.outputs.cache-hit != 'true' && runner.os != 'Windows'
+        run: ci/build-openvaf.sh "$GITHUB_WORKSPACE/openvaf-cache"
+
+      - name: Build OpenVAF-reloaded (Windows)
+        if: steps.cache-openvaf.outputs.cache-hit != 'true' && runner.os == 'Windows'
+        shell: msys2 {0}
+        run: ci/build-openvaf.sh "$(cygpath -u "$GITHUB_WORKSPACE")/openvaf-cache"
+
+      - name: Setup OpenVAF path (Unix)
+        if: runner.os != 'Windows'
         run: |
-          # Install Rust
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
-          # shellcheck source=/dev/null
-          source ~/.cargo/env
+          chmod +x "$GITHUB_WORKSPACE/openvaf-cache/openvaf-r"
+          echo "OPENVAF_DIR=$GITHUB_WORKSPACE/openvaf-cache" >> "$GITHUB_ENV"
 
-          # Clone OpenVAF from arpadbuermen fork with macOS patches
-          git clone --branch branches/macos-patches-v3 https://github.com/arpadbuermen/OpenVAF.git /tmp/openvaf
-          cd /tmp/openvaf
-
-          # Set LLVM environment based on OS
-          if [ "$RUNNER_OS" == "macOS" ]; then
-            BREW_PREFIX="$(brew --prefix)"
-            export LLVM_SYS_210_PREFIX="$BREW_PREFIX/opt/llvm"
-            export PATH="$BREW_PREFIX/opt/llvm/bin:$PATH"
-            LLVM_FEATURE="llvm21"
-          else
-            # Linux: use system LLVM (version varies by Ubuntu version)
-            # OpenVAF requires LLVM 18+ (supported features: llvm18, llvm19, llvm20, llvm21)
-            LLVM_VERSION=$(llvm-config --version | cut -d. -f1)
-            echo "Detected LLVM version: $LLVM_VERSION"
-            LLVM_FEATURE="llvm${LLVM_VERSION}"
-          fi
-
-          echo "Building with feature: $LLVM_FEATURE"
-          cargo build --release --features "$LLVM_FEATURE" --bin openvaf-r
-
-          # Install to cache location
-          mkdir -p ~/.openvaf
-          cp target/release/openvaf-r ~/.openvaf/
-
-      - name: Setup OpenVAF path
+      - name: Setup OpenVAF path (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
         run: |
-          chmod +x "$HOME/.openvaf/openvaf-r"
-          echo "OPENVAF_DIR=$HOME/.openvaf" >> "$GITHUB_ENV"
+          echo "OPENVAF_DIR=$(cygpath -u "$GITHUB_WORKSPACE")/openvaf-cache" >> "$GITHUB_ENV"
 
-      - name: Configure VACASK
-        run: |
-          CMAKE_ARGS=(-G Ninja -S . -B build -DCMAKE_BUILD_TYPE=Release)
-          CMAKE_ARGS+=("-DOPENVAF_DIR=$OPENVAF_DIR")
+      - name: Build and test (Unix)
+        if: runner.os != 'Windows'
+        run: ci/build-vacask.sh --openvaf-dir "$OPENVAF_DIR"
 
-          if [ "$RUNNER_OS" == "macOS" ]; then
-            BREW_PREFIX="$(brew --prefix)"
-            CMAKE_ARGS+=("-DSuiteSparse_DIR=$BREW_PREFIX/opt/suite-sparse")
-            CMAKE_ARGS+=("-DTOMLPP_DIR=$BREW_PREFIX/opt/tomlplusplus")
-            # Find Boost cmake config directory
-            BOOST_CMAKE_DIR="$(find "$BREW_PREFIX/opt/boost/lib/cmake" -maxdepth 1 -name 'boost_*' -o -name 'Boost*' 2>/dev/null | head -1)"
-            if [ -z "$BOOST_CMAKE_DIR" ]; then
-              BOOST_CMAKE_DIR="$BREW_PREFIX/opt/boost/lib/cmake"
-            fi
-            CMAKE_ARGS+=("-DCMAKE_PREFIX_PATH=$BREW_PREFIX/opt/boost")
-            CMAKE_ARGS+=("-DBoost_DIR=$BOOST_CMAKE_DIR")
-            CMAKE_ARGS+=("-DBISON_EXECUTABLE=$BREW_PREFIX/opt/bison/bin/bison")
-            CMAKE_ARGS+=("-DFLEX_INCLUDE_DIRS=$BREW_PREFIX/opt/flex/include")
-          else
-            CMAKE_ARGS+=("-DBoost_ROOT=$BOOST_ROOT")
-            CMAKE_ARGS+=("-DCMAKE_PREFIX_PATH=$CMAKE_PREFIX_PATH")
-            CMAKE_ARGS+=("-DSuiteSparse_DIR=/usr")
-            CMAKE_ARGS+=("-DTOMLPP_DIR=$TOMLPP_DIR")
-          fi
+      - name: Build and test (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: ci/build-vacask.sh --openvaf-dir "$OPENVAF_DIR"
 
-          echo "Running: cmake ${CMAKE_ARGS[*]}"
-          cmake "${CMAKE_ARGS[@]}"
+      - name: Bundle shared libraries (Unix)
+        if: runner.os != 'Windows'
+        run: ci/bundle.sh --openvaf-dir "$OPENVAF_DIR"
 
-      - name: Build VACASK
-        run: |
-          cmake --build build "-j$(nproc 2>/dev/null || sysctl -n hw.ncpu)"
-
-      - name: Run tests
-        run: |
-          cd build
-          ctest --output-on-failure --timeout 60
+      - name: Bundle shared libraries (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: ci/bundle.sh --openvaf-dir "$OPENVAF_DIR"
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: vacask-${{ matrix.os }}
           path: |
-            build/simulator/vacask
-            build/lib/*.osdi
+            build/simulator/
+            build/lib/vacask/
           if-no-files-found: warn
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/_')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v6
+        with:
+          path: artifacts
+
+      - name: Package release archives
+        run: |
+          VERSION="${GITHUB_REF_NAME#_}"
+          echo "Version: $VERSION"
+
+          cd artifacts
+
+          # Linux tar.gz
+          tar czf "../vacask_${VERSION}_linux-x86_64.tar.gz" -C vacask-ubuntu-24.04 .
+
+          # macOS tar.gz
+          tar czf "../vacask_${VERSION}_darwin-arm64.tar.gz" -C vacask-macos-14 .
+
+          # Windows zip
+          cd vacask-windows-latest
+          zip -r "../../vacask_${VERSION}_windows-x86_64.zip" .
+          cd ..
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: VACASK ${{ github.ref_name }}
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          generate_release_notes: true
+          files: |
+            vacask_*.tar.gz
+            vacask_*.zip
