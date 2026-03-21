@@ -29,33 +29,11 @@ jobs:
 
       - name: Install dependencies (Linux)
         if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            cmake ninja-build \
-            bison flex libfl-dev \
-            libsuitesparse-dev \
-            llvm-dev libclang-dev clang \
-            python3 python3-numpy python3-scipy
-
-      - name: Install toml++ (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          # toml++ is header-only; may not be in Ubuntu repos
-          cd /tmp
-          curl -L -o tomlplusplus.tar.gz https://github.com/marzer/tomlplusplus/archive/refs/tags/v3.4.0.tar.gz
-          tar xzf tomlplusplus.tar.gz
-          sudo mkdir -p /usr/local/include
-          sudo cp -r tomlplusplus-3.4.0/include/toml++ /usr/local/include/
+        run: ci/install-deps.sh
 
       - name: Install dependencies (macOS)
         if: runner.os == 'macOS'
-        run: |
-          brew install \
-            llvm@18 cmake ninja \
-            bison flex \
-            suite-sparse boost tomlplusplus \
-            python3 numpy scipy
+        run: ci/install-deps.sh
 
       - name: Setup MSYS2 (Windows)
         if: runner.os == 'Windows'
@@ -68,19 +46,6 @@ jobs:
             tomlplusplus:p llvm:p clang:p lld:p rust:p python:p
             python-numpy:p python-scipy:p
 
-      - name: Build Boost 1.88 (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          # README: build Boost 1.88 from source (process library missing in distro packages)
-          cd /tmp
-          curl -L -o boost_1_88_0.tar.gz https://archives.boost.io/release/1.88.0/source/boost_1_88_0.tar.gz
-          tar xzf boost_1_88_0.tar.gz
-          cd boost_1_88_0
-          cd tools/build
-          ./bootstrap.sh gcc
-          cd ../..
-          tools/build/b2 -j"$(nproc)" --with-filesystem --with-process --with-asio link=static toolset=gcc
-
       - name: Cache OpenVAF build
         id: cache-openvaf
         uses: actions/cache@v5
@@ -90,50 +55,12 @@ jobs:
 
       - name: Build OpenVAF-reloaded (Unix)
         if: steps.cache-openvaf.outputs.cache-hit != 'true' && runner.os != 'Windows'
-        run: |
-          # Install Rust
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
-          source ~/.cargo/env
-
-          # Set LLVM path for macOS (brew llvm@18 is keg-only)
-          if [ "$RUNNER_OS" == "macOS" ]; then
-            BREW_PREFIX="$(brew --prefix)"
-            export PATH="$BREW_PREFIX/opt/llvm@18/bin:$PATH"
-            export LLVM_SYS_180_PREFIX="$BREW_PREFIX/opt/llvm@18"
-          fi
-
-          # Clone and build per README instructions
-          git clone https://github.com/arpadbuermen/OpenVAF.git /tmp/openvaf
-          cd /tmp/openvaf
-          ./configure
-          ./build.sh --release
-
-          # Install to cache location (binary may be named openvaf-r or openvaf)
-          mkdir -p "$GITHUB_WORKSPACE/openvaf-cache"
-          if [ -f target/release/openvaf-r ]; then
-            cp target/release/openvaf-r "$GITHUB_WORKSPACE/openvaf-cache/"
-          elif [ -f target/release/openvaf ]; then
-            cp target/release/openvaf "$GITHUB_WORKSPACE/openvaf-cache/openvaf-r"
-          else
-            echo "ERROR: Could not find OpenVAF binary"
-            ls -la target/release/openvaf* 2>/dev/null || true
-            exit 1
-          fi
+        run: ci/build-openvaf.sh "$GITHUB_WORKSPACE/openvaf-cache"
 
       - name: Build OpenVAF-reloaded (Windows)
         if: steps.cache-openvaf.outputs.cache-hit != 'true' && runner.os == 'Windows'
         shell: msys2 {0}
-        run: |
-          git clone https://github.com/arpadbuermen/OpenVAF.git /tmp/openvaf
-          cd /tmp/openvaf
-
-          LLVM_VERSION=$(llvm-config --version | cut -d. -f1)
-          echo "Detected LLVM version: $LLVM_VERSION"
-          cargo build --release --features "llvm${LLVM_VERSION}" --bin openvaf-r
-
-          CACHE_DIR="$(cygpath -u "$GITHUB_WORKSPACE")/openvaf-cache"
-          mkdir -p "$CACHE_DIR"
-          cp target/release/openvaf-r.exe "$CACHE_DIR/"
+        run: ci/build-openvaf.sh "$(cygpath -u "$GITHUB_WORKSPACE")/openvaf-cache"
 
       - name: Setup OpenVAF path (Unix)
         if: runner.os != 'Windows'
@@ -147,134 +74,23 @@ jobs:
         run: |
           echo "OPENVAF_DIR=$(cygpath -u "$GITHUB_WORKSPACE")/openvaf-cache" >> "$GITHUB_ENV"
 
-      - name: Configure VACASK (Unix)
+      - name: Build and test (Unix)
         if: runner.os != 'Windows'
-        run: |
-          CMAKE_ARGS=(-G Ninja -S . -B build -DCMAKE_BUILD_TYPE=Release)
-          CMAKE_ARGS+=("-DOPENVAF_DIR=$OPENVAF_DIR")
+        run: ci/build-vacask.sh --openvaf-dir "$OPENVAF_DIR"
 
-          if [ "$RUNNER_OS" == "macOS" ]; then
-            BREW_PREFIX="$(brew --prefix)"
-            # FLEX_INCLUDE_DIR (singular) needed; find_package(FLEX) can't find keg-only flex
-            CMAKE_ARGS+=("-DFLEX_INCLUDE_DIR=$BREW_PREFIX/opt/flex/include")
-            # Static Boost so the binary doesn't depend on Homebrew at runtime
-            CMAKE_ARGS+=("-DBoost_USE_STATIC_LIBS=ON")
-          else
-            # Linux: pass paths per README build instructions
-            CMAKE_ARGS+=("-DBoost_ROOT=/tmp/boost_1_88_0/stage")
-            CMAKE_ARGS+=("-DSuiteSparse_DIR=/usr")
-            CMAKE_ARGS+=("-DTOMLPP_DIR=/usr/local")
-          fi
-
-          echo "Running: cmake ${CMAKE_ARGS[*]}"
-          cmake "${CMAKE_ARGS[@]}"
-
-      - name: Configure VACASK (Windows)
+      - name: Build and test (Windows)
         if: runner.os == 'Windows'
         shell: msys2 {0}
-        run: |
-          cmake -G Ninja -S . -B build -DCMAKE_BUILD_TYPE=Release \
-            -DOPENVAF_DIR="$OPENVAF_DIR" \
-            -DSuiteSparse_DIR=/mingw64 \
-            -DTOMLPP_DIR=/mingw64 \
-            -DBoost_ROOT=/mingw64 \
-            -DBISON_EXECUTABLE=/usr/bin/bison \
-            -DFLEX_EXECUTABLE=/usr/bin/flex \
-            -DFLEX_INCLUDE_DIR=/usr/include
+        run: ci/build-vacask.sh --openvaf-dir "$OPENVAF_DIR"
 
-      - name: Build VACASK (Unix)
+      - name: Bundle shared libraries (Unix)
         if: runner.os != 'Windows'
-        run: |
-          cmake --build build -j"$(nproc 2>/dev/null || sysctl -n hw.ncpu)"
-
-      - name: Build VACASK (Windows)
-        if: runner.os == 'Windows'
-        shell: msys2 {0}
-        run: |
-          cmake --build build -j$(nproc)
-
-      - name: Run tests (Unix)
-        if: runner.os != 'Windows'
-        run: |
-          cd build
-          ctest --output-on-failure --timeout 60
-
-      - name: Run tests (Windows)
-        if: runner.os == 'Windows'
-        shell: msys2 {0}
-        run: |
-          cd build
-          ctest --output-on-failure --timeout 60
-
-      - name: Bundle shared libraries (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get install -y patchelf
-          LIBDIR=build/simulator/lib
-          mkdir -p "$LIBDIR"
-
-          bundle_linux() {
-            local bin="$1"
-            ldd "$bin" | awk '/=> \// {print $3}' | while read -r lib; do
-              case "$(basename "$lib")" in
-                libc.so*|libm.so*|libdl.so*|libpthread.so*|librt.so*) continue ;;
-                libstdc++.so*|libgcc_s.so*|ld-linux*) continue ;;
-              esac
-              cp -Ln "$lib" "$LIBDIR/" 2>/dev/null || true
-            done
-            patchelf --set-rpath '$ORIGIN/lib' "$bin"
-          }
-
-          # Place openvaf-r next to vacask so they share the same lib/ directory
-          cp openvaf-cache/openvaf-r build/simulator/
-          bundle_linux build/simulator/vacask
-          bundle_linux build/simulator/openvaf-r
-
-          echo "Bundled libraries:"
-          ls -la "$LIBDIR"
-
-      - name: Bundle shared libraries (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          brew install dylibbundler
-          # Place openvaf-r next to vacask so they share the same lib/ directory
-          cp openvaf-cache/openvaf-r build/simulator/
-          dylibbundler -od -b -x build/simulator/vacask \
-            -d build/simulator/lib/ -p @executable_path/lib/
-          # No -od on second call to preserve libs from first call
-          dylibbundler -b -x build/simulator/openvaf-r \
-            -d build/simulator/lib/ -p @executable_path/lib/
-          echo "Bundled libraries:"
-          ls -la build/simulator/lib/
-          echo "Binary dependencies after bundling:"
-          otool -L build/simulator/vacask
+        run: ci/bundle.sh --openvaf-dir "$OPENVAF_DIR"
 
       - name: Bundle shared libraries (Windows)
         if: runner.os == 'Windows'
         shell: msys2 {0}
-        run: |
-          BINDIR=build/simulator
-          cp openvaf-cache/openvaf-r.exe "$BINDIR/"
-
-          # Windows finds DLLs in the same directory as the .exe — no rpath needed
-          # Copy all non-system DLLs (MinGW runtime + any shared libs)
-          for bin in "$BINDIR"/vacask.exe "$BINDIR"/openvaf-r.exe; do
-            ldd "$bin" | awk '/mingw64|clang|ucrt64/ {print $3}' | while read -r lib; do
-              cp -n "$lib" "$BINDIR/" 2>/dev/null || true
-            done
-          done
-
-          # openvaf-r delay-loads LLVM (not visible to ldd), copy it explicitly
-          LLVM_DLL=$(find /mingw64/bin -name "libLLVM*.dll" 2>/dev/null | head -1)
-          if [ -n "$LLVM_DLL" ]; then
-            cp "$LLVM_DLL" "$BINDIR/"
-          fi
-
-          echo "Dependencies:"
-          ldd "$BINDIR"/vacask.exe
-          ldd "$BINDIR"/openvaf-r.exe
-          echo "Bundled DLLs:"
-          ls "$BINDIR"/*.dll 2>/dev/null || echo "(none — binary is statically linked)"
+        run: ci/bundle.sh --openvaf-dir "$OPENVAF_DIR"
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v6

@@ -1,0 +1,20 @@
+stages:
+  - build
+
+build-linux:
+  stage: build
+  image: ubuntu:24.04
+  script:
+    - ci/install-deps.sh
+    - ci/build-openvaf.sh "$CI_PROJECT_DIR/openvaf-cache"
+    - ci/build-vacask.sh --openvaf-dir "$CI_PROJECT_DIR/openvaf-cache"
+    - ci/bundle.sh --openvaf-dir "$CI_PROJECT_DIR/openvaf-cache"
+  artifacts:
+    paths:
+      - build/simulator/
+      - build/lib/vacask/
+    expire_in: 1 week
+  cache:
+    key: openvaf-linux-${CI_RUNNER_EXECUTABLE_ARCH}-v5
+    paths:
+      - openvaf-cache/
