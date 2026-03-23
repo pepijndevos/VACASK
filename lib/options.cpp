@@ -186,7 +186,7 @@ SimulatorOptions::SimulatorOptions() {
                   // >=3 debug spectrum construction
     hb_itl = 100; // >0, maximal number of iterations in non-continuation mode
     hb_itlcont = 50; // >0, maximal number of iterations in continuation mode
-    hb_skipinitial = 1; // 1 = no initial hb, go straight to homotopy
+    hb_skipinitial = 0; // 1 = no initial hb, go straight to homotopy
     hb_homotopy = { "src" }; // list of homotopy algorithms to apply in hb analysis
     
     rawfile = "binary"; // ascii or binary
