@@ -457,6 +457,7 @@ CoreCoroutine ACStbCore::coroutine(bool continuePrevious) {
         }
 
         // Step 1 - inject current between positive probe node and localgnd
+        // There is not current source for that. We inject it manually into the RHS. 
         zero(acSolution);
         acSolution[pnodeUnknown] += -1;
         acSolution[refGnd]       -= -1;
@@ -481,7 +482,8 @@ CoreCoroutine ACStbCore::coroutine(bool continuePrevious) {
             break;
         }
 
-        // Extract A and C
+        // Extract A and C, apply probe response scaling factor for voltage source current 
+        // because the $mfactor of the voltage source may not be 1
         auto A = (acSolution[r1] - acSolution[r2])*probeResponseScalingFactor;
         auto C = acSolution[pnodeUnknown] - acSolution[refGnd];
 
@@ -511,7 +513,8 @@ CoreCoroutine ACStbCore::coroutine(bool continuePrevious) {
             break;
         }
 
-        // Extract B and D
+        // Extract B and D, apply probe respinse scaling factor for voltage source current 
+        // because the $mfactor of the voltage source may not be 1
         auto B = (acSolution[r1] - acSolution[r2])*probeResponseScalingFactor;
         auto D = acSolution[pnodeUnknown] - acSolution[refGnd];
 

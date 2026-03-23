@@ -4,13 +4,13 @@
 
 namespace NAMESPACE {
 
-template<> SmallSignal<ACStbCore, StbData>::SmallSignal(Id name, Circuit& circuit, PTAnalysis& ptAnalysis) 
+template<> SmallSignal<ACStbCore, ACStbData>::SmallSignal(Id name, Circuit& circuit, PTAnalysis& ptAnalysis) 
     : Analysis(name, circuit, ptAnalysis), 
       opCore(*this, params.core().opParams, circuit, commons, jac, solution, states), 
       smsigCore(*this, params.core(), opCore, circuit, commons, jac, solution, states, acMatrix, acSolution, resultsVector) {
 }
 
-template<> bool SmallSignal<ACStbCore, StbData>::resolveSave(const PTSave& save, bool verify, Status& s) {
+template<> bool SmallSignal<ACStbCore, ACStbData>::resolveSave(const PTSave& save, bool verify, Status& s) {
     // ACStb saves
     
     bool st = true;
@@ -41,7 +41,7 @@ template<> bool SmallSignal<ACStbCore, StbData>::resolveSave(const PTSave& save,
     return true;
 }
 
-template<> void SmallSignal<ACStbCore, StbData>::dump(std::ostream& os) const {
+template<> void SmallSignal<ACStbCore, ACStbData>::dump(std::ostream& os) const {
     Analysis::dump(os);
     os << "Analysis type: STB"<< std::endl;
     os << "OP analysis core:" << std::endl;
