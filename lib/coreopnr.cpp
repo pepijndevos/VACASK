@@ -776,10 +776,15 @@ bool OpNRSolver::loadForces(bool loadJacobian) {
                     if (factor==0.0) {
                         factor = 1.0;
                     }
+                    // Diagonal element
+                    auto ptr = diagPtrs[i];
                     // Jacobian entry: factor
                     // Residual: factor * x_i - factor * nodeset_i
-                    auto ptr = diagPtrs[i];
                     if (ptr) {
+                        // Negative diagonal element, change sign
+                        if (*ptr<0) {
+                            factor = -factor;
+                        }    
                         // Jacobian
                         if (loadJacobian) {
                             *ptr += factor;
@@ -805,6 +810,14 @@ bool OpNRSolver::loadForces(bool loadJacobian) {
 
                 double factor1 = rowNorm[u1]*settings.forceFactor;
                 double factor2 = rowNorm[u2]*settings.forceFactor;
+
+                // Negative diagonal element, change sign of factor
+                if (*(diagPtrs[u1])<0) {
+                    factor1 = -factor1;
+                }
+                if (*(diagPtrs[u2])<0) {
+                    factor2 = -factor2;
+                }
 
                 double contrib1 = factor1 * (xprev[u1] - xprev[u2]) - factor1 * deltas[i]; 
                 double contrib2 = factor2 * (xprev[u2] - xprev[u1]) + factor2 * deltas[i]; 
