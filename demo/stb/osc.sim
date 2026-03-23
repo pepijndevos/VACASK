@@ -1,0 +1,96 @@
+Oscillator phase noise
+
+load "resistor.osdi"
+load "capacitor.osdi"
+load "inductor.osdi"
+load "spice/bjt.osdi"
+
+model i isource
+model v vsource
+model r resistor
+model c capacitor
+model l inductor
+
+model q2n2222 sp_bjt ( type=1
+  is=15.2f nf=1 bf=105 vaf=98.5 ikf=0.5
+  ise=8.2p ne=2 br=4 nr=1 var=20 ikr=0.225
+  re=0.373 rb=1.49 rc=0.149 xtb=1.5
+  cje=35.5p cjc=12.2p tf=500p tr=85n
+  kf=1e-12 af=1
+)
+
+r1 (vdd b) r r=47k
+r2 (e 0) r r=470
+q1 (c b e) q2n2222
+c1 (vdd c) c c=2n
+l1 (vdd c) l l=200u
+c2 (c e1) c c=5000p
+// probe: input output
+vp (e e1) v dc=0
+cb (b 0) c c=100n
+vdd (vdd 0) v dc=9
+
+control
+  abort always
+
+  var fmin=10.0
+  var fmax=4e5
+  var ptsper=50
+  var periods=10
+
+  analysis stb1 acstb probe="vp" from=1 to=1M mode="dec" points=10000
+  
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.signal import welch
+from scipy.signal import firwin, fftconvolve, filtfilt, hilbert
+
+
+fig1 = plt.figure(figsize=(6,6), dpi=100)
+fig1.suptitle('LC oscillator, open loop gain')
+ax_dict = fig1.subplot_mosaic("""
+CC
+DD
+AB
+""",  gridspec_kw={
+    "height_ratios": [1, 1, 2], 
+})
+
+raw = rawread('stb1.raw')
+plot = raw.get()
+
+ax_dict["C"].set_ylabel('W [dB]')
+ax_dict["C"].plot(plot['frequency']/1e3, 20*np.log10(np.abs(plot['w'])))
+ax_dict["C"].set_ylim(-30, 40)
+
+ax_dict["D"].set_ylabel('arg(W) [deg]')
+ax_dict["D"].plot(plot['frequency']/1e3, np.unwrap(np.angle(plot['w']))/np.pi*180)
+ax_dict["D"].set_xlabel('f [kHz]')
+
+ax_dict["A"].set_ylabel('Im')
+ax_dict["A"].set_xlabel('Re')
+ax_dict["A"].plot(np.real(plot['w']), np.imag(plot['w']))
+ax_dict["A"].plot(-1, 0, marker='x', markersize=8) 
+ax_dict["A"].set_aspect('equal')
+
+ax_dict["B"].set_ylabel('Im')
+ax_dict["B"].set_xlabel('Re')
+ax_dict["B"].plot(np.real(plot['w']), np.imag(plot['w']))
+ax_dict["B"].plot(-1, 0, marker='x', markersize=8) 
+ax_dict["B"].set_xlim(-1.005, -0.995) 
+ax_dict["B"].set_ylim(-0.005, 0.005) 
+ax_dict["B"].set_aspect('equal')
+ax_dict["B"].locator_params(axis='x', nbins=3)
+ax_dict["B"].locator_params(axis='y', nbins=3)
+
+fig1.tight_layout()
+
+plt.show()
+>>>FILE
+
+

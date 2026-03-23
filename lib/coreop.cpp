@@ -386,13 +386,12 @@ Int OperatingPointCore::iterationLimit(bool continuePrevious) const {
 // The system can be solved as 
 //   xnew - xold = - inverse(G(xold)) g(xold)
 //   xnew = xold - inverse(G(xold)) g(xold)
-//        = xold + inverse(G(xold)) (-g(xold))
 //
 // We load the Jacobian and residuals, and solve
-//   G(xold) deltax = -g(xold)
+//   G(xold) deltax = g(xold)
 // 
 // Then we compute new approximate solution as
-//   xnew = xold + deltax
+//   xnew = xold - deltax
 // TODO: verify reactive residual and limiting
 
 // Abort is handled and reported here
