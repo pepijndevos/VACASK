@@ -384,9 +384,15 @@ bool TranCore::rebuild(Status& s) {
         .dampingFactor = options.nr_damping, 
         .matrixCheck = bool(options.matrixcheck), 
         .rhsCheck = bool(options.rhscheck), 
-        .solutionCheck = bool(options.solutioncheck), 
-        .forceFactor = options.nr_force, 
+        .solutionCheck = bool(options.solutioncheck)
     };
+    // Tran nodesets
+    nrSolver.setForcesFactor(0, options.nr_nsforce);
+    nrSolver.setForcesFactor(1, options.nr_nsforce);
+    // Tran ICs
+    nrSolver.setForcesFactor(2, options.nr_force);
+    // OP ICs
+    opCore_.solver().setForcesFactor(2, options.nr_force);
 
     // Create Forces from preprocessed initial conditions in opCore's 
     // NR solver force slot 2. 

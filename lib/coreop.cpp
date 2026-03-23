@@ -219,9 +219,10 @@ bool OperatingPointCore::rebuild(Status& s) {
         .dampingFactor = options.nr_damping, 
         .matrixCheck = bool(options.matrixcheck), 
         .rhsCheck = bool(options.rhscheck), 
-        .solutionCheck = bool(options.solutioncheck), 
-        .forceFactor = options.nr_force, 
+        .solutionCheck = bool(options.solutioncheck)
     };
+    nrSolver.setForcesFactor(0, options.nr_nsforce);
+    nrSolver.setForcesFactor(1, options.nr_nsforce);
 
     // Create Forces from preprocessed nodesets in solver force slot 1. 
     // This has to be done now for forces that include delta forces

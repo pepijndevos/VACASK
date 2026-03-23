@@ -41,6 +41,7 @@ typedef struct SimulatorOptions  {
     Int nr_residualcheck;
     Real nr_damping;
     Real nr_force;
+    Real nr_nsforce;
     Int nr_contbypass;
     Int homotopy_debug;
     Int homotopy_gminsteps;

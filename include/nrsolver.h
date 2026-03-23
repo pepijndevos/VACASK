@@ -76,7 +76,6 @@ typedef struct NRSettings {
     bool matrixCheck {};
     bool rhsCheck {};
     bool solutionCheck {};
-    Real forceFactor {1e5}; 
 } NRSettings;
 
 enum class NRSolverFlags : uint8_t { 
@@ -174,6 +173,19 @@ public:
         return true;
     };
 
+    // Set forces factor
+    bool setForcesFactor(Int ndx, double factor) {
+        lastError = Error::OK;
+
+        if (ndx<0 || ndx>=forcesList.size()) {
+            lastError = Error::ForcesIndex;
+            return false;
+        }
+
+        forcesFactor[ndx] = factor;
+        return true;
+    };
+
     // Do we have any forces
     bool haveForces() {
         auto nf = forcesList.size();
@@ -207,6 +219,7 @@ protected:
 
     std::vector<Forces> forcesList;
     std::vector<bool> forcesEnabled;
+    std::vector<double> forcesFactor;
     
     Vector<double> rowNorm;
 

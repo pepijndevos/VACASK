@@ -7,7 +7,8 @@
 | `nr_damping` | real | 1.0 | 0 < x ≤ 1 | Newton-Raphson step damping factor. Values less than 1 limit the step size. |
 | `nr_conviter` | int | 1 | >0 | Number of consecutive convergent iterations required to confirm convergence. |
 | `nr_residualcheck` | boolean | 1 | 0, 1 | Also check residual (not only solution change) for convergence. |
-| `nr_force` | real | 1e5 | >0 | Forcing factor for nodeset and initial condition constraints. |
+| `nr_force` | real | 1e5 | >0 | Forcing factor for initial condition constraints. |
+| `nr_nsforce` | real | 10 | >0 | Forcing factor for nodeset and continuation constraints. |
 | `strictforce` | int | 1 | 0, 1 | How to handle conflicting nodeset/ic constraints. 0 = warn and continue, 1 = abort. |
 
 ## Instance bypass

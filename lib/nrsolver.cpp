@@ -58,6 +58,7 @@ bool NRSolver::rebuild() {
 void NRSolver::resizeForces(Int n) {
     forcesList.resize(n);
     forcesEnabled.resize(n, false);
+    forcesFactor.resize(n, 1e5);
 }
 
 Forces& NRSolver::forces(Int ndx) {

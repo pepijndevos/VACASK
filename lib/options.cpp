@@ -93,7 +93,8 @@ SimulatorOptions::SimulatorOptions() {
     nr_conviter = 1; // >0, number of consecutive convergent iterations before convergence is confirmed
     nr_residualcheck = 1; // check residual beside unknowns change to establish convergence 
     nr_damping = 1.0; // 0<x<=1, Newton-Raphson damping factor (<=1)
-    nr_force = 1e5; // x>0, forcing factor for nodesets and initial conditions
+    nr_force = 1e5; // x>0, forcing factor for initial conditions
+    nr_nsforce = 1e1; // x>0, forcing factor for nodesets
     nr_contbypass = 1; // allow forced bypass of instance evaluation 
                        // in the first NR iteration when continuation mode is enabled
 
@@ -244,6 +245,7 @@ template<> int Introspection<SimulatorOptions>::setup() {
     registerMember(nr_residualcheck);
     registerMember(nr_damping);
     registerMember(nr_force);
+    registerMember(nr_nsforce);
     registerMember(nr_contbypass);
 
     registerMember(homotopy_debug);

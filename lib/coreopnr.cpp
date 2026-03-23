@@ -762,6 +762,7 @@ bool OpNRSolver::loadForces(bool loadJacobian) {
         if (!forcesEnabled[iForce]) {
             continue;
         }
+        double ff = forcesFactor[iForce];
 
         // First, handle forced unknowns
         auto& enabled = forcesList[iForce].unknownForced_;
@@ -772,7 +773,7 @@ bool OpNRSolver::loadForces(bool loadJacobian) {
         if (nForceNodes==n+1) {
             for(decltype(nForceNodes) i=1; i<=n; i++) {
                 if (enabled[i]) {
-                    double factor = rowNorm[i]*settings.forceFactor;
+                    double factor = rowNorm[i]*ff;
                     if (factor==0.0) {
                         factor = 1.0;
                     }
@@ -781,7 +782,7 @@ bool OpNRSolver::loadForces(bool loadJacobian) {
                     // Jacobian entry: factor
                     // Residual: factor * x_i - factor * nodeset_i
                     if (ptr) {
-                        // Negative diagonal element, change sign
+                        // Negative diagonal element, change sign of factor
                         if (*ptr<0) {
                             factor = -factor;
                         }    
@@ -808,8 +809,8 @@ bool OpNRSolver::loadForces(bool loadJacobian) {
                 auto [u1, u2] = uPairs[i];
                 auto [extraDiagPtr1, extraDiagPtr2] = extraDiagPtrs[i];
 
-                double factor1 = rowNorm[u1]*settings.forceFactor;
-                double factor2 = rowNorm[u2]*settings.forceFactor;
+                double factor1 = rowNorm[u1]*ff;
+                double factor2 = rowNorm[u2]*ff;
 
                 // Negative diagonal element, change sign of factor
                 if (*(diagPtrs[u1])<0) {
