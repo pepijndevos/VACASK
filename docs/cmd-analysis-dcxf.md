@@ -75,3 +75,9 @@ analysis xf1 dcxf out="out_node"
 // Output is a voltage between nodes
 analysis xf1 dcxf out=["outp", "outn"]
 ```
+
+## Options
+
+- [Small-Signal Analysis Options](cmd-options-smsig.md)
+- [Newton-Raphson Solver](cmd-options-nr.md)
+- [Homotopy Algorithms](cmd-options-homotopy.md)

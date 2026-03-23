@@ -93,3 +93,9 @@ save tf(v1)
 save zin(v1)
 analysis xf1 acxf out="out" from=1 to=100k mode="dec" points=10
 ```
+
+## Options
+
+- [Small-Signal Analysis Options](cmd-options-smsig.md)
+- [Newton-Raphson Solver](cmd-options-nr.md)
+- [Homotopy Algorithms](cmd-options-homotopy.md)

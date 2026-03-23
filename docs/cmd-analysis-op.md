@@ -91,5 +91,11 @@ sweep vds instance="vdd" parameter="dc" from=-0.8 to=1.8 mode="lin" points=100
 ## Convergence
 
 VACASK uses advanced convergence techniques:
-- Damped Newton-Raphson method. 
+- Damped Newton-Raphson method.
 - Homotopy algorithms (gmin stepping, source stepping)
+
+## Options
+
+- [Operating Point Options](cmd-options-op.md)
+- [Newton-Raphson Solver](cmd-options-nr.md)
+- [Homotopy Algorithms](cmd-options-homotopy.md)

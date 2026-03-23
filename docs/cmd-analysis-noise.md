@@ -137,3 +137,9 @@ ax_gain.grid(True)
 plt.show()
 >>>FILE
 ```
+
+## Options
+
+- [Small-Signal Analysis Options](cmd-options-smsig.md)
+- [Newton-Raphson Solver](cmd-options-nr.md)
+- [Homotopy Algorithms](cmd-options-homotopy.md)

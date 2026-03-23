@@ -120,3 +120,9 @@ ax1.grid(True)
 plt.show()
 >>>FILE
 ```
+
+## Options
+
+- [Transient Analysis Options](cmd-options-tran.md)
+- [Newton-Raphson Solver](cmd-options-nr.md)
+- [Homotopy Algorithms](cmd-options-homotopy.md)

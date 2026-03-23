@@ -82,3 +82,9 @@ save dv(node1)
 save di(Vdd)
 analysis dc2 dcinc
 ```
+
+## Options
+
+- [Small-Signal Analysis Options](cmd-options-smsig.md)
+- [Newton-Raphson Solver](cmd-options-nr.md)
+- [Homotopy Algorithms](cmd-options-homotopy.md)

@@ -133,3 +133,9 @@ ax_ph.stem(f / 1e3, np.angle(v2) * 180 / np.pi, markerfmt='.')
 plt.show()
 >>>FILE
 ```
+
+## Options
+
+- [Harmonic Balance Options](cmd-options-hb.md)
+- [Newton-Raphson Solver](cmd-options-nr.md)
+- [Homotopy Algorithms](cmd-options-homotopy.md)

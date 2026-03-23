@@ -35,13 +35,13 @@ The increased Ngspice memory usage when KLU is used as the solver is probably du
 
 Yes we do. It is bundled with the binary packages. [The user's manual](docs/index.md) is written in markdown. To read it in [Firefox](https://www.firefox.com/en-US/), instal the [Markdown Viewer Add-on](https://addons.mozilla.org/en-US/firefox/addon/markdown-viewer-chrome/) or the [Markdown Reader Add-on](https://addons.mozilla.org/en-US/firefox/addon/markdown-reader-ext/). 
 
-**Want a quick overview of VACASK?**
+# Want a quick overview of VACASK?
 
-**Want to get started with VACASK right away?**
+# Want to get started with VACASK right away?
 
-**Maybe you want to build VACASK yourself or contribute to its codebase?**
+# Maybe you want to build VACASK yourself or contribute to its codebase?
 
-***Read on!***
+# Read on!
 
 # What does VACASK offer? 
 
@@ -91,15 +91,15 @@ VACASK is being developed by Árpád Bűrmen at the EDA Laboratory, University o
 
 |Name    |   |
 |--------|---|
-|op      |[DC operating point](include/coreop.h) |
-|dcinc   |[incremental DC analysis (i.e. ac analysis at 0Hz)](include/coredcinc.h) |
-|dcxf    |[small-signal DC transfer functions from independent sources to given output (i.e. acxf analysis at 0Hz)](include/coredcxf.h) |
-|ac      |[small-signal AC analysis](include/coreac.h) |
-|acxf    |[small-signal AC transfer functions from independent sources to given output](include/coreacxf.h) |
-|acstb   |[small-signal AC stability analysis (open loop gain without breaking the loop)](include/coreacstb.h) |
-|noise   |[small-signal noise analysis](include/corenoise.h) |
-|tran    |[transient (time-domain) analysis](include/coretran.h) |
-|hb      |[(multitone) harmonic balance analysis](include/corehb.h) |
+|op      |[DC operating point](docs/cmd-analysis-op.md) |
+|dcinc   |[incremental DC analysis (i.e. ac analysis at 0Hz)](docs/cmd-analysis-dcinc.md) |
+|dcxf    |[small-signal DC transfer functions from independent sources to given output (i.e. acxf analysis at 0Hz)](docs/cmd-analysis-dcxf.md) |
+|ac      |[small-signal AC analysis](docs/cmd-analysis-ac.md) |
+|acxf    |[small-signal AC transfer functions from independent sources to given output](docs/cmd-analysis-acxf.md) |
+|acstb   |[small-signal AC stability analysis (open loop gain without breaking the loop)](docs/cmd-analysis-acstb.md) |
+|noise   |[small-signal noise analysis](docs/cmd-analysis-noise.md) |
+|tran    |[transient (time-domain) analysis](docs/cmd-analysis-tran.md) |
+|hb      |[(multitone) harmonic balance analysis](docs/cmd-analysis-hb.md) |
 
 
 # What about device models? 
