@@ -15,10 +15,11 @@ Id HBCore::truncateDiamond = Id::createStatic("diamond");
 
 Id HBCore::sampleUniform = Id::createStatic("uniform");
 Id HBCore::sampleRandom = Id::createStatic("random");
+Id HBCore::sampleMixed = Id::createStatic("mixed");
 
 HBParameters::HBParameters() {
     truncate = HBCore::truncateDiamond;
-    sample = HBCore::sampleRandom;
+    sample = HBCore::sampleUniform;
 }
 
 template<> int Introspection<HBParameters>::setup() {
@@ -29,6 +30,7 @@ template<> int Introspection<HBParameters>::setup() {
     registerMember(samplefac);
     registerMember(nper);
     registerMember(sample);
+    registerMember(shift);
     registerMember(write);
     registerMember(nodeset);
     registerMember(store);

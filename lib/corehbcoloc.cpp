@@ -41,8 +41,9 @@ bool HBCore::buildColocation(Status& s) {
         if (debug>2) {
             Simulator::dbg() << "Generating pool of " << nsam << " uniformly distributed points, tmax=" << range << "\n" ;
         }
+        auto tstep = range/nsam;
         for(decltype(nsam) i=0; i<nsam; i++) {
-            timepoints.push_back(i/fmin);
+            timepoints.push_back(i*tstep+tstep*params.shift);
         }
     } else if (params.sample==HBCore::sampleRandom) {
         std::mt19937_64 gen;
@@ -54,6 +55,17 @@ bool HBCore::buildColocation(Status& s) {
         }
         for(decltype(nsam) i=0; i<nsam; i++) {
             timepoints.push_back(dist(gen)*range);
+        }
+    } else if (params.sample==HBCore::sampleMixed) {
+        if (debug>2) {
+            Simulator::dbg() << "Generating pool of " << nsam << " uniformly distributed points, tmax=" << range << "\n" ;
+        }
+        auto tstep = range/nsam;
+        std::mt19937_64 gen;
+        gen.seed(1);
+        std::uniform_real_distribution dist(0.0, tstep*params.shift);
+        for(decltype(nsam) i=0; i<nsam; i++) {
+            timepoints.push_back(i*tstep+dist(gen));
         }
     } else {
         s.set(Status::BadArguments, "Unknown samplmode.");

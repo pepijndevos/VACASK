@@ -30,6 +30,18 @@ Three truncation schemes control which intermodulation products are included in 
 | `"diamond"` | Like `"box"`, except that it includes only products with $a \leq \sum_j \lvert k_j \rvert \leq \mathrm{immax}$. Default. |
 | `"raw"` | Uses the frequencies listed in `freq` directly as the spectrum. |
 
+### Colocation sampling
+
+Three modes control how the pool of candidate colocation timepoints is generated before the best $2n-1$ points are selected:
+
+| Mode | Description |
+|------|-------------|
+| `"uniform"` | Points are evenly spaced at intervals of $\Delta t = T/N_\mathrm{sam}$, offset by `shift`$\cdot\Delta t$. Default. |
+| `"random"` | Points are drawn uniformly at random from $[0, T)$ with a fixed seed (reproducible). |
+| `"mixed"` | Like `"uniform"`, but each point receives a random perturbation within $[0,$ `shift`$\cdot\Delta t)$, combining regular spacing with randomness. |
+
+Here $T = \text{nper}/f_\text{min}$ is the time range and $N_\mathrm{sam} = \lceil \mathrm{samplefac} \cdot (2n-1) \rceil$ is the pool size, where $f_\text{min}$ is the lowest nonzero frequency and $n$ is the spectrum size.
+
 ## Parameters
 
 | Parameter | Type | Default | Description |
@@ -38,9 +50,12 @@ Three truncation schemes control which intermodulation products are included in 
 | `nharm` | integer or integer vector | `4` | Number of harmonics per fundamental. Scalar applies to all; a vector sets per-tone limits. |
 | `immax` | integer | `0` | Maximum intermodulation order for `"diamond"` truncation. If ≤ 0, defaults to the largest component of `nharm`. |
 | `truncate` | string | `"diamond"` | Spectrum truncation scheme: `"diamond"`, `"box"`, or `"raw"`. |
-| `samplefac` | real | `2` | Oversampling factor for colocation timepoints (≥ 1). Only the best $2n$ points are used where $n$ is the spectrum size. |
-| `nper` | real | `3` | Number of periods over which colocation timepoints are distributed. |
-| `sample` | string | `"random"` | Colocation sampling mode: `"uniform"` or `"random"`. |
+| `harmonic` | integer vector | `[]` | For `"raw"` truncation: flags indicating which entries of `freq` are harmonics. If empty, all frequencies are treated as harmonics. Annotation only - does not affect simulation. |
+| `imorder` | integer vector | `[]` | For `"raw"` truncation: intermodulation product order of each entry of `freq`. If empty, order is assumed to be -1 for all frequencies. Annotation only - does not affect simulation. |
+| `samplefac` | real | `5` | Oversampling factor for colocation timepoints (≥ 1). Only the best $2n$ points are used where $n$ is the spectrum size. |
+| `nper` | real | `1` | Number of lowest frequency periods over which colocation timepoints are distributed. |
+| `sample` | string | `"uniform"` | Colocation sampling mode: `"uniform"`, `"random"`, or `"mixed"`. |
+| `shift` | real | `0.2` | Fractional shift applied between consecutive colocation points in `"uniform"` and `"mixed"` sampling. |
 | `nodeset` | string | `""` | Name of saved solution used as initial guess. |
 | `store` | string | `""` | Save the computed solution under the given name. |
 | `write` | boolean | `1` | Write the results to a file. |

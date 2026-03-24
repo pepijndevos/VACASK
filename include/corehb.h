@@ -27,10 +27,10 @@ typedef struct HBParameters {
                            //   kj = 0..Hj, first nonzero kj must be >0
                            // diamond .. diamond truncation (default)
                            //   sum abs(kj) <= immax, first nonzero kj must be >0
-    Real samplefac {2};    // Sampling factor in time domain (>=1). 
-    Real nper {3};         // Number of periods across which colocation points are selected
-    Id sample {Id()};      // Sampling mode (uniform, random), default is random. 
-
+    Real samplefac {5};    // Sampling factor in time domain (>=1). 
+    Real nper {1};         // Number of lowest frequency periods across which colocation points are selected
+    Id sample {Id()};      // Sampling mode (uniform, random, mixed), default is uniform. 
+    Real shift {0.2};      // Sample shift in consecutive sample distance for uniform and mixed sampling
     // These two are for annotation purpuses only, they do not affect HB simulation. 
     IntVector harmonic {}; // When raw truncation scheme is used this flag indicates 
                            // a frequency in the freq vector is a harmonic. 
@@ -104,6 +104,7 @@ public:
     static Id truncateDiamond;
     static Id sampleUniform;
     static Id sampleRandom;
+    static Id sampleMixed;
 
     static bool test();
 
