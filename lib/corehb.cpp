@@ -12,13 +12,14 @@ namespace NAMESPACE {
 Id HBCore::truncateRaw = Id::createStatic("raw");
 Id HBCore::truncateBox = Id::createStatic("box");
 Id HBCore::truncateDiamond = Id::createStatic("diamond");
+Id HBCore::truncateHybrid = Id::createStatic("hybrid");
 
 Id HBCore::sampleUniform = Id::createStatic("uniform");
 Id HBCore::sampleRandom = Id::createStatic("random");
 Id HBCore::sampleMixed = Id::createStatic("mixed");
 
 HBParameters::HBParameters() {
-    truncate = HBCore::truncateDiamond;
+    truncate = HBCore::truncateHybrid;
     sample = HBCore::sampleUniform;
 }
 

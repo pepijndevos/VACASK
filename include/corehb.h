@@ -102,6 +102,7 @@ public:
     static Id truncateRaw;
     static Id truncateBox;
     static Id truncateDiamond;
+    static Id truncateHybrid;
     static Id sampleUniform;
     static Id sampleRandom;
     static Id sampleMixed;

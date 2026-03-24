@@ -112,7 +112,11 @@ bool HBCore::buildGrid(Status& s) {
                 .isHarmonic = harmonic, 
             });
         }
-    } else if (params.truncate==HBCore::truncateBox || params.truncate==HBCore::truncateDiamond) {
+    } else if (
+        params.truncate==HBCore::truncateBox || 
+        params.truncate==HBCore::truncateDiamond ||
+        params.truncate==HBCore::truncateHybrid
+    ) {
         // Box and diamond
         grid.resize(0, n); // Empty table
         std::vector<Int> cnt(n);
@@ -153,24 +157,31 @@ bool HBCore::buildGrid(Status& s) {
             for(decltype(n) i=0; i<n; i++) {
                 order += std::abs(cnt[i]);
                 f += cnt[i]*fundamentals[i];
+                if (cnt[i]!=0) {
+                    nnz++;
+                }
             }
             // Need to remember this to correctly compute phase when assembling APFT
             auto negated = f<0;
             // Use positive frequencies only
             f = std::abs(f);
-
+            
+            // Keep only thode grid entries that survive truncation
             // Check immax
             // Not optimal for diamond truncation because we traverse the whole box and 
             // leave out frequencies with order above imax. 
             // But then again, HB spends a lot more time solving the problem. 
-            if (!(params.truncate==HBCore::truncateDiamond && order>immax)) {
+            if (
+                (params.truncate==HBCore::truncateBox) ||
+                (params.truncate==HBCore::truncateDiamond && order<=immax) || // Everything inside diamond
+                (params.truncate==HBCore::truncateHybrid && (
+                    nnz<=1 || order<=immax // Diamond + single tone harmonics from whole box
+                ))
+            ) {
                 // Construct component
                 auto row = grid.addRow();
                 for(decltype(n) i=0; i<n; i++) {
                     row.at(i) = cnt[i];
-                    if (cnt[i]!=0) {
-                        nnz++;
-                    }
                 }
                 freq.push_back({
                     .gridIndex = grid.nRows()-1, 
