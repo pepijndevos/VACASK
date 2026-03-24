@@ -34,7 +34,7 @@
 
 | Function | Description |
 |----------|-------------|
-| `abs(x)` | Absolute value $\|x\|$ |
+| `abs(x)` | Absolute value $\lvert x \rvert$ |
 | `floor(x)` | Largest integer not greater than `x` |
 | `ceil(x)` | Smallest integer not less than `x` |
 | `round(x)` | Round to nearest integer, halfway cases away from zero |

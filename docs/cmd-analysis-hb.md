@@ -27,7 +27,7 @@ Three truncation schemes control which intermodulation products are included in 
 | Scheme | Description |
 |--------|-------------|
 | `"box"` | Includes all products with $0 \leq k_j \leq H_j$ (where $H_j$ is specified with `nharm`). |
-| `"diamond"` | Like `box`, except that it includes only products with $a \leq \sum_j \|k_j\| \leq \mathrm{immax}$. Default. |
+| `"diamond"` | Like `"box"`, except that it includes only products with $a \leq \sum_j \lvert k_j \rvert \leq \mathrm{immax}$. Default. |
 | `"raw"` | Uses the frequencies listed in `freq` directly as the spectrum. |
 
 ## Parameters
