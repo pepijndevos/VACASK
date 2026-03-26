@@ -53,6 +53,10 @@ set(device_sources
     "spice/full/bsim3v3.va"   "spice/full/bsim3v3.osdi"    ""
 )
 
+# Extra options for OpenVAF
+message(STATUS "Extra OpenVAF options: ${OPENVAF_OPTIONS}")
+string(REPLACE " " ";" extra_options_list "${OPENVAF_OPTIONS}")
+    
 # Prepare directory for staging the osdi library
 set(STAGED_OSDI_DIRECTORY "${STAGED_LIBRARY_DIRECTORY}/mod")
 file(MAKE_DIRECTORY "${STAGED_OSDI_DIRECTORY}")
@@ -112,7 +116,7 @@ while(i LESS ${list_len})
         DEPENDS "${inputfile}"
         DEPENDS "${OPENVAF_COMPILER}"
         MAIN_DEPENDENCY "${inputfile}"
-        COMMAND "${OPENVAF_COMPILER}" ARGS "${options_list}" "--allow" "variant_const_simparam" "-I${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/${source}" -o "${outputfile}"
+        COMMAND "${OPENVAF_COMPILER}" ARGS "${extra_options_list}" "${options_list}" "--allow" "variant_const_simparam" "-I${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/${source}" -o "${outputfile}"
         COMMAND ${CMAKE_COMMAND} ARGS -E copy "${outputfile}" "${built_file}"
         COMMAND ${CMAKE_COMMAND} ARGS -E rm -f "${outputfile}"
         COMMAND_EXPAND_LISTS 
