@@ -37,7 +37,7 @@ typedef struct HBParameters {
                            // If not given, assumes frequencies in freq are all harmonics. 
     IntVector imorder {};  // When raw truncation scheme is used this flag indicates 
                            // the intermodulation product order of each frequency in the freq vector. 
-                           // If not set, assumes order is -1 for all frequencies. 
+                           // If not given it is assumed to be equal to raw frequency index. 
     String store {""};     // Name of stored solution slot to write
     String nodeset {""};   // String specifying stored solution slot to read
     

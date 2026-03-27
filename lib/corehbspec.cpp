@@ -94,7 +94,7 @@ bool HBCore::buildGrid(Status& s) {
         for(decltype(n) i=0; i<n; i++) {
             grid.at(i+1, i) = 1.0;
             bool harmonic = true;
-            Int order = -1;
+            Int order = i;
             if (params.harmonic.size()>0) {
                 harmonic = params.harmonic[i]!=0;
             }
