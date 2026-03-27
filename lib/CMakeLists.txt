@@ -164,7 +164,6 @@ add_library(simlib STATIC
     coretrannr.cpp 
     coretran.cpp
     corehb.cpp
-    corehbspec.cpp
     corehbcoloc.cpp
     corehbxform.cpp
     corehbnr.cpp

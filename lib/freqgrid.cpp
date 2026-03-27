@@ -5,7 +5,7 @@
 
 namespace NAMESPACE {
 
-bool FrequencyGrid::build(const std::vector<int>& nHarmonics, int maxImOrder, bool hybrid, int debug, Status& s) {
+bool FrequencyGrid::build(const std::vector<double>& fundamentals, const std::vector<int>& nHarmonics, int maxImOrder, bool hybrid, int debug, Status& s) {
     auto n = fundamentals.size();
 
     // Tone comparison tolerance
@@ -191,9 +191,9 @@ bool FrequencyGrid::build(const std::vector<int>& nHarmonics, int maxImOrder, bo
     );
 
     // Build frequencies vector for the solver
-    spectrum.resize(dest);
+    spectrum_.resize(dest);
     for(decltype(dest) i=0; i<dest; i++) {
-        spectrum[i] = freq[i].f;
+        spectrum_[i] = freq[i].f;
     }
 
     if (debug>0) {

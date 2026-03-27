@@ -9,7 +9,6 @@
 
 namespace NAMESPACE {
 
-Id HBCore::truncateRaw = Id::createStatic("raw");
 Id HBCore::truncateBox = Id::createStatic("box");
 Id HBCore::truncateDiamond = Id::createStatic("diamond");
 Id HBCore::truncateHybrid = Id::createStatic("hybrid");
@@ -45,7 +44,7 @@ HBCore::HBCore(
     OutputDescriptorResolver& parentResolver, HBParameters& params, Circuit& circuit, CommonData& commons, 
     KluBlockSparseRealMatrix& jacColoc, KluBlockSparseRealMatrix& jacobian, VectorRepository<double>& solution
 ) : AnalysisCore(parentResolver, circuit, commons), params(params), outfile(nullptr), jacColoc(jacColoc), 
-    nrSolver(circuit, commons, jacColoc, jacobian, solution, solutionFD, frequencies, timepoints, DDT, DDTcolMajor, APFT, IAPFT, nrSettings), 
+    nrSolver(circuit, commons, jacColoc, jacobian, solution, solutionFD, freqGrid.spectrum(), timepoints, DDT, DDTcolMajor, APFT, IAPFT, nrSettings), 
     bsjac(jacobian), solution(solution), firstBuild(true), continueState(nullptr) {
 };
 
@@ -137,7 +136,7 @@ bool HBCore::finalizeOutputs(Status& s) {
         auto sol = circuit.newStoredSolution("hb", params.store);
         sol->setNames(circuit);
         sol->setCxValues(solutionFD);
-        sol->setAuxData(frequencies);
+        sol->setAuxData(freqGrid.spectrum());
     }
     return true;
 }
@@ -168,7 +167,7 @@ bool HBCore::storeState(size_t ndx, bool storeDetails) {
     repo.solution.setCxValues(solutionFD);
     
     // Store frequencies
-    repo.solution.setAuxData(frequencies);
+    repo.solution.setAuxData(freqGrid.spectrum());
     
     // Stored state is coherent and valid
     repo.coherent = true;
@@ -210,6 +209,76 @@ std::tuple<bool, bool> HBCore::requestsRebuild(Status& s) {
         oldParams.sample != params.sample;
     oldParams = params;
     return std::make_tuple(true, needsRebuild);
+}
+
+bool HBCore::buildGrid(Status& s) {
+    auto n = params.freq.size();
+
+    auto& options = circuit.simulatorOptions().core();
+    auto debug = options.hb_debug>2;
+    
+    if (params.freq.size()<1) {
+        s.set(Status::BadArguments, "freq must have at least one component.");
+        return false;
+    }
+    
+    // Check freq
+    for(decltype(n) i=0; i<n; i++) {
+        if (params.freq[i]==0.0) {
+            s.set(Status::BadArguments, "Zero frequency should not be specified explicitly.");
+            return false;
+        }
+    }
+
+    // Harmonics count
+    std::vector<Int> nHarmonics;
+
+    // If nharm is a scalar, construct a vector
+    if (params.nharm.type()==ValueType::Int) {
+        auto nScalar = params.nharm.val<Int>();
+        if (nScalar<=0) {
+            s.set(Status::BadArguments, "nharm must be >0.");
+            return false;
+        }
+        nHarmonics.resize(n, nScalar);
+    } else if (params.nharm.type()==ValueType::IntVec) {
+        auto& nVector = params.nharm.val<IntVector>();
+        for(auto nh : nVector) {
+            if (nh<=0) {
+                s.set(Status::BadArguments, "nharm components must be >0.");
+                return false;
+            }
+        }
+        auto nharmCount = nVector.size();
+        if (nharmCount!=n) {
+            s.set(Status::BadArguments, "Number of nharm components must match number of freq components.");
+            return false;
+        }
+        nHarmonics = nVector;
+    } else {
+        s.set(Status::BadArguments, "nharm must be an integer or an integer vector.");
+        return false;
+    }
+
+    if (!(
+        params.truncate==HBCore::truncateBox || 
+        params.truncate==HBCore::truncateDiamond ||
+        params.truncate==HBCore::truncateHybrid
+    )) {
+        s.set(Status::BadArguments, "Unknown spectrum truncation method.");
+        return false;
+    }
+
+    if (!freqGrid.build(params.freq, nHarmonics, params.immax, params.truncate==HBCore::truncateHybrid, debug, s)) {
+        return false;
+    }
+
+    if (freqGrid.spectrum().size()<2) {
+        s.set(Status::BadArguments, "Too few frequencies in spectrum.");
+        return false;
+    }
+
+    return true;
 }
 
 bool HBCore::rebuild(Status& s) {
@@ -318,7 +387,7 @@ std::tuple<bool, bool> HBCore::runSolver(bool continuePrevious) {
         if (continueState &&
             continueState->valid && continueState->coherent &&
             continueState->solution.cxValues().size()==circuit.unknownCount()*timepoints.size() && 
-            continueState->solution.auxData().size()==freq.size()
+            continueState->solution.auxData().size()==freqGrid.spectrum().size()
         ) {
             // Continue a state
             // State is valid, coherent, and its lengths match those of the solver vectors
@@ -409,7 +478,7 @@ CoreCoroutine HBCore::coroutine(bool continuePrevious) {
     auto debug = options.hb_debug;
     auto n = circuit.unknownCount(); 
     auto nb = timepoints.size();
-    auto nf = freq.size();
+    auto nf = freqGrid.spectrum().size();
 
     // Make sure structures are large enough
     solution.upsize(2, n*nb+1);
@@ -486,7 +555,7 @@ CoreCoroutine HBCore::coroutine(bool continuePrevious) {
                 outputPhasors.upsize(1, n+1);
                 auto outvec = outputPhasors.data();
                 for(decltype(nf) k=0; k<nf; k++) {
-                    outputFreq = freq[k].f;
+                    outputFreq = freqGrid.spectrum()[k];
                     for(decltype(n) i=0; i<n; i++) {
                         outvec[i+1] = solutionFD[i*nf+k];
                     }                    
@@ -584,12 +653,12 @@ void HBCore::dump(std::ostream& os) const {
     AnalysisCore::dump(os);
     os << "  Results\n";
     auto n = circuit.unknownCount();
-    auto nf = frequencies.size();
+    auto nf = freqGrid.spectrum().size();
     for(decltype(n) i=1; i<=n; i++) {
         auto rn = circuit.reprNode(i);
         for(decltype(nf) k=0; k<nf; k++) {
             auto c = solutionFD[i];
-            os << "    " << rn->name() << "@" << frequencies[k] << "Hz : " << c.real();
+            os << "    " << rn->name() << "@" << freqGrid.spectrum()[k] << "Hz : " << c.real();
             if (c.imag()>=0) {
                 os << "+";
             }
@@ -657,7 +726,7 @@ bool HBCore::test() {
         // APFT of first non zero frequency cosine
         std::vector<double> v(n, 0.0);
         std::vector<double> vres(n, 0.0);
-        auto f = hb.freq[1].f;
+        auto f = hb.freqGrid.spectrum()[1];
         auto mag = 10;
         for(size_t i=0; i<n; i++) {
             auto t = hb.timepoints[i];

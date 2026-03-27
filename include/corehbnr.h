@@ -18,8 +18,8 @@ public:
         KluBlockSparseRealMatrix& bsjac, 
         VectorRepository<double>& solution, 
         Vector<Complex>& solutionFD,
-        Vector<Real>& frequencies, 
-        Vector<Real>& timepoints, 
+        const Vector<Real>& frequencies, 
+        const Vector<Real>& timepoints, 
         DenseMatrix<Real>& DDT, 
         DenseMatrix<Real>& DDTcolMajor, 
         DenseMatrix<Real>& APFT, 
@@ -78,8 +78,8 @@ protected:
     KluBlockSparseRealMatrix& bsjac;
     
     // Vectors and matrices without a bucket
-    std::vector<double>& frequencies;
-    Vector<double>& timepoints; 
+    const std::vector<double>& frequencies;
+    const Vector<double>& timepoints; 
     DenseMatrix<double>& DDT;
     DenseMatrix<double>& DDTcolMajor;
     DenseMatrix<double>& APFT;

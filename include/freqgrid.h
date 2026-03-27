@@ -47,22 +47,22 @@ public:
     };
     typedef std::vector<int> SpectralFingerprint;
 
-    FrequencyGrid(const std::vector<double>& fundamentals);
-    ~FrequencyGrid();
-
+    FrequencyGrid() = default;
+    
     FrequencyGrid           (const FrequencyGrid&)  = delete;
     FrequencyGrid           (      FrequencyGrid&&) = delete;
     FrequencyGrid& operator=(const FrequencyGrid&)  = delete;
     FrequencyGrid& operator=(      FrequencyGrid&&) = delete;
 
-    bool build(const std::vector<int>& nHarmonics, int maxImOrder=0, bool hybrid=false, int debug=0, Status& s=Status::ignore);
+    const std::vector<SpecFreq>& frequencyData() const { return freq; };
+    const std::vector<double>& spectrum() const { return spectrum_; };
+    const auto weights(size_t i) { return grid.row(freq[i].gridIndex); };
+
+    bool build(const std::vector<double>& fundamentals, const std::vector<int>& nHarmonics, int maxImOrder=0, bool hybrid=false, int debug=0, Status& s=Status::ignore);
     
     bool buildMixingMap();
 
 private:
-    // Tones
-    std::vector<double> fundamentals;
-
     // Gridpoints that are mapped to the spectrum
     std::vector<SpecFreq> freq;
 
@@ -71,7 +71,7 @@ private:
     DenseMatrix<int> grid;
 
     // Spectral frequencies (absolute), sorted
-    std::vector<double> spectrum;
+    std::vector<double> spectrum_;
     
     // Spectrum -> grid mapping
     // Gridpoint indices for sorted spectral components

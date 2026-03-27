@@ -29,7 +29,6 @@ Three truncation schemes control which intermodulation products are included in 
 | `"box"` | Includes all products with $0 \leq k_j \leq H_j$ (where $H_j$ is specified with `nharm`). |
 | `"diamond"` | Includes only intermodulation products with $\sum_j \lvert k_j \rvert \leq \mathrm{immax}$. |
 | `"hybrid"` | Union of `"diamond"` and single-tone harmonics from `"box"`: includes all IM products with $\sum_j \lvert k_j \rvert \leq \mathrm{immax}$ plus all single-tone harmonics with $0 \leq k_j \leq H_j$. Default. |
-| `"raw"` | Uses the frequencies listed in `freq` directly as the spectrum. |
 
 ### Colocation sampling
 
@@ -51,8 +50,6 @@ Here $T = \text{nper}/f_\text{min}$ is the time range and $N_\mathrm{sam} = \lce
 | `nharm` | integer or integer vector | `4` | Number of harmonics per fundamental. Scalar applies to all; a vector sets per-tone limits. |
 | `immax` | integer | `0` | Maximum intermodulation order for `"diamond"` and `"hybrid"` truncation. If ≤ 0, defaults to the largest component of `nharm`. |
 | `truncate` | string | `"hybrid"` | Spectrum truncation scheme: `"hybrid"`, `"diamond"`, `"box"`, or `"raw"`. |
-| `harmonic` | integer vector | `[]` | For `"raw"` truncation: flags indicating which entries of `freq` are harmonics. If empty, all frequencies are treated as harmonics. Annotation only - does not affect simulation. |
-| `imorder` | integer vector | `[]` | For `"raw"` truncation: intermodulation product order of each entry of `freq`. If empty, order is assumed to be -1 for all frequencies. Annotation only - does not affect simulation. |
 | `samplefac` | real | `5` | Oversampling factor for colocation timepoints (≥ 1). Only the best $2n$ points are used where $n$ is the spectrum size. |
 | `nper` | real | `1` | Number of lowest frequency periods over which colocation timepoints are distributed. |
 | `sample` | string | `"uniform"` | Colocation sampling mode: `"uniform"`, `"random"`, or `"mixed"`. |

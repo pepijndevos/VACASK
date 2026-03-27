@@ -3,6 +3,7 @@
 
 #include "densematrix.h"
 #include "klubsmatrix.h"
+#include "freqgrid.h"
 #include "core.h"
 #include "corehbnr.h"
 #include "outrawfile.h"
@@ -31,13 +32,6 @@ typedef struct HBParameters {
     Real nper {1};         // Number of lowest frequency periods across which colocation points are selected
     Id sample {Id()};      // Sampling mode (uniform, random, mixed), default is uniform. 
     Real shift {0.2};      // Sample shift in consecutive sample distance for uniform and mixed sampling
-    // These two are for annotation purpuses only, they do not affect HB simulation. 
-    IntVector harmonic {}; // When raw truncation scheme is used this flag indicates 
-                           // a frequency in the freq vector is a harmonic. 
-                           // If not given, assumes frequencies in freq are all harmonics. 
-    IntVector imorder {};  // When raw truncation scheme is used this flag indicates 
-                           // the intermodulation product order of each frequency in the freq vector. 
-                           // If not given it is assumed to be equal to raw frequency index. 
     String store {""};     // Name of stored solution slot to write
     String nodeset {""};   // String specifying stored solution slot to read
     
@@ -99,7 +93,6 @@ public:
         
     void dump(std::ostream& os) const;
 
-    static Id truncateRaw;
     static Id truncateBox;
     static Id truncateDiamond;
     static Id truncateHybrid;
@@ -133,21 +126,6 @@ protected:
     
     bool converged_;
     
-    struct SpecFreq {
-        // Index of the frequency grid entry
-        size_t gridIndex;
-        // Abslute frequency
-        double f;
-        // If the grid entry results in a negative frequency, this is true
-        bool negated;
-        // Intermodulation product order
-        // For harmonics this is the order of the harmonic. 
-        int order;
-        // Flag indicating that this frequency is a harmonic 
-        // (i.e. all grid coordinates, but one, are 0)
-        bool isHarmonic;
-    };
-
 private:
     NRSettings nrSettings;
     HBNRSolver nrSolver;
@@ -170,14 +148,10 @@ private:
     // HB parameters
     HBParameters& params;
 
+    // Frequency grid
+    FrequencyGrid freqGrid;
+
     // Vectors and matrices without a bucket
-    // Gridpoints in the frequency grid
-    // Rows are gridpoints, columns are fundamental frequency factors
-    DenseMatrix<int> grid;
-    // Details on each frequency in the spectrum (sorted), references grid entries
-    std::vector<SpecFreq> freq;
-    // Vector of frequencies including DC (sorted)
-    std::vector<double> frequencies;
     // Colocation timepoints (sorted)
     Vector<double> timepoints; 
     // Almost periodic Fourier transform
