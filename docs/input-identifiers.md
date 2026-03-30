@@ -6,9 +6,9 @@ entities.  The following rules apply:
 - Unquoted identifiers must start with a letter (`A-Z`, `a-z`), underscore
   (`_`), or dollar sign (`$`). Subsequent characters may be letters, digits,
   underscores or dollar signs.  Examples: `R1`, `node_foo`, `$temp`.
-- Quoted identifiers (single quotes, `''`) may also contain other printable
-  characters except the quote itself (currently `(`, `)`, `.`, `:`, and `!`
-  are allowed). They are useful when the name would otherwise be illegal, 
+- Quoted identifiers (single quotes) may contain any non-whitespace characters.
+  A literal single quote is written as `''` (two single quotes). They are
+  useful when the name would otherwise be illegal,
   e.g. `'3.3V'` or `'node(1)'`.
 
 Identifiers (like everything else in the input file) are **case-sensitive**; `R1` and `r1` are distinct.

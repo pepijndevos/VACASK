@@ -744,11 +744,21 @@ after INCEND we have
                 yylval->build<Id>(yytext);
                 return(token::IDENTIFIER);
             }
-<LINESTART,BODY>\'[0-9a-zA-Z_$:.()!]+\' { 
-                // Identifier in single quotes, any nonempty alphanumeric sequence with _, $, :, ., (, )
+<LINESTART,BODY>'[^\s']*(?:''[^\s']*)*' { 
+                // Identifier in single quotes, any nonempty alphanumeric sequence without whitespace
+                // A pair of single quotes translates to one single quote. 
                 BEGIN(BODY);
                 auto n = std::strlen(yytext);
-                yylval->build<Id>(std::string(yytext+1, n-2));
+                const char* p = yytext + 1;
+                const char* end = yytext + n - 1;
+                std::string result;
+                while (p < end) {
+                    result += *p;
+                    if (*p == '\'' && p + 1 < end && *(p+1) == '\'')
+                        p++;
+                    p++;
+                }
+                yylval->build<Id>(result);
                 return(token::IDENTIFIER);
             }
 
