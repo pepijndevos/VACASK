@@ -675,7 +675,12 @@ public:
         start_ = data_.data();
         setStride();
     }; 
-    
+
+    // Fill
+    void fill(T value) {
+        std::fill(data_.begin(), data_.end(), value);
+    };
+
     // Override for DenseMatrix
     T& at(size_t row, size_t col) { 
         switch (major_) {

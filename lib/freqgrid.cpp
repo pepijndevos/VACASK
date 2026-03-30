@@ -1,3 +1,4 @@
+#include <numeric>
 #include "freqgrid.h"
 #include "value.h"
 #include "simulator.h"
@@ -5,8 +6,18 @@
 
 namespace NAMESPACE {
 
+double FrequencyGrid::toFreq(VectorView<int> weights) {
+    double f = 0;
+    for(size_t i=0; i<weights.n(); i++) {
+        f += weights[i] * fundamentals_[i];
+    }
+    return f;
+}
+
 bool FrequencyGrid::build(const std::vector<double>& fundamentals, const std::vector<int>& nHarmonics, int maxImOrder, bool hybrid, int debug, Status& s) {
-    auto n = fundamentals.size();
+    fundamentals_ = fundamentals;
+    
+    auto n = fundamentals_.size();
 
     // Tone comparison tolerance
     auto freqtol = 1e-14;
@@ -54,19 +65,13 @@ bool FrequencyGrid::build(const std::vector<double>& fundamentals, const std::ve
 
         // Compute properties
         Int order = 0;
-        double f = 0;
         Int nnz = 0;
         for(decltype(n) i=0; i<n; i++) {
             order += std::abs(cnt[i]);
-            f += cnt[i]*fundamentals[i];
             if (cnt[i]!=0) {
                 nnz++;
             }
         }
-        // Need to remember this to correctly compute phase when assembling APFT
-        auto negative = f<0;
-        // Use positive frequencies only
-        f = std::abs(f);
         
         // Keep only thode grid entries that survive truncation
         // Check immax
@@ -85,8 +90,7 @@ bool FrequencyGrid::build(const std::vector<double>& fundamentals, const std::ve
             }
             freq.push_back({
                 .gridIndex = grid.nRows()-1, 
-                .f = f,
-                .negative = negative,  
+                .f = toFreq(row),
                 .order = order, 
                 .isHarmonic = nnz<=1, 
             });
@@ -113,6 +117,7 @@ bool FrequencyGrid::build(const std::vector<double>& fundamentals, const std::ve
     // Lower order im products are kept over higher order ones
     // Harmonics are kept over im products
     // Lower index is kept over higher index
+    conflict = false;
     auto nf = freq.size();
     std::vector<bool> removed(nf, false);
     for(decltype(nf) i=0; i<nf-1; i++) {
@@ -127,19 +132,21 @@ bool FrequencyGrid::build(const std::vector<double>& fundamentals, const std::ve
                 // Go to next j
                 continue;
             }
-            auto df = std::abs(freq[i].f - freq[j].f);
-            auto tolref = std::max(freq[i].f, freq[j].f);
+            auto df = std::abs(std::abs(freq[i].f) - std::abs(freq[j].f));
+            auto tolref = std::max(std::abs(freq[i].f), std::abs(freq[j].f));
             if (df <= tolref*freqtol) {
                 // Frequencies match, compare order
                 if (freq[i].order < freq[j].order) {
                     // j has higher order, keep i, mark j as removed, continue
                     removed[j] = true;
+                    conflict = true;
                     if (debug>0) {
                         Simulator::out() << "Removing #" << j << " (higher order)\n";
                     }
                  } else if (freq[i].order > freq[j].order) {
                     // i has higher order, keep j, mark i as removed, exit inner loop
                     removed[i] = true;
+                    conflict = true;
                     if (debug>0) {
                         Simulator::out() << "Removing #" << i << " (higher order)\n";
                     }
@@ -150,19 +157,22 @@ bool FrequencyGrid::build(const std::vector<double>& fundamentals, const std::ve
                     if (freq[i].isHarmonic && !freq[j].isHarmonic) {
                         // i is harmonic, j is not, keep i, mark j as removed, continue
                         removed[j] = true;
+                        conflict = true;
                         if (debug>0) {
                             Simulator::out() << "Removing #" << j << " (not harmonic)\n";
                         }
                     } else if (!freq[i].isHarmonic && freq[j].isHarmonic) {
                         // j is harmonic, i is not, keep j, mark i as removed, exit inner loop
                         removed[i] = true;
+                        conflict = true;
                         if (debug>0) {
                             Simulator::out() << "Removing #" << i << " (not harmonic)\n";
                         }
                         break;
                     } else {
-                        // Harmonic satus is the same, keep the one with lower index (i), mark j as removed
+                        // Harmonic status is the same, keep the one with lower index (i), mark j as removed
                         removed[j] = true;
+                        conflict = true;
                         if (debug>0) {
                             Simulator::out() << "Removing #" << j << " (higher index)\n";
                         }
@@ -178,22 +188,52 @@ bool FrequencyGrid::build(const std::vector<double>& fundamentals, const std::ve
         if (!removed[i]) {
             if (i!=dest) {
                 freq[dest] = freq[i];
+                freq[dest].gridIndex = dest;
+                grid.row(dest) = grid.row(i);
             }
             dest++;
         }
     }
     freq.resize(dest);
+    nf = freq.size();
 
-    // Sort freq vector by frequency
-    std::sort(
-        freq.begin(), freq.end(), 
-        [](const SpecFreq& a, const SpecFreq& b) { return a.f < b.f; }
-    );
+    // Sort freq and grid rows together by frequency
+    // After compaction freq[i].gridIndex == i
+    {
+        // Build permutation sorted by frequency
+        std::vector<size_t> perm(nf);
+        std::iota(perm.begin(), perm.end(), 0);
+        std::sort(perm.begin(), perm.end(), [&](size_t a, size_t b) {
+            return std::abs(freq[a].f) < std::abs(freq[b].f);
+        });
 
+        // Apply permutation to freq and grid
+        DenseMatrix<int> gridSorted;
+        gridSorted.resize(0, n);
+        std::vector<SpecFreq> freqSorted;
+        freqSorted.reserve(nf);
+        for(decltype(nf) i=0; i<nf; i++) {
+            gridSorted.addRow() = grid.row(perm[i]);
+            auto sf = freq[perm[i]];
+            sf.gridIndex = i;
+            freqSorted.push_back(sf);
+        }
+        freq = std::move(freqSorted);
+        grid = std::move(gridSorted);
+    }
+    
     // Build frequencies vector for the solver
     spectrum_.resize(dest);
-    for(decltype(dest) i=0; i<dest; i++) {
-        spectrum_[i] = freq[i].f;
+    signedSpectrum_.resize(dest);
+    for(decltype(dest) i=0; i<nf; i++) {
+        spectrum_[i] = std::abs(freq[i].f);
+        signedSpectrum_[i] = freq[i].f;
+    }
+
+    // Make sure DC is index 0
+    if (freq[0].f!=0) {
+        s.set(Status::CreationFailed, "Failed to create spectrum, component 0 must be DC.");
+        return false;
     }
 
     if (debug>0) {
@@ -203,9 +243,8 @@ bool FrequencyGrid::build(const std::vector<double>& fundamentals, const std::ve
             std::cout << "  #" << fd.gridIndex << " [";
             auto row = grid.row(fd.gridIndex);
             auto nel = row.n();
-            auto sgn = fd.negative ? -1 : 1;
             for(decltype(nel) j=0; j<nel; j++) {
-                std::cout << row.at(j)*sgn << " ";
+                std::cout << row.at(j) << " ";
             }
             std::cout << "]";
             
@@ -215,6 +254,91 @@ bool FrequencyGrid::build(const std::vector<double>& fundamentals, const std::ve
                 std::cout << " harmonic";
             }
             std::cout << "\n";
+        }
+    }
+
+    return buildMixingMap(debug, s);
+
+    return true;
+}
+
+bool FrequencyGrid::buildMixingMap(int debug, Status& s) {
+    auto n = grid.nCols();
+    auto nf = grid.nRows();
+    auto firstNegative = nf;
+
+    smsigFreq_ = signedSpectrum_;
+
+    if (conflict) {
+        s.set(Status::CreationFailed, "Cannot create mixing stencil due to grid frequency conflict.");
+        return false;
+    }
+
+    // Add negatives for cyclostationary AC, SP, STB, NOISE
+    // Skip DC
+    for(decltype(nf) i=1; i<nf; i++) {
+        auto row = grid.addRow();
+        auto fromRow = grid.row(i);
+        for(decltype(nf) j=0; j<n; j++) {
+            row[j] = -fromRow[j];
+            smsigFreq_.push_back(toFreq(row));
+        }
+    }
+    
+    // From this point on the grid no longer changes
+    // Build a map from fingerprints (key is VectorView<int>) to grid row indices
+    nf = grid.nRows();
+    for(decltype(nf) i=0; i<nf; i++) {
+        freqMap[grid.row(i)] = i;
+    }
+
+    // Build index stencil
+    // Traverse input and Jacobian frequency fingerprints
+    // Compute output frequency fingerprint
+    // Fill map (output freq index, input freq index) -> Jacobian freq index
+    DenseMatrix<int> mat(1, n, DenseMatrix<int>::Major::Row);
+    auto outComp = mat.row(0);
+    indexStencil.resize(nf, nf);
+    // Default is no Jacobian index for (out, in)
+    indexStencil.fill(noJacIndex);
+    for(decltype(nf) inF=0; inF<nf; inF++) {
+        auto inComp = grid.row(inF);
+        for(decltype(nf) jacF=0; jacF<nf; jacF++) {
+            auto jacComp = grid.row(jacF);
+            // Compute output weigths
+            for(decltype(n) k=0; k<n; k++) {
+                outComp[k] = inComp[k] + jacComp[k];
+            }
+            // Look up in grid
+            auto it = freqMap.find(outComp);
+            if (it!=freqMap.end()) {
+                // In map, get grid index of Jacobian freq
+                auto outF = it->second;
+                // Is it negative
+                int32_t jacIndex;
+                if (jacF>=firstNegative) {
+                    jacIndex = -(jacF - firstNegative + 1);
+                } else {
+                    jacIndex = jacF;
+                }
+                indexStencil.at(outF, inF) = jacIndex;
+            }
+        }
+    }
+
+    if (debug) {
+        Simulator::out() << "Mixing map (out, in) : jac\n";
+        for(decltype(nf) iout=0; iout<nf; iout++) {
+            for(decltype(nf) iin=0; iin<nf; iin++) {
+                auto ijac = indexStencil.at(iout, iin);
+                if (ijac!=noJacIndex) {
+                    auto fin = smsigFreq_[iin]; 
+                    auto fout = smsigFreq_[iout];
+                    auto fjac = freq[std::abs(ijac)].f;
+                    Simulator::out() << "  (" << fout << ", " << fin << ") : " << fjac << (ijac<0 ? " (conjugated)" : "") << "\n";
+                    int a=1;
+                }
+            }
         }
     }
     

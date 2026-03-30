@@ -71,7 +71,7 @@ bool HBCore::buildTransformMatrix(DenseMatrix<double>& XF, Status& s) {
                 phase += weights.at(k)*baseFac[k];
             }
             // If frequency was negated, so must be the phase
-            if (freqGrid.frequencyData()[j].negative) {
+            if (freqGrid.signedSpectrum()[j]<0) {
                 phase = -phase;
             }
             // Compute cosine and sine component
