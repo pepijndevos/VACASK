@@ -26,7 +26,7 @@ template<> bool SmallSignal<ACSPCore, ACSPData>::resolveSave(const PTSave& save,
         s.set(Status::BadArguments, "Ports vector must define an even number of components.");
         return false;
     }
-    
+
     // No saves, but those of OP analysis, delegate
     // Handle OP saves
     std::tie(st, handled) = resolveOpSave(save, verify, s); 

@@ -276,16 +276,19 @@ AnalysisCoroutine Analysis::coroutine(Status& s) {
                 // Every time core needs rebuild, rebind outputs
                 bool strict = (!outputsBound && circuit.simulatorOptions().core().strictsave>0) ||
                               (outputsBound && circuit.simulatorOptions().core().strictsave>1);
-                if (!resolveOutputDescriptors(strict, s)) {
-                    s.extend("Failed to bind analysis outputs.");
-                    co_yield AnalysisState::Aborted;
-                }
-
+                
                 // Rebuild core
                 if (!rebuildCores(s)) {
                     s.extend("Failed to rebuild analysis structures.");
                     co_yield AnalysisState::Aborted;
                 }
+
+                // Bind outputs
+                if (!resolveOutputDescriptors(strict, s)) {
+                    s.extend("Failed to bind analysis outputs.");
+                    co_yield AnalysisState::Aborted;
+                }
+
                 outputsBound = true;
                 systemChanged = true;
 
@@ -448,15 +451,9 @@ AnalysisCoroutine Analysis::coroutine(Status& s) {
             co_yield AnalysisState::Aborted;
         }
         
-        // Bind outputs
         // This happens only once per analysis run so treat it as first binding
         bool strict = circuit.simulatorOptions().core().strictsave>0;
-        ok = resolveOutputDescriptors(strict, s);
-        if (!ok) {
-            s.extend("Failed to bind analysis outputs.");
-            co_yield AnalysisState::Aborted;
-        }
-
+        
         // Rebuild core structures for simulation (always, because there is only one core run)
         ok = rebuildCores(s);
         if (!ok) {
@@ -471,6 +468,13 @@ AnalysisCoroutine Analysis::coroutine(Status& s) {
             Instance::NoFlags
         );
         
+        // Bind outputs
+        ok = resolveOutputDescriptors(strict, s);
+        if (!ok) {
+            s.extend("Failed to bind analysis outputs.");
+            co_yield AnalysisState::Aborted;
+        }
+
         // Initialize outputs
         outputInitialized = initializeOutputs(s);
         if (!outputInitialized) {

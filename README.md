@@ -97,7 +97,7 @@ VACASK is being developed by Árpád Bűrmen at the EDA Laboratory, University o
 |ac      |[small-signal AC analysis](docs/cmd-analysis-ac.md) |
 |acxf    |[small-signal AC transfer functions from independent sources to given output](docs/cmd-analysis-acxf.md) |
 |acstb   |[small-signal AC stability analysis (open loop gain without breaking the loop)](docs/cmd-analysis-acstb.md) |
-|acsp    |[small-signal AC s-parameter analysis)](docs/cmd-analysis-acsp.md) |
+|acsp    |[small-signal AC s-parameter analysis](docs/cmd-analysis-acsp.md) |
 |noise   |[small-signal noise analysis](docs/cmd-analysis-noise.md) |
 |tran    |[transient (time-domain) analysis](docs/cmd-analysis-tran.md) |
 |hb      |[(multitone) harmonic balance analysis](docs/cmd-analysis-hb.md) |

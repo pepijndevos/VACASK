@@ -216,7 +216,7 @@ bool ACSPCore::rebuild(Status& s) {
             s.set(Status::NotFound, "Port resistor '"+std::string(resName)+"' must have 'r', '$mfactor', and 'noisy' parameters.");
             return false;
         }
-        if (!resInst->model()->device()->isSource() && resInst->terminalCount()==2) {
+        if (!(!resInst->model()->device()->isSource() && resInst->terminalCount()==2)) {
             s.set(Status::NotFound, "Port resistor '"+std::string(resName)+"' must not be a source and must have 2 terminals.");
             return false;
         }
@@ -234,7 +234,7 @@ bool ACSPCore::rebuild(Status& s) {
             s.set(Status::NotFound, "Failed to read resistor parameters 'noisy' for '"+std::string(resName)+"'.");
             return false;
         }
-        if (vr.convertInPlace(Value::Type::Real)) {
+        if (!vr.convertInPlace(Value::Type::Real)) {
             s.set(Status::NotFound, "Resistor parameter 'r' of '"+std::string(resName)+"' is of wrong type.");
             return false;
         }
@@ -277,6 +277,11 @@ bool ACSPCore::rebuild(Status& s) {
         z0.push_back(r);
     }
 
+    // Make space
+    yMatrix.resize(portCount, portCount);
+    stMatrix.resize(portCount, portCount);
+    atMatrix.resize(portCount, portCount);
+
     // AC analysis matrix
     if (!acMatrix.rebuild(circuit.sparsityMap(), circuit.unknownCount())) {
         setError(SPError::MatrixError);
@@ -303,11 +308,8 @@ CoreCoroutine ACSPCore::coroutine(bool continuePrevious) {
     // Make sure structures are large enough
     acSolution.resize(n+1);
 
-    // Make space for results at the given frequency
+    // Get port count
     auto portCount = z0.size();
-    yMatrix.resize(portCount, portCount);
-    stMatrix.resize(portCount, portCount);
-    atMatrix.resize(portCount, portCount);
     
     // Compute operating point
     errorFreq = 0;

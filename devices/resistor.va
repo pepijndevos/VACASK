@@ -8,7 +8,7 @@ module resistor(A,B);
 	branch (A,B) br;
 	
 	(*desc= "Resistance", type="instance", units = "Ohm"*) parameter real r = 1 from [0:inf];
-    (*desc= "Noise switch", type="model", units = ""*)  parameter integer noisy = 1;
+    (*desc= "Noise switch", type="instance", units = ""*)  parameter integer noisy = 1;
 	(*desc= "Current", units ="A" *) real i;
 	
 	analog begin
