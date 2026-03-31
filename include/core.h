@@ -21,7 +21,7 @@ typedef Generator<CoreState> CoreCoroutine;
 class OutputDescriptorResolver {
 public:
     // Resolves output descriptor, adds output sorce to srcs
-    // Returns true on successž
+    // Returns true on success
     // Fail by default 
     virtual bool resolveOutputDescriptor(const OutputDescriptor& descr, Output::SourcesList& srcs, bool strict) { return false; };
 };

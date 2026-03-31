@@ -217,6 +217,7 @@ struct OutputDescriptor {
     OutputDescriptor(Type t, Id outputName, Id id); 
     OutputDescriptor(Type t, Id outputName, Id id1, Id id2); 
     OutputDescriptor(Type t, Id outputName, Id id, size_t n); 
+    OutputDescriptor(Type t, Id outputName, size_t n1, size_t n2); 
 
     Type type;
     union {
@@ -228,26 +229,41 @@ struct OutputDescriptor {
             Id id1;
             Id id2;
         } idId;
+        struct {
+            NdxType ndx1;
+            NdxType ndx2;
+        } ndxNdx;
         Id id;
         NdxType ndx;
     };
     Id name;
 };
 
-// Common descriptor types (64 possible values)
+// CustomMask is 1<<6 = 64
+//   64..127
+//     None yet
+
+// CommonMask is 2<<6 = 128
+//   128..255 common descriptors
+//     128 .. sweep variable
+//     129 .. simulator internal
+//     130 .. simulator statistics
 const OutputDescriptor::Type OutdSweepvar    = OutputDescriptor::CommonMask() | 0;
 const OutputDescriptor::Type OutdSimInternal = OutputDescriptor::CommonMask() | 1;
 const OutputDescriptor::Type OutdSimStat     = OutputDescriptor::CommonMask() | 2;
 
 // Descriptor types used by several analyses (64 possible values)
+// The rest
+//   0..63
 const OutputDescriptor::Type OutdSolComponent             = 0;
 const OutputDescriptor::Type OutdPinCurrent               = 1; 
 const OutputDescriptor::Type OutdOutvar                   = 2;
 const OutputDescriptor::Type OutdTf                       = 3;
 const OutputDescriptor::Type OutdZ                        = 4;
 const OutputDescriptor::Type OutdY                        = 5;
-const OutputDescriptor::Type OutdNoiseContribInst         = 6;
-const OutputDescriptor::Type OutdNoiseContribInstPartial  = 7;
+const OutputDescriptor::Type OutdSmat                     = 6;
+const OutputDescriptor::Type OutdNoiseContribInst         = 7;
+const OutputDescriptor::Type OutdNoiseContribInstPartial  = 8;
 
 const OutputDescriptor::Type OutdGain                     = 59;
 const OutputDescriptor::Type OutdOutputNoise              = 60;

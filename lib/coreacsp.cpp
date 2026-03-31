@@ -37,10 +37,12 @@ ACSPCore::ACSPCore(
     OutputDescriptorResolver& parentResolver, ACSPParameters& params, OperatingPointCore& opCore, Circuit& circuit, 
     CommonData& commons, 
     KluRealMatrix& dcJacobian, VectorRepository<double>& dcSolution, VectorRepository<double>& dcStates, 
-    KluComplexMatrix& acMatrix, Vector<Complex>& acSolution, Vector<Complex>& resultsVector
+    KluComplexMatrix& acMatrix, Vector<Complex>& acSolution, 
+    DenseMatrix<Complex>& yMatrix, DenseMatrix<Complex>& stMatrix
 ) : AnalysisCore(parentResolver, circuit, commons), params(params), outfile(nullptr), opCore_(opCore), 
     dcSolution(dcSolution), dcStates(dcStates), dcJacobian(dcJacobian), 
-    acMatrix(acMatrix), acSolution(acSolution), resultsVector(resultsVector) {
+    acMatrix(acMatrix), acSolution(acSolution), 
+    yMatrix(yMatrix), stMatrix(stMatrix) {
     
     // Set analysis type for the initial operating point analysis
     auto& elsSystem = opCore_.solver().evalSetup();
@@ -62,11 +64,19 @@ bool ACSPCore::resolveOutputDescriptors(bool strict) {
     bool ok = true; 
     for (auto it = outputDescriptors.cbegin(); it != outputDescriptors.cend(); ++it) {
         switch (it->type) {
-        case OutdGain:
-            outputSources.emplace_back(&resultsVector, it->ndx);
-            break;
-        case OutdY:
-            outputSources.emplace_back(&resultsVector, it->ndx);
+        case OutdSmat:
+            // stMatrix is the transpose of S
+            if (it->ndxNdx.ndx1<stMatrix.nRows() && it->ndxNdx.ndx2<stMatrix.nRows()) {
+                // Matrix large enough
+                outputSources.emplace_back(&stMatrix.data(), stMatrix.indexOf(it->ndxNdx.ndx2, it->ndxNdx.ndx1));
+            } else if (strict) {
+                // Outside of matrix, strict mode, error
+                setError(SPError::MatrixEntryNotFound);
+                ok = false;
+            } else {
+                // Outside of matrix, default source
+                outputSources.emplace_back();
+            }
             break;
         case OutdFrequency:
             outputSources.emplace_back(&frequency);
@@ -83,6 +93,7 @@ bool ACSPCore::resolveOutputDescriptors(bool strict) {
     return ok;
 }
 
+
 // These OutputDescriptors are always added
 bool ACSPCore::addCoreOutputDescriptors() {
     clearError();
@@ -90,45 +101,24 @@ bool ACSPCore::addCoreOutputDescriptors() {
     if (!params.write || Simulator::noOutput()) {
         return true;
     }
+    
+    // Add output descriptors for S matrix entries
+    auto portCount = params.ports.size() / 2;
+    for(decltype(portCount) i=0; i<portCount; i++) {
+        for(decltype(portCount) j=0; j<portCount; j++) {
+            if (!addOutputDescriptor(
+                OutputDescriptor(OutdSmat, std::string("s(")+std::to_string(i+1)+","+std::to_string(j+1)+")", i, j))
+            ) {
+                lastError = Error::Descriptor;
+                errorId = "frequency";
+                return false;
+            }
+        }
+    }
+    
     if (!addOutputDescriptor(OutputDescriptor(OutdFrequency, "frequency"))) {
         lastError = Error::Descriptor;
         errorId = "frequency";
-        return false;
-    }
-    // Forward/reverse/total open loop gain
-    if (!addOutputDescriptor(OutputDescriptor(OutdGain, "wf", to_int(StbResult::Wf)))) {
-        lastError = Error::Descriptor;
-        errorId = "forward open-loop gain";
-        return false;
-    }
-    if (!addOutputDescriptor(OutputDescriptor(OutdGain, "wr", to_int(StbResult::Wr)))) {
-        lastError = Error::Descriptor;
-        errorId = "reverse open-loop gain";
-        return false;
-    }
-    if (!addOutputDescriptor(OutputDescriptor(OutdGain, "w", to_int(StbResult::W)))) {
-        lastError = Error::Descriptor;
-        errorId = "open-loop gain";
-        return false;
-    }
-    if (!addOutputDescriptor(OutputDescriptor(OutdY, "y_1_1", to_int(StbResult::y11)))) {
-        lastError = Error::Descriptor;
-        errorId = "y11";
-        return false;
-    }
-    if (!addOutputDescriptor(OutputDescriptor(OutdY, "y_1_2", to_int(StbResult::y12)))) {
-        lastError = Error::Descriptor;
-        errorId = "y12";
-        return false;
-    }
-    if (!addOutputDescriptor(OutputDescriptor(OutdY, "y_2_1", to_int(StbResult::y21)))) {
-        lastError = Error::Descriptor;
-        errorId = "y21";
-        return false;
-    }
-    if (!addOutputDescriptor(OutputDescriptor(OutdY, "y_2_2", to_int(StbResult::y22)))) {
-        lastError = Error::Descriptor;
-        errorId = "y22";
         return false;
     }
     return true;
@@ -188,6 +178,105 @@ bool ACSPCore::deleteOutputs(Id name, Status& s) {
 
 bool ACSPCore::rebuild(Status& s) {
     clearError();
+
+    // Collect ports, check them, assign ports to matrix rows/columns
+    sourceVector.clear();
+    resistorVector.clear();
+    terminalsVector.clear();
+    z0.clear();
+
+    // Collect source-resistor pairs, check device type
+    auto portCount = params.ports.size() / 2;
+    for(decltype(portCount) i=0; i<portCount; i++) {
+        // Get source and resistor
+        auto& srcName = params.ports.val<StringVector>()[2*i];
+        auto srcInst = circuit.findInstance(srcName);
+        if (!srcInst) {
+            s.set(Status::NotFound, "Port source '"+std::string(srcName)+"' not found");
+            return false;
+        }
+        auto resName = params.ports.val<StringVector>()[2*i+1];
+        auto resInst = circuit.findInstance(resName);
+        if (!resInst) {
+            s.set(Status::NotFound, "Port resistor '"+std::string(resName)+"' not found");
+            return false;
+        }
+        // Check source type. 
+        if (!srcInst->model()->device()->isSource() || !srcInst->model()->device()->isVoltageSource()) {
+            s.set(Status::NotFound, "Port source '"+std::string(srcName)+"' must be a voltage source.");
+            return false;
+        }
+
+        // Check resistor type (must have r, noisy, and $mfactor parameters), 
+        // must not be a source, must have 2 terminals. 
+        auto [rIndex, rOK] = resInst->parameterIndex("r");
+        auto [mIndex, mOK] = resInst->parameterIndex("$mfactor");
+        auto [noisyIndex, noisyOK] = resInst->parameterIndex("noisy");
+        if (!(rOK && mOK && noisyOK)) { 
+            s.set(Status::NotFound, "Port resistor '"+std::string(resName)+"' must have 'r', '$mfactor', and 'noisy' parameters.");
+            return false;
+        }
+        if (!resInst->model()->device()->isSource() && resInst->terminalCount()==2) {
+            s.set(Status::NotFound, "Port resistor '"+std::string(resName)+"' must not be a source and must have 2 terminals.");
+            return false;
+        }
+        // Extract parameter values
+        Value vr, vm, vn;
+        if (!resInst->getParameter(rIndex, vr, Status::ignore)) {
+            s.set(Status::NotFound, "Failed to read resistor parameter 'r' for '"+std::string(resName)+"'.");
+            return false;
+        }
+        if (!resInst->getParameter(mIndex, vm, Status::ignore)) {
+            s.set(Status::NotFound, "Failed to read resistor parameter '$mfactor' for '"+std::string(resName)+"'.");
+            return false;
+        }
+        if (!resInst->getParameter(noisyIndex, vn, Status::ignore)) {
+            s.set(Status::NotFound, "Failed to read resistor parameters 'noisy' for '"+std::string(resName)+"'.");
+            return false;
+        }
+        if (vr.convertInPlace(Value::Type::Real)) {
+            s.set(Status::NotFound, "Resistor parameter 'r' of '"+std::string(resName)+"' is of wrong type.");
+            return false;
+        }
+        if (!vm.convertInPlace(Value::Type::Real)) {
+            s.set(Status::NotFound, "Resistor parameter '$mfactor' of '"+std::string(resName)+"' is of wrong type.");
+            return false;
+        }
+        if (!vn.convertInPlace(Value::Type::Int)) {
+            s.set(Status::NotFound, "Resistor parameter '$noisy' of '"+std::string(resName)+"' is of wrong type.");
+            return false;
+        }
+        auto r = vr.val<Real>();
+        auto m = vm.val<Real>();
+        // Extract port impedance
+        r = r/m;
+        // Check if positive node of the source connects to one of resistors's nodes
+        // The other resistor node is the positive port terminal. 
+        // The other source node is the negative port terminal. 
+        auto s1 = srcInst->terminal(0);
+        auto s2 = srcInst->terminal(1);
+        auto r1 = resInst->terminal(0);
+        auto r2 = resInst->terminal(1);
+        Node* portp;
+        Node* portn;
+        if (s1==r1) {
+            // Source + connected to resistor node 1
+            portp = r2;
+        } else if (s1==r2) {
+            // Source + connected to resistor node 2
+            portp = r1;
+        } else {
+            s.set(Status::NotFound, "Port defined by '"+std::string(srcName)+"' and '"+std::string(resName)+"' has incorrect topology.");
+            s.extend("Positive source node must be connected to the resistor.");
+            return false;
+        }
+        portn = s2;
+        sourceVector.push_back(srcInst);
+        resistorVector.push_back(resInst);
+        terminalsVector.push_back(std::tuple(portp->unknownIndex(), portn->unknownIndex()));
+        z0.push_back(r);
+    }
+
     // AC analysis matrix
     if (!acMatrix.rebuild(circuit.sparsityMap(), circuit.unknownCount())) {
         setError(SPError::MatrixError);
@@ -214,52 +303,17 @@ CoreCoroutine ACSPCore::coroutine(bool continuePrevious) {
     // Make sure structures are large enough
     acSolution.resize(n+1);
 
-    // Get probe voltage source
-    auto [probeOk, probeSource] = getExcitation(params.probe);
-    if (!probeOk) {
-        co_yield CoreState::Aborted;
-    }
-
-    // Is probe source a voltage source? 
-    auto sdev = probeSource->model()->device();
-    if (!(sdev->isSource() && sdev->isVoltageSource())) {
-        setError(StbError::BadProbe);
-        co_yield CoreState::Aborted;
-    }
-
-    // Get response scaling factor
-    auto probeResponseScalingFactor = probeSource->responseScalingFactor();
-
-    // Extract DUT input (pnode) and output (nnode) node
-    auto np = probeSource->terminal(0);
-    auto nn = probeSource->terminal(1);
-    auto pnodeUnknown = probeSource->terminal(0)->unknownIndex();
-    auto nnodeUnknown = probeSource->terminal(1)->unknownIndex();
-
-    // Get probe response unknown
-    auto [r1, r2] = probeSource->sourceResponse(circuit);
-    auto [e1, e2] = probeSource->sourceExcitation(circuit);
-    
-    // Get reference ground node
-    UnknownIndex refGnd = 0;
-    // Valid Id and not an empty string. 
-    if (params.localgnd && *params.localgnd.c_str()!=0) {
-        auto node = circuit.findNode(params.localgnd);
-        if (!node) {
-            setError(StbError::BadLocalGnd);
-            co_yield CoreState::Aborted;
-        }
-        refGnd = node->unknownIndex();
-    }
-
     // Make space for results at the given frequency
-    resultsVector.resize(to_int(StbResult::COUNT));
+    auto portCount = z0.size();
+    yMatrix.resize(portCount, portCount);
+    stMatrix.resize(portCount, portCount);
+    atMatrix.resize(portCount, portCount);
     
     // Compute operating point
     errorFreq = 0;
     auto opOk = opCore_.run(continuePrevious);
     if (!opOk) {
-        setError(StbError::OperatingPointError);
+        setError(SPError::OperatingPointError);
         co_yield CoreState::Aborted;
     }
 
@@ -267,7 +321,7 @@ CoreCoroutine ACSPCore::coroutine(bool continuePrevious) {
     Int debug = options.smsig_debug;
 
     if (debug>0) {
-        Simulator::dbg() << "Starting AC stability analysis.\n";
+        Simulator::dbg() << "Starting AC s-parameter analysis.\n";
     }
     
     // Evaluate resistive and reactive Jacobian, bypass is not allowed
@@ -307,7 +361,7 @@ CoreCoroutine ACSPCore::coroutine(bool continuePrevious) {
     // We do both here in case OpenVAF has bugs with this corner case :)
     if (!circuit.evalAndLoad(commons, &esReactive, nullptr, nullptr)) {
         // Load error
-        setError(StbError::EvalAndLoad);
+        setError(SPError::EvalAndLoad);
         if (debug>0) {
             Simulator::dbg() << "Error in AC Jacobian evaluation.\n";
         }
@@ -337,7 +391,7 @@ CoreCoroutine ACSPCore::coroutine(bool continuePrevious) {
     // Create sweeper
     ScalarSweep sweeper;
     if (!sweeper.setup(params, errorStatus)) {
-        setError(StbError::Sweeper);
+        setError(SPError::Sweeper);
         co_yield CoreState::Aborted;
     }
     if (progressReporter) {
@@ -357,14 +411,14 @@ CoreCoroutine ACSPCore::coroutine(bool continuePrevious) {
         // Compute should always succeed
         Value v;
         if (!sweeper.compute(v, errorStatus)) {
-            setError(StbError::SweepCompute);
+            setError(SPError::SweepCompute);
             error = true;
             break;
         }
 
         // The value, however, must be convertible to real
         if (!v.convertInPlace(Value::Type::Real, errorStatus)) {
-            setError(StbError::BadFrequency);
+            setError(SPError::BadFrequency);
             if (debug>0) {
                 Simulator::dbg() << "Frequency value cannot be converted to real.\n";
             }
@@ -388,7 +442,7 @@ CoreCoroutine ACSPCore::coroutine(bool continuePrevious) {
         lsReactive.reactiveJacobianFactor = omega;
         if (!circuit.evalAndLoad(commons, nullptr, &lsReactive, nullptr)) {
             // Load error
-            setError(StbError::EvalAndLoad);
+            setError(SPError::EvalAndLoad);
             if (debug>0) {
                 Simulator::dbg() << "Error in AC Jacobian load.\n";
             }
@@ -405,7 +459,7 @@ CoreCoroutine ACSPCore::coroutine(bool continuePrevious) {
         // Check if matrix entries are finite, no need to check RHS 
         // since we loaded it without any computation (i.e. we only used mag and phase)
         if (options.matrixcheck && !acMatrix.isFinite(true, true)) {
-            setError(StbError::MatrixError);
+            setError(SPError::MatrixError);
             if (debug>0) {
                 Simulator::dbg() << "A matrix entry is not finite.\n";
             }
@@ -426,7 +480,7 @@ CoreCoroutine ACSPCore::coroutine(bool continuePrevious) {
             // Full factorization
             if (!acMatrix.factor()) {
                 // Failed, give up
-                setError(StbError::MatrixError);
+                setError(SPError::MatrixError);
                 if (debug>0) {
                     Simulator::dbg() << "LU factorization failed.\n";
                 }
@@ -438,7 +492,7 @@ CoreCoroutine ACSPCore::coroutine(bool continuePrevious) {
         if (options.rcondcheck>0) { 
             double rcond;
             if (!acMatrix.rcond(rcond)) {
-                setError(StbError::MatrixError);
+                setError(SPError::MatrixError);
                 if (debug>0) {
                     Simulator::dbg() << "Condition number estimation failed.\n";
                 }
@@ -449,85 +503,84 @@ CoreCoroutine ACSPCore::coroutine(bool continuePrevious) {
                 if (debug>0) {
                     Simulator::dbg() << "Matrix is close to singular.\n";
                 }
-                setError(StbError::SingularMatrix);
+                setError(SPError::SingularMatrix);
                 error = true;
                 break;
             }
         }
 
-        // Step 1 - inject current between positive probe node and localgnd
-        zero(acSolution);
-        acSolution[pnodeUnknown] += -1;
-        acSolution[refGnd]       -= -1;
+        // Loop through all ports
+        for(decltype(portCount) i=0; i<portCount; i++) {
+            // Step 1 - inject current between positive probe node and localgnd
+            // We use scalenUnityExcitation() because someday we might allow current sources is probes. 
+            zero(acSolution);
+            auto [ep, en] = sourceVector[i]->sourceExcitation(circuit);
+            acSolution[ep] += -sourceVector[i]->scaledUnityExcitation();
+            acSolution[en] -= -sourceVector[i]->scaledUnityExcitation();
 
-        // Solve, set bucket to 0.0
-        if (!acMatrix.solve(dataWithoutBucket(acSolution))) {
-            setError(StbError::MatrixError);
-            if (debug>2) {
-                Simulator::dbg() << "Failed to solve factored system for injected current.\n";
+            // Solve, set bucket to 0.0
+            if (!acMatrix.solve(dataWithoutBucket(acSolution))) {
+                setError(SPError::MatrixError);
+                if (debug>2) {
+                    Simulator::dbg() << "Failed to solve factored system for injected current.\n";
+                }
+                error = true;
+                break;
             }
+            acSolution[0] = 0.0;
+
+            if (options.solutioncheck && !acMatrix.isFinite(dataWithoutBucket(acSolution), true, true)) {
+                setError(SPError::SolutionError);
+                if (options.smsig_debug) {
+                    Simulator::dbg() << "A solution entry for excitation at port "+std::to_string(i+1)+" is not finite. Solver failed.\n";
+                }
+                error = true;
+                break;
+            }
+            
+            // Loop through ports
+            for(decltype(portCount) j=0; j<portCount; j++) {
+                // Get j-th port current and voltage (at interface plane), scale voltage source current with $mfactor
+                auto [pi, ni] = terminalsVector[j];
+                auto vp = acSolution[pi] - acSolution[ni];
+                auto [rp, rn] = sourceVector[j]->sourceResponse(circuit);
+                auto ip = (acSolution[rp] - acSolution[rn])*sourceVector[j]->responseScalingFactor();
+                
+                // Compute incident (a) and reflected (b) wave
+                auto zp = z0[j];
+                auto a = (vp+zp*ip)/sqrt(zp);
+                auto b = (vp-zp*ip)/sqrt(zp);
+                
+                // Store in matrices in i-th row, j-th column (transposed A and B)
+                // B transposed is in sMatrix (where the solution will be in the end)
+                // A transposed is in aMatrix
+                atMatrix.at(i, j) = a;
+                stMatrix.at(i, j) = b;
+            } // Response loop ends here (j)
+        } // Excitation loop ends here (i)
+
+        // The following must hold
+        //   B = S A 
+        // where A and B contain incident and reflected waves. 
+        // Rows correspond to ports where we observe waves and 
+        // columns correspond to excitations (always exciting just one port). 
+        // atMatrix and stMatrix are the transposes of A and B. 
+        //
+        // Solve for s-parameters (transposed)
+        //    T  T    T
+        //   A  S  = B
+        // 
+        // Transposed S matrix can be found in stMatrix.
+        if (!atMatrix.destructiveSolve(stMatrix)) {
+            if (debug>0) {
+                Simulator::dbg() << "S matrix is singular.\n";
+            }
+            setError(SPError::SingularS);
             error = true;
             break;
         }
-        acSolution[0] = 0.0;
 
-        if (options.solutioncheck && !acMatrix.isFinite(dataWithoutBucket(acSolution), true, true)) {
-            setError(StbError::SolutionError);
-            if (options.smsig_debug) {
-                Simulator::dbg() << "A solution entry for injected current is not finite. Solver failed.\n";
-            }
-            error = true;
-            break;
-        }
-
-        // Extract A and C
-        auto A = (acSolution[r1] - acSolution[r2])*probeResponseScalingFactor;
-        auto C = acSolution[pnodeUnknown] - acSolution[refGnd];
-
-        // Step 2 - inject voltage into the feedback loop, no need to apply scaledUnityExcitation()
-        // because we know the probe is a voltage source and the factor is 1. 
-        zero(acSolution);
-        acSolution[e1] += -1;
-        acSolution[e2] -= -1;
-
-        // Solve, set bucket to 0.0
-        if (!acMatrix.solve(dataWithoutBucket(acSolution))) {
-            setError(StbError::MatrixError);
-            if (debug>2) {
-                Simulator::dbg() << "Failed to solve factored system for injected voltage.\n";
-            }
-            error = true;
-            break;
-        }
-        acSolution[0] = 0.0;
-
-        if (options.solutioncheck && !acMatrix.isFinite(dataWithoutBucket(acSolution), true, true)) {
-            setError(StbError::SolutionError);
-            if (options.smsig_debug) {
-                Simulator::dbg() << "A solution entry for injected voltage is not finite. Solver failed.\n";
-            }
-            error = true;
-            break;
-        }
-
-        // Extract B and D
-        auto B = (acSolution[r1] - acSolution[r2])*probeResponseScalingFactor;
-        auto D = acSolution[pnodeUnknown] - acSolution[refGnd];
-
-        // Compute admittance parameters
-        auto ADBC = A*D - B*C;
-        resultsVector[to_int(StbResult::y11)] = (1.0+ADBC-A-D)/C;
-        resultsVector[to_int(StbResult::y12)] = (-ADBC+D)/C;
-        resultsVector[to_int(StbResult::y21)] = (-ADBC+A)/C;
-        resultsVector[to_int(StbResult::y22)] = ADBC/C;
-
-        // Compute forward and reverse open-loop gain
-        auto den = 1.0+2.0*ADBC-A-D;
-        auto Wf = (-ADBC+A)/den;
-        auto Wr = (-ADBC+D)/den;
-        resultsVector[to_int(StbResult::Wf)] = Wf;
-        resultsVector[to_int(StbResult::Wr)] = Wr;
-        resultsVector[to_int(StbResult::W)] = Wf + Wr;
+        // TODO: compute Y matrix
 
         // Dump solution point
         if (params.write && !Simulator::noOutput() && outfile) {
@@ -540,7 +593,7 @@ CoreCoroutine ACSPCore::coroutine(bool continuePrevious) {
     } while (!finished && !error);
     
     if (debug>0) {
-        Simulator::dbg() << "AC stability frequency sweep " << (finished ? "completed" : "exited prematurely") << ".\n";
+        Simulator::dbg() << "AC s-parameter frequency sweep " << (finished ? "completed" : "exited prematurely") << ".\n";
     }
 
     if (!finished) {
@@ -583,35 +636,36 @@ bool ACSPCore::formatError(Status& s) const {
     
     // Then handle ACSPCore errors
     switch (lastAcError) {
-        case StbError::Sweeper:
-        case StbError::SweepCompute:
+        case SPError::Sweeper:
+        case SPError::SweepCompute:
             s.set(errorStatus);
             break;
-        case StbError::EvalAndLoad:
+        case SPError::EvalAndLoad:
             s.set(Status::Analysis, "Jacobian evaluation failed.");
             break;
-        case StbError::MatrixError:
+        case SPError::MatrixError:
             acMatrix.formatError(s, &nr);
             break;
-        case StbError::SolutionError:
+        case SPError::SolutionError:
             acMatrix.formatError(s, &nr);
             s.extend("Solution component is not finite.");
             break;
-        case StbError::OperatingPointError:
+        case SPError::OperatingPointError:
             opCore_.formatError(s);
             break;
-        case StbError::SingularMatrix:
+        case SPError::SingularMatrix:
             s.set(Status::Analysis, "Matrix is close to singular.");
             break;
-        case StbError::BadFrequency:
+        case SPError::BadFrequency:
             s.set(Status::Analysis, "Frequency value cannot be converted to real.");
             break;
-        case StbError::BadProbe:
-            s.set(Status::Analysis, "Probe must be a voltage source.");
+        case SPError::SingularS:
+            s.set(Status::Analysis, "S-parameter matrix is singular.");
             break;
-        case StbError::BadLocalGnd:
-            s.set(Status::Analysis, "Local ground node not found.");
+        case SPError::MatrixEntryNotFound:
+            s.set(Status::Analysis, "Matrix entry not found.");
             break;
+            
         default:
             return true;
     }
@@ -627,17 +681,8 @@ bool ACSPCore::formatError(Status& s) const {
 void ACSPCore::dump(std::ostream& os) const {
     AnalysisCore::dump(os);
     os << "  Results\n";
-    auto n = circuit.unknownCount();
-    for(decltype(n) i=1; i<=n; i++) {
-        auto rn = circuit.reprNode(i);
-        auto c = resultsVector.data()[i];
-        os << "    " << i << " : " << c.real();
-        if (c.imag()>=0) {
-            os << "+";
-        }
-        os << c.imag();
-        os << "i\n";
-    }
+    os << "  Transposed S matrix\n";
+    stMatrix.dump(os);
 }
 
 }

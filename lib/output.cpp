@@ -36,6 +36,17 @@ OutputDescriptor::OutputDescriptor(Type t, Id outputName, Id id, size_t n) : typ
     idNdx.ndx = n;
 }
 
+OutputDescriptor::OutputDescriptor(Type t, Id outputName, size_t n1, size_t n2) : type(t), name(outputName)  {
+    if (n1>std::numeric_limits<NdxType>::max()) {
+        throw std::length_error("Output descriptor, first index too large.");
+    }
+    if (n2>std::numeric_limits<NdxType>::max()) {
+        throw std::length_error("Output descriptor, second index too large.");
+    }
+    ndxNdx.ndx1 = n1;
+    ndxNdx.ndx2 = n2;
+}
+
 
 /*
 Id OutputTdRhs::name() const {

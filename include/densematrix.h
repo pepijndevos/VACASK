@@ -727,6 +727,21 @@ public:
         return row(nRow_-1); 
     };
 
+    // Retrieve internal data structure
+    std::vector<T>& data() { return data_; };
+    const std::vector<T>& data() const { return data_; };
+
+    // Get index of element within internal data structure
+    size_t indexOf(size_t row, size_t col) const {
+        switch (major_) {
+            case Major::Row:
+                return row*nCol_+col; 
+            case Major::Column:
+            default:
+                return row+nRow_*col; 
+        }
+    }
+
     static bool test();
 
 private:
