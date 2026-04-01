@@ -72,7 +72,7 @@ add_library(simlib STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/hmtpgmin.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/hmtpsrc.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/progress.h 
-    ${CMAKE_CURRENT_SOURCE_DIR}/../include/freqgrid.h 
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include/spurs.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/core.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/coreop.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/coreopnr.h 
@@ -161,7 +161,7 @@ add_library(simlib STATIC
     hmtpgmin.cpp
     hmtpsrc.cpp
     progress.cpp
-    freqgrid.cpp
+    spurs.cpp
     core.cpp 
     coreop.cpp 
     coreopnr.cpp 

@@ -3,7 +3,7 @@
 
 #include "densematrix.h"
 #include "klubsmatrix.h"
-#include "freqgrid.h"
+#include "spurs.h"
 #include "core.h"
 #include "corehbnr.h"
 #include "outrawfile.h"
@@ -149,8 +149,8 @@ private:
     // HB parameters
     HBParameters& params;
 
-    // Frequency grid
-    FrequencyGrid freqGrid;
+    // Spurs
+    Spurs spurs;
 
     // Vectors and matrices without a bucket
     // Colocation timepoints (sorted)

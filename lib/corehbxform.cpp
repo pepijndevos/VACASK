@@ -36,7 +36,7 @@ namespace NAMESPACE {
 
 bool HBCore::buildTransformMatrix(DenseMatrix<double>& XF, Status& s) {
     auto n = timepoints.size();
-    auto m = freqGrid.spectrum().size();
+    auto m = spurs.spectrum().size();
     auto ncoef = 2*m-1;
     
     XF.resize(n, ncoef);
@@ -64,14 +64,14 @@ bool HBCore::buildTransformMatrix(DenseMatrix<double>& XF, Status& s) {
         // Nonzero frequencies
         for(decltype(m) j=1; j<m; j++) {
             // Grid entry
-            auto weights = freqGrid.weights(j); 
+            auto weights = spurs.spurWeights(j); 
             // Assemble phase from base frequency contributions
             double phase = 0;
             for(decltype(nBase) k=0; k<nBase; k++) {
                 phase += weights.at(k)*baseFac[k];
             }
             // If frequency was negated, so must be the phase
-            if (freqGrid.signedSpectrum()[j]<0) {
+            if (spurs.signedSpectrum()[j]<0) {
                 phase = -phase;
             }
             // Compute cosine and sine component
@@ -85,7 +85,7 @@ bool HBCore::buildTransformMatrix(DenseMatrix<double>& XF, Status& s) {
 
 bool HBCore::buildAPFT(Status& s) {
     auto n = timepoints.size();
-    auto m = freqGrid.spectrum().size();
+    auto m = spurs.spectrum().size();
     auto ncoef = 2*m-1;
 
     if (!buildTransformMatrix(IAPFT, s)) {
@@ -118,7 +118,7 @@ bool HBCore::buildAPFT(Status& s) {
     Omega.zero();
     for(decltype(m) i=1; i<m; i++) {
         auto base = 1+(i-1)*2;
-        auto omega = 2*std::numbers::pi*freqGrid.spectrum()[i];
+        auto omega = 2*std::numbers::pi*spurs.spectrum()[i];
         Omega.at(base, base+1) = -omega;
         Omega.at(base+1, base) = omega;
     }

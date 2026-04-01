@@ -18,14 +18,14 @@ bool HBCore::buildColocation(Status& s) {
     auto debug = options.hb_debug;
     
     // Includes DC
-    auto n = freqGrid.spectrum().size();
+    auto n = spurs.spectrum().size();
 
     // Must have 2 timepoints for each nonzero frequency and one for DC
     auto nt = 2*n-1;
 
     // Maximal frequency
-    auto fmax = freqGrid.spectrum().back();
-    auto fmin = freqGrid.spectrum()[1];
+    auto fmax = spurs.spectrum().back();
+    auto fmin = spurs.spectrum()[1];
 
     if (params.samplefac<1.0) {
         s.set(Status::BadArguments, "samplefac must be >=1.");
