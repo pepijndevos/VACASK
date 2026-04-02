@@ -50,6 +50,7 @@ public:
     bool build(const std::vector<double>& fundamentals, const std::vector<int>& nHarmonics, int maxImOrder=0, bool hybrid=false, Int debug=0, Status& s=Status::ignore);
    
     bool buildMixingMap(int debug=0, Status& s=Status::ignore);
+    std::tuple<size_t, size_t> rowRange(size_t i) const { return std::make_tuple(rowStartNonzero[i], rowEndNonzero[i]); };
 
     static constexpr Int noJacIndex = 0;
 

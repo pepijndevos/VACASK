@@ -6,6 +6,10 @@
 
 namespace NAMESPACE {
 
+
+// TODO: make list of sources every time core is invoked
+//       somebody might sweep cs* parameters of sources
+
 // Construct omega vector: omega[n] = 2*pi*(f + f_n)
 // where f_n = smsigFreq[n] is the signed spur frequency from the HB operating point.
 // f    - small-signal input frequency (Hz)
@@ -41,7 +45,8 @@ void HBACCore::fillDenseBlock(
     const Vector<Real>& omega,
     DenseMatrixView<Complex>& block
 ) {
-    auto& stencil = hbCore_.spurs().mixingStencil();
+    auto& spurs = hbCore_.spurs();
+    auto& stencil = spurs.mixingStencil();
     auto nf = stencil.nRows();
 
     // Outer loop over columns (assume column major matrix)
@@ -50,18 +55,21 @@ void HBACCore::fillDenseBlock(
     for (size_t m = 0; m < nf; m++) {
         // Omega is common for the whole row
         auto* om = &omega.at(0);
-        for(size_t n = 0; n < nf; n++) {
+        auto [start, end] = spurs.rowRange(m);
+        auto p1 = p + start;
+        for(size_t n = start; n < end; n++) {
             if (*jacIndex != Spurs::noJacIndex) {
                 bool conjugated = (*jacIndex < 0);
                 auto k = static_cast<size_t>(conjugated ? (-*jacIndex) : (*jacIndex - 1));
                 Complex g = conjugated ? std::conj(G[k]) : G[k];
                 Complex c = conjugated ? std::conj(C[k]) : C[k];
-                *p = g + Complex(0.0, *om) * c;
-                p++;
+                *p1 = g + Complex(0.0, *om) * c;
+                p1++;
                 jacIndex++;
                 om++;
             }
         }
+        p += nf;
     }
 }
 
