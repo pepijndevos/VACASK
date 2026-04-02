@@ -229,9 +229,9 @@ CoreCoroutine DCXFCore::coroutine(bool continuePrevious) {
         auto [e1, e2] = inst->sourceExcitation(circuit);
         auto [r1, r2] = inst->sourceResponse(circuit);
         
-        // Set RHS, load negated residual to get the true value of delta after solve()
-        rhsVec[e1] += -inst->scaledUnityExcitation();
-        rhsVec[e2] -= -inst->scaledUnityExcitation();
+        // Set RHS
+        rhsVec[e1] += inst->scaledUnityExcitation();
+        rhsVec[e2] -= inst->scaledUnityExcitation();
 
         if (debug>=100) {
             Simulator::dbg() << "Linear system for instance " << inst->name() << "\n";
@@ -258,13 +258,20 @@ CoreCoroutine DCXFCore::coroutine(bool continuePrevious) {
             break;
         }
         
-        // Compute TF
+        // Compute TF from the particular source's excitation given by the mag parameter
+        // to the specified output. We set the excitation to scaledUnityExcitation()
+        // which means that we are exciting for mag=1. 
         tf[i] = rhsVec[up] - rhsVec[un];
 
         // Compute Yin and Zin
         if (inst->model()->device()->isVoltageSource()) {
             // Voltage source excitation
-            yin[i] = (rhsVec[r1] - rhsVec[r2])*inst->responseScalingFactor()/inst->scaledUnityExcitation();
+            // We get as response the total current flowing into the + node 
+            // of all parallel instances combined. Need to negate the value 
+            // to get the current flowing into the surrounding circuit. 
+            // To get the actual admittance we need to divide by the total 
+            // excitation introduced by all of the source's parallel instances. 
+            yin[i] = -(rhsVec[r1] - rhsVec[r2])*inst->responseScalingFactor()/inst->scaledUnityExcitation();
             if (yin[i]!=0.0) {
                 zin[i] = 1.0/yin[i];
             } else {
@@ -273,7 +280,12 @@ CoreCoroutine DCXFCore::coroutine(bool continuePrevious) {
             }
         } else {
             // Current source excitation
-            zin[i] = (rhsVec[r1] - rhsVec[r2])*inst->responseScalingFactor()/inst->scaledUnityExcitation();
+            // We get as response the voltage between the node where the current is pulled 
+            // and the node where the current is pushed. This is the negative of the voltage 
+            // we are interested in to compute Zin. 
+            // To get the actual impedance we need to divide by the total 
+            // excitation introduced by all of the source's parallel instances. 
+            zin[i] = -(rhsVec[r1] - rhsVec[r2])*inst->responseScalingFactor()/inst->scaledUnityExcitation();
             if (zin[i]!=0.0) {
                 yin[i] = 1.0/zin[i];
             } else {

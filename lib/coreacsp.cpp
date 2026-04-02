@@ -517,9 +517,9 @@ CoreCoroutine ACSPCore::coroutine(bool continuePrevious) {
             // We use scalenUnityExcitation() because someday we might allow current sources is probes. 
             zero(acSolution);
             auto [ep, en] = sourceVector[i]->sourceExcitation(circuit);
-            acSolution[ep] += -sourceVector[i]->scaledUnityExcitation();
-            acSolution[en] -= -sourceVector[i]->scaledUnityExcitation();
-
+            acSolution[ep] += sourceVector[i]->scaledUnityExcitation();
+            acSolution[en] -= sourceVector[i]->scaledUnityExcitation();
+            
             // Solve, set bucket to 0.0
             if (!acMatrix.solve(dataWithoutBucket(acSolution))) {
                 setError(SPError::MatrixError);
@@ -546,12 +546,14 @@ CoreCoroutine ACSPCore::coroutine(bool continuePrevious) {
                 auto [pi, ni] = terminalsVector[j];
                 auto vp = acSolution[pi] - acSolution[ni];
                 auto [rp, rn] = sourceVector[j]->sourceResponse(circuit);
-                auto ip = (acSolution[rp] - acSolution[rn])*sourceVector[j]->responseScalingFactor();
+                // Voltage source current is positive if it flows into the + terminal, 
+                // negate the result to get the port current. 
+                auto ip = -(acSolution[rp] - acSolution[rn])*sourceVector[j]->responseScalingFactor();
                 
                 // Compute incident (a) and reflected (b) wave
                 auto zp = z0[j];
-                auto a = (vp+zp*ip)/sqrt(zp);
-                auto b = (vp-zp*ip)/sqrt(zp);
+                auto a = (vp+zp*ip)/(2*sqrt(zp));
+                auto b = (vp-zp*ip)/(2*sqrt(zp));
                 
                 // Store in matrices in i-th row, j-th column (transposed A and B)
                 // B transposed is in sMatrix (where the solution will be in the end)

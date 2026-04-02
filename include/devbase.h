@@ -484,19 +484,48 @@ public:
     // Returns the positive and negative equation for excitation produced by this instance
     // if this instance is an independent source. By default returns (0,0) which 
     // means that the excitation will go to the bucket. 
+    // Assuming the return value in (p, n). 
+    // To provide a total excitation equivalent to that of magnitude 1 on a source
+    // with $mfactor=1 you should add to RHS component p and subtract from RHS component n 
+    // the return value of scaledUnityExcitation(). 
+    //
+    // For a voltage source the equations is -v(p) + v(n) = -U. 
+    // The residual is then -v(p) + v(n) + U. 
+    // This function should return (0, i) where i is the index of the source equation. 
+    // 
+    // For a current source that pulls current from node corresponding to unknown p 
+    // and pushes it into node corresponding to unknown n the function should 
+    // return (n, p) because a current pushed into a node appears as positive on 
+    // the RHS of KCL equations. 
     virtual std::tuple<EquationIndex,EquationIndex> sourceExcitation(Circuit& cir) const  { return std::make_tuple(0, 0); };
 
     // Returns the positive and negative unknown for getting the response at this instance
     // if this instance is an independent source. By default returns (0,0) which 
     // means that the response will come from the ground and will be 0.0.  
+    // 
+    // For a current source the response is the voltage across its terminals. 
+    // The voltage is positive if the potential at the first terminal (i.e. 
+    // the one where the current is pulled from by the source) is higher 
+    // than at the second one. This should return (p, n) where p and n are 
+    // the unknowns associated with the first and the second terminal. 
+    // 
+    // For a voltage source the response is the current flowing through it. 
+    // The current is positive if it flows into the the first terminal (+). 
+    // This should return (i, 0) where i is the unknown associated with the 
+    // current of the voltage source (assuming SPICE equation formulation
+    // and reference current direction). 
     virtual std::tuple<UnknownIndex,UnknownIndex> sourceResponse(Circuit& cir) const { return std::make_tuple(0, 0); };
 
-    // When excitaton is set to this value the response will correspond to
-    // the case when the magnitude parameter of the source is set to 1. 
+    // When excitaton is set to this value the response will be the same as if
+    // the magnitude parameter of the source and $mfactor were both set to 1. 
+    // For a current source this should be 1/$mfactor. 
+    // For a voltage source this should be 1. 
     virtual double scaledUnityExcitation() const { return 1.0; };
 
     // Factor by which the response measured at the source must be scaled to 
     // reflect the total response of all parallel instances combined. 
+    // For a current source this should be 1. 
+    // For a voltage source this should be $mfactor. 
     virtual double responseScalingFactor() const { return 1.0; };
     
     // Output variable API

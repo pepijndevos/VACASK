@@ -463,8 +463,8 @@ CoreCoroutine NoiseCore::coroutine(bool continuePrevious) {
         // Compute power gain
         zero(acSolution); 
         auto [e1, e2] = inputSource->sourceExcitation(circuit);
-        acSolution[e1] += -inputSource->scaledUnityExcitation();
-        acSolution[e2] -= -inputSource->scaledUnityExcitation();
+        acSolution[e1] += inputSource->scaledUnityExcitation();
+        acSolution[e2] -= inputSource->scaledUnityExcitation();
 
         if (debug>=100) {
             Simulator::dbg() << "Linear system for power gain\n";
@@ -493,10 +493,13 @@ CoreCoroutine NoiseCore::coroutine(bool continuePrevious) {
         }
         
         // Power gain
-        // Note that for $mfactor!=1 this gain is from the magnitude of the source 
-        // to the given output, not from total source value to the output. 
-        // $mfactor does not change anything for a gain computed from a voltage source, 
-        // but it affects the gain computed from a current source. 
+        // For $mfactor!=1 this gain is from the sources magnitude to the output. 
+        // For a voltage source $mfactor has no effect. 
+        // For a current source $mfactor actually increases the excitation $mfactor times
+        // so the obtained gain is $mfactor times greater compared to the one obtained 
+        // for $mfactor=1. 
+        // Effectively this means the gain is measured from the source's mag value to
+        // the specified output. 
         auto tf = (acSolution[up] - acSolution[un]);
         powerGain = std::abs(tf);
         powerGain *= powerGain;

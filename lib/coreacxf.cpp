@@ -441,9 +441,9 @@ CoreCoroutine ACXFCore::coroutine(bool continuePrevious) {
             auto [e1, e2] = inst->sourceExcitation(circuit);
             auto [r1, r2] = inst->sourceResponse(circuit);
             
-            // Set RHS, load negated residual to get the true value of delta after solve()
-            acSolution[e1] += -inst->scaledUnityExcitation();
-            acSolution[e2] -= -inst->scaledUnityExcitation();
+            // Set RHS
+            acSolution[e1] += inst->scaledUnityExcitation();
+            acSolution[e2] -= inst->scaledUnityExcitation();
 
             // Set RHS bucket
             acSolution[0] = 0.0;
@@ -480,7 +480,12 @@ CoreCoroutine ACXFCore::coroutine(bool continuePrevious) {
             // Compute Yin and Zin
             if (inst->model()->device()->isVoltageSource()) {
                 // Voltage source excitation
-                yin[i] = (acSolution[r1] - acSolution[r2])*inst->responseScalingFactor()/inst->scaledUnityExcitation();
+                // We get as response the total current flowing into the + node 
+                // of all parallel instances combined. Need to negate the value 
+                // to get the current flowing into the surrounding circuit. 
+                // To get the actual admittance we need to divide by the total 
+                // excitation introduced by all of the source's parallel instances. 
+                yin[i] = -(acSolution[r1] - acSolution[r2])*inst->responseScalingFactor()/inst->scaledUnityExcitation();
                 if (yin[i]!=0.0) {
                     zin[i] = 1.0/yin[i];
                 } else {
@@ -489,7 +494,12 @@ CoreCoroutine ACXFCore::coroutine(bool continuePrevious) {
                 }
             } else {
                 // Current source excitation
-                zin[i] = (acSolution[r1] - acSolution[r2])*inst->responseScalingFactor()/inst->scaledUnityExcitation();
+                // We get as response the voltage between the node where the current is pulled 
+                // and the node where the current is pushed. This is the negative of the voltage 
+                // we are interested in to compute Zin. 
+                // To get the actual impedance we need to divide by the total 
+                // excitation introduced by all of the source's parallel instances. 
+                zin[i] = -(acSolution[r1] - acSolution[r2])*inst->responseScalingFactor()/inst->scaledUnityExcitation();
                 if (zin[i]!=0.0) {
                     yin[i] = 1.0/zin[i];
                 } else {

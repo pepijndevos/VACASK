@@ -34,8 +34,8 @@ namespace NAMESPACE {
 // for each independent source in the system. U is set to reflect the 
 // source's magnitude 1 and phase 0. 
 // The obtained X is used for computing 
-// - the small-signal transfer function from the independent source 
-//   to the output defined by a node or a pair of nodes, 
+// - the small-signal transfer function from the independent source's mag 
+//   parameter to the output defined by a node or a pair of nodes, 
 // - the small-signal input impedance and admittance felt by a source 
 //   at its terminals
 // Frequency is swept across the given range. 

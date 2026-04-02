@@ -452,11 +452,11 @@ template<> bool BuiltinISourceInstance::buildHierarchy(Circuit& circuit, RpnEval
 }
 
 template<> std::tuple<EquationIndex,EquationIndex> BuiltinVSourceInstance::sourceExcitation(Circuit& circuit) const { 
-    return std::make_tuple(nodes_[2]->unknownIndex(), 0); 
+    return std::make_tuple(0, nodes_[2]->unknownIndex()); 
 }
 
 template<> std::tuple<UnknownIndex,UnknownIndex> BuiltinVSourceInstance::sourceResponse(Circuit& circuit) const { 
-    return std::make_tuple(0, nodes_[2]->unknownIndex()); 
+    return std::make_tuple(nodes_[2]->unknownIndex(), 0); 
 }
 
 template<> double BuiltinVSourceInstance::scaledUnityExcitation() const { 
@@ -472,11 +472,11 @@ template<> double BuiltinVSourceInstance::responseScalingFactor() const {
 }
 
 template<> std::tuple<EquationIndex,EquationIndex> BuiltinISourceInstance::sourceExcitation(Circuit& circuit) const { 
-    return std::make_tuple(nodes_[0]->unknownIndex(), nodes_[1]->unknownIndex()); 
+    return std::make_tuple(nodes_[1]->unknownIndex(), nodes_[0]->unknownIndex()); 
 }
 
 template<> std::tuple<UnknownIndex,UnknownIndex> BuiltinISourceInstance::sourceResponse(Circuit& circuit) const { 
-    return std::make_tuple(nodes_[1]->unknownIndex(), nodes_[0]->unknownIndex()); 
+    return std::make_tuple(nodes_[0]->unknownIndex(), nodes_[1]->unknownIndex()); 
 }
 
 template<> double BuiltinISourceInstance::scaledUnityExcitation() const { 

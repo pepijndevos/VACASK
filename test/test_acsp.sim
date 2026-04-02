@@ -25,6 +25,8 @@ rp2 (a2 2) r r=75
 
 control
   abort always
+  print hierarchy
+  print unknowns
   
   // options rawfile="binary" reltol=1e-14 vntol=1e-12 op_debug=0 // smsig_debug=102
   analysis sp1 acsp ports=["vp1", "rp1", "vp2", "rp2"] from=1 to=100M mode="dec" points=10
@@ -43,31 +45,73 @@ tests = []
 
 sp1 = rawread('sp1.raw').get()
 
-# r1 in parallel with rin
-# rin1 = 1.0 / (1/100e3 + 1/1e3)
-# f = np.real(stb1["frequency"])
-# wexact = rin1/(rin1+10e3+100)*1e4 / (1+1j*f/1e3) / (1+1j*f/100e3) / (1+1j*f/1e6)
-# 
-# wf = stb1["wf"]
-# status = (relDiff(wf, wexact, 1e-9) < 1e-3).all()
-# tests.append(status)
-# print("Wf f", status)
-# 
-# wr = stb1["wr"]
-# status = (relDiff(wr, 0.0, 1e-9) < 1e-3).all()
-# tests.append(status)
-# print("Wr f", status)
-# 
-# 
-# wf = stb2["wf"]
-# status = (relDiff(wf, 0.0, 1e-9) < 1e-3).all()
-# tests.append(status)
-# print("Wf r", status)
-# 
-# wr = stb2["wr"]
-# status = (relDiff(wr, wexact, 1e-9) < 1e-3).all()
-# tests.append(status)
-# print("Wr r", status)
+# Manually compute Y and S, input data
+r1 = 1e3
+r2 = 2e3
+c1 = 1e-6
+g1 = 1e-3
+z0 = np.array([50.0, 75.0])
+
+# Frequency and j omega vectors
+f = np.real(sp1["frequency"])
+jw = 1j*2*np.pi*f
+
+# Y parameters, last index is frequency
+Y = np.array([
+  [ 1/r1 + jw*c1, -jw*c1        ], 
+  [ -jw*c1+g1,     1/r2 + jw*c1 ]
+])
+
+# Make first index the frequeny index
+Y = np.transpose(Y, (2, 0, 1))
+K, N, _ = Y.shape
+
+# Construct identity matrices
+I = np.broadcast_to(np.eye(N, dtype=complex), (K, N, N))
+
+# Construct diagonal Z0 matrices
+G = np.broadcast_to(np.diag(z0), (K, N, N))
+
+# Construct 1/(2 sqrt(Z0)) matrices
+F = np.broadcast_to(np.diag(1/(2*np.sqrt(z0))), (K, N, N))
+
+# Convert to S 
+#   S = (F(I - G Y)) (F(I + G Y))^-1 = A B^-1
+# Solve X B = A
+#   BT XT = AT
+ZY = G @ Y
+A = F @ (I - ZY)
+B = F @ (I + ZY)
+S = np.linalg.solve(
+    B.transpose(0, 2, 1),
+    A.transpose(0, 2, 1)
+).transpose(0, 2, 1)
+
+s11exact = S[:,0,0]
+s12exact = S[:,0,1]
+s21exact = S[:,1,0]
+s22exact = S[:,1,1]
+
+s11 = sp1["s(1,1)"]
+s12 = sp1["s(1,2)"]
+s21 = sp1["s(2,1)"]
+s22 = sp1["s(2,2)"]
+
+status = (relDiff(s11, s11exact, 1e-9) < 1e-3).all()
+tests.append(status)
+print("s11", status)
+
+status = (relDiff(s12, s12exact, 1e-9) < 1e-3).all()
+tests.append(status)
+print("s12", status)
+
+status = (relDiff(s21, s21exact, 1e-9) < 1e-3).all()
+tests.append(status)
+print("s21", status)
+
+status = (relDiff(s22, s22exact, 1e-9) < 1e-3).all()
+tests.append(status)
+print("s22", status)
 
 if isTest():
     sys.exit(not all(tests))
@@ -79,14 +123,13 @@ else:
     fig1.set_dpi(100)
     fig1.add_subplot(1, 1, 1, projection='polar')
     
-    s11 = sp1["s(1,1)"]
-    s12 = sp1["s(1,2)"]
-    s21 = sp1["s(2,1)"]
-    s22 = sp1["s(2,2)"]
-    fig1.axes[0].plot(np.angle(s11), np.abs(s11), label="s11")
-    fig1.axes[0].plot(np.angle(s12), np.abs(s12), label="s12")
-    fig1.axes[0].plot(np.angle(s21), np.abs(s21), label="s21")
-    fig1.axes[0].plot(np.angle(s22), np.abs(s22), label="s22")
+    fig1.axes[0].plot(np.angle(s11), np.abs(s11), marker=".", label="s11")
+    fig1.axes[0].plot(np.angle(s12), np.abs(s12), marker=".", label="s12")
+    fig1.axes[0].plot(np.angle(s21), np.abs(s21), marker=".", label="s21")
+    fig1.axes[0].plot(np.angle(s22), np.abs(s22), marker=".", label="s22")
+    # Matplotlib forces negative radius lower limit if there is only a single point at the origin. 
+    # Fix this. 
+    fig1.axes[0].set_rlim(0, 1)  
     fig1.legend(loc="lower right")
 
     plt.show()

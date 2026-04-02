@@ -459,8 +459,8 @@ CoreCoroutine ACStbCore::coroutine(bool continuePrevious) {
         // Step 1 - inject current between positive probe node and localgnd
         // There is not current source for that. We inject it manually into the RHS. 
         zero(acSolution);
-        acSolution[pnodeUnknown] += -1;
-        acSolution[refGnd]       -= -1;
+        acSolution[pnodeUnknown] += 1;
+        acSolution[refGnd]       -= 1;
 
         // Solve, set bucket to 0.0
         if (!acMatrix.solve(dataWithoutBucket(acSolution))) {
@@ -490,8 +490,8 @@ CoreCoroutine ACStbCore::coroutine(bool continuePrevious) {
         // Step 2 - inject voltage into the feedback loop, no need to apply scaledUnityExcitation()
         // because we know the probe is a voltage source and the factor is 1. 
         zero(acSolution);
-        acSolution[e1] += -1;
-        acSolution[e2] -= -1;
+        acSolution[e1] += 1;
+        acSolution[e2] -= 1;
 
         // Solve, set bucket to 0.0
         if (!acMatrix.solve(dataWithoutBucket(acSolution))) {

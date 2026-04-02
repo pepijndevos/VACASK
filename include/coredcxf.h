@@ -34,8 +34,8 @@ namespace NAMESPACE {
 // incremental excitation of 1 originating from a particular independent 
 // source for which the equation is being solved. 
 // The obtained dx is used for computing 
-// - the small-signal transfer function from the independent source 
-//   to the output defined by a node or a pair of nodes, 
+// - the small-signal transfer function from the independent source 's mag 
+//   parameter to the output defined by a node or a pair of nodes, 
 // - the small-signal input impedance and admittance felt by a source 
 //   at its terminals
 //
