@@ -3,7 +3,9 @@
 
 #include <vector>
 #include "densematrix.h"
+#include "ansupport.h"
 #include "status.h"
+#include "value.h"
 #include "common.h"
 
 namespace NAMESPACE {
@@ -40,12 +42,16 @@ public:
     const auto spurWeights(size_t i) { return spurWeights_.row(spurs_[i].index); };
     const std::vector<double>& spectrum() const { return spectrum_; };
     const std::vector<double>& signedSpectrum() const { return signedSpectrum_; };
+    const std::vector<double>& smsigFreq() const { return smsigFreq_; };
+    const DenseMatrix<Int>& mixingStencil() const { return mixingStencil_; };
+    std::tuple<size_t, bool> spurIndex(double f, double tol=1e-14) const;
+    bool spurIndexVector(const Value& v, std::vector<size_t>& spurIndices, bool emptyIsAll=false, Status& s=Status::ignore) const;
     
-    bool build(const std::vector<double>& fundamentals, const std::vector<int>& nHarmonics, int maxImOrder=0, bool hybrid=false, int debug=0, Status& s=Status::ignore);
+    bool build(const std::vector<double>& fundamentals, const std::vector<int>& nHarmonics, int maxImOrder=0, bool hybrid=false, Int debug=0, Status& s=Status::ignore);
    
     bool buildMixingMap(int debug=0, Status& s=Status::ignore);
 
-    static const int32_t noJacIndex = 0;
+    static constexpr Int noJacIndex = 0;
 
 private:
     double toFreq(VectorView<int> weights);
@@ -73,7 +79,7 @@ private:
     };
 
     // Fundamentals
-    std::vector<double> fundamentals_;
+    Vector<Real> fundamentals_;
 
     // Spurs that are mapped to the spectrum, just the ones that were obtained with truncation
     std::vector<Spur> spurs_;
@@ -89,16 +95,26 @@ private:
     // s=0 .. no contribution
     // s>0 .. cotnribution from component s-1
     // s<0 .. contribution from component abs(s), conjugated
-    DenseMatrix<int32_t> indexStencil;
+    DenseMatrix<Int> mixingStencil_;
 
+    // First and last nonzero row for each stencil column
+    // Helps cut down the number of dense matrix loads for Toeplitz matrices with bandwidth<2n-1
+    Vector<size_t> rowStartNonzero;
+
+    // Last nonzero row for each stencil column
+    Vector<size_t> rowEndNonzero;
+    
     // Spectral frequencies (absolute), sorted
-    std::vector<double> spectrum_;
+    Vector<Real> spectrum_;
 
     // Spectral frequencies, signed, ordered as in spectrum_
-    std::vector<double> signedSpectrum_;
+    Vector<Real> signedSpectrum_;
 
     // Small-signal frequencies in order of appearance
-    std::vector<double> smsigFreq_;
+    Vector<Real> smsigFreq_;
+
+    // smsigFreq_ sorted by value, paired with original index into smsigFreq_
+    std::vector<std::pair<double, size_t>> smsigFreqSorted_;
     
     // Flag that indicated two spurs_ conflict (result in same spectrum frequency)
     bool conflict;

@@ -691,6 +691,17 @@ public:
                 return data_[row+nRow_*col]; 
         }
     }; 
+
+    // Override for DenseMatrix
+    const T& at(size_t row, size_t col) const { 
+        switch (major_) {
+            case Major::Row:
+                return data_[row*nCol_+col]; 
+            case Major::Column:
+            default:
+                return data_[row+nRow_*col]; 
+        }
+    };
     
     // Override for DenseMatrix
     VectorView<T> row(size_t i) { 

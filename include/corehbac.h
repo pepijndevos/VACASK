@@ -100,6 +100,12 @@ public:
     OutputRawfile* outfile;
 
 protected:
+    // Construct omega vector with 2*pi*(f+f_n)
+    void computeOmega(Vector<Real>& omega, Real f);
+
+    // Fill dense block
+    void fillDenseBlock(const VectorView<Complex>& G, const VectorView<Complex>& C, const Vector<Real>& omega, DenseMatrixView<Complex>& block);
+
     // Clear error
     void clearError() { AnalysisCore::clearError(); lastHBACError = HBACError::OK; }; 
 

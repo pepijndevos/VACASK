@@ -6,7 +6,7 @@
 
 namespace NAMESPACE {
 
-double Spurs::toFreq(VectorView<int> weights) {
+double Spurs::toFreq(VectorView<Int> weights) {
     double f = 0;
     for(size_t i=0; i<weights.n(); i++) {
         f += weights[i] * fundamentals_[i];
@@ -14,7 +14,7 @@ double Spurs::toFreq(VectorView<int> weights) {
     return f;
 }
 
-bool Spurs::build(const std::vector<double>& fundamentals, const std::vector<int>& nHarmonics, int maxImOrder, bool hybrid, int debug, Status& s) {
+bool Spurs::build(const std::vector<double>& fundamentals, const std::vector<Int>& nHarmonics, int maxImOrder, bool hybrid, int debug, Status& s) {
     fundamentals_ = fundamentals;
     
     auto n = fundamentals_.size();
@@ -34,7 +34,7 @@ bool Spurs::build(const std::vector<double>& fundamentals, const std::vector<int
     spurWeights_.resize(0, n); // Empty table
     std::vector<Int> cnt(n);
     std::vector<Int> end(n);
-    int lastChanged = 0;
+    Int lastChanged = 0;
     cnt[0] = 0;
     end[0] = nHarmonics[0]+1;
 
@@ -208,7 +208,7 @@ bool Spurs::build(const std::vector<double>& fundamentals, const std::vector<int
         });
 
         // Apply permutation to spurs and spurWeights
-        DenseMatrix<int> gridSorted;
+        DenseMatrix<Int> gridSorted;
         gridSorted.resize(0, n);
         std::vector<Spur> freqSorted;
         freqSorted.reserve(nf);
@@ -262,7 +262,7 @@ bool Spurs::build(const std::vector<double>& fundamentals, const std::vector<int
     return true;
 }
 
-bool Spurs::buildMixingMap(int debug, Status& s) {
+bool Spurs::buildMixingMap(Int debug, Status& s) {
     auto n = spurWeights_.nCols();
     auto nf = spurWeights_.nRows();
     auto firstNegative = nf;
@@ -287,7 +287,7 @@ bool Spurs::buildMixingMap(int debug, Status& s) {
     }
     
     // From this point on the set of frequencies and spurs_ no longer changes
-    // Build a map from spur weights (key is VectorView<int>) to spur indices
+    // Build a map from spur weights (key is VectorView<Int>) to spur indices
     nf = spurWeights_.nRows();
     for(decltype(nf) i=0; i<nf; i++) {
         spurMap[spurWeights_.row(i)] = i;
@@ -297,11 +297,11 @@ bool Spurs::buildMixingMap(int debug, Status& s) {
     // Traverse input and Jacobian spur weights
     // Compute output spur weights
     // Fill map (output freq index, input freq index) -> Jacobian freq index
-    DenseMatrix<int> mat(1, n, DenseMatrix<int>::Major::Row);
+    DenseMatrix<Int> mat(1, n, DenseMatrix<Int>::Major::Row);
     auto outW = mat.row(0);
-    indexStencil.resize(nf, nf);
+    mixingStencil_.resize(nf, nf);
     // Default is no Jacobian index for (out, in)
-    indexStencil.fill(noJacIndex);
+    mixingStencil_.fill(noJacIndex);
     for(decltype(nf) inF=0; inF<nf; inF++) {
         auto inW = spurWeights_.row(inF);
         for(decltype(nf) jacF=0; jacF<nf; jacF++) {
@@ -316,7 +316,7 @@ bool Spurs::buildMixingMap(int debug, Status& s) {
                 // In map, get spur index of Jacobian freq
                 auto outF = it->second;
                 // Is it negative
-                int32_t jacIndex;
+                Int jacIndex;
                 if (jacF>=firstNegative) {
                     // Negative of a spur
                     jacIndex = -(jacF - firstNegative + 1);
@@ -324,27 +324,157 @@ bool Spurs::buildMixingMap(int debug, Status& s) {
                     // Original spur
                     jacIndex = jacF+1;
                 }
-                indexStencil.at(outF, inF) = jacIndex;
+                mixingStencil_.at(outF, inF) = jacIndex;
             }
         }
     }
+
+    // Find first and last nonzero element in each column
+    rowStartNonzero.clear();
+    rowEndNonzero.clear();
+    for(decltype(nf) col=0; col<nf; col++) {
+        decltype(nf) first = 0;
+        decltype(nf) last = 0;
+        bool haveFirst = false;
+        bool haveNonzero = false;
+        for(decltype(nf) row=0; row<nf; row++) {
+            if (mixingStencil_.at(row, col)!=noJacIndex) {
+                if (!haveFirst) {
+                    first = row;
+                    haveFirst = true;
+                }
+                last = row;
+                haveNonzero = true;
+            }
+        }
+        rowStartNonzero.push_back(first);
+        rowEndNonzero.push_back(haveNonzero ? last+1 : 0);
+    }
+
+    // Build sorted index for spurIndex() binary search
+    smsigFreqSorted_.resize(smsigFreq_.size());
+    for (size_t i = 0; i < smsigFreq_.size(); i++) {
+        smsigFreqSorted_[i] = {smsigFreq_[i], i};
+    }
+    std::sort(smsigFreqSorted_.begin(), smsigFreqSorted_.end());
 
     if (debug) {
         Simulator::out() << "Mixing map (out, in) : jac\n";
         for(decltype(nf) iout=0; iout<nf; iout++) {
             for(decltype(nf) iin=0; iin<nf; iin++) {
-                auto ijac = indexStencil.at(iout, iin);
+                auto ijac = mixingStencil_.at(iout, iin);
                 if (ijac!=noJacIndex) {
                     auto fin = smsigFreq_[iin]; 
                     auto fout = smsigFreq_[iout];
                     auto fjac = ijac<0 ? spurs_[-ijac].f : spurs_[ijac-1].f;
                     Simulator::out() << "  (" << fout << ", " << fin << ") : " << fjac << (ijac<0 ? " (conjugated)" : "") << "\n";
-                    int a=1;
                 }
             }
         }
     }
     
+    return true;
+}
+
+std::tuple<size_t, bool> Spurs::spurIndex(double f, double tol) const {
+    // Lower_bound finds the first element with .first >= f
+    auto it = std::lower_bound(smsigFreqSorted_.begin(), smsigFreqSorted_.end(), std::pair(f, size_t(0)));
+    // The closest value must be either at it or the element just before it
+    for (auto jt : {it, std::prev(it)}) {
+        if (jt < smsigFreqSorted_.begin() || jt == smsigFreqSorted_.end()) continue;
+        auto ref = std::max(std::abs(f), std::abs(jt->first));
+        if (std::abs(f - jt->first) <= ref * tol) {
+            return {jt->second, true};
+        }
+    }
+    return {0, false};
+}
+
+// Resolve a Value specifying one or more spurs into a vector of smsigFreq_ indices.
+//
+// Accepted formats (matching devvisrc.h csmixprod / corehbac.h outspur):
+//   Real         - spur frequency; resolved via spurIndex()
+//   Int          - harmonic number (1-tone HB only); equivalent to IntVector{n}
+//   IntVector    - tone weights; looked up in spurMap
+//   ValueVec     - list of any of the above, one entry per spur
+//   empty IntVector or empty ValueVec - if emptyIsAll, fill with all spur indices
+//
+// Returns false and sets s on any resolution failure.
+bool Spurs::spurIndexVector(const Value& v, std::vector<size_t>& spurIndices, bool emptyIsAll, Status& s) const {
+    spurIndices.clear();
+
+    // Helper: resolve one scalar/vector item to a spur index
+    auto resolveOne = [&](const Value& item) -> std::tuple<size_t, bool> {
+        switch (item.type()) {
+            case Value::Type::Real: {
+                auto [idx, found] = spurIndex(item.val<const Real>());
+                if (!found) {
+                    s.set(Status::NotFound, "Spur frequency not found in spectrum.");
+                }
+                return {idx, found};
+            }
+            case Value::Type::Int: {
+                if (fundamentals_.size() != 1) {
+                    s.set(Status::BadArguments, "Integer spur specification is only valid for single-tone analyses.");
+                    return {0, false};
+                }
+                IntVector w = {static_cast<Int>(item.val<const Int>())};
+                auto it = spurMap.find(VectorView<Int>(w));
+                if (it == spurMap.end()) {
+                    s.set(Status::NotFound, "Spur harmonic index not found in spectrum.");
+                    return {0, false};
+                }
+                return {it->second, true};
+            }
+            case Value::Type::IntVec: {
+                auto& w = item.val<const IntVector>();
+                if (w.size() != fundamentals_.size()) {
+                    s.set(Status::BadArguments, "Spur weight vector length does not match number of fundamentals.");
+                    return {0, false};
+                }
+                auto it = spurMap.find(VectorView<Int>(const_cast<Int*>(w.data()), w.size()));
+                if (it == spurMap.end()) {
+                    s.set(Status::NotFound, "Spur tone weights not found in spectrum.");
+                    return {0, false};
+                }
+                return {it->second, true};
+            }
+            default:
+                s.set(Status::BadArguments, "Spur must be a frequency (real), harmonic index (integer), or tone weights (integer vector).");
+                return {0, false};
+        }
+    };
+
+    // Empty IntVector or ValueVec: all spurs or nothing
+    if (v.isVector() && v.size()==0) {
+        if (emptyIsAll) {
+            spurIndices.resize(smsigFreq_.size());
+            std::iota(spurIndices.begin(), spurIndices.end(), 0);
+        }
+        return true;
+    }
+
+    // ValueVec: list of multiple spur specs
+    if (v.type() == Value::Type::ValueVec) {
+        size_t i=0;
+        for (auto& item : v.val<const ValueVector>()) {
+            auto [idx, found] = resolveOne(item);
+            if (!found) {
+                s.extend(std::string("Check position ")+std::to_string(i)+" in spurs array.");
+                return false;
+            }
+            spurIndices.push_back(idx);
+            i++;
+        }
+        return true;
+    }
+
+    // Scalar or single IntVector: one spur
+    auto [idx, found] = resolveOne(v);
+    if (!found) {
+        return false;
+    }
+    spurIndices.push_back(idx);
     return true;
 }
 

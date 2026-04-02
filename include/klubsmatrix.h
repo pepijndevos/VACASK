@@ -60,6 +60,9 @@ public:
         );
     };
 
+    // TODO: For block-sparse matrices that are used as storage only
+    //       do not build AP and AI arrays to save memory
+    //       Allocate only things needed for binding. 
     // Rebuild it based on the given sparsity map of dense blocks, 
     // n x n dense blocks with nb x nb elements
     // Set elements to zero, clear error
@@ -148,6 +151,7 @@ protected:
 
     // Origin of dense block column (origin of topmost dense block).
     // This is the linear index of the nonzero element at the topmost block's origin. 
+    // Index is within the array of scalars holding matrix nomnzeros. 
     // Array has n entries. 
     IndexType* blockColumnOrigin;
     
@@ -158,11 +162,20 @@ protected:
     // Array has n elements. 
     IndexType* blockColumnStride;
 
-    // Linear index of the first dense block in a column of dense blocks
-    // when the dense blocks are ordered in a column major ordering. 
-    // has n+1 elements where the n+1-th element is the number of dense blocks. 
+    // Dense blocks are organized in the same order as nonzeros in ordinary 
+    // sparse matrices (column major order) in a linear sequence. 
+    // For a dense block we can get its 0-based index in this sequence from 
+    // the sparsity map. 
+    // If we know the index of the first block in the column stored in 
+    // denseColumnBegin and the index of the block we are interested in 
+    // we can compute the 0-based consecutive number of this block in its 
+    // column. This distance multiplied by the number of elements in a 
+    // dense block's column is the offset of blocks's origin from the 
+    // origin of the first block in this column in terms of scalars. 
+    // Has n+1 elements where the n+1-th element is the number of dense blocks. 
     IndexType* denseColumnBegin;
 
+    // TODO: make bucket static, resize when a larger one is requested
     // We need a block bucket because Jacobian load with offset could add an offset to bucket pointer
     bool largeBucket_;
     ValueType* blockBucket_;

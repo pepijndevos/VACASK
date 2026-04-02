@@ -73,6 +73,7 @@ struct DevSourceInstanceParams {
     // (Quasi)cyclostationary small-signal excitation
     Value csmixprod;    // spurs where small signal excitations are inserted
                         // - scalar real spur frequency
+                        // - integer harmonic index (1-tone only) of a spur
                         // - integer vector with tone weights defining a spur
                         // - list holding reals (frequency), integers (only for 1-tone), integer vectors (tone weights)
     RealVector csmag;   // magnitude corresponding to spurs

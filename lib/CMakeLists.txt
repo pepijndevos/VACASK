@@ -179,6 +179,7 @@ add_library(simlib STATIC
     corehbcoloc.cpp
     corehbxform.cpp
     corehbnr.cpp
+    corehbac.cpp
     an.cpp
     ansupport.cpp 
     ansolution.cpp 

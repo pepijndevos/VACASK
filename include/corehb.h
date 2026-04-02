@@ -102,6 +102,8 @@ public:
 
     static bool test();
 
+    const Spurs& spurs() const { return spurs_; };
+
 protected:
     // Clear error
     void clearError() { AnalysisCore::clearError(); lastHbError = HBError::OK; }; 
@@ -150,7 +152,7 @@ private:
     HBParameters& params;
 
     // Spurs
-    Spurs spurs;
+    Spurs spurs_;
 
     // Vectors and matrices without a bucket
     // Colocation timepoints (sorted)

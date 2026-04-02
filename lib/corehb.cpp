@@ -44,7 +44,7 @@ HBCore::HBCore(
     OutputDescriptorResolver& parentResolver, HBParameters& params, Circuit& circuit, CommonData& commons, 
     KluBlockSparseRealMatrix& jacColoc, KluBlockSparseRealMatrix& jacobian, VectorRepository<double>& solution
 ) : AnalysisCore(parentResolver, circuit, commons), params(params), outfile(nullptr), jacColoc(jacColoc), 
-    nrSolver(circuit, commons, jacColoc, jacobian, solution, solutionFD, spurs.spectrum(), timepoints, DDT, DDTcolMajor, APFT, IAPFT, nrSettings), 
+    nrSolver(circuit, commons, jacColoc, jacobian, solution, solutionFD, spurs_.spectrum(), timepoints, DDT, DDTcolMajor, APFT, IAPFT, nrSettings), 
     bsjac(jacobian), solution(solution), firstBuild(true), continueState(nullptr) {
 };
 
@@ -136,7 +136,7 @@ bool HBCore::finalizeOutputs(Status& s) {
         auto sol = circuit.newStoredSolution("hb", params.store);
         sol->setNames(circuit);
         sol->setCxValues(solutionFD);
-        sol->setAuxData(spurs.spectrum());
+        sol->setAuxData(spurs_.spectrum());
     }
     return true;
 }
@@ -167,7 +167,7 @@ bool HBCore::storeState(size_t ndx, bool storeDetails) {
     repo.solution.setCxValues(solutionFD);
     
     // Store frequencies
-    repo.solution.setAuxData(spurs.spectrum());
+    repo.solution.setAuxData(spurs_.spectrum());
     
     // Stored state is coherent and valid
     repo.coherent = true;
@@ -269,11 +269,11 @@ bool HBCore::buildGrid(Status& s) {
         return false;
     }
 
-    if (!spurs.build(params.freq, nHarmonics, params.immax, params.truncate==HBCore::truncateHybrid, debug, s)) {
+    if (!spurs_.build(params.freq, nHarmonics, params.immax, params.truncate==HBCore::truncateHybrid, debug, s)) {
         return false;
     }
 
-    if (spurs.spectrum().size()<2) {
+    if (spurs_.spectrum().size()<2) {
         s.set(Status::BadArguments, "Too few frequencies in spectrum.");
         return false;
     }
@@ -328,9 +328,6 @@ bool HBCore::rebuild(Status& s) {
 
     // Bind resistive residuals to 0-based subelement (0,0) 
     // Bind reactive residuals to 0-based subelement (0,1) 
-    
-    // Resistive Jacobian entries remain bound to OP Jacobian, 
-    // reactive parts will be bound to imaginary entries of acMatrix
     if (!circuit.bind(
         &jacColoc, Component::Real, MatrixEntryPosition(0, 0), 
         &jacColoc, Component::Real, MatrixEntryPosition(0, 1), 
@@ -387,7 +384,7 @@ std::tuple<bool, bool> HBCore::runSolver(bool continuePrevious) {
         if (continueState &&
             continueState->valid && continueState->coherent &&
             continueState->solution.cxValues().size()==circuit.unknownCount()*timepoints.size() && 
-            continueState->solution.auxData().size()==spurs.spectrum().size()
+            continueState->solution.auxData().size()==spurs_.spectrum().size()
         ) {
             // Continue a state
             // State is valid, coherent, and its lengths match those of the solver vectors
@@ -478,7 +475,7 @@ CoreCoroutine HBCore::coroutine(bool continuePrevious) {
     auto debug = options.hb_debug;
     auto n = circuit.unknownCount(); 
     auto nb = timepoints.size();
-    auto nf = spurs.spectrum().size();
+    auto nf = spurs_.spectrum().size();
 
     // Make sure structures are large enough
     solution.upsize(2, n*nb+1);
@@ -557,7 +554,7 @@ CoreCoroutine HBCore::coroutine(bool continuePrevious) {
                 outputPhasors.upsize(1, n+1);
                 auto outvec = outputPhasors.data();
                 for(decltype(nf) k=0; k<nf; k++) {
-                    outputFreq = spurs.spectrum()[k];
+                    outputFreq = spurs_.spectrum()[k];
                     for(decltype(n) i=0; i<n; i++) {
                         outvec[i+1] = solutionFD[i*nf+k];
                     }                    
@@ -658,12 +655,12 @@ void HBCore::dump(std::ostream& os) const {
     AnalysisCore::dump(os);
     os << "  Results\n";
     auto n = circuit.unknownCount();
-    auto nf = spurs.spectrum().size();
+    auto nf = spurs_.spectrum().size();
     for(decltype(n) i=1; i<=n; i++) {
         auto rn = circuit.reprNode(i);
         for(decltype(nf) k=0; k<nf; k++) {
             auto c = solutionFD[i];
-            os << "    " << rn->name() << "@" << spurs.spectrum()[k] << "Hz : " << c.real();
+            os << "    " << rn->name() << "@" << spurs_.spectrum()[k] << "Hz : " << c.real();
             if (c.imag()>=0) {
                 os << "+";
             }
@@ -731,7 +728,7 @@ bool HBCore::test() {
         // APFT of first non zero frequency cosine
         std::vector<double> v(n, 0.0);
         std::vector<double> vres(n, 0.0);
-        auto f = hb.spurs.spectrum()[1];
+        auto f = hb.spurs_.spectrum()[1];
         auto mag = 10;
         for(size_t i=0; i<n; i++) {
             auto t = hb.timepoints[i];
