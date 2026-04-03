@@ -43,7 +43,7 @@ typedef struct HBACParameters {
     Value outspur {IntVector()};   // specifies spurs where small signal response is observed
                         // - scalar real spur frequency
                         // - integer vector with tone weights defining a spur
-                        // - list holding reals (frequency), integers (only for 1-tone), integer vectors (tone weights)
+                        // - list holding reals (frequency), integer vectors (tone weights)
                         // empty vector (default) computes response at all spurs
 
     Int write {1};    // Write the results to a file

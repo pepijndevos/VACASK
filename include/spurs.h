@@ -38,24 +38,50 @@ public:
     Spurs& operator=(const Spurs&)  = delete;
     Spurs& operator=(      Spurs&&) = delete;
 
+    // Truncated grid points and their negatives if mixing map is created
     const std::vector<Spur>& spurs() const { return spurs_; };
-    const auto spurWeights(size_t i) { return spurWeights_.row(spurs_[i].index); };
-    const std::vector<double>& spectrum() const { return spectrum_; };
-    const std::vector<double>& signedSpectrum() const { return signedSpectrum_; };
-    const std::vector<double>& smsigFreq() const { return smsigFreq_; };
-    const DenseMatrix<Int>& mixingStencil() const { return mixingStencil_; };
-    std::tuple<size_t, bool> spurIndex(double f, double tol=1e-14) const;
-    bool spurIndexVector(const Value& v, std::vector<size_t>& spurIndices, bool emptyIsAll=false, Status& s=Status::ignore) const;
     
+    // Truncated grid point weights + weights of their negatives if mixing map is built
+    const auto spurWeights(size_t i) { return spurWeights_.row(spurs_[i].index); };
+    
+    // Absolute values of frequencies corresponding to truncated grid points
+    const std::vector<double>& spectrum() const { return spectrum_; };
+
+    // Frequencies corresponding to truncated grid points
+    const std::vector<double>& signedSpectrum() const { return signedSpectrum_; };
+
+    // Negatives and positives of truncated grid point absolute frequencies
+    // Row and column indices in mixingStencil refer to frequencies in this vector
+    const std::vector<double>& smsigFreq() const { return smsigFreq_; };
+
+    // Mapping from (output, input) spur index pair to frequency-domain Jacobian component index
+    // i=0 = no entry foir this pair
+    // i>0 = entries corresponding to Jacobians at frequencies given by spectrum, 
+    //       i.e. Jac[i-1]
+    // i<0 = conjugate Jacobian components, i.e. conj(Jac[-i])
+    const DenseMatrix<Int>& mixingStencil() const { return mixingStencil_; };
+
+    // Returns the index of the small-signal frequency corresponding to f
+    std::tuple<size_t, bool> smsigFreqIndex(double f, double tol=1e-14) const;
+    
+    // Decodes an array of spurs given to the simulator into the corresponding small-signal frequency indices
+    bool smsigFreqIndexVector(const Value& v, std::vector<size_t>& smsigFreqIndices, bool emptyIsAll=false, Status& s=Status::ignore) const;
+    
+    // Build grid and spectrum (for HB)
     bool build(const std::vector<double>& fundamentals, const std::vector<int>& nHarmonics, int maxImOrder=0, bool hybrid=false, Int debug=0, Status& s=Status::ignore);
    
+    // Build mixing map for (quasi)cyclostationary small-signal analyses
     bool buildMixingMap(int debug=0, Status& s=Status::ignore);
+
+    // Range of fow indoces for column i where mixing entries are found
     std::tuple<size_t, size_t> rowRange(size_t i) const { return std::make_tuple(rowStartNonzero[i], rowEndNonzero[i]); };
 
+    // This value in mixingMap indicated no entry at that position
     static constexpr Int noJacIndex = 0;
 
 private:
-    double toFreq(VectorView<int> weights);
+    // Compue spur properties
+    Spur toSpurStruct(size_t index, VectorView<int> weights) const;
 
     // Custom hasher based on a pointer to integer array
     struct ArrayHasher {
@@ -82,15 +108,15 @@ private:
     // Fundamentals
     Vector<Real> fundamentals_;
 
-    // Spurs that are mapped to the spectrum, just the ones that were obtained with truncation
+    // Spurs that are mapped to the spectrum, and their negatives if mixing map is created
     std::vector<Spur> spurs_;
 
-    // Spur weights obtained with truncation and their negatives
+    // Spur weights corresponding to the spectrum and their negatives if mixing map is created
     // Rows are spurs_, columns are weights
     DenseMatrix<int> spurWeights_;
 
-    // Map from spur weights to spur index
-    std::unordered_map<VectorView<int>, size_t, ArrayHasher, ArrayEqual> spurMap;
+    // Map from spur weights to small-signal frequency
+    std::unordered_map<VectorView<int>, size_t, ArrayHasher, ArrayEqual> smsigFreqMap;
 
     // Index stencil - column-major matrix of Jacobian component indices
     // s=0 .. no contribution
@@ -105,19 +131,21 @@ private:
     // Last nonzero row for each stencil column
     Vector<size_t> rowEndNonzero;
     
-    // Spectral frequencies (absolute), sorted
+    // Absolute spectral frequencies, sorted - used as scale for HB
     Vector<Real> spectrum_;
 
-    // Spectral frequencies, signed, ordered as in spectrum_
+    // Spectral frequencies, signed, sorted by absolute value - used by HB at APFT construction
     Vector<Real> signedSpectrum_;
 
-    // Small-signal frequencies in order of appearance
+    // Small-signal frequencies, sorted - used by cyclostationary small signal analyses
+    // These are absolute spectral frequencies and their negatives, 0 is always included
     Vector<Real> smsigFreq_;
 
-    // smsigFreq_ sorted by value, paired with original index into smsigFreq_
-    std::vector<std::pair<double, size_t>> smsigFreqSorted_;
-    
-    // Flag that indicated two spurs_ conflict (result in same spectrum frequency)
+    // Weight indices of sorted small signal frequencies
+    Vector<size_t> smsigFreqWeightIndices_;
+
+    // Flag that indicates two components in signedSpectrum_ were in conflict 
+    // (resulted in same absolute frequency). One of them was removed. 
     bool conflict;
 };
 
