@@ -27,12 +27,12 @@ control
   options op_debug=0
 
   analysis op1 op
-  analysis op2 op nodeset=[ "in1"; 1.0; "in2"; 0.2 ]
-  analysis op3 op nodeset=[ "in1"; 0.2; "in2"; 1.0 ]
-  analysis op4 op nodeset=[ "in1"; "in2"; 0.8 ]
-  analysis op5 op nodeset=[ "in1"; "in2"; -0.8 ]
+  analysis op2 op nodeset={ "in1", 1.0, "in2", 0.2 }
+  analysis op3 op nodeset={ "in1", 0.2, "in2", 1.0 }
+  analysis op4 op nodeset={ "in1", "in2", 0.8 }
+  analysis op5 op nodeset={ "in1", "in2", -0.8 }
   analysis dcinc1 dcinc 
-  analysis dcinc2 dcinc nodeset=[ "in1"; "in2"; 0.8 ]
+  analysis dcinc2 dcinc nodeset={ "in1", "in2", 0.8 }
 
   postprocess(PYTHON, "runme.py")
 endc

@@ -530,38 +530,40 @@ bool listPack(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContext& ctx
     return true;
 }
 
-bool listMerge(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContext& ctx, Status& s) {
+bool listFlatten(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContext& ctx, Status& s) {
     // Create empty list
     Value res{std::move(ValueVector())};
 
     // Get Value vector
     auto& vVec = res.val<ValueVector>();
 
-    // Go through arguments
-    for(Rpn::Arity i=1; i<=argc; i++) {
-        Value* vp = stack.get(argc-i);
-        
-        if (vp->type()==Value::Type::ValueVec) {
+    // Get argument
+    Value* vp = stack.get();
+    DBGCHECK(!vp, "Internal error. Attempt to get value from empty stack."); 
+
+    // Is it a list
+    if (vp->type()!=Value::Type::ValueVec) {
+        s.set(Status::BadArguments, std::string("Expected a list.")); 
+        return false;
+    }
+
+    // Go through list elements
+    auto vvec = vp->val<ValueVector>();
+    for(auto& entry : vvec) {
+        if (entry.type()==Value::Type::ValueVec) {
             // List arguments are unpacked and moved to list entries
-            for(auto &it : vp->val<ValueVector>()) {
+            for(auto &it : entry.val<ValueVector>()) {
                 vVec.push_back(std::move(it));
             }
         } else {
             // Other arguments are moved to list entries
-            vVec.push_back(std::move(*vp));
+            vVec.push_back(std::move(entry));
         }
     }
     
-    if (argc>0) {
-        // Swap with first argument
-        swap(*stack.get(argc-1), res);
-    } else {
-        // Push if no arguments given
-        stack.push(std::move(res));
-    }
-
-    // Pop all but the first argument
-    stack.pop(argc-1);
+    // Swap with first argument
+    swap(*stack.get(argc-1), res);
+    
     return true;
 }
 

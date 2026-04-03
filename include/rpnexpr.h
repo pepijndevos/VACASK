@@ -62,12 +62,6 @@ public:
         LocationIndex loc;
         PackList(Arity a) : arity(a), loc(badLocationIndex) {};
     } PackList;
-    // 4+4 = 8 bytes
-    typedef struct MergeList {
-        Arity arity;
-        LocationIndex loc;
-        MergeList(Arity a) : arity(a), loc(badLocationIndex) {};
-    } MergeList;
     // 4+8 = 12 bytes
     typedef struct Jump {
         JumpOffset offset;
@@ -90,8 +84,8 @@ public:
     
     enum Type : char { 
         TValue=0, TOp=1, TIdentifier=2, TFunctionCall=3, 
-        TPackVec=4, TPackList=5, TMergeList=6, 
-        TJump=7, TBranch=8, TMakeBoolean=9
+        TPackVec=4, TPackList=5,  
+        TJump=6, TBranch=7, TMakeBoolean=8
     };
 
     class Entry {
@@ -111,7 +105,6 @@ public:
                 case TFunctionCall: std::get<FunctionCall>(data).loc = li; break;
                 case TPackVec: std::get<PackVec>(data).loc = li; break;
                 case TPackList: std::get<PackList>(data).loc = li; break;
-                case TMergeList: std::get<MergeList>(data).loc = li; break;
                 case TJump: std::get<Jump>(data).loc = li; break;
                 case TBranch: std::get<Branch>(data).loc = li; break;
                 case TMakeBoolean: std::get<MakeBoolean>(data).loc = li; break;
@@ -124,7 +117,6 @@ public:
                 case TFunctionCall: return std::get<FunctionCall>(data).loc;
                 case TPackVec: return std::get<PackVec>(data).loc;
                 case TPackList: return std::get<PackList>(data).loc;
-                case TMergeList: return std::get<MergeList>(data).loc;
                 case TJump: return std::get<Jump>(data).loc;
                 case TBranch: return std::get<Branch>(data).loc;
                 case TMakeBoolean: return std::get<MakeBoolean>(data).loc;
@@ -134,7 +126,7 @@ public:
         template<typename T> T& get() { return std::get<T>(data); };
         template<typename T> const T& get() const { return std::get<T>(data); };
         
-        std::variant<Value, Op, Identifier, FunctionCall, PackVec, PackList, MergeList, Jump, Branch, MakeBoolean> data;
+        std::variant<Value, Op, Identifier, FunctionCall, PackVec, PackList, Jump, Branch, MakeBoolean> data;
     };
     
     typedef std::vector<Entry> Expression;

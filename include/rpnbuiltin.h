@@ -502,8 +502,8 @@ bool vectorPack(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContext& c
 // Pack scalars, vectors, and lists in a list [ 1; 2; 3 ]
 bool listPack(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContext& ctx, Status& s);
 
-// Concatenate lists [ a : b : c ]
-bool listMerge(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContext& ctx, Status& s);
+// Flatten a list (one level)
+bool listFlatten(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContext& ctx, Status& s);
 
 // Min and max wrapper (1 or 2 arguments)
 bool minWrapper(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContext& ctx, Status& s);

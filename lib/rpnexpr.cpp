@@ -173,43 +173,19 @@ std::string Rpn::str() const {
                 break;
             }
             case TPackList: {
-                // {;}
-                // {x1;}
-                // {x1; x2; ...; xn}
+                // {}
+                // {x1}
+                // {x1, x2, ..., xn}
                 auto n = e->get<PackList>().arity;
-                std::string txt = "[";
+                std::string txt = "{";
                 auto j = sstack.size()-n;
                 for(decltype(n) i=0; i<n; i++, j++) {
                     if (i>0 && n>1)  {
-                        txt += "; ";
+                        txt += ", ";
                     }
                     txt += std::get<0>(sstack.at(j));
                 }
-                if (n<2) {
-                    txt +=";";
-                }
-                txt+="]"; 
-                sstack.resize(sstack.size()-n);
-                sstack.push_back({std::move(txt), 1000});
-                break;
-            }
-            case TMergeList: {
-                // [:]
-                // [x1:]
-                // [x1: x2: ...: xn]
-                auto n = e->get<MergeList>().arity;
-                std::string txt = "[";
-                auto j = sstack.size()-n;
-                for(decltype(n) i=0; i<n; i++, j++) {
-                    if (i>0 && n>1)  {
-                        txt += ": ";
-                    }
-                    txt += std::get<0>(sstack.at(j));
-                }
-                if (n<2) {
-                    txt +=":";
-                }
-                txt+="]"; 
+                txt+="}"; 
                 sstack.resize(sstack.size()-n);
                 sstack.push_back({std::move(txt), 1000});
                 break;

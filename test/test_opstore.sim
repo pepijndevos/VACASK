@@ -26,7 +26,7 @@ control
   
   options op_debug=1
 
-  analysis op1 op nodeset=[ "in1"; "in2"; 0.8 ] store="ns1"
+  analysis op1 op nodeset={ "in1", "in2", 0.8 } store="ns1"
   analysis op2 op 
   analysis op3 op nodeset="ns1" 
   analysis op4 op nodeset="ns12" 

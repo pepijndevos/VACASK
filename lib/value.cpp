@@ -262,15 +262,15 @@ std::ostream& operator<<(std::ostream& os, const Value& obj) {
             }
             os << "]";
             break;
-        case Value::Type::ValueVec:
-            os << "[";
-            for(auto it=obj.vVec->cbegin(); it!=obj.vVec->cend(); ++it) {
+        case Value::Type::ValueVec: 
+            os << "{";
+            for(auto it=obj.vVec->cbegin(); it!=obj.vVec->cend(); ++it) { 
                 if (it!=obj.vVec->cbegin()) {
                     os << ", ";
                 }
-                os << *it;
+                os << *it; 
             }
-            os << "]";
+            os << "}";
             break;
     }
     return os;

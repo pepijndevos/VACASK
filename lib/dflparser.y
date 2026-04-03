@@ -155,6 +155,8 @@ typedef struct subckt {
 %token               POWER        "**"
 %token               LBRACKET     "["
 %token               RBRACKET     "]"
+%token               LCURLY       "{"
+%token               RCURLY       "}"
 %token               LPAREN       "("
 %token               RPAREN       ")"
 %token               ASSIGN       "="
@@ -177,7 +179,7 @@ typedef struct subckt {
 %token               BITSHIFTL    "<<"
 
 %token               COLON        ":"
-%token               SEMICOLON    ";"
+%token               SEMICOLON    ";"   // reserved for future use
 %token               RIGHTARROW   "->"  // reserved for future use
 // Not allowed due to conflict with <-5 (could be <- 5 or < -5)
 // %token               LEFTARROW    "<-" 
@@ -209,17 +211,13 @@ typedef struct subckt {
 %right POWER
 %right NEG NOT BITNOT
 %left LPAREN RPAREN LBRACKET RBRACKET
-
-// exprlist e  e,e
-// bracketlist1 [ [1 
-// commabracketlist1 [, [1, [1,2,3
-// semicolonbracketlist1 [; [1; [1;2;3
+%left LCURLY RCURLY
 
 // Nonterminal symbols
 %type <Int>                             intnum
 %type <Id>                              terminal
 %type <PTIdentifierList>                terminal_list global ground keywords
-%type <std::vector<Rpn>>                exprlist semexprlist colexprlist
+%type <std::vector<Rpn>>                exprlist
 %type <Value>                           value
 %type <struct pexpr>                    parameter_expression
 %type <struct paramlist>                parameter_list opt_broken_parameter_list subcktparameters 
@@ -715,18 +713,15 @@ expr
     }
     $$.extend(Rpn::PackVec(static_cast<Rpn::Arity>($2.size())), @1.loc());
   }
-  | LBRACKET SEMICOLON RBRACKET {
+  | LCURLY RCURLY {
     // Empty list
-    $$.extend(Rpn::PackList(0), @1.loc()); 
+    $$.extend(Rpn::PackList(0), @1.loc());  
   }
-  | LBRACKET expr SEMICOLON RBRACKET {
-    // List with single element
-    // Pack values in a list, keep members that are lists themselves intact
-    // This produces a list of lists of ...
-    $$.extend(std::move($2)); 
-    $$.extend(Rpn::PackList(1), @1.loc()); 
+  | LCURLY COMMA RCURLY {
+    // Empty list
+    $$.extend(Rpn::PackList(0), @1.loc());  
   }
-  | LBRACKET semexprlist RBRACKET {
+  | LCURLY exprlist RCURLY {
     // List with two or more elements
     // Pack values in a list, keep members that are lists themselves intact
     // This produces a list of lists of ...
@@ -740,30 +735,6 @@ expr
     }
     $$.extend(Rpn::PackList(static_cast<Rpn::Arity>($2.size())), @1.loc());
   }
-  | LBRACKET COLON RBRACKET {
-    // Empty list
-    $$.extend(Rpn::PackList(0), @1.loc()); 
-  }
-  | LBRACKET expr COLON RBRACKET {
-    // List with single element unpacked
-    // Merge scalars and lists in one list
-    $$.extend(std::move($2)); 
-    $$.extend(Rpn::MergeList(1), @1.loc()); 
-  }
-  | LBRACKET colexprlist RBRACKET {
-    // List with two or more elements unpacked
-    // Merge scalars and lists in one list
-    if ($2.size() > std::numeric_limits<Rpn::Arity>::max()) {
-        status.set(Status::BadArguments, "List has too many elements.");
-        status.extend(@1.loc());
-        YYERROR;
-    }
-    for(Rpn::Arity i=0; i<$2.size(); i++) {
-        $$.extend(std::move($2[i]));
-    }
-    $$.extend(Rpn::MergeList(static_cast<Rpn::Arity>($2.size())), @1.loc());
-  }
-  
   | expr LBRACKET expr RBRACKET {
     // Vector and list selector
     $$.extend(std::move($1)); 
@@ -781,32 +752,6 @@ exprlist
   }
   | exprlist COMMA expr {
     // Multiple expressions
-    $$ = std::move($1);
-    $$.push_back(std::move($3));
-  }
-
-// Semicolon separated expression list is always in brackets, 
-// no need to handle NEWLINE. 
-// List has always at least two expressions. 
-semexprlist
-  : expr SEMICOLON expr {
-    $$.push_back(std::move($1));
-    $$.push_back(std::move($3));
-  }
-  | semexprlist SEMICOLON expr {
-    $$ = std::move($1);
-    $$.push_back(std::move($3));
-  }
-
-// Colon separated expression list is always in brackets, 
-// no need to handle NEWLINE. 
-// List has always at least two expressions. 
-colexprlist
-  : expr COLON expr {
-    $$.push_back(std::move($1));
-    $$.push_back(std::move($3));
-  }
-  | colexprlist COLON expr {
     $$ = std::move($1);
     $$.push_back(std::move($3));
   }

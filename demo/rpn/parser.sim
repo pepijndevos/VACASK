@@ -13,4 +13,5 @@ control
   print rpn(a?b:c)
   print ("ternary, true, should be 10 : ", 1?10:20) separator=" " eol="\n"
   print ("ternary, false, should be 20: ", 0?10:20)
+  print ("List: ", flatten({1.0, 2, "abc", {"c", 9.0, {"e", "f"}}}))
 endc

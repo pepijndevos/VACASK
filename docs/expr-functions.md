@@ -98,6 +98,12 @@ These functions operate on vectors. `min` and `max` also accept two scalar or ve
 | `interleave(v1, v2, ..., vn)` | Interleave `n` numeric vectors of equal length into `[v1[0], v2[0], ..., vn[0], v1[1], v2[1], ...]`. The result length is `n` times the input length; the element type is `real` if any input is `real`, otherwise `integer`. |
 | `separate(v, n, i)` | Extract the elements of vector `v` at indices `i, i+n, i+2n, ...` (every `n`-th element starting at offset `i`). Requires `n >= 1` and `0 <= i < n`. The result type matches `v`. |
 
+## List functions
+
+| Function | Description |
+|----------|-------------|
+| `flatten(x)` | Flatten list `x` by one level: elements that are themselves lists are unpacked into the result; other elements are passed through unchanged |
+
 ## Monte Carlo
 
 These functions draw a random value in place of a plain number when used in an instance parameter, model parameter, or `parameters` expression inside a Monte Carlo loop. Outside such a loop they evaluate to `nom`. See [Monte Carlo Analysis](cmd-analysis-mc.md) for details.

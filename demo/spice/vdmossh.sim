@@ -38,7 +38,7 @@ control
   analysis op1 op
 
   // Initial junction temperature is 27 deg C
-  analysis tran1 tran step=0.1m stop=0.2 maxstep=0.1m icmode="uic" ic=["tj"; 27]
+  analysis tran1 tran step=0.1m stop=0.2 maxstep=0.1m icmode="uic" ic={"tj", 27}
   
   postprocess(PYTHON, "runme.py")
 endc

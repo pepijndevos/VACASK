@@ -119,6 +119,9 @@ ContextStack::Builtins ContextStack::builtins = {
     { Id::createStatic("interleave"), { 2, Rpn::manyArgs, true, vectorInterleave } }, // vec1, vec2, ..., vecn   type=maxtype(vec1, .. vecn)
     { Id::createStatic("separate"),   { 3, 3, true, vectorSeparate } }, // vec, n, i   
     
+    // List functions
+    { Id::createStatic("flatten"),  { 1, 1, true, listFlatten } },
+
     // String
     /*
     { Id::createStatic("join"),     { 1, 2, true, nullptr} }, // string vector[, separator]

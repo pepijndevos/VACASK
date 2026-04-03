@@ -22,7 +22,7 @@ control
   options rawfile="binary" strictsave=1
   
   // Test vector parameter sweep
-  sweep vs instance="v1" parameter="vec" values=[[0, 1, 1k]; [1, 0.5, 2k]]
+  sweep vs instance="v1" parameter="vec" values={[0, 1, 1k], [1, 0.5, 2k]}
     analysis tran1 tran stop=2m step=1u
 
   postprocess(PYTHON, "runme.py")

@@ -512,6 +512,15 @@ after INCEND we have
                 return(token::RBRACKET);
             }
 
+<BODY>\{    {
+                inBracket++;
+                return(token::LCURLY);
+            }
+<BODY>\}    {
+                inBracket--;
+                return(token::RCURLY);
+            }
+
 <BODY>\=    {
                 return(token::ASSIGN);
             }

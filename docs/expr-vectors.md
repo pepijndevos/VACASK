@@ -27,7 +27,7 @@ Mixing numeric and string elements is an error.
 
 ### Flattening
 
-If an element of a vector literal is itself a vector or list, it is recursively flattened into the result:
+If an element of a vector literal is itself a vector, it is recursively flattened into the result:
 
 ```text
 parameters v = [2, 3]
@@ -46,41 +46,40 @@ parameters y = v[2]   // 30
 
 ## Lists
 
-A list is an ordered sequence of elements that may have different types. Elements are separated by semicolons:
+A list is an ordered sequence of elements that may have different types. Elements are wrapped in curly braces and separated by commas:
 
 ```text
-["node1"; 1.0; "node2"; 2.0]   // list: string, real, string, real
-[1; "yes"; [2, 3]]             // list: integer, string, integer vector
+{"node1", 1.0, "node2", 2.0}   // list: string, real, string, real
+{1, "yes", [2, 3]}             // list: integer, string, integer vector
 ```
 
-An empty list is written `[;]`.
+An empty list is written `{}` or `{,}`.
 
 Lists are used where parameters accept heterogeneous data, such as initial conditions and nodesets:
 
 ```text
-analysis tran1 tran ic=["vout"; 3.3; "vgate"; 0.8]
+analysis tran1 tran ic={"vout", 3.3, "vgate", 0.8}
 ```
 
 Unlike vectors, list elements are stored intact - nested lists remain as sub-lists.
 
-## Merged lists
+## Merging lists
 
-The colon separator builds a list from elements while flattening any list-typed element into the result. This makes it easy to combine partial lists:
+Lists can be merged by first building a list of lists and then calling `flatten`. Non-list elements are kept in their places by `flatten`. This makes it easy to combine partial lists:
 
 ```text
-parameters ic_stage1 = ["vout1"; 1.0]
-parameters ic_stage2 = ["vout2"; 2.0]
+parameters ic_stage1 = {"vout1", 1.0}
+parameters ic_stage2 = {"vout2", 2.0}
 // Combine into one flat list:
-//   ["vout1"; 1.0; "vout2"; 2.0]
-parameters ic = [ic_stage1: ic_stage2]
+//   {"vout1", 1.0, "vout2", 2.0, "vout3", 3.0}
+parameters ic = flatten({ic_stage1, ic_stage2, "vout3", 3.0})
 ```
 
-Non-list elements (scalars, vectors) are added directly. An empty merged list is `[:]`.
+Flattening affects only the first nested level of lists. 
 
 ## Summary
 
 | Syntax | Separator | Result type | Element handling |
 |--------|-----------|-------------|-----------------|
 | `[a, b, c]` | `,` | Vector (homogeneous) | Nested vectors/lists flattened |
-| `[a; b; c]` | `;` | List (heterogeneous) | Elements stored intact |
-| `[a: b: c]` | `:` | List (heterogeneous) | Sub-lists flattened in |
+| `{a, b, c}` | `;` | List (heterogeneous) | Elements stored intact |
