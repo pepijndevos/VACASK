@@ -1,4 +1,4 @@
-# AC S-Parameter Analysis
+# AC Small-Signal S-Parameter Analysis
 
 AC S-parameter analysis computes the small-signal scattering parameters ($S$-matrix) of a multi-port circuit as a function of frequency. It sweeps a range of frequencies and solves for the $S$-matrix at each frequency point.
 

@@ -4,7 +4,7 @@ VACASK (Verilog-A Circuit Analysis Kernel) is an analog circuit simulator built 
 
 VACASK is not a SPICE clone. Its netlist language has a Spectre-like syntax with a richer expression system, fully parameterized hierarchical circuit descriptions, and conditional netlist blocks. The control block - the part of the netlist that drives simulation - is a small scripting language that sequences analyses, sweeps, circuit modifications, and postprocessing steps in a single run. Almost any circuit or simulator parameter can be swept or modified between analyses without reloading the netlist. Furthermore, the circuit's topology can also be changed without reloading the circuit. 
 
-The simulator supports operating-point, DC small-signal, AC small-signal, noise, transient, and harmonic balance analyses. The nonlinear solver uses residual-based convergence testing and several homotopy strategies for difficult operating-point problems. Numerical linear algebra is handled by the KLU sparse matrix library. Results are written in SPICE raw file format and can be postprocessed by external scripts, with built-in Python integration for launching postprocessors directly from the netlist.
+Beside all classic SPICE analyses the simulator also supports transfer function, stability, S-parameter, and harmonic balance analyses. The nonlinear solver uses residual-based convergence testing and several homotopy strategies for difficult operating-point problems. Numerical linear algebra is handled by the KLU sparse matrix library. Results are written in SPICE raw file format and can be postprocessed by external scripts, with built-in Python integration for launching postprocessors directly from the netlist.
 
 VACASK is developed at the EDA Laboratory, University of Ljubljana, and is released under the GNU Affero General Public License 3.0.
 
@@ -73,7 +73,7 @@ VACASK is developed at the EDA Laboratory, University of Ljubljana, and is relea
    4. [AC Small-Signal Analysis](cmd-analysis-ac.md)
    5. [AC Small-Signal Transfer Function Analysis](cmd-analysis-acxf.md)
    6. [AC Small-Signal Stability analysis](cmd-analysis-acstb.md)
-   7. [AC S-Parameter Analysis](cmd-analysis-acsp.md)
+   7. [AC Small-Signal S-Parameter Analysis](cmd-analysis-acsp.md)
    8. [Small-Signal Noise Analysis](cmd-analysis-noise.md)
    9. [Transient Analysis](cmd-analysis-tran.md)
    10. [Harmonic Balance Analysis](cmd-analysis-hb.md)
