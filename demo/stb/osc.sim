@@ -1,4 +1,4 @@
-Oscillator phase noise
+Oscillator stability
 
 load "resistor.osdi"
 load "capacitor.osdi"
@@ -65,21 +65,21 @@ raw = rawread('stb1.raw')
 plot = raw.get()
 
 ax_dict["C"].set_ylabel('W [dB]')
-ax_dict["C"].plot(plot['frequency']/1e3, 20*np.log10(np.abs(plot['w'])))
-ax_dict["C"].set_ylim(-30, 40)
+ax_dict["C"].semilogx(plot['frequency'], 20*np.log10(np.abs(plot['w'])))
+# ax_dict["C"].set_ylim(-30, 40)
 
 ax_dict["D"].set_ylabel('arg(W) [deg]')
-ax_dict["D"].plot(plot['frequency']/1e3, np.unwrap(np.angle(plot['w']))/np.pi*180)
-ax_dict["D"].set_xlabel('f [kHz]')
+ax_dict["D"].semilogx(plot['frequency'], np.unwrap(np.angle(plot['w']))/np.pi*180)
+ax_dict["D"].set_xlabel('f [Hz]')
 
-ax_dict["A"].set_ylabel('Im')
-ax_dict["A"].set_xlabel('Re')
+ax_dict["A"].set_ylabel('Im(W)')
+ax_dict["A"].set_xlabel('Re(W)')
 ax_dict["A"].plot(np.real(plot['w']), np.imag(plot['w']))
 ax_dict["A"].plot(-1, 0, marker='x', markersize=8) 
 ax_dict["A"].set_aspect('equal')
 
-ax_dict["B"].set_ylabel('Im')
-ax_dict["B"].set_xlabel('Re')
+ax_dict["B"].set_ylabel('Im(W)')
+ax_dict["B"].set_xlabel('Re(W)')
 ax_dict["B"].plot(np.real(plot['w']), np.imag(plot['w']))
 ax_dict["B"].plot(-1, 0, marker='x', markersize=8) 
 ax_dict["B"].set_xlim(-1.005, -0.995) 
