@@ -7,8 +7,15 @@
 namespace NAMESPACE {
 
 
+// TODO: output descriptors specify consecutive spur numbers
+//       Before the core is built spurs are not known. 
+//       But the number of spurs is known from outspur analysis parameter. 
+    
+
 // TODO: make list of sources every time core is invoked
 //       somebody might sweep cs* parameters of sources
+
+
 
 // Construct omega vector: omega[n] = 2*pi*(f + f_n)
 // where f_n = smsigFreq[n] is the signed spur frequency from the HB operating point.

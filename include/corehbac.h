@@ -40,11 +40,11 @@ typedef struct HBACParameters {
     // Nodeset and store parameters of the HB core 
     // are also exposed. 
 
-    Value outspur {IntVector()};   // specifies spurs where small signal response is observed
+    Value outspur {0.0};   // specifies spurs where small signal response is observed
                         // - scalar real spur frequency
                         // - integer vector with tone weights defining a spur
                         // - list holding reals (frequency), integer vectors (tone weights)
-                        // empty vector (default) computes response at all spurs
+                        // Default is 0.0 (DC output spur). 
 
     Int write {1};    // Write the results to a file
 

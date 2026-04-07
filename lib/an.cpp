@@ -279,7 +279,11 @@ AnalysisCoroutine Analysis::coroutine(Status& s) {
                         co_yield AnalysisState::Aborted;
                     }
                 }
-
+                
+                // TODO: need to build cores first, then resolve output descriptors
+                //       HBAC must known the spur indices within smsig frequencies vector 
+                //       before output sources are created. 
+                //       Check it this does not cause problems with other cores. 
                 // Every time core needs rebuild, rebind outputs
                 bool strict = (!outputsBound && circuit.simulatorOptions().core().strictsave>0) ||
                               (outputsBound && circuit.simulatorOptions().core().strictsave>1);

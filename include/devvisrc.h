@@ -75,13 +75,18 @@ struct DevSourceInstanceParams {
                         // - scalar real spur frequency
                         // - integer vector with tone weights defining a spur
                         // - list holding reals (frequency), integer vectors (tone weights)
+                        // Default is empty list {} - no excitation
+    // If the vector is shorter than the number of spurs, zeros are assumed. 
+    // If it is longer than the number of spurs, the extra components are ignored. 
     RealVector csmag;   // magnitude corresponding to spurs
                         // - scalar for single spur
                         // - vector for multiple spurs
+                        // Empty vector by default. 
     RealVector csphase; // phase in degrees corresponding to spurs
                         // - scalar for single spur
                         // - vector for multiple spurs
-
+                        // Empty vector by default. 
+    
     DevSourceInstanceParams();
 };
 
