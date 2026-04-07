@@ -88,10 +88,10 @@ bool HBCore::resolveOutputDescriptors(bool strict, Status& s) {
         // TODO: handle output variables someday
         switch (it->type) {
         case OutdSolComponent:
-            ok = addComplexVarOutputSource(strict, it->id, outputPhasors); 
+            ok = addComplexVarOutputSource(strict, it->id, outputPhasors, it->name); 
             break;
         case OutdFrequency:
-            outputSources.emplace_back(&outputFreq);
+            outputSources.emplace_back(&outputFreq, it->name);
             break;
         default:
             // Delegate to parent

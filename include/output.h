@@ -46,23 +46,32 @@ public:
     };
     typedef size_t Index;
     
-    OutputSource() : cPtr(&defaultBad), type(Type::ComplexPtr) {};
+    OutputSource(Id asName=Id::none) 
+        : cPtr(&defaultBad), type(Type::ComplexPtr), name_(asName) {};
 
-    OutputSource(const int* ptr) : iPtr(ptr), type(Type::IntPtr) {};
+    OutputSource(const int* ptr, Id asName=Id::none) 
+        : iPtr(ptr), type(Type::IntPtr), name_(asName) {};
 
-    OutputSource(const double* ptr) : rPtr(ptr), type(Type::RealPtr) {};
-    OutputSource(const double* ptr, Index ndx) : rPtr(ptr), index(ndx), type(Type::RealArray) {};
-    OutputSource(const Vector<double>* ptr, Index ndx) : rVec(ptr), index(ndx), type(Type::RealVec) {};
-    OutputSource(const VectorRepository<double>* ptr, Index ndx) 
-        : rRepoPtr(ptr), index(ndx), type(Type::RealVecRepo) {};
+    OutputSource(const double* ptr, Id asName=Id::none) 
+        : rPtr(ptr), type(Type::RealPtr), name_(asName) {};
+    OutputSource(const double* ptr, Index ndx, Id asName=Id::none) 
+        : rPtr(ptr), index(ndx), type(Type::RealArray), name_(asName) {};
+    OutputSource(const Vector<double>* ptr, Index ndx, Id asName=Id::none) 
+        : rVec(ptr), index(ndx), type(Type::RealVec), name_(asName) {};
+    OutputSource(const VectorRepository<double>* ptr, Index ndx, Id asName=Id::none) 
+        : rRepoPtr(ptr), index(ndx), type(Type::RealVecRepo), name_(asName) {};
     
-    OutputSource(const Complex* ptr) : cPtr(ptr), type(Type::ComplexPtr) {};
-    OutputSource(const Complex* ptr, Index ndx) : cPtr(ptr), index(ndx), type(Type::ComplexArray) {};
-    OutputSource(const Vector<Complex>* ptr, Index ndx) : cVec(ptr), index(ndx), type(Type::ComplexVec) {};
-    OutputSource(const VectorRepository<Complex>* ptr, Index ndx) 
-        : cRepoPtr(ptr), index(ndx), type(Type::ComplexVecRepo) {};
+    OutputSource(const Complex* ptr, Id asName=Id::none) 
+        : cPtr(ptr), type(Type::ComplexPtr), name_(asName) {};
+    OutputSource(const Complex* ptr, Index ndx, Id asName=Id::none) 
+        : cPtr(ptr), index(ndx), type(Type::ComplexArray), name_(asName) {};
+    OutputSource(const Vector<Complex>* ptr, Index ndx, Id asName=Id::none) 
+        : cVec(ptr), index(ndx), type(Type::ComplexVec), name_(asName) {};
+    OutputSource(const VectorRepository<Complex>* ptr, Index ndx, Id asName=Id::none) 
+        : cRepoPtr(ptr), index(ndx), type(Type::ComplexVecRepo), name_(asName) {};
     
-    OutputSource(const ParameterSweeper* ptr, Index ndx) : sweeperPtr(ptr), index(ndx), type(Type::Sweep) {};
+    OutputSource(const ParameterSweeper* ptr, Index ndx, Id asName=Id::none) 
+        : sweeperPtr(ptr), index(ndx), type(Type::Sweep), name_(asName) {};
     
     double getR() const {
         switch (type) {
@@ -162,6 +171,10 @@ public:
         return 0.0;
     };
 
+    void setName(Id asName) { name_ = asName; };
+
+    Id name() const { return name_; };
+
 private:
     union {
         const int* iPtr;
@@ -178,6 +191,7 @@ private:
     };
     Index index;
     Type type;
+    Id name_;
     static Complex defaultBad;
 };
 
@@ -277,7 +291,7 @@ class Output {
 public:
     using DescriptorList = std::vector<OutputDescriptor>;
     using SourcesList = std::vector<OutputSource>;
-
+    
     Output(const std::string& baseName, DescriptorList& descriptors, SourcesList& sources);
     
     void setTitle(std::string title) { title_= title; };

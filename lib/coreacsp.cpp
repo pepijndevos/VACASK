@@ -68,18 +68,18 @@ bool ACSPCore::resolveOutputDescriptors(bool strict) {
             // stMatrix is the transpose of S
             if (it->ndxNdx.ndx1<stMatrix.nRows() && it->ndxNdx.ndx2<stMatrix.nRows()) {
                 // Matrix large enough
-                outputSources.emplace_back(&stMatrix.data(), stMatrix.indexOf(it->ndxNdx.ndx2, it->ndxNdx.ndx1));
+                outputSources.emplace_back(&stMatrix.data(), stMatrix.indexOf(it->ndxNdx.ndx2, it->ndxNdx.ndx1), it->name);
             } else if (strict) {
                 // Outside of matrix, strict mode, error
                 setError(SPError::MatrixEntryNotFound);
                 ok = false;
             } else {
                 // Outside of matrix, default source
-                outputSources.emplace_back();
+                outputSources.emplace_back(it->name);
             }
             break;
         case OutdFrequency:
-            outputSources.emplace_back(&frequency);
+            outputSources.emplace_back(&frequency, it->name);
             break;
         default:
             // Delegate to parent

@@ -49,7 +49,8 @@ bool OutputRawfile::prologue(Status& s) {
 
     outStream << "Variables:\n";
     for(size_t i=0; i<descrs.size(); i++) {
-        outStream << "\t" << std::to_string(i) << "\t" << std::string(descrs[i].name) << "\t" << "notype"; 
+        // outStream << "\t" << std::to_string(i) << "\t" << std::string(descrs[i].name) << "\t" << "notype"; 
+        outStream << "\t" << std::to_string(i) << "\t" << std::string(srcs[i].name()) << "\t" << "notype"; 
         // TODO: add " dims=n,n,n,...\n" for rawfiles with vectors of different length
         outStream << "\n"; 
     }

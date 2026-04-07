@@ -85,7 +85,7 @@ bool DCXFCore::resolveOutputDescriptors(bool strict) {
                 }
                 // No instance and we reached this point, create constant source
                 if (!inst) {
-                    outputSources.emplace_back();
+                    outputSources.emplace_back(it->name);
                 }
                 break;
         }
@@ -94,13 +94,13 @@ bool DCXFCore::resolveOutputDescriptors(bool strict) {
         }
         switch (it->type) {
         case OutdTf:
-            outputSources.emplace_back(&tf, ndx);
+            outputSources.emplace_back(&tf, ndx, it->name);
             break;
         case OutdZ:
-            outputSources.emplace_back(&zin, ndx);
+            outputSources.emplace_back(&zin, ndx, it->name);
             break;
         case OutdY:
-            outputSources.emplace_back(&yin, ndx);
+            outputSources.emplace_back(&yin, ndx, it->name);
             break; 
         default:
             // Delegate to parent

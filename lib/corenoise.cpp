@@ -60,6 +60,8 @@ NoiseCore::~NoiseCore() {
 
 bool NoiseCore::resolveOutputDescriptors(bool strict) {
     clearError();
+    // Clear output sources
+    outputSources.clear();
     // Clear contribution offsets
     contributionOffset.clear();
     size_t atOffset = 2;
@@ -90,10 +92,10 @@ bool NoiseCore::resolveOutputDescriptors(bool strict) {
                 if (inst) {
                     // Add to contribution offsets
                     auto [insIt, inserted] = contributionOffset.insert({{name, Id()}, contributionOffset.size()});
-                    outputSources.emplace_back(&results, insIt->second);
+                    outputSources.emplace_back(&results, insIt->second, it->name);
                 } else {
                     // Instance not found, constant source
-                    outputSources.emplace_back();
+                    outputSources.emplace_back(it->name);
                 }
                 break;
             case OutdNoiseContribInstPartial:
@@ -120,24 +122,24 @@ bool NoiseCore::resolveOutputDescriptors(bool strict) {
                     if (found) {
                         // Add to contribution offsets
                         auto [insIt, inserted] = contributionOffset.insert({{name, contrib}, contributionOffset.size()});
-                        outputSources.emplace_back(&results, insIt->second);
+                        outputSources.emplace_back(&results, insIt->second, it->name);
                     } else {
                         // Contribution not found, constant source
-                        outputSources.emplace_back();
+                        outputSources.emplace_back(it->name);
                     }
                 } else {
                     // Instance not found, constant source
-                    outputSources.emplace_back();
+                    outputSources.emplace_back(it->name);
                 }
                 break;
             case OutdFrequency:
-                outputSources.emplace_back(&frequency);
+                outputSources.emplace_back(&frequency, it->name);
                 break;
             case OutdOutputNoise:
-                outputSources.emplace_back(&outputNoise);
+                outputSources.emplace_back(&outputNoise, it->name);
                 break;
             case OutdPowerGain:
-                outputSources.emplace_back(&powerGain);
+                outputSources.emplace_back(&powerGain, it->name);
                 break;
             default:
                 // Delegate to parent

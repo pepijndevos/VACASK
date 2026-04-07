@@ -169,11 +169,11 @@ public:
     bool addNoiseContribInst(const PTSave& save, bool details);
     
     // Common handlers for output descriptor -> output source
-    bool addRealVarOutputSource(bool strict, Id name, const Vector<double>& solution);
-    bool addRealVarOutputSource(bool strict, Id name, const VectorRepository<double>& solution);
-    bool addComplexVarOutputSource(bool strict, Id name, const Vector<Complex>& solution);
-    bool addComplexVarOutputSource(bool strict, Id name, const VectorRepository<Complex>& solution);
-    bool addOutvarOutputSource(bool strict, Id instance, Id outvar);
+    bool addRealVarOutputSource(bool strict, Id name, const Vector<double>& solution, Id asName=Id::none);
+    bool addRealVarOutputSource(bool strict, Id name, const VectorRepository<double>& solution, Id asName=Id::none);
+    bool addComplexVarOutputSource(bool strict, Id name, const Vector<Complex>& solution, Id asName=Id::none);
+    bool addComplexVarOutputSource(bool strict, Id name, const VectorRepository<Complex>& solution, Id asName=Id::none);
+    bool addOutvarOutputSource(bool strict, Id instance, Id outvar, Id asName);
 
 protected:
     // Clear error

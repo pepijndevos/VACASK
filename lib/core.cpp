@@ -346,83 +346,79 @@ bool AnalysisCore::addNoiseContribInst(const PTSave& save, bool details) {
     return true;
 }
     
-bool AnalysisCore::addRealVarOutputSource(bool strict, Id name, const Vector<double>& solution) {
+bool AnalysisCore::addRealVarOutputSource(bool strict, Id name, const Vector<double>& solution, Id asName) {
     clearError();
     // Solution vector component
     auto node = circuit.findNode(name);
     // Get unknown
     if (node) {
         auto unknown = node->unknownIndex();
-        outputSources.emplace_back(&solution, node->unknownIndex());
-        return true;
+        outputSources.emplace_back(&solution, node->unknownIndex(), asName ? asName : name);
     } else if (strict) {
         lastError = Error::NodeNotFound;
         errorId = name;
         return false;
     } else {
-        outputSources.emplace_back();
+        outputSources.emplace_back(asName ? asName : name);
     }
     return true;
 }
 
-bool AnalysisCore::addRealVarOutputSource(bool strict, Id name, const VectorRepository<double>& solution) {
+bool AnalysisCore::addRealVarOutputSource(bool strict, Id name, const VectorRepository<double>& solution, Id asName) {
     clearError();
     // Solution vector component
     auto node = circuit.findNode(name);
     // Get unknown
     if (node) {
         auto unknown = node->unknownIndex();
-        outputSources.emplace_back(&solution, node->unknownIndex());
-        return true;
+        outputSources.emplace_back(&solution, node->unknownIndex(), asName ? asName : name);
     } else if (strict) {
         lastError = Error::NodeNotFound;
         errorId = name;
         return false;
     } else {
-        outputSources.emplace_back();
+        outputSources.emplace_back(asName ? asName : name);
     }
     return true;
 }
 
-bool AnalysisCore::addComplexVarOutputSource(bool strict, Id name, const Vector<Complex>& solution) {
+bool AnalysisCore::addComplexVarOutputSource(bool strict, Id name, const Vector<Complex>& solution, Id asName) {
     clearError();
     // Solution vector component
     auto node = circuit.findNode(name);
     // Get unknown
     if (node) {
         auto unknown = node->unknownIndex();
-        outputSources.emplace_back(&solution, node->unknownIndex());
-        return true;
+        outputSources.emplace_back(&solution, node->unknownIndex(), asName ? asName : name);
     } else if (strict) {
         lastError = Error::NodeNotFound;
         errorId = name;
         return false;
     } else {
-        outputSources.emplace_back();
+        outputSources.emplace_back(asName ? asName : name);
     }
     return true;
 }
 
-bool AnalysisCore::addComplexVarOutputSource(bool strict, Id name, const VectorRepository<Complex>& solution) {
+bool AnalysisCore::addComplexVarOutputSource(bool strict, Id name, const VectorRepository<Complex>& solution, Id asName) {
     clearError();
     // Solution vector component
     auto node = circuit.findNode(name);
     // Get unknown
     if (node) {
         auto unknown = node->unknownIndex();
-        outputSources.emplace_back(&solution, node->unknownIndex());
-        return true;
+        outputSources.emplace_back(&solution, node->unknownIndex(), asName ? asName : name);
     } else if (strict) {
         lastError = Error::NodeNotFound;
         errorId = name;
         return false;
     } else {
-        outputSources.emplace_back();
+        outputSources.emplace_back(asName ? asName : name);
     }
     return true;
 }
 
-bool AnalysisCore::addOutvarOutputSource(bool strict, Id instance, Id outvar) {
+bool AnalysisCore::addOutvarOutputSource(bool strict, Id instance, Id outvar, Id asName) {
     clearError();
     auto inst = circuit.findInstance(instance);
     if (inst) {
@@ -433,6 +429,8 @@ bool AnalysisCore::addOutvarOutputSource(bool strict, Id instance, Id outvar) {
             if (!ok && strict) {
                 return false;
             }
+            // Name must be explicitly given
+            osrc.setName(asName);
             outputSources.push_back(std::move(osrc));
         } else if (strict) {
             lastError = Error::OutvarNotFound;
@@ -445,7 +443,7 @@ bool AnalysisCore::addOutvarOutputSource(bool strict, Id instance, Id outvar) {
         errorId = instance;
         return false;
     } else {
-        outputSources.emplace_back();
+        outputSources.emplace_back(asName);
     }
     return true;
 }

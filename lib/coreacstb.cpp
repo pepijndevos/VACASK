@@ -64,13 +64,13 @@ bool ACStbCore::resolveOutputDescriptors(bool strict) {
     for (auto it = outputDescriptors.cbegin(); it != outputDescriptors.cend(); ++it) {
         switch (it->type) {
         case OutdGain:
-            outputSources.emplace_back(&resultsVector, it->ndx);
+            outputSources.emplace_back(&resultsVector, it->ndx, it->name);
             break;
         case OutdY:
-            outputSources.emplace_back(&resultsVector, it->ndx);
+            outputSources.emplace_back(&resultsVector, it->ndx, it->name);
             break;
         case OutdFrequency:
-            outputSources.emplace_back(&frequency);
+            outputSources.emplace_back(&frequency, it->name);
             break;
         default:
             // Delegate to parent

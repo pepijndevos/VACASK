@@ -101,7 +101,7 @@ bool Analysis::resolveOutputDescriptor(const OutputDescriptor& descr, Output::So
     // Abstract analysis handles only sweep variables
     switch (descr.type) {
         case OutdSweepvar: 
-            srcs.emplace_back(&sweeper, descr.ndx);
+            srcs.emplace_back(&sweeper, descr.ndx, descr.name);
             break;
         default:
             DBGCHECK(true, "Unknown output descriptor type.");
@@ -280,20 +280,16 @@ AnalysisCoroutine Analysis::coroutine(Status& s) {
                     }
                 }
                 
-                // TODO: need to build cores first, then resolve output descriptors
-                //       HBAC must known the spur indices within smsig frequencies vector 
-                //       before output sources are created. 
-                //       Check it this does not cause problems with other cores. 
-                // Every time core needs rebuild, rebind outputs
-                bool strict = (!outputsBound && circuit.simulatorOptions().core().strictsave>0) ||
-                              (outputsBound && circuit.simulatorOptions().core().strictsave>1);
-                
                 // Rebuild core
                 if (!rebuildCores(s)) {
                     s.extend("Failed to rebuild analysis structures.");
                     co_yield AnalysisState::Aborted;
                 }
 
+                // Every time core needs rebuild, rebind outputs
+                bool strict = (!outputsBound && circuit.simulatorOptions().core().strictsave>0) ||
+                              (outputsBound && circuit.simulatorOptions().core().strictsave>1);
+                
                 // Bind outputs
                 if (!resolveOutputDescriptors(strict, s)) {
                     s.extend("Failed to bind analysis outputs.");

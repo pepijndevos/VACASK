@@ -65,7 +65,7 @@ bool ACCore::resolveOutputDescriptors(bool strict) {
             ok = addComplexVarOutputSource(strict, it->id, acSolution);
             break;
         case OutdFrequency:
-            outputSources.emplace_back(&frequency);
+            outputSources.emplace_back(&frequency, it->name);
             break;
         default:
             // Delegate to parent
