@@ -31,6 +31,7 @@ where $x_0$ is the operating point. $J_r$ captures resistive behavior (conductan
 | [AC Small-Signal](cmd-analysis-ac.md) | `ac` | Sweeps frequency and computes the small-signal response at each point. |
 | [AC Small-Signal Transfer Function](cmd-analysis-acxf.md) | `acxf` | Computes AC small-signal transfer functions, input and output impedances as a function of frequency. |
 | [AC Small-Signal Stability](cmd-analysis-acstb.md) | `acstb` | Computes AC open-loop gain of a feedback circuit as a function of frequency. |
+| [AC S-Parameter](cmd-analysis-acsp.md) | `acsp` | Computes small-signal S-parameters of a multi-port circuit as a function of frequency. |
 | [Small-Signal Noise](cmd-analysis-noise.md) | `noise` | Computes small-signal noise spectral densities referred to a chosen output or input. |
 | [Transient](cmd-analysis-tran.md) | `tran` | Integrates the circuit equations over time. |
 | [Harmonic Balance](cmd-analysis-hb.md) | `hb` | Computes the periodic steady-state response in the frequency domain. |
