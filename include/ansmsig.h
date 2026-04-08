@@ -37,7 +37,7 @@ protected:
     virtual bool addCommonOutputDescriptor(const OutputDescriptor& desc);
 
     // Add core-specific output descriptors, no error message is returned 
-    virtual bool addCoreOutputDescriptors(Status& s=Status::ignore);
+    virtual bool addCoreOutputDescriptors(Status& s);
     
     // Add operating point output descriptor(s) based on save, generates error message if verification is required
     // Returns ok, resolved
@@ -48,7 +48,7 @@ protected:
 
     // Add default output descriptors if no save is specified
     // No error message is returned
-    virtual bool addDefaultOutputDescriptors();
+    virtual bool addDefaultOutputDescriptors(Status& s);
 
     // Remove all output descriptors from all cores, transfer parameters from smsig to op
     // No error message is returned
@@ -119,22 +119,20 @@ bool SmallSignal<CoreClass, DataMixin>::addCommonOutputDescriptor(const OutputDe
 template<typename CoreClass, typename DataMixin> 
 bool SmallSignal<CoreClass, DataMixin>::addCoreOutputDescriptors(Status& s) {
     // False is returned if the descriptor is already there
-    if (!opCore.addCoreOutputDescriptors()) {
-        opCore.formatError(s);
+    if (!opCore.addCoreOutputDescriptors(s)) {
         return false;
     }
-    if (!smsigCore.addCoreOutputDescriptors()) {
-        smsigCore.formatError(s);
+    if (!smsigCore.addCoreOutputDescriptors(s)) {
         return false;
     }
     return true;
 }
 
 template<typename CoreClass, typename DataMixin> 
-bool SmallSignal<CoreClass, DataMixin>::addDefaultOutputDescriptors() {
+bool SmallSignal<CoreClass, DataMixin>::addDefaultOutputDescriptors(Status& s) {
     // Must be invoked on all cores regardless of return value
-    auto s1 = opCore.addDefaultOutputDescriptors();
-    auto s2 = smsigCore.addDefaultOutputDescriptors();
+    auto s1 = opCore.addDefaultOutputDescriptors(s);
+    auto s2 = smsigCore.addDefaultOutputDescriptors(s);
     return s1 && s2;
 }
 
@@ -156,13 +154,11 @@ bool SmallSignal<CoreClass, DataMixin>::resolveOutputDescriptors(bool strict, St
     // Before exit an error message is formatted and status is set
     if (!opCore.resolveOutputDescriptors(strict)) {
         if (strict) {
-            opCore.formatError(s);
             return false;
         }
     }
     if (!smsigCore.resolveOutputDescriptors(strict)) {
         if (strict) {
-            smsigCore.formatError(s);
             return false;
         }
     }
@@ -179,16 +175,17 @@ std::tuple<bool, bool> SmallSignal<CoreClass, DataMixin>::resolveOpSave(const PT
     static const auto idP = Id("p");
 
     bool st = true;
+    Status& s1 = verify ? s : Status::ignore;
     if (save.typeName() == idOpDefault) {
-        st = opCore.addAllUnknowns(save);
+        st = opCore.addAllUnknowns(save, s1);
     } else if (save.typeName() == idOpFull) {
-        st = opCore.addAllNodes(save);
+        st = opCore.addAllNodes(save, s1);
     } else if (save.typeName() == idV) {
-        st = opCore.addNode(save);
+        st = opCore.addNode(save, s1);
     } else if (save.typeName() == idI) {
-        st = opCore.addFlow(save);
+        st = opCore.addFlow(save, s1);
     } else if (save.typeName() == idP) {
-        st = opCore.addInstanceOutvar(save);
+        st = opCore.addInstanceOutvar(save, s1);
     } else {
         // Do not know how to handle this save
         if (verify) {
@@ -200,8 +197,6 @@ std::tuple<bool, bool> SmallSignal<CoreClass, DataMixin>::resolveOpSave(const PT
     }
     // Error detected in opCore save, verification required
     if (verify && !st) {
-        // Format error
-        opCore.formatError(s);
         s.extend(save.location());
     } 
     // Status, handled

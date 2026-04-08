@@ -58,8 +58,7 @@ NoiseCore::~NoiseCore() {
     delete outfile;
 }
 
-bool NoiseCore::resolveOutputDescriptors(bool strict) {
-    clearError();
+bool NoiseCore::resolveOutputDescriptors(bool strict, Status& s) {
     // Clear output sources
     outputSources.clear();
     // Clear contribution offsets
@@ -143,7 +142,7 @@ bool NoiseCore::resolveOutputDescriptors(bool strict) {
                 break;
             default:
                 // Delegate to parent
-                ok = parentResolver.resolveOutputDescriptor(*it, outputSources, strict);
+                ok = parentResolver.resolveOutputDescriptor(*it, outputSources, strict, s);
         }
         if (!ok) {
             break;
@@ -152,38 +151,34 @@ bool NoiseCore::resolveOutputDescriptors(bool strict) {
     return ok;
 }
 
-bool NoiseCore::addCoreOutputDescriptors() {
-    clearError();
+bool NoiseCore::addCoreOutputDescriptors(Status& s) {
     // If output is suppressed, skip all this work
     if (!params.write || Simulator::noOutput()) {
         return true;
     }
     if (!addOutputDescriptor(OutputDescriptor(OutdFrequency, "frequency"))) {
-        lastError = Error::Descriptor;
-        errorId = "frequency";
+        s.set(Status::Analysis, std::string("Failed to add output descriptor for frequency."));
         return false;
     }
     if (!addOutputDescriptor(OutputDescriptor(OutdOutputNoise, "onoise"))) {
-        lastError = Error::Descriptor;
-        errorId = "onoise";
+        s.set(Status::Analysis, std::string("Failed to add output descriptor for output noise."));
         return false;
     }
     if (!addOutputDescriptor(OutputDescriptor(OutdPowerGain, "gain"))) {
-        lastError = Error::Descriptor;
-        errorId = "gain";
+        s.set(Status::Analysis, std::string("Failed to add output descriptor for gain."));
         return false;
     }
     return true;
 }
 
-bool NoiseCore::addDefaultOutputDescriptors() {
+bool NoiseCore::addDefaultOutputDescriptors(Status& s) {
     // If output is suppressed, skip all this work
     if (!params.write || Simulator::noOutput()) {
         return true;
     }
     if (savesCount==0) {
         // Add total noise contributions of all instances (details=false)
-        return addAllNoiseContribInst(PTSave("default", Id(), Id()), false);
+        return addAllNoiseContribInst(PTSave("default", Id(), Id()), false, s);
     }
     return true;
 }
@@ -229,6 +224,7 @@ bool NoiseCore::deleteOutputs(Id name, Status& s) {
 }
     
 bool NoiseCore::rebuild(Status& s) {
+    clearError();
     // AC analysis matrix
     if (!acMatrix.rebuild(circuit.sparsityMap(), circuit.unknownCount())) {
         acMatrix.formatError(s);

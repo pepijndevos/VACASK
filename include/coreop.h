@@ -72,7 +72,7 @@ public:
     // Format error, return false on error - this function is not cheap (works with strings)
     bool formatError(Status& s=Status::ignore) const; 
 
-    bool addDefaultOutputDescriptors();
+    bool addDefaultOutputDescriptors(Status& s);
     bool resolveOutputDescriptors(bool strict, Status& s=Status::ignore);
 
     std::tuple<bool, bool> preMapping(Status& s=Status::ignore);

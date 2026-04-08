@@ -34,12 +34,10 @@ bool Tran::addCommonOutputDescriptor(const OutputDescriptor& desc) {
 
 bool Tran::addCoreOutputDescriptors(Status& s) {
     // False is returned if something goes wrong
-    if (!opCore.addCoreOutputDescriptors()) {
-        opCore.formatError(s);
+    if (!opCore.addCoreOutputDescriptors(s)) {
         return false;
     }
-    if (!tranCore.addCoreOutputDescriptors()) {
-        tranCore.formatError(s);
+    if (!tranCore.addCoreOutputDescriptors(s)) {
         return false;
     }
     return true;
@@ -48,15 +46,13 @@ bool Tran::addCoreOutputDescriptors(Status& s) {
 bool Tran::resolveOutputDescriptors(bool strict, Status& s) {
     // Any error causes immediate exit if strict is true
     // Before exit an error message is formatted and status is set
-    if (!opCore.resolveOutputDescriptors(strict)) {
+    if (!opCore.resolveOutputDescriptors(strict, s)) {
         if (strict) {
-            opCore.formatError(s);
             return false;
         }
     }
-    if (!tranCore.resolveOutputDescriptors(strict)) {
+    if (!tranCore.resolveOutputDescriptors(strict, s)) {
         if (strict) {
-            tranCore.formatError(s);
             return false;
         }
     }
@@ -72,16 +68,17 @@ bool Tran::resolveSave(const PTSave& save, bool verify, Status& s) {
     static const auto idP = Id("p");
 
     bool st = true;
+    Status& s1 = verify ? s : Status::ignore;
     if (save.typeName() == idOpDefault) {
-        st = tranCore.addAllUnknowns(save);
+        st = tranCore.addAllUnknowns(save, s1);
     } else if (save.typeName() == idOpFull) {
-        st = tranCore.addAllNodes(save);
+        st = tranCore.addAllNodes(save, s1);
     } else if (save.typeName() == idV) {
-        st = tranCore.addNode(save);
+        st = tranCore.addNode(save, s1);
     } else if (save.typeName() == idI) {
-        st = tranCore.addFlow(save);
+        st = tranCore.addFlow(save, s1);
     } else if (save.typeName() == idP) {
-        st = tranCore.addInstanceOutvar(save);
+        st = tranCore.addInstanceOutvar(save, s1);
     } else {
         // Report error only if verification is required
         if (verify) {
@@ -95,7 +92,6 @@ bool Tran::resolveSave(const PTSave& save, bool verify, Status& s) {
     }
     if (verify && !st) {
         // Format error
-        tranCore.formatError(s);
         s.extend(save.location());
         return false;
     }
@@ -104,10 +100,10 @@ bool Tran::resolveSave(const PTSave& save, bool verify, Status& s) {
     return true;
 }
 
-bool Tran::addDefaultOutputDescriptors() {
+bool Tran::addDefaultOutputDescriptors(Status& s) {
     // Must be invoked on all cores regardless of return value
-    auto s1 = opCore.addDefaultOutputDescriptors();
-    auto s2 = tranCore.addDefaultOutputDescriptors();
+    auto s1 = opCore.addDefaultOutputDescriptors(s);
+    auto s2 = tranCore.addDefaultOutputDescriptors(s);
     return s1 && s2;
 }
 

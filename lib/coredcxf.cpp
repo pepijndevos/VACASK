@@ -45,8 +45,7 @@ DCXFCore::~DCXFCore() {
     delete outfile;
 }
 
-bool DCXFCore::resolveOutputDescriptors(bool strict) {
-    clearError();
+bool DCXFCore::resolveOutputDescriptors(bool strict, Status& s) {
     // Clear output sources
     outputSources.clear();
     // Clear source instance pointers, initialize to nullptrs
@@ -104,7 +103,7 @@ bool DCXFCore::resolveOutputDescriptors(bool strict) {
             break; 
         default:
             // Delegate to parent
-            ok = parentResolver.resolveOutputDescriptor(*it, outputSources, strict);
+            ok = parentResolver.resolveOutputDescriptor(*it, outputSources, strict, s);
         }
         if (!ok) {
             break;
@@ -113,13 +112,13 @@ bool DCXFCore::resolveOutputDescriptors(bool strict) {
     return ok;
 }
 
-bool DCXFCore::addDefaultOutputDescriptors() {
+bool DCXFCore::addDefaultOutputDescriptors(Status& s) {
     // If output is suppressed, skip all this work
     if (!params.write || Simulator::noOutput()) {
         return true;
     }
     if (savesCount==0) {
-        return addAllTfZin(PTSave("default", Id(), Id()), sourceIndex);
+        return addAllTfZin(PTSave("default", Id(), Id()), sourceIndex, s);
     }
     return true;
 }
@@ -165,6 +164,7 @@ bool DCXFCore::deleteOutputs(Id name, Status& s) {
 }
     
 bool DCXFCore::rebuild(Status& s) {
+    clearError();
     return true;
 }
 

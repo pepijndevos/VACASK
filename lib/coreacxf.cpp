@@ -54,8 +54,7 @@ ACXFCore::~ACXFCore() {
     delete outfile;
 }
 
-bool ACXFCore::resolveOutputDescriptors(bool strict) {
-    clearError();
+bool ACXFCore::resolveOutputDescriptors(bool strict, Status& s) {
     // Clear output sources
     outputSources.clear();
     // Clear source instance pointers, initialize to nullptrs
@@ -116,7 +115,7 @@ bool ACXFCore::resolveOutputDescriptors(bool strict) {
             break; 
         default:
             // Delegate to parent
-            ok = parentResolver.resolveOutputDescriptor(*it, outputSources, strict);
+            ok = parentResolver.resolveOutputDescriptor(*it, outputSources, strict, s);
         }
         if (!ok) {
             break;
@@ -125,27 +124,26 @@ bool ACXFCore::resolveOutputDescriptors(bool strict) {
     return ok;
 }
 
-bool ACXFCore::addCoreOutputDescriptors() {
+bool ACXFCore::addCoreOutputDescriptors(Status& s) {
     clearError();
     // If output is suppressed, skip all this work
     if (!params.write || Simulator::noOutput()) {
         return true;
     }
     if (!addOutputDescriptor(OutputDescriptor(OutdFrequency, "frequency"))) {
-        lastError = Error::Descriptor;
-        errorId = "frequency";
+        s.set(Status::Analysis, std::string("Failed to add output descriptor for frequency."));
         return false;
     }
     return true;
 }
 
-bool ACXFCore::addDefaultOutputDescriptors() {
+bool ACXFCore::addDefaultOutputDescriptors(Status& s) {
     // If output is suppressed, skip all this work
     if (!params.write || Simulator::noOutput()) {
         return true;
     }
     if (savesCount==0) {
-        return addAllTfZin(PTSave("default", Id(), Id()), sourceIndex);
+        return addAllTfZin(PTSave("default", Id(), Id()), sourceIndex, s);
     }
     return true;
 }

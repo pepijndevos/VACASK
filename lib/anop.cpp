@@ -28,8 +28,7 @@ bool OperatingPoint::addCommonOutputDescriptor(const OutputDescriptor& desc) {
 }
 
 bool OperatingPoint::addCoreOutputDescriptors(Status& s) {
-    if (!core.addCoreOutputDescriptors()) {
-        core.formatError(s);
+    if (!core.addCoreOutputDescriptors(s)) {
         return false;
     }
     return true;
@@ -37,7 +36,12 @@ bool OperatingPoint::addCoreOutputDescriptors(Status& s) {
 
 bool OperatingPoint::resolveOutputDescriptors(bool strict, Status& s) {
     // Trigger resolving in core analyses
-    return core.resolveOutputDescriptors(strict, s);
+    if (!core.resolveOutputDescriptors(strict, s)) {
+        if (strict) {
+            return false;
+        }
+    }
+    return true;
 }
 
 bool OperatingPoint::resolveSave(const PTSave& save, bool verify, Status& s) {
@@ -48,16 +52,17 @@ bool OperatingPoint::resolveSave(const PTSave& save, bool verify, Status& s) {
     static const auto idP = Id("p");
 
     bool st = true;
+    Status& s1 = verify ? s : Status::ignore;
     if (save.typeName() == idDefault) {
-        st = core.addAllUnknowns(save);
+        st = core.addAllUnknowns(save, s1);
     } else if (save.typeName() == idFull) {
-        st = core.addAllNodes(save);
+        st = core.addAllNodes(save, s1);
     } else if (save.typeName() == idV) {
-        st = core.addNode(save);
+        st = core.addNode(save, s1);
     } else if (save.typeName() == idI) {
-        st = core.addFlow(save);
+        st = core.addFlow(save, s1);
     } else if (save.typeName() == idP) {
-        st = core.addInstanceOutvar(save);
+        st = core.addInstanceOutvar(save, s1);
     } else {
         // Report error only if verification is required
         if (verify) {
@@ -72,7 +77,6 @@ bool OperatingPoint::resolveSave(const PTSave& save, bool verify, Status& s) {
 
     if (verify && !st) {
         // Format error
-        core.formatError(s);
         s.extend(save.location());
         return false;
     }
@@ -81,8 +85,8 @@ bool OperatingPoint::resolveSave(const PTSave& save, bool verify, Status& s) {
     return true;
 }
 
-bool OperatingPoint::addDefaultOutputDescriptors() {
-    return core.addDefaultOutputDescriptors();
+bool OperatingPoint::addDefaultOutputDescriptors(Status& s) {
+    return core.addDefaultOutputDescriptors(s);
 }
 
 bool OperatingPoint::initializeOutputs(Status& s) {

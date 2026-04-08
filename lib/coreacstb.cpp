@@ -56,7 +56,7 @@ ACStbCore::~ACStbCore() {
 
 // Converts an OutputDescriptor into an OutputSource. 
 // The former can be used to recreate the latter if the set of unknowns changes. 
-bool ACStbCore::resolveOutputDescriptors(bool strict) {
+bool ACStbCore::resolveOutputDescriptors(bool strict, Status& s) {
     // Clear output sources
     outputSources.clear();
     // Resolve output descriptors
@@ -74,7 +74,7 @@ bool ACStbCore::resolveOutputDescriptors(bool strict) {
             break;
         default:
             // Delegate to parent
-            ok = parentResolver.resolveOutputDescriptor(*it, outputSources, strict);
+            ok = parentResolver.resolveOutputDescriptor(*it, outputSources, strict, s);
             break;
         }
         if (!ok) {
@@ -85,58 +85,49 @@ bool ACStbCore::resolveOutputDescriptors(bool strict) {
 }
 
 // These OutputDescriptors are always added
-bool ACStbCore::addCoreOutputDescriptors() {
-    clearError();
+bool ACStbCore::addCoreOutputDescriptors(Status& s) {
     // If output is suppressed, skip all this work
     if (!params.write || Simulator::noOutput()) {
         return true;
     }
     if (!addOutputDescriptor(OutputDescriptor(OutdFrequency, "frequency"))) {
-        lastError = Error::Descriptor;
-        errorId = "frequency";
+        s.set(Status::Analysis, std::string("Failed to add output descriptor for frequency."));
         return false;
     }
     // Forward/reverse/total open loop gain
     if (!addOutputDescriptor(OutputDescriptor(OutdGain, "wf", to_int(StbResult::Wf)))) {
-        lastError = Error::Descriptor;
-        errorId = "forward open-loop gain";
+        s.set(Status::Analysis, std::string("Failed to add output descriptor for forward open-loop gain."));
         return false;
     }
     if (!addOutputDescriptor(OutputDescriptor(OutdGain, "wr", to_int(StbResult::Wr)))) {
-        lastError = Error::Descriptor;
-        errorId = "reverse open-loop gain";
+        s.set(Status::Analysis, std::string("Failed to add output descriptor for reverse open-loop gain."));
         return false;
     }
     if (!addOutputDescriptor(OutputDescriptor(OutdGain, "w", to_int(StbResult::W)))) {
-        lastError = Error::Descriptor;
-        errorId = "open-loop gain";
+        s.set(Status::Analysis, std::string("Failed to add output descriptor for open-loop gain."));
         return false;
     }
     if (!addOutputDescriptor(OutputDescriptor(OutdY, "y(1,1)", to_int(StbResult::y11)))) {
-        lastError = Error::Descriptor;
-        errorId = "y11";
+        s.set(Status::Analysis, std::string("Failed to add output descriptor for y11."));
         return false;
     }
     if (!addOutputDescriptor(OutputDescriptor(OutdY, "y(1,2)", to_int(StbResult::y12)))) {
-        lastError = Error::Descriptor;
-        errorId = "y12";
+        s.set(Status::Analysis, std::string("Failed to add output descriptor for y12."));
         return false;
     }
     if (!addOutputDescriptor(OutputDescriptor(OutdY, "y(2,1)", to_int(StbResult::y21)))) {
-        lastError = Error::Descriptor;
-        errorId = "y21";
+        s.set(Status::Analysis, std::string("Failed to add output descriptor for y21."));
         return false;
     }
     if (!addOutputDescriptor(OutputDescriptor(OutdY, "y(2,2)", to_int(StbResult::y22)))) {
-        lastError = Error::Descriptor;
-        errorId = "y22";
+        s.set(Status::Analysis, std::string("Failed to add output descriptor for y22."));
         return false;
     }
     return true;
 }
 
 // These OutputDescriptors are added if no save directives are given
-bool ACStbCore::addDefaultOutputDescriptors() {
+bool ACStbCore::addDefaultOutputDescriptors(Status& s) {
     // If output is suppressed, skip all this work
     if (!params.write || Simulator::noOutput()) {
         return true;

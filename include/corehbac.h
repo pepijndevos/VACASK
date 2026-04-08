@@ -83,9 +83,9 @@ public:
     // Format error, return false on error - this function is not cheap (works with strings)
     bool formatError(Status& s=Status::ignore) const; 
 
-    bool addCoreOutputDescriptors();
-    bool addDefaultOutputDescriptors();
-    bool resolveOutputDescriptors(bool strict);
+    bool addCoreOutputDescriptors(Status& s);
+    bool addDefaultOutputDescriptors(Status& s);
+    bool resolveOutputDescriptors(bool strict, Status& s=Status::ignore);
 
     bool rebuild(Status& s=Status::ignore); 
     bool initializeOutputs(Id name, Status& s=Status::ignore);

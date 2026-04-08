@@ -52,27 +52,25 @@ HBCore::~HBCore() {
     delete outfile;
 }
 
-bool HBCore::addCoreOutputDescriptors() {
-    clearError();
+bool HBCore::addCoreOutputDescriptors(Status& s) {
     // If output is suppressed, skip all this work
     if (!params.write || Simulator::noOutput()) {
         return true;
     }
     if (!addOutputDescriptor(OutputDescriptor(OutdFrequency, "frequency"))) {
-        lastError = Error::Descriptor;
-        errorId = "frequency";
+        s.set(Status::Analysis, std::string("Failed to add output descriptor for frequency."));
         return false;
     }
     return true;
 }
 
-bool HBCore::addDefaultOutputDescriptors() {
+bool HBCore::addDefaultOutputDescriptors(Status& s) {
     // If output is suppressed, skip all this work
     if (!params.write || Simulator::noOutput()) {
         return true;
     }
     if (savesCount==0) {
-        return addAllUnknowns(PTSave("default", Id(), Id()));
+        return addAllUnknowns(PTSave("default", Id(), Id()), s);
     }
     return true;
 }
@@ -88,14 +86,14 @@ bool HBCore::resolveOutputDescriptors(bool strict, Status& s) {
         // TODO: handle output variables someday
         switch (it->type) {
         case OutdSolComponent:
-            ok = addComplexVarOutputSource(strict, it->id, outputPhasors, it->name); 
+            ok = addComplexVarOutputSource(strict, it->id, outputPhasors, it->name, s); 
             break;
         case OutdFrequency:
             outputSources.emplace_back(&outputFreq, it->name);
             break;
         default:
             // Delegate to parent
-            ok = parentResolver.resolveOutputDescriptor(*it, outputSources, strict);
+            ok = parentResolver.resolveOutputDescriptor(*it, outputSources, strict, s);
             break;
         }
         if (!ok) {

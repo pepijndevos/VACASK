@@ -57,7 +57,7 @@ ACSPCore::~ACSPCore() {
 
 // Converts an OutputDescriptor into an OutputSource. 
 // The former can be used to recreate the latter if the set of unknowns changes. 
-bool ACSPCore::resolveOutputDescriptors(bool strict) {
+bool ACSPCore::resolveOutputDescriptors(bool strict, Status& s) {
     // Clear output sources
     outputSources.clear();
     // Resolve output descriptors
@@ -83,7 +83,7 @@ bool ACSPCore::resolveOutputDescriptors(bool strict) {
             break;
         default:
             // Delegate to parent
-            ok = parentResolver.resolveOutputDescriptor(*it, outputSources, strict);
+            ok = parentResolver.resolveOutputDescriptor(*it, outputSources, strict, s);
             break;
         }
         if (!ok) {
@@ -95,8 +95,7 @@ bool ACSPCore::resolveOutputDescriptors(bool strict) {
 
 
 // These OutputDescriptors are always added
-bool ACSPCore::addCoreOutputDescriptors() {
-    clearError();
+bool ACSPCore::addCoreOutputDescriptors(Status& s) {
     // If output is suppressed, skip all this work
     if (!params.write || Simulator::noOutput()) {
         return true;
@@ -106,26 +105,23 @@ bool ACSPCore::addCoreOutputDescriptors() {
     auto portCount = params.ports.size() / 2;
     for(decltype(portCount) i=0; i<portCount; i++) {
         for(decltype(portCount) j=0; j<portCount; j++) {
-            if (!addOutputDescriptor(
-                OutputDescriptor(OutdSmat, std::string("s(")+std::to_string(i+1)+","+std::to_string(j+1)+")", i, j))
-            ) {
-                lastError = Error::Descriptor;
-                errorId = "frequency";
+            auto descName = std::string("s(")+std::to_string(i+1)+","+std::to_string(j+1)+")";
+            if (!addOutputDescriptor(OutputDescriptor(OutdSmat, descName, i, j))) {
+                s.set(Status::Analysis, std::string("Failed to add output descriptor for "+std::string(descName)+"."));
                 return false;
             }
         }
     }
     
     if (!addOutputDescriptor(OutputDescriptor(OutdFrequency, "frequency"))) {
-        lastError = Error::Descriptor;
-        errorId = "frequency";
+        s.set(Status::Analysis, std::string("Failed to add output descriptor for frequency."));
         return false;
     }
     return true;
 }
 
 // These OutputDescriptors are added if no save directives are given
-bool ACSPCore::addDefaultOutputDescriptors() {
+bool ACSPCore::addDefaultOutputDescriptors(Status& s) {
     // If output is suppressed, skip all this work
     if (!params.write || Simulator::noOutput()) {
         return true;

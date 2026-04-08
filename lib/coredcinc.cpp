@@ -40,7 +40,7 @@ DCIncrementalCore::~DCIncrementalCore() {
     delete outfile;
 }
 
-bool DCIncrementalCore::resolveOutputDescriptors(bool strict) {
+bool DCIncrementalCore::resolveOutputDescriptors(bool strict, Status& s) {
     // Clear output sources
     outputSources.clear();
     // Resolve output descriptors
@@ -50,11 +50,11 @@ bool DCIncrementalCore::resolveOutputDescriptors(bool strict) {
         Instance *inst;
         switch (it->type) {
         case OutdSolComponent:
-            ok = addRealVarOutputSource(strict, it->id, incrementalSolution);
+            ok = addRealVarOutputSource(strict, it->id, incrementalSolution, it->id, s);
             break;
         default:
             // Delegate to parent
-            ok = parentResolver.resolveOutputDescriptor(*it, outputSources, strict);
+            ok = parentResolver.resolveOutputDescriptor(*it, outputSources, strict, s);
             break;
         }
         if (!ok) {
@@ -64,13 +64,13 @@ bool DCIncrementalCore::resolveOutputDescriptors(bool strict) {
     return ok;
 }
 
-bool DCIncrementalCore::addDefaultOutputDescriptors() {
+bool DCIncrementalCore::addDefaultOutputDescriptors(Status& s) {
     // If output is suppressed, skip all this work
     if (!params.write || Simulator::noOutput()) {
         return true;
     }
     if (savesCount==0) {
-        return addAllUnknowns(PTSave("default", Id(), Id()));
+        return addAllUnknowns(PTSave("default", Id(), Id()), s);
     }
     return true;
 }
@@ -116,6 +116,7 @@ bool DCIncrementalCore::deleteOutputs(Id name, Status& s) {
 }
     
 bool DCIncrementalCore::rebuild(Status& s) {
+    clearError();
     return true;
 }
 

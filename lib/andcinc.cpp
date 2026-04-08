@@ -19,32 +19,29 @@ template<> bool SmallSignal<DCIncrementalCore, DCIncrementalData>::resolveSave(c
 
     bool st = true;
     bool handled = true;
+    Status& s1 = verify ? s : Status::ignore;
     if (save.typeName() == idDefault) {
-        st = smsigCore.addAllUnknowns(save);
+        st = smsigCore.addAllUnknowns(save, s1);
     } else if (save.typeName() == idFull) {
-        st = smsigCore.addAllNodes(save);
+        st = smsigCore.addAllNodes(save, s1);
     } else if (save.typeName() == idDv) {
-        st = smsigCore.addNode(save);
+        st = smsigCore.addNode(save, s1);
     } else if (save.typeName() == idDi) {
-        st = smsigCore.addFlow(save);
+        st = smsigCore.addFlow(save, s1);
     } else {
         // Handle OP saves
-        std::tie(st, handled) = resolveOpSave(save, verify, s); 
+        std::tie(st, handled) = resolveOpSave(save, verify, s1); 
         // Not handled error was formatted by resolveOpSave()
         // Also all op errors were formatted
-        if (verify) {
-            // Verification required, return status
-            return st;
-        } else {
-            // No verification required, OK
-            return true;
+        if (!verify) {
+            // No checking, assume status is OK
+            st = true;
         }
     }
 
     // Handled save via smsigCore, check error if verification required
     if (verify && !st) {
         // Format error
-        smsigCore.formatError(s);
         s.extend(save.location());
         return false;
     } 

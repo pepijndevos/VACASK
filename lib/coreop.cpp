@@ -47,14 +47,14 @@ bool OperatingPointCore::resolveOutputDescriptors(bool strict, Status& s) {
         Instance *inst;
         switch (it->type) {
         case OutdSolComponent:
-            ok = addRealVarOutputSource(strict, it->id, solution);
+            ok = addRealVarOutputSource(strict, it->id, solution, it->id, s);
             break;
         case OutdOutvar:
-            ok = addOutvarOutputSource(strict, it->idId.id1, it->idId.id2, it->name);
+            ok = addOutvarOutputSource(strict, it->idId.id1, it->idId.id2, it->name, s);
             break;
         default:
             // Delegate to parent
-            ok = parentResolver.resolveOutputDescriptor(*it, outputSources, strict);
+            ok = parentResolver.resolveOutputDescriptor(*it, outputSources, strict, s);
             break;
         }
         if (!ok) {
@@ -64,13 +64,13 @@ bool OperatingPointCore::resolveOutputDescriptors(bool strict, Status& s) {
     return ok;
 }
 
-bool OperatingPointCore::addDefaultOutputDescriptors() {
+bool OperatingPointCore::addDefaultOutputDescriptors(Status& s) {
     // If output is suppressed, skip all this work
     if (!params.write || Simulator::noOutput()) {
         return true;
     }
     if (savesCount==0) {
-        return addAllUnknowns(PTSave("default", Id(), Id()));
+        return addAllUnknowns(PTSave("default", Id(), Id()), s);
     }
     return true;
 }
@@ -202,6 +202,7 @@ bool OperatingPointCore::populateStructures(Status& s) {
 
 
 bool OperatingPointCore::rebuild(Status& s) {
+    clearError();
     // Bind Jacobian entries
     // Resistive parts bound to entries of jac, reactive parts not bound
     if (!circuit.bind(&jac, Component::Real, std::nullopt, nullptr, Component::Real, std::nullopt, s)) {

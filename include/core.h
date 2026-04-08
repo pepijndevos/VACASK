@@ -23,7 +23,7 @@ public:
     // Resolves output descriptor, adds output sorce to srcs
     // Returns true on success
     // Fail by default 
-    virtual bool resolveOutputDescriptor(const OutputDescriptor& descr, Output::SourcesList& srcs, bool strict) { return false; };
+    virtual bool resolveOutputDescriptor(const OutputDescriptor& descr, Output::SourcesList& srcs, bool strict, Status& s) { return false; };
 };
 
 class Analysis;
@@ -55,14 +55,11 @@ class AnalysisCore : public ProgressTracker {
 public: 
     enum class Error {
         OK, 
-        Arguments, 
         NodeNotFound, 
-        OutvarNotFound, 
         InstanceNotFound, 
         OutputSpec, 
         OutputType, 
         InstanceNotSource, 
-        Descriptor, 
     };
 
     AnalysisCore(OutputDescriptorResolver& parentResolver, Circuit& circuit, CommonData& commons);
@@ -82,15 +79,16 @@ public:
     void clearOutputDescriptors();
 
     // Add an output descriptor to descriptors list of the core analysis
+    // Silently ignore duplicates
     bool addOutputDescriptor(const OutputDescriptor& descr);
     bool addOutputDescriptor(OutputDescriptor&& descr);
 
     // Add output descriptors that are not based on saves but are specific 
     // to analysis core (e.g. frequency, time). By default add nothing. 
-    bool addCoreOutputDescriptors() { return true; };
+    bool addCoreOutputDescriptors(Status& s) { return true; };
 
     // Add default output descriptors if no save has been provided
-    bool addDefaultOutputDescriptors() { return true; };
+    bool addDefaultOutputDescriptors(Status& s) { return true; };
     
     // Resolve all output descriptors into output sources
     // Delegate resolving of unknown decriptors to analysis
@@ -156,26 +154,29 @@ public:
     void dump(std::ostream& os) const;
 
     // Common handlers for save directive -> output descriptor(s) 
-    bool addAllUnknowns(const PTSave& save);
-    bool addAllNodes(const PTSave& save);
-    bool addNode(const PTSave& save);
-    bool addFlow(const PTSave& save);
-    bool addInstanceOutvar(const PTSave& save);
-    bool addAllTfZin(const PTSave& save, std::unordered_map<Id,size_t>& nameMap);
-    bool addTf(const PTSave& save, std::unordered_map<Id,size_t>& nameMap);
-    bool addZin(const PTSave& save, std::unordered_map<Id,size_t>& nameMap);
-    bool addYin(const PTSave& save, std::unordered_map<Id,size_t>& nameMap);
-    bool addAllNoiseContribInst(const PTSave& save, bool details);
-    bool addNoiseContribInst(const PTSave& save, bool details);
+    bool addAllUnknowns(const PTSave& save, Status& s);
+    bool addAllNodes(const PTSave& save, Status& s);
+    bool addNode(const PTSave& save, Status& s);
+    bool addFlow(const PTSave& save, Status& s);
+    bool addInstanceOutvar(const PTSave& save, Status& s);
+    bool addAllTfZin(const PTSave& save, std::unordered_map<Id,size_t>& nameMap, Status& s);
+    bool addTf(const PTSave& save, std::unordered_map<Id,size_t>& nameMap, Status& s);
+    bool addZin(const PTSave& save, std::unordered_map<Id,size_t>& nameMap, Status& s);
+    bool addYin(const PTSave& save, std::unordered_map<Id,size_t>& nameMap, Status& s);
+    bool addAllNoiseContribInst(const PTSave& save, bool details, Status& s);
+    bool addNoiseContribInst(const PTSave& save, bool details, Status& s);
     
     // Common handlers for output descriptor -> output source
-    bool addRealVarOutputSource(bool strict, Id name, const Vector<double>& solution, Id asName=Id::none);
-    bool addRealVarOutputSource(bool strict, Id name, const VectorRepository<double>& solution, Id asName=Id::none);
-    bool addComplexVarOutputSource(bool strict, Id name, const Vector<Complex>& solution, Id asName=Id::none);
-    bool addComplexVarOutputSource(bool strict, Id name, const VectorRepository<Complex>& solution, Id asName=Id::none);
-    bool addOutvarOutputSource(bool strict, Id instance, Id outvar, Id asName);
+    // Always return true if strict=false, return false on error when struct=true
+    bool addRealVarOutputSource(bool strict, Id name, const Vector<double>& solution, Id asName, Status& s);
+    bool addRealVarOutputSource(bool strict, Id name, const VectorRepository<double>& solution, Id asName, Status& s);
+    bool addComplexVarOutputSource(bool strict, Id name, const Vector<Complex>& solution, Id asName, Status& s);
+    bool addComplexVarOutputSource(bool strict, Id name, const VectorRepository<Complex>& solution, Id asName, Status& s);
+    bool addOutvarOutputSource(bool strict, Id instance, Id outvar, Id asName, Status& s);
 
 protected:
+    void expectedSaveArgumentsError(int expectedArgumentCount, Status& s);
+
     // Clear error
     void clearError() { lastError = Error::OK; }; 
 

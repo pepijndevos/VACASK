@@ -30,8 +30,7 @@ bool HB::addCommonOutputDescriptor(const OutputDescriptor& desc) {
 }
 
 bool HB::addCoreOutputDescriptors(Status& s) {
-    if (!core.addCoreOutputDescriptors()) {
-        core.formatError(s);
+    if (!core.addCoreOutputDescriptors(s)) {
         return false;
     }
     return true;
@@ -50,15 +49,16 @@ bool HB::resolveSave(const PTSave& save, bool verify, Status& s) {
     static const auto idP = Id("p");
 
     bool st = true;
+    Status& s1 = verify ? s : Status::ignore;
     // TODO: handle output variables someday
     if (save.typeName() == idDefault) {
-        st = core.addAllUnknowns(save);
+        st = core.addAllUnknowns(save, s1);
     } else if (save.typeName() == idFull) {
-        st = core.addAllNodes(save);
+        st = core.addAllNodes(save, s1);
     } else if (save.typeName() == idV) {
-        st = core.addNode(save);
+        st = core.addNode(save, s1);
     } else if (save.typeName() == idI) {
-        st = core.addFlow(save);
+        st = core.addFlow(save, s1);
     } else {
         // Report error only if verification is required
         if (verify) {
@@ -73,7 +73,6 @@ bool HB::resolveSave(const PTSave& save, bool verify, Status& s) {
 
     if (verify && !st) {
         // Format error
-        core.formatError(s);
         s.extend(save.location());
         return false;
     }
@@ -82,8 +81,8 @@ bool HB::resolveSave(const PTSave& save, bool verify, Status& s) {
     return true;
 }
 
-bool HB::addDefaultOutputDescriptors() {
-    return core.addDefaultOutputDescriptors();
+bool HB::addDefaultOutputDescriptors(Status& s) {
+    return core.addDefaultOutputDescriptors(s);
 }
 
 bool HB::initializeOutputs(Status& s) {

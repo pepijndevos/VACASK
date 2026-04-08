@@ -60,12 +60,11 @@ bool AnalysisCore::addOutputDescriptor(OutputDescriptor&& descr) {
     return inserted;
 }
 
-bool AnalysisCore::addAllUnknowns(const PTSave& save) {
+bool AnalysisCore::addAllUnknowns(const PTSave& save, Status& s) {
     clearError();
     if (save.objName() || save.subName()) {
         // No parameters should be passed for default
-        lastError = Error::Arguments;
-        errorExpectedArgCount = 0;
+        expectedSaveArgumentsError(0, s);
         return false;
     }
     // Go through all variables, skip index 0 (corresponds to ground node potential),
@@ -80,12 +79,11 @@ bool AnalysisCore::addAllUnknowns(const PTSave& save) {
     return true;
 }
     
-bool AnalysisCore::addAllNodes(const PTSave& save) {
+bool AnalysisCore::addAllNodes(const PTSave& save, Status& s) {
     clearError();
     if (save.objName() || save.subName()) {
         // No parameters should be passed for default
-        lastError = Error::Arguments;
-        errorExpectedArgCount = 0;
+        expectedSaveArgumentsError(0, s);
         return false;
     }
     // Go through all nodes 
@@ -104,12 +102,11 @@ bool AnalysisCore::addAllNodes(const PTSave& save) {
     return true;
 }
 
-bool AnalysisCore::addNode(const PTSave& save) {
+bool AnalysisCore::addNode(const PTSave& save, Status& s) {
     clearError();
     if (!save.objName() || save.subName()) {
         // One parameter should be passed
-        lastError = Error::Arguments;
-        errorExpectedArgCount = 1;
+        expectedSaveArgumentsError(1, s);
         return false;
     }
     // Create descriptor
@@ -118,12 +115,11 @@ bool AnalysisCore::addNode(const PTSave& save) {
     return true;
 }
 
-bool AnalysisCore::addFlow(const PTSave& save) {
+bool AnalysisCore::addFlow(const PTSave& save, Status& s) {
     clearError();
     if (!save.objName() || save.subName()) {
         // One parameter should be passed
-        lastError = Error::Arguments;
-        errorExpectedArgCount = 1;
+        expectedSaveArgumentsError(1, s);
         return false;
     }
     // Node name <objName>:flow(br) 
@@ -135,12 +131,11 @@ bool AnalysisCore::addFlow(const PTSave& save) {
     return true;
 }
 
-bool AnalysisCore::addInstanceOutvar(const PTSave& save) {
+bool AnalysisCore::addInstanceOutvar(const PTSave& save, Status& s) {
     clearError();
     if (!save.objName() || !save.subName()) {
         // Both parameters should be passed
-        lastError = Error::Arguments;
-        errorExpectedArgCount = 2;
+        expectedSaveArgumentsError(2, s);
         return false;
     }
     // Create descriptor
@@ -150,12 +145,11 @@ bool AnalysisCore::addInstanceOutvar(const PTSave& save) {
     return true;
 }
 
-bool AnalysisCore::addAllTfZin(const PTSave& save, std::unordered_map<Id,size_t>& nameMap) {
+bool AnalysisCore::addAllTfZin(const PTSave& save, std::unordered_map<Id,size_t>& nameMap, Status& s) {
     clearError();
     if (save.objName() || save.subName()) {
         // No parameters should be passed for default
-        lastError = Error::Arguments;
-        errorExpectedArgCount = 0;
+        expectedSaveArgumentsError(0, s);
         return false;
     }
     // Go through all independent sources
@@ -191,12 +185,11 @@ bool AnalysisCore::addAllTfZin(const PTSave& save, std::unordered_map<Id,size_t>
     return true;
 }
 
-bool AnalysisCore::addTf(const PTSave& save, std::unordered_map<Id,size_t>& nameMap) {
+bool AnalysisCore::addTf(const PTSave& save, std::unordered_map<Id,size_t>& nameMap, Status& s) {
     clearError();
     if (!save.objName() || save.subName()) {
         // One parameter should be passed
-        lastError = Error::Arguments;
-        errorExpectedArgCount = 1;
+        expectedSaveArgumentsError(1, s);
         return false;
     }
     // Will insert only if entry does not exist
@@ -214,12 +207,11 @@ bool AnalysisCore::addTf(const PTSave& save, std::unordered_map<Id,size_t>& name
     return true;
 }
 
-bool AnalysisCore::addZin(const PTSave& save, std::unordered_map<Id,size_t>& nameMap) {
+bool AnalysisCore::addZin(const PTSave& save, std::unordered_map<Id,size_t>& nameMap, Status& s) {
     clearError();
     if (!save.objName() || save.subName()) {
         // One parameter should be passed
-        lastError = Error::Arguments;
-        errorExpectedArgCount = 1;
+        expectedSaveArgumentsError(1, s);
         return false;
     }
     // Will insert only if entry does not exist
@@ -236,12 +228,11 @@ bool AnalysisCore::addZin(const PTSave& save, std::unordered_map<Id,size_t>& nam
     return true;
 }
 
-bool AnalysisCore::addYin(const PTSave& save, std::unordered_map<Id,size_t>& nameMap) {
+bool AnalysisCore::addYin(const PTSave& save, std::unordered_map<Id,size_t>& nameMap, Status& s) {
     clearError();
     if (!save.objName() || save.subName()) {
         // One parameter should be passed
-        lastError = Error::Arguments;
-        errorExpectedArgCount = 1;
+        expectedSaveArgumentsError(1, s);
         return false;
     }
     // Will insert only if entry does not exist
@@ -258,12 +249,11 @@ bool AnalysisCore::addYin(const PTSave& save, std::unordered_map<Id,size_t>& nam
     return true;
 }
 
-bool AnalysisCore::addAllNoiseContribInst(const PTSave& save, bool details) {
+bool AnalysisCore::addAllNoiseContribInst(const PTSave& save, bool details, Status& s) {
     clearError();
     if (save.objName() || save.subName()) {
         // No parameters should be passed for default
-        lastError = Error::Arguments;
-        errorExpectedArgCount = 0;
+        expectedSaveArgumentsError(0, s);
         return false;
     }
     // Go through all instances
@@ -299,13 +289,12 @@ bool AnalysisCore::addAllNoiseContribInst(const PTSave& save, bool details) {
     return true;
 }
 
-bool AnalysisCore::addNoiseContribInst(const PTSave& save, bool details) {
+bool AnalysisCore::addNoiseContribInst(const PTSave& save, bool details, Status& s) {
     clearError();
     if (details) {
         // Expect only one argument
         if (!save.objName() || save.subName()) {
-            lastError = Error::Arguments;
-            errorExpectedArgCount = 1;
+            expectedSaveArgumentsError(1, s);
             return false;
         }
         // Get instance
@@ -327,8 +316,7 @@ bool AnalysisCore::addNoiseContribInst(const PTSave& save, bool details) {
     } else {
         // One or two arguments
         if (!save.objName() && !save.subName()) {
-            lastError = Error::Arguments;
-            errorExpectedArgCount = 1;
+            expectedSaveArgumentsError(1, s);
             return false;
         }
         if (!save.subName()) {
@@ -346,17 +334,67 @@ bool AnalysisCore::addNoiseContribInst(const PTSave& save, bool details) {
     return true;
 }
     
-bool AnalysisCore::addRealVarOutputSource(bool strict, Id name, const Vector<double>& solution, Id asName) {
+bool AnalysisCore::addRealVarOutputSource(bool strict, Id name, const Vector<double>& solution, Id asName, Status& s) {
     clearError();
     // Solution vector component
     auto node = circuit.findNode(name);
     // Get unknown
     if (node) {
         auto unknown = node->unknownIndex();
-        outputSources.emplace_back(&solution, node->unknownIndex(), asName ? asName : name);
+        outputSources.emplace_back(&solution, node->unknownIndex(), asName);
     } else if (strict) {
-        lastError = Error::NodeNotFound;
-        errorId = name;
+        s.set(Status::NotFound, "Node '"+std::string(name)+"' not found.");
+        return false;
+    } else {
+        outputSources.emplace_back(asName);
+    }
+    return true;
+}
+
+bool AnalysisCore::addRealVarOutputSource(bool strict, Id name, const VectorRepository<double>& solution, Id asName, Status& s) {
+    clearError();
+    // Solution vector component
+    auto node = circuit.findNode(name);
+    // Get unknown
+    if (node) {
+        auto unknown = node->unknownIndex();
+        outputSources.emplace_back(&solution, node->unknownIndex(), asName);
+    } else if (strict) {
+        s.set(Status::NotFound, "Node '"+std::string(name)+"' not found.");
+        return false;
+    } else {
+        outputSources.emplace_back(asName);
+    }
+    return true;
+}
+
+bool AnalysisCore::addComplexVarOutputSource(bool strict, Id name, const Vector<Complex>& solution, Id asName, Status& s) {
+    clearError();
+    // Solution vector component
+    auto node = circuit.findNode(name);
+    // Get unknown
+    if (node) {
+        auto unknown = node->unknownIndex();
+        outputSources.emplace_back(&solution, node->unknownIndex(), asName);
+    } else if (strict) {
+        s.set(Status::NotFound, "Node '"+std::string(name)+"' not found.");
+        return false;
+    } else {
+        outputSources.emplace_back(asName);
+    }
+    return true;
+}
+
+bool AnalysisCore::addComplexVarOutputSource(bool strict, Id name, const VectorRepository<Complex>& solution, Id asName, Status& s) {
+    clearError();
+    // Solution vector component
+    auto node = circuit.findNode(name);
+    // Get unknown
+    if (node) {
+        auto unknown = node->unknownIndex();
+        outputSources.emplace_back(&solution, node->unknownIndex(), asName);
+    } else if (strict) {
+        s.set(Status::NotFound, "Node '"+std::string(name)+"' not found.");
         return false;
     } else {
         outputSources.emplace_back(asName ? asName : name);
@@ -364,61 +402,7 @@ bool AnalysisCore::addRealVarOutputSource(bool strict, Id name, const Vector<dou
     return true;
 }
 
-bool AnalysisCore::addRealVarOutputSource(bool strict, Id name, const VectorRepository<double>& solution, Id asName) {
-    clearError();
-    // Solution vector component
-    auto node = circuit.findNode(name);
-    // Get unknown
-    if (node) {
-        auto unknown = node->unknownIndex();
-        outputSources.emplace_back(&solution, node->unknownIndex(), asName ? asName : name);
-    } else if (strict) {
-        lastError = Error::NodeNotFound;
-        errorId = name;
-        return false;
-    } else {
-        outputSources.emplace_back(asName ? asName : name);
-    }
-    return true;
-}
-
-bool AnalysisCore::addComplexVarOutputSource(bool strict, Id name, const Vector<Complex>& solution, Id asName) {
-    clearError();
-    // Solution vector component
-    auto node = circuit.findNode(name);
-    // Get unknown
-    if (node) {
-        auto unknown = node->unknownIndex();
-        outputSources.emplace_back(&solution, node->unknownIndex(), asName ? asName : name);
-    } else if (strict) {
-        lastError = Error::NodeNotFound;
-        errorId = name;
-        return false;
-    } else {
-        outputSources.emplace_back(asName ? asName : name);
-    }
-    return true;
-}
-
-bool AnalysisCore::addComplexVarOutputSource(bool strict, Id name, const VectorRepository<Complex>& solution, Id asName) {
-    clearError();
-    // Solution vector component
-    auto node = circuit.findNode(name);
-    // Get unknown
-    if (node) {
-        auto unknown = node->unknownIndex();
-        outputSources.emplace_back(&solution, node->unknownIndex(), asName ? asName : name);
-    } else if (strict) {
-        lastError = Error::NodeNotFound;
-        errorId = name;
-        return false;
-    } else {
-        outputSources.emplace_back(asName ? asName : name);
-    }
-    return true;
-}
-
-bool AnalysisCore::addOutvarOutputSource(bool strict, Id instance, Id outvar, Id asName) {
+bool AnalysisCore::addOutvarOutputSource(bool strict, Id instance, Id outvar, Id asName, Status& s) {
     clearError();
     auto inst = circuit.findInstance(instance);
     if (inst) {
@@ -427,20 +411,17 @@ bool AnalysisCore::addOutvarOutputSource(bool strict, Id instance, Id outvar, Id
         if (found) {
             auto [ok, osrc] = inst->outvarOutputSource(ndx);
             if (!ok && strict) {
+                s.set(Status::NotFound, "Output variable '"+std::string(outvar)+"' of instance '"+std::string(instance)+"' not readable.");
                 return false;
             }
-            // Name must be explicitly given
             osrc.setName(asName);
             outputSources.push_back(std::move(osrc));
         } else if (strict) {
-            lastError = Error::OutvarNotFound;
-            errorId = instance;
-            errorId2 = outvar;
+            s.set(Status::NotFound, "Output variable '"+std::string(outvar)+"' of instance '"+std::string(instance)+"' not found.");
             return false;
         }
     } else if (strict) {
-        lastError = Error::InstanceNotFound;
-        errorId = instance;
+        s.set(Status::NotFound, "Instance '"+std::string(outvar)+"' not found.");
         return false;
     } else {
         outputSources.emplace_back(asName);
@@ -522,26 +503,24 @@ std::tuple<bool, Instance*> AnalysisCore::getExcitation(Id name) {
     return std::make_tuple(true, inst);
 }
 
+void AnalysisCore::expectedSaveArgumentsError(int expectedArgumentCount, Status& s) {
+    switch (expectedArgumentCount) {
+        case 0: 
+            s.set(Status::Save, "Save directive does not accept arguments.");
+            break;
+        case 1:
+            s.set(Status::Save, "Save directive requires one argument.");
+            break;
+        default:
+            s.set(Status::Save, "Save directive requires "+std::to_string(errorExpectedArgCount)+" arguments.");
+            break;
+    }
+}
+
 bool AnalysisCore::formatError(Status& s) const {
     switch (lastError) {
-        case Error::Arguments:
-            switch (errorExpectedArgCount) {
-                case 0: 
-                    s.set(Status::Save, "Save directive does not accept arguments.");
-                    break;
-                case 1:
-                    s.set(Status::Save, "Save directive requires one argument.");
-                    break;
-                default:
-                    s.set(Status::Save, "Save directive requires "+std::to_string(errorExpectedArgCount)+" arguments.");
-                    break;
-            }
-            return false;
         case Error::NodeNotFound:
             s.set(Status::Analysis, std::string("Node '")+std::string(errorId)+"' not found.");
-            return false;
-        case Error::OutvarNotFound:
-            s.set(Status::Analysis, std::string("Output variable '")+std::string(errorId2)+"' of instance '"+std::string(errorId)+"' not found.");
             return false;
         case Error::InstanceNotFound:
             s.set(Status::Analysis, std::string("Instance '")+std::string(errorId)+"' not found.");
@@ -554,9 +533,6 @@ bool AnalysisCore::formatError(Status& s) const {
             return false;
         case Error::InstanceNotSource:
             s.set(Status::Analysis, std::string("Instance '")+std::string(errorId)+"' is not an independent source.");
-            return false;
-        case Error::Descriptor:
-            s.set(Status::Analysis, std::string("Failed to add output descriptor for '")+std::string(errorId)+"'.");
             return false;
     }
     return true;

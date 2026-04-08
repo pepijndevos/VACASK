@@ -52,7 +52,7 @@ ACCore::~ACCore() {
     delete outfile;
 }
 
-bool ACCore::resolveOutputDescriptors(bool strict) {
+bool ACCore::resolveOutputDescriptors(bool strict, Status& s) {
     // Clear output sources
     outputSources.clear();
     // Resolve output descriptors
@@ -62,14 +62,14 @@ bool ACCore::resolveOutputDescriptors(bool strict) {
         Instance *inst;
         switch (it->type) {
         case OutdSolComponent:
-            ok = addComplexVarOutputSource(strict, it->id, acSolution);
+            ok = addComplexVarOutputSource(strict, it->id, acSolution, it->id, s);
             break;
         case OutdFrequency:
             outputSources.emplace_back(&frequency, it->name);
             break;
         default:
             // Delegate to parent
-            ok = parentResolver.resolveOutputDescriptor(*it, outputSources, strict);
+            ok = parentResolver.resolveOutputDescriptor(*it, outputSources, strict, s);
             break;
         }
         if (!ok) {
@@ -79,27 +79,25 @@ bool ACCore::resolveOutputDescriptors(bool strict) {
     return ok;
 }
 
-bool ACCore::addCoreOutputDescriptors() {
-    clearError();
+bool ACCore::addCoreOutputDescriptors(Status& s) {
     // If output is suppressed, skip all this work
     if (!params.write || Simulator::noOutput()) {
         return true;
     }
     if (!addOutputDescriptor(OutputDescriptor(OutdFrequency, "frequency"))) {
-        lastError = Error::Descriptor;
-        errorId = "frequency";
+        s.set(Status::Analysis, std::string("Failed to add output descriptor for frequency."));
         return false;
     }
     return true;
 }
 
-bool ACCore::addDefaultOutputDescriptors() {
+bool ACCore::addDefaultOutputDescriptors(Status& s) {
     // If output is suppressed, skip all this work
     if (!params.write || Simulator::noOutput()) {
         return true;
     }
     if (savesCount==0) {
-        return addAllUnknowns(PTSave("default", Id(), Id()));
+        return addAllUnknowns(PTSave("default", Id(), Id()), s);
     }
     return true;
 }
