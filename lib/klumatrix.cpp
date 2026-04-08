@@ -121,7 +121,7 @@ template<typename IndexType, typename ValueType> bool KluMatrixCore<IndexType, V
     smap = &m;
     
     AN = n;
-    auto nnz_ = m.size();
+    nnz_ = m.size();
     AP = new IndexType[n+1];
     AI = new IndexType[nnz_];
     if (!AP || !AI) {
@@ -207,7 +207,6 @@ template<typename IndexType, typename ValueType> bool KluMatrixCore<IndexType, V
 }
 
 template<typename IndexType, typename ValueType> void KluMatrixCore<IndexType, ValueType>::zero(Component what) {
-    auto nnz_ = AP[AN];
     if constexpr(std::is_same<ValueType, Complex>::value) {
         if (what==(Component::Real|Component::Imaginary)) {
             for(IndexType i=0; i<nnz_; i++) {
@@ -390,9 +389,8 @@ template<typename IndexType, typename ValueType> bool KluMatrixCore<IndexType, V
     // Check matrix
     bool gotInf = false;
     bool gotNan = false;
-    auto nnz = AP[AN];
     IndexType i;
-    for(i=0; i<nnz; i++) {
+    for(i=0; i<nnz_; i++) {
         if constexpr(std::is_same<ValueType, Complex>::value) {
             if (nanCheck) {
                 gotNan = gotNan || (std::isnan(Ax[i].real()) || std::isnan(Ax[i].imag()));
@@ -466,8 +464,7 @@ template<typename IndexType, typename ValueType> bool KluMatrixCore<IndexType, V
 
     // Go through entries
     IndexType col1, col2;
-    auto nnz = AP[AN];
-    for(IndexType i=0; i<nnz; i++) {
+    for(IndexType i=0; i<nnz_; i++) {
         auto row = AI[i];
         double nrm;
         if constexpr(std::is_same<double, ValueType>::value) {
@@ -613,14 +610,14 @@ template<typename IndexType, typename ValueType> void KluMatrixCore<IndexType, V
     }
     os << "\n";
     os << "Ai: ";
-    for(IndexType i=0; i<AP[AN]; i++) {
+    for(IndexType i=0; i<nnz_; i++) {
         os << AI[i] << " ";
     }
 }
 
 template<typename IndexType, typename ValueType> void KluMatrixCore<IndexType, ValueType>::dumpEntries(std::ostream& os) {
     os << "Ax: ";
-    for(IndexType i=0; i<AP[AN]; i++) {
+    for(IndexType i=0; i<nnz_; i++) {
         os << Ax[i] << " ";
     }
 }

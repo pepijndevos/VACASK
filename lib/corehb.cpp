@@ -315,8 +315,8 @@ bool HBCore::rebuild(Status& s) {
     // Number of colocation points
     auto nt = timepoints.size();
 
-    // Jacobian entries at colocation points
-    jacColoc.rebuild(circuit.sparsityMap(), circuit.unknownCount(), nt, 2);
+    // Jacobian entries at colocation points, do not create structures for scalar access
+    jacColoc.rebuild(circuit.sparsityMap(), circuit.unknownCount(), nt, 2, true);
 
     // HB Jacobian
     if (!bsjac.rebuild(circuit.sparsityMap(), circuit.unknownCount(), nt, nt)) {

@@ -319,6 +319,7 @@ public:
 protected:
     Accounting* acct;
     bool isComplex_;
+    IndexType nnz_;
     IndexType AN;
     IndexType* AP;
     IndexType* AI;

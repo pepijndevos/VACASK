@@ -78,7 +78,7 @@ Complex* KluBlockSparseMatrixCore<IndexType, ValueType>::cxValuePtr(
 }
 
 template<typename IndexType, typename ValueType> 
-bool KluBlockSparseMatrixCore<IndexType, ValueType>::rebuild(SparsityMap& m, EquationIndex n, EquationIndex nbRow, UnknownIndex nbCol) {
+bool KluBlockSparseMatrixCore<IndexType, ValueType>::rebuild(SparsityMap& m, EquationIndex n, EquationIndex nbRow, UnknownIndex nbCol, bool storageOnly) {
     KluMatrixCore<IndexType, ValueType>::clearError();
     
     this->~KluBlockSparseMatrixCore();
@@ -94,15 +94,20 @@ bool KluBlockSparseMatrixCore<IndexType, ValueType>::rebuild(SparsityMap& m, Equ
     AN = n_*nbCol_;
 
     // Number of nonzeros (for now, assume all dense blocks are fully dense)
-    auto nnz_ = m.size()*nbRow_*nbCol_;
+    nnz_ = m.size()*nbRow_*nbCol_;
 
     // Allocate arrays
-    AP = new IndexType[AN+1];
-    AI = new IndexType[nnz_];
     denseColumnBegin = new IndexType[n+1];
     blockColumnOrigin = new IndexType[n];
     blockColumnStride = new IndexType[n];
-    if (!AP || !AI || !denseColumnBegin || !blockColumnOrigin || !blockColumnStride) {
+    if (!storageOnly) {
+        AP = new IndexType[AN+1];
+        AI = new IndexType[nnz_];
+    } else {
+        AP = nullptr;
+        AI = nullptr;
+    }
+    if (((!AP || !AI) && !storageOnly) || !denseColumnBegin || !blockColumnOrigin || !blockColumnStride) {
         this->~KluBlockSparseMatrixCore();
         static_cast<KluMatrixCore<IndexType, ValueType>*>(this)->~KluMatrixCore();
         lastError = Error:: Memory;
@@ -168,7 +173,9 @@ bool KluBlockSparseMatrixCore<IndexType, ValueType>::rebuild(SparsityMap& m, Equ
         // Therefore AP is filled with indices correctly even in this case
         for(decltype(nbCol_) subColNdx=0; subColNdx<nbCol_; subColNdx++) {
             // Add index of first nonzero element in column
-            AP[atCol] = atNz;
+            if (!storageOnly) {
+                AP[atCol] = atNz;
+            }
 
             // For each dense block in column of dense blocks
             for(auto blkPos = colBeginNdx; blkPos < colEndNdx ; blkPos++) {
@@ -180,16 +187,20 @@ bool KluBlockSparseMatrixCore<IndexType, ValueType>::rebuild(SparsityMap& m, Equ
                 blkCol--;
 
                 // For each row in dense block
-                IndexType rowIndex = blkRow * nbRow_;
-                for(decltype(nbRow_) subRowNdx=0; subRowNdx<nbRow_; subRowNdx++) {
-                    // Write row index
-                    AI[atNz] = rowIndex;
+                if (!storageOnly) {
+                    IndexType rowIndex = blkRow * nbRow_;
+                    for(decltype(nbRow_) subRowNdx=0; subRowNdx<nbRow_; subRowNdx++) {
+                        // Write row index
+                        AI[atNz] = rowIndex;
 
-                    // Advance row index
-                    rowIndex++;
+                        // Advance row index
+                        rowIndex++;
 
-                    // Advance nonzero element index
-                    atNz++;
+                        // Advance nonzero element index
+                        atNz++;
+                    }
+                } else {
+                    atNz += nbRow_;
                 }
             }
 
@@ -199,7 +210,9 @@ bool KluBlockSparseMatrixCore<IndexType, ValueType>::rebuild(SparsityMap& m, Equ
     }
 
     // Add final AP entry
-    AP[atCol] = atNz;
+    if (!storageOnly) {
+        AP[atCol] = atNz;
+    }
     
     // Allocate array for nozero element values
     Ax = new ValueType[nnz_];
@@ -230,14 +243,18 @@ bool KluBlockSparseMatrixCore<IndexType, ValueType>::rebuild(SparsityMap& m, Equ
         return false;
     }
 
-    if constexpr(std::is_same<int32_t, IndexType>::value) {
-        symbolic = klu_analyze(AN, AP, AI, &common);
+    if (!storageOnly) {
+        if constexpr(std::is_same<int32_t, IndexType>::value) {
+            symbolic = klu_analyze(AN, AP, AI, &common);
+        } else {
+            symbolic = klu_l_analyze(AN, AP, AI, &common);
+        }
+        if (!symbolic) {
+            lastError = Error::Analysis;
+            return false;
+        }
     } else {
-        symbolic = klu_l_analyze(AN, AP, AI, &common);
-    }
-    if (!symbolic) {
-        lastError = Error::Analysis;
-        return false;
+        symbolic = nullptr;
     }
     
     return true;
