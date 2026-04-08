@@ -100,6 +100,9 @@ public:
     OutputRawfile* outfile;
 
 protected:
+    // Construct suffixes for small-signal frequency in HB spurs
+    void constructSuffixes();
+
     // Construct omega vector with 2*pi*(f+f_n)
     void computeOmega(Vector<Real>& omega, Real f);
 
@@ -121,6 +124,8 @@ protected:
     KluBlockSparseComplexMatrix acMatrix;
     Vector<Complex>& acSolution;
     HBACParameters& params;
+
+    std::vector<std::string> suffixes;
 
     double frequency;
 };

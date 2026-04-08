@@ -54,6 +54,9 @@ public:
     // Row and column indices in mixingStencil refer to frequencies in this vector
     const std::vector<double>& smsigFreq() const { return smsigFreq_; };
 
+    // Weights for the i-th small-signal frequency (index into smsigFreq_)
+    VectorView<Int> smsigFreqWeights(size_t i) const { return spurWeights_.row(smsigFreqWeightIndices_[i]); };
+
     // Mapping from (output, input) spur index pair to frequency-domain Jacobian component index
     // i=0 = no entry foir this pair
     // i>0 = entries corresponding to Jacobians at frequencies given by spectrum, 

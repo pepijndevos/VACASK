@@ -7,14 +7,24 @@
 namespace NAMESPACE {
 
 
-// TODO: output descriptors specify consecutive spur numbers
-//       Before the core is built spurs are not known. 
-//       But the number of spurs is known from outspur analysis parameter. 
-    
-
 // TODO: make list of sources every time core is invoked
 //       somebody might sweep cs* parameters of sources
 
+
+void HBACCore::constructSuffixes() {
+    auto& spurs = hbCore_.spurs();
+    auto nf = spurs.smsigFreq().size();
+    suffixes.resize(nf);
+    for (size_t i = 0; i < nf; i++) {
+        auto w = spurs.smsigFreqWeights(i);
+        std::string s;
+        for (size_t k = 0; k < w.n(); k++) {
+            if (k > 0) s += ',';
+            s += std::to_string(w[k]);
+        }
+        suffixes[i] = std::move(s);
+    }
+}
 
 
 // Construct omega vector: omega[n] = 2*pi*(f + f_n)

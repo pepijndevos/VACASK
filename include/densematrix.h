@@ -713,6 +713,17 @@ public:
                 return VectorView<T>(data_.data()+i, nCol_, nRow_); 
         }   
     };
+
+    VectorView<T> row(size_t i) const {
+        auto* p = const_cast<T*>(data_.data());
+        switch (major_) {
+            case Major::Row:
+                return VectorView<T>(p+nCol_*i, nCol_, 1);
+            case Major::Column:
+            default:
+                return VectorView<T>(p+i, nCol_, nRow_);
+        }
+    };
     
     // Override for DenseMatrix
     VectorView<T> column(size_t i) { 
@@ -722,6 +733,17 @@ public:
             case Major::Column:
             default:
                 return VectorView<T>(data_.data()+i*nRow_, nRow_, 1); 
+        }
+    };
+
+    VectorView<T> column(size_t i) const {
+        auto* p = const_cast<T*>(data_.data());
+        switch (major_) {
+            case Major::Row:
+                return VectorView<T>(p+i, nRow_, nCol_);
+            case Major::Column:
+            default:
+                return VectorView<T>(p+i*nRow_, nRow_, 1);
         }
     };
 
