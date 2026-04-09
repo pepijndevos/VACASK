@@ -1,6 +1,7 @@
 #ifndef __ANCORETRAN_DEFINED
 #define __ANCORETRAN_DEFINED
 
+#include <random>
 #include "status.h"
 #include "circuit.h"
 #include "core.h"
@@ -11,6 +12,7 @@
 #include "coreop.h"
 #include "coretrannr.h"
 #include "coretrancoef.h"
+#include "tdnblock.h"
 #include "common.h"
 
 
@@ -175,6 +177,10 @@ private:
 
     size_t nPoints;
     double tk;
+    
+    // Transient noise
+    std::mt19937_64 randomGenerator;
+    TimeDomainWhiteNoise whiteBlock;
 };
 
 }

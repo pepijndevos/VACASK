@@ -609,10 +609,12 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
         co_yield CoreState::Aborted;
     }
 
-    // Transient noise, check parameters
+    // Transient noise, check parameters, prepare analysis
     double noiseStepLimit = 0;
     double noisefmax = params.noisefmax;
     double noisefmin = 0;
+    size_t nWhite = 0;
+    size_t nFlicker = 0;
     if (params.noisefmax) {
         if (params.noisefmax<0) {
             setError(TranError::Fmax);
@@ -629,10 +631,43 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
         }
 
         // Seed random generator
+        randomGenerator.seed(params.noiseseed);
 
         // Count white and flicker noise sources
+        // Device/model/instance loops
+        // Must traverse in exactly the same order each time at noise load. 
+        auto ndev = circuit.deviceCount();
+        for(decltype(ndev) idev=0; idev<ndev; idev++) {
+            auto dev = circuit.device(idev);
+            auto nmod = dev->modelCount();
+            for(decltype(nmod) imod=0; imod<nmod; imod++) {
+                auto mod = dev->model(imod);
+                auto ninst = mod->instanceCount();
+                for(decltype(ninst) iinst=0; iinst<ninst; iinst++) {
+                    auto inst = mod->instance(iinst);
+                    // Noise source count
+                    auto nsCount = inst->noiseSourceCount();
+                    if (nsCount<=0) {
+                        continue;
+                    }
+                    // Go through noise sources
+                    for(decltype(nsCount) ins=0; ins<nsCount; ins++) {
+                        auto nstype = inst->noiseSourceType(ins);
+                        switch (nstype) {
+                            case NoiseType::White:
+                                nWhite++;
+                                break;
+                            case NoiseType::Flicker:
+                                nFlicker++;
+                                break;
+                        }
+                    }
+                }
+            }
+        }
 
         // Resize noise generator blocks
+        whiteBlock.reset(0.0, 1/params.noisefmax, nWhite, 1, randomGenerator);
     }
     
     if (progressReporter) {
@@ -1454,6 +1489,11 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
             // Advance time
             tk = tSolve; 
 
+            // Advance transient noise generators
+            if (params.noisefmax) {
+                whiteBlock.advance(tk, randomGenerator);
+            }
+
             // Check Finish and Stop
             // Verilog-AMS LRM states that Finish and Stop should be taken into account
             // at converged iterations (we assume that this means accepted timepoints in transient analysis). 
@@ -1486,6 +1526,11 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
             }
             
             // Nothing to do, t_k slot (1) remains at the same place
+
+            // Revert transient noise generators
+            if (params.noisefmax) {
+                whiteBlock.revert(tk, randomGenerator);
+            }
         }
 
         // Set new hk, tSolve, and order
