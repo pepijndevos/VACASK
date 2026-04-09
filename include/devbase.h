@@ -562,6 +562,8 @@ public:
     virtual Id noiseSourceName(ParameterIndex ndx) const { return Id(); };
     virtual std::tuple<ParameterIndex, bool> uniqueNoiseSourceIndex(ParameterIndex ndx) const { return std::make_tuple(0, false); };
     virtual std::tuple<ParameterIndex, bool> uniqueNoiseSourceIndex(Id name) const { return std::make_tuple(0, false); };
+    virtual NoiseType noiseSourceType(ParameterIndex ndx) const { return NoiseType::White; }; 
+    virtual bool loadNoiseParameters(Circuit& circuit, double* power, double* exponent) { return false; };
 
     virtual std::tuple<EquationIndex, EquationIndex> noiseExcitation(Circuit& cir, ParameterIndex ndx) const { return std::make_tuple(0, 0); };
     virtual bool loadNoise(Circuit& circuit, double freq, double* noiseDensity) { return true; };

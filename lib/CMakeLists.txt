@@ -100,6 +100,7 @@ add_library(simlib STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/annoise.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/antran.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/anhb.h 
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include/tdnblock.h
     acct.cpp
     libplatform.cpp 
     dynload.cpp 
@@ -184,6 +185,7 @@ add_library(simlib STATIC
     annoise.cpp 
     antran.cpp 
     anhb.cpp
+    tdnblock.cpp
     location.cpp
     "${BISON_dflparser_OUTPUTS}"
     "${FLEX_dfllexer_OUTPUTS}"

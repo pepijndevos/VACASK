@@ -223,6 +223,10 @@ template<> int Introspection<TranParameters>::setup() {
     registerMember(start);
     registerMember(maxstep);
     registerMember(icmode);
+    registerMember(noiseseed);
+    registerMember(noisescale);
+    registerMember(noisefmax);
+    registerMember(noisefmin);
     registerNamedMember(opParams.nodeset, "nodeset");
     registerMember(ic);
     registerMember(store);
@@ -578,6 +582,11 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
         co_yield CoreState::Aborted;
     }
 
+    if (params.maxstep<0) {
+        setError(TranError::Maxstep);
+        co_yield CoreState::Aborted;
+    }
+
     // Set up integration method
     if (options.tran_method == methodAM) {
         maxOrder = options.tran_maxord;
@@ -600,6 +609,32 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
         co_yield CoreState::Aborted;
     }
 
+    // Transient noise, check parameters
+    double noiseStepLimit = 0;
+    double noisefmax = params.noisefmax;
+    double noisefmin = 0;
+    if (params.noisefmax) {
+        if (params.noisefmax<0) {
+            setError(TranError::Fmax);
+            co_yield CoreState::Aborted;
+        }
+        noiseStepLimit = 0.5/params.noisefmax;
+
+        if (!params.noisefmin) {
+            noisefmin = noisefmax/1e3;
+        }
+        if (params.noisefmin>=noisefmax) {
+            setError(TranError::Fmin);
+            co_yield CoreState::Aborted;
+        }
+
+        // Seed random generator
+
+        // Count white and flicker noise sources
+
+        // Resize noise generator blocks
+    }
+    
     if (progressReporter) {
         progressReporter->setValueFormat(ProgressReporter::ValueFormat::Scientific, 6);
         progressReporter->setValueDecoration("", "s");    
@@ -778,6 +813,10 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
     // Limited by maxstep
     if (params.maxstep>0) {
         h0 = std::min(h0, params.maxstep);
+    }
+    // Limited by transient noise sampling time
+    if (noiseStepLimit>0) {
+        h0 = std::min(h0, noiseStepLimit);
     }
     // Limit by maxFreq (tran_ffmax*period/2)
     // Maybe get rid of this
@@ -1037,6 +1076,10 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
         // Limit by maxstep if given
         if (params.maxstep>0) {
             hmax = std::min(hmax, params.maxstep);
+        }
+        // Limited by transient noise sampling time
+        if (noiseStepLimit>0) {
+            h0 = std::min(h0, noiseStepLimit);
         }
         // Limit by maxFreq (tran_ffmax*period/2)
         // Maybe get rid of this
@@ -1519,6 +1562,15 @@ bool TranCore::formatError(Status& s) const {
             break;
         case TranError::Tstart: 
             s.set(Status::Analysis, "Transient recording start time is after stop time.");
+            break;
+        case TranError::Maxstep: 
+            s.set(Status::Analysis, "Transient maximal step time must not be negative. ");
+            break;
+        case TranError::Fmin: 
+            s.set(Status::Analysis, "Transient noisefmin must be below noisefmax.");
+            break;
+        case TranError::Fmax: 
+            s.set(Status::Analysis, "Transient noisefmax must not be negative.");
             break;
         case TranError::Method: 
             s.set(Status::Analysis, "Unknown integration method '"+std::string(errorId)+"'.");

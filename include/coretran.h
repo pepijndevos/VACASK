@@ -39,18 +39,26 @@ namespace NAMESPACE {
 
 typedef struct TranParameters {
     OperatingPointParameters opParams;
-    Real step {0.0};      // Initial timestep
-    Real stop {0.0};      // Time up to which the circuit is to be simulated
-    Real start {0.0};     // Time at which the results start being recorded
-    Real maxstep {0.0};   // Maximal timestep (optional)
-    Id icmode {Id()};     // op=op with ic forces, uic=spice uic
-    Value ic {Value("")}; // String specifying stored solution slot or
-                          // list specifying initial conditions
-                          // for transient analysis
-    String store {""};    // name of stored solution slot to write transient solution to
+    Real step {0.0};       // Initial timestep
+    Real stop {0.0};       // Time up to which the circuit is to be simulated
+    Real start {0.0};      // Time at which the results start being recorded
+    Real maxstep {0.0};    // Maximal timestep (optional)
+    Id icmode {Id()};      // op=op with ic forces, uic=spice uic
+    Value ic {Value("")};  // String specifying stored solution slot or
+                           // list specifying initial conditions
+                           // for transient analysis
+    Int noiseseed {0};     // seed for noise generators
+    Real noisescale {1.0}; // scaling factor for noise generators
+    Real noisefmax {0};    // maximum frequency for transient noise (fsampling/2)
+                           // 0 = disable transient noise
+                           // Limits timestep to 0.5/noisefmax. 
+    Real noisefmin {0};    // minimum frequency for transient noise
+                           // If noisefmin=0 uses noisefmax/1e3. 
+                           // If noisefmax!=0 should be <noisefmax. 
+    String store {""};     // name of stored solution slot to write transient solution to
     // Nodeset parameter of the operating point core is also exposed. 
 
-    Int write {1};        // Write the results to a file
+    Int write {1};         // Write the results to a file
     
     TranParameters();
 } TranParameters;
@@ -65,6 +73,9 @@ public:
         Tstep, 
         Tstop, 
         Tstart, 
+        Maxstep, 
+        Fmin, 
+        Fmax, 
         Method, 
         IcMode, 
         Predictor, 

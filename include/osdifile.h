@@ -242,6 +242,9 @@ public:
         );
     };
 
+    // Noise source type from noise source index
+    inline NoiseType noiseSourceType(OsdiDeviceIndex deviceIndex, ParameterIndex ndx) const { return static_cast<NoiseType>(descriptors[deviceIndex]->noise_source_type[ndx]); }; 
+
     // Does the device allow bypass
     bool allowsBypass(OsdiDeviceIndex deviceIndex) const { return allowsBypass_[deviceIndex]; };
 

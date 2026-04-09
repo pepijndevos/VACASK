@@ -177,6 +177,9 @@ public:
         return osdiFile->noiseExcitation(index_, ndx);
     };
 
+    // Noise source type
+    inline NoiseType noiseSourceType(ParameterIndex ndx) const { return osdiFile->noiseSourceType(index_, ndx); }; 
+
     // Parameter cleanup (called in instance and model destructor)
     bool freeValues(void* coreMod, void* coreInst);
     

@@ -99,4 +99,13 @@ const double timeRelativeTolerance = std::numeric_limits<double>::epsilon()*8;
 #endif
 }
 
+// Noise type .. must match OSDI macros
+#include "osdi.h"
+enum class NoiseType {
+    White = NOISE_TYPE_WHITE,
+    Flicker = NOISE_TYPE_FLICKER, 
+    Table = NOISE_TYPE_TABLE
+};
+
+
 #endif

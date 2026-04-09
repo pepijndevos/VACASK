@@ -75,6 +75,13 @@ public:
     virtual std::tuple<ParameterIndex, bool> uniqueNoiseSourceIndex(Id name) const { return model()->device()->uniqueNoiseSourceIndex(name); }
     virtual std::tuple<EquationIndex, EquationIndex> noiseExcitation(Circuit& cir, ParameterIndex ndx) const;
     virtual bool loadNoise(Circuit& circuit, double freq, double* noiseDensity);
+    virtual NoiseType noiseSourceType(ParameterIndex ndx) const { return model()->device()->noiseSourceType(ndx); }; 
+    virtual bool loadNoiseParameters(Circuit& circuit, double* power, double* exponent) { 
+        model()->device()->descriptor()->load_noise_params(core(), model()->core(), power, exponent);
+        return true;
+    }; 
+
+    
 
     // Helpers for inlining in device, model, and instance virtual functions
     std::tuple<bool, bool, bool> setupWrapper(Circuit& circuit, OsdiSimParas& sp, double temp, bool force, DeviceRequests* devReq, Status& s=Status::ignore);
