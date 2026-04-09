@@ -744,7 +744,7 @@ after INCEND we have
                 yylval->build<Id>(yytext);
                 return(token::IDENTIFIER);
             }
-<LINESTART,BODY>'[^\s']*(?:''[^\s']*)*' { 
+<LINESTART,BODY>'[^[:space:]']*(?:''[^[:space:]']*)*' {
                 // Identifier in single quotes, any nonempty alphanumeric sequence without whitespace
                 // A pair of single quotes translates to one single quote. 
                 BEGIN(BODY);
