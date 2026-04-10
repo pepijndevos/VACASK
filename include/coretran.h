@@ -157,6 +157,8 @@ protected:
     
 private:
     bool evalAndLoadWrapper(EvalSetup& evalSetup, LoadSetup& loadSetup);
+
+    bool buildNoiseResiduals();
     
     // Update breakpoint, but only if it is after last
     void updateBreakPoint(double& bp, double candidate, double last) { if (candidate<bp && candidate>last) bp = candidate; };
@@ -181,6 +183,9 @@ private:
     // Transient noise
     std::mt19937_64 randomGenerator;
     TimeDomainWhiteNoise whiteBlock;
+    RealVector noiseResidual;
+    RealVector noisePower;
+    RealVector noiseExponent;
 };
 
 }

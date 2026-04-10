@@ -17,8 +17,13 @@ public:
 
     void reset(double t0, double timeStep);
 
+    // Return value is true if sample index changes
     template <std::uniform_random_bit_generator URBG> bool advance(double time, URBG& gen) { return false; };
+
+    // Return value is true if sample index changes
     bool revert(double time) { return false; };
+
+    // Return the vector of noise source values
     std::vector<double>& values() { throw std::logic_error("Undefined values() method."); };
 
     // Compute sample index

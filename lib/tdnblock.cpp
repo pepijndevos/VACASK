@@ -42,18 +42,13 @@ template <std::uniform_random_bit_generator URBG> void TimeDomainWhiteNoise::res
 };
 
 template <std::uniform_random_bit_generator URBG> bool TimeDomainWhiteNoise::advance(double time, URBG& gen) {
-    // Is the step too small to make sense
-    if (!stepSanityCheck(time)) {
-        return false;
-    }
-    
     // Compute new sample number
     auto index = sampleIndex(time);
 
     // Is it beyond current sample number
     if (index == atSample_) {
         // Nothing to do
-        return true;
+        return false;
     } else if (index < atSample_) {
         // Panic - advancing backward
         throw std::logic_error("Attempt to advance noise generator backward.");
@@ -69,25 +64,21 @@ template <std::uniform_random_bit_generator URBG> bool TimeDomainWhiteNoise::adv
             generate(gen);
         }
         atSample_ = index;
+        return true;
     } else {
         // Panic - advancing by more than 1
         // This should never happen if the time step upper bound is set correctly
         throw std::logic_error("Attempt to advance noise generator by more than one sample.");
     }
-    return true;
+    return false;
 }
 
 template <std::uniform_random_bit_generator URBG> bool TimeDomainWhiteNoise::revert(double time, URBG& gen) {
-    // Is the step too small to make sense
-    if (!stepSanityCheck(time)) {
-        return false;
-    }
-    
     // Compute sample number to revert to
     auto index = sampleIndex(time);
     if (index == atSample_) {
         // Nothing to do
-        return true;
+        return false;
     } else if (index > atSample_) {
         // Reverting forward, panic
         throw std::logic_error("Attempt to revert noise generator forward.");
@@ -101,13 +92,14 @@ template <std::uniform_random_bit_generator URBG> bool TimeDomainWhiteNoise::rev
             atHistoric -= 1;
         }
         atSample_ = index;
+        return true;
     } else {
         // Panic - reverting by more than 1
         // This should never happen if the time step upper bound is set correctly
         throw std::logic_error("Attempt to revert noise generator by more than one sample.");
     }
     
-    return true;
+    return false;
 }
 
 template void TimeDomainWhiteNoise::reset<std::mt19937_64>(double, double, unsigned long, int, std::mt19937_64&);
