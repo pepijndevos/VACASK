@@ -42,6 +42,7 @@
             // "args": [ "-df", "${workspaceFolder}/test/test_acsp.sim" ],
             // "args": [ "-df", "${workspaceFolder}/test/test_tran.sim" ],
             // "args": [ "-df", "${workspaceFolder}/test/test_tranic.sim" ],
+             "args": [ "-df", "${workspaceFolder}/test/test_trannoise1.sim" ],
             // "args": [ "-df", "${workspaceFolder}/test/test_noise.sim" ],
             // "args": [ "-df", "-dt", "${workspaceFolder}/test/test_build.sim" ],
             // "args": [ "-df", "${workspaceFolder}/test/test_visrc.sim" ],

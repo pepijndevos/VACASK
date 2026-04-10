@@ -227,6 +227,7 @@ template<> int Introspection<TranParameters>::setup() {
     registerMember(noisescale);
     registerMember(noisefmax);
     registerMember(noisefmin);
+    registerMember(noiseoversample);
     registerNamedMember(opParams.nodeset, "nodeset");
     registerMember(ic);
     registerMember(store);
@@ -243,7 +244,7 @@ TranCore::TranCore(
     KluRealMatrix& jacobian, VectorRepository<double>& solution, VectorRepository<double>& states
 ) : AnalysisCore(parentResolver, circuit, commons), params(params), outfile(nullptr), opCore_(opCore), 
     jacobian(jacobian), solution(solution), states(states), 
-    nrSolver(circuit, commons, jacobian, states, solution, nrSettings, integCoeffs) { 
+    nrSolver(circuit, commons, jacobian, states, solution, nrSettings, integCoeffs, whiteBlock) { 
     // Slots 0 (current) and -1 (future) are used for the NR solver
     // Slots 1, 2, ... correspond to past values (at t_{k}, t_{k-1}, ...)
     // Therefore historyOffset needs to be set to 1 when calling 
@@ -467,14 +468,6 @@ bool TranCore::rebuild(Status& s) {
 
     // opCore_'s solver is rebuilt later (done by enclosing class). 
 
-    // Noise residual setup
-    if (params.noisefmax) {
-        auto n = jacobian.nRow();
-        noiseResidual.resize(n+1);
-        // Noise residual for the first timepoint is 0. 
-        zero(noiseResidual);
-    }
-    
     return true;
 }
 
@@ -526,65 +519,6 @@ bool TranCore::deleteOutputs(Id name, Status& s) {
     return true;
 }
 
-bool TranCore::buildNoiseResiduals() {
-    size_t atWhite = 0;
-    size_t atFlicker = 0;
-
-    auto whiteSamples = whiteBlock.values();
-
-    // Zero residuals
-    zero(noiseResidual);
-
-    auto ndev = circuit.deviceCount();
-    for(decltype(ndev) idev=0; idev<ndev; idev++) {
-        auto dev = circuit.device(idev);
-        auto nmod = dev->modelCount();
-        for(decltype(nmod) imod=0; imod<nmod; imod++) {
-            auto mod = dev->model(imod);
-            auto ninst = mod->instanceCount();
-            for(decltype(ninst) iinst=0; iinst<ninst; iinst++) {
-                auto inst = mod->instance(iinst);
-                // Noise source count
-                auto nsCount = inst->noiseSourceCount();
-                if (nsCount<=0) {
-                    continue;
-                }
-                // Get noise source parameters
-                noisePower.resize(nsCount);
-                noiseExponent.resize(nsCount);
-                inst->loadNoiseParameters(circuit, noisePower.data(), noiseExponent.data());
-                // Go through noise sources
-                for(decltype(nsCount) ndx=0; ndx<nsCount; ndx++) {
-                    // Get noise source type
-                    auto nstype = inst->noiseSourceType(ndx);
-                    double sample = 0;
-                    switch (nstype) {
-                        case NoiseType::White:
-                            // Scale with sqrt(PSD) because this is a time-domain sample
-                            sample = whiteSamples[atWhite] * std::sqrt(noisePower[ndx]);
-                            atWhite++;
-                            break;
-                        case NoiseType::Flicker:
-                            atFlicker++;
-                            break;
-                        default:
-                            continue;
-                    }
-                    // Get noise source terminals, add to residuals
-                    auto [e1, e2] = inst->noiseExcitation(circuit, ndx);
-                    noiseResidual[e1] += sample;
-                    noiseResidual[e2] -= sample;
-                }
-            }
-        }
-    }
-
-    // Set bucket to 0
-    noiseResidual[0] = 0.0;
-
-    return true;
-}
-
 bool TranCore::evalAndLoadWrapper(EvalSetup& evalSetup, LoadSetup& loadSetup) {
     clearError();
     if (!circuit.evalAndLoad(commons, &evalSetup, &loadSetup, nullptr)) {
@@ -607,15 +541,6 @@ bool TranCore::evalAndLoadWrapper(EvalSetup& evalSetup, LoadSetup& loadSetup) {
     // By default ignore Finish and Stop. Will be handled in timestep loop. 
     // Outside timestep loop they are ignored. 
     
-    // Add transient noise residuals
-    if (params.noisefmax) {
-        auto n = jacobian.nRow();
-        auto residual = loadSetup.resistiveResidual;
-        for(decltype(n) i=0; i<=n; i++) {
-            residual[i] += noiseResidual[i];
-        }
-    }
-
     return true;
 }
 
@@ -696,7 +621,12 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
             setError(TranError::Fmax);
             co_yield CoreState::Aborted;
         }
-        noiseStepLimit = 0.5/params.noisefmax;
+        if (params.noiseoversample<1) {
+            setError(TranError::Oversample);
+            co_yield CoreState::Aborted;
+        }
+        auto oversampling = 10;
+        noiseStepLimit = 1/params.noisefmax/params.noiseoversample/2;
 
         if (!params.noisefmin) {
             noisefmin = noisefmax/1e3;
@@ -743,7 +673,8 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
         }
 
         // Resize noise generator blocks
-        whiteBlock.reset(0.0, 1/params.noisefmax, nWhite, 1, randomGenerator);
+        // New noise sample time is 2*noiseStepLimit
+        whiteBlock.reset(0.0, 2*noiseStepLimit, nWhite, 1, randomGenerator);
     }
     
     if (progressReporter) {
@@ -1190,7 +1121,7 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
         }
         // Limited by transient noise sampling time
         if (noiseStepLimit>0) {
-            h0 = std::min(h0, noiseStepLimit);
+            hmax = std::min(hmax, noiseStepLimit);
         }
         // Limit by maxFreq (tran_ffmax*period/2)
         // Maybe get rid of this
@@ -1578,11 +1509,6 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
                     setError(TranError::TimestepTooSmall);
                     co_yield CoreState::Aborted;
                 }
-
-                // Rebuild noise residuals
-                if (changed) {
-                    buildNoiseResiduals();
-                }
             }
 
             // Check Finish and Stop
@@ -1623,11 +1549,6 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
                 bool changed = false;
                 if (whiteBlock.revert(tk, randomGenerator)) {
                     changed = true;
-                }
-
-                // Rebuild noise residuals
-                if (changed) {
-                    buildNoiseResiduals();
                 }
             }
         }
@@ -1715,6 +1636,9 @@ bool TranCore::formatError(Status& s) const {
             break;
         case TranError::Fmax: 
             s.set(Status::Analysis, "Transient noisefmax must not be negative.");
+            break;
+        case TranError::Oversample: 
+            s.set(Status::Analysis, "Transient noiseoversample must be >=1.");
             break;
         case TranError::Method: 
             s.set(Status::Analysis, "Unknown integration method '"+std::string(errorId)+"'.");

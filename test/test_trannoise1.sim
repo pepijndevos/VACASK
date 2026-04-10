@@ -1,0 +1,91 @@
+Transient noise of a resistor (white)
+
+ground 0 
+
+load "resistor.osdi"
+
+model resistor resistor
+
+r1 (1 0) resistor r=1k
+
+control
+  abort always
+  
+  options sweep_debug=0 op_debug=0 tran_debug=0
+  options rawfile="binary" strictsave=1
+  options reltol=1e-3 vntol=1e-6 abstol=1e-12
+  options tran_method="trap"
+  analysis tran1 tran stop=100 step=1m noisefmax=1k noisefmin=1 noiseoversample=5
+  
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+from runtest import *
+import numpy as np
+from scipy.signal import welch
+import sys
+
+tests=[]
+
+plot = rawread('tran1.raw').get()
+x = plot['time']
+y = plot['1']
+print("Samples:", x.shape[0])
+
+# Actual time step limit is 1/fmax/oversample/2
+dx = 1/1e3/10
+xs = np.arange(x[0], x[-1] + dx, dx)
+ys = np.interp(xs, x, y)
+
+rms = np.mean(ys**2)**0.5
+print("rms", rms)
+print("rms^2", rms**2)
+
+nperseg = 2**16
+f, Pxx = welch(
+    ys,
+    fs=1/dx,
+    window='hann',
+    nperseg=nperseg,      
+    noverlap=nperseg/2,      
+    detrend=False,
+    return_onesided=True,
+    scaling='density', 
+    average='mean'
+)
+
+
+exact = f*0 + 4*1.3806503e-23*(27+273.15)*1e3
+
+diff = np.where(f<1e3, np.abs(10*np.log10(Pxx/exact)), 0).max()
+status = diff<5
+print("max err [dB] =", diff, status)
+tests.append(status)
+
+if isTest():
+    sys.exit(not all(tests))
+else:
+    import matplotlib.pyplot as plt 
+
+    fig1, ax1 = plt.subplots(2, 1)
+    fig1.axes[0].set_title('Transient noise of a 1k resistor (thermal)')
+    fig1.axes[0].set_ylabel('V(1) [V]')
+    fig1.axes[0].set_xlabel('time [ms]')
+
+    fig1.axes[0].plot(plot['time']*1000, plot['1'], label="V(1)")
+
+    fig1.axes[1].set_title('PSD, Nyquist frequency {}kHz'.format(1/dx/2))
+    fig1.axes[1].set_ylabel('PSD [V^2/Hz]')
+    fig1.axes[1].set_xlabel('f [Hz]')
+
+    fig1.axes[1].loglog(f, Pxx, label="PSD")
+    fig1.axes[1].loglog(f, exact, 'r', label="PSD (exact)")
+    
+    fig1.axes[1].legend(loc='lower left')
+
+    fig1.tight_layout()
+
+    plt.show()
+>>>FILE

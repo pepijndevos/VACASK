@@ -26,18 +26,21 @@ template <std::uniform_random_bit_generator URBG> void TimeDomainWhiteNoise::gen
     std::normal_distribution<double> norm(0.0, 1.0);
     for(auto& s : history.at(0)) {
         // Two-sided PSD of ZOH continuous-time signal at low frequencies is 
-        //   sigma^2 / timeStep_
+        //   sigma^2 * timeStep_
         // Then one-sided PSD is 
-        //   2 * sigma^2 / timeStep_
-        // We want PSD = 1, therefore we must multiply with
+        //   2 * sigma^2 * timeStep_
+        // We want PSD = 1, therefore we must multiply PSD with
         //   timeStep / 2
-        s = norm(gen) * timeStep_ / 2;
+        // which means that we multiply the signal with 
+        //   sqrt(timeStep / 2)
+        s = norm(gen) / std::sqrt(2 * timeStep_ );
     }
 }
 
 template <std::uniform_random_bit_generator URBG> void TimeDomainWhiteNoise::reset(double t0, double timeStep, size_t count, int rollbackDepth, URBG& gen) {
     TimeDomainNoiseBlock::reset(t0, timeStep);
-    history.upsize(rollbackDepth, count);
+    // Current + 1 past point
+    history.upsize(rollbackDepth+1, count);
     generate(gen);
 };
 

@@ -3,6 +3,7 @@
 
 #include "coreopnr.h"
 #include "coretrancoef.h"
+#include "tdnblock.h"
 #include "common.h"
 
 
@@ -15,7 +16,8 @@ public:
     TranNRSolver(
         Circuit& circuit, CommonData& commons, KluRealMatrix& jac, 
         VectorRepository<double>& states, VectorRepository<double>& solution, 
-        NRSettings& settings, IntegratorCoeffs& integCoeffs
+        NRSettings& settings, IntegratorCoeffs& integCoeffs, 
+        TimeDomainWhiteNoise& whiteBlock
     ); 
 
     virtual bool initialize(bool continuePrevious);
@@ -24,9 +26,16 @@ public:
     // nodeset and ic flags to false because 
     // nodeset flag is off due to continue mode and 
     // ic flag is off due to forces slot 2 not being present. 
+    // Override buildSystem() for loading trasient noise residuals. 
+    virtual std::tuple<bool, bool> buildSystem(bool continuePrevious);
     
 private:
     IntegratorCoeffs* integCoeffs;
+
+    // Transient noise
+    RealVector noisePower;
+    RealVector noiseExponent;
+    TimeDomainWhiteNoise& whiteBlock;
 };
 
 }
