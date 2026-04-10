@@ -282,7 +282,7 @@ bool Spurs::buildMixingMap(Int debug, Status& s) {
         return false;
     }
 
-    // Add weights for negatives af spectrum_ (cyclostationary AC, SP, STB, NOISE)
+    // Add weights for negatives af spectrum_ ((quasi)periodic AC, XF, SP, STB, NOISE)
     // Add them to spurWeights_ and smsigFreq_, and spurs_ array
     // Skip DC
     for(decltype(nf) i=1; i<nf; i++) {

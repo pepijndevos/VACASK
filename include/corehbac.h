@@ -23,7 +23,7 @@ namespace NAMESPACE {
 //   f(x) .. resistive residual
 //   q(x) .. reactive residual
 
-// (Quasi)cyclostationary small-signal analysis based on harmonic balance
+// (Quasi)periodic small-signal analysis based on harmonic balance
 // 
 // See corehb.h on how to specify nodesets. 
 
@@ -36,7 +36,9 @@ typedef struct HBACParameters {
     Id mode {Id()};   // Mode for dec/oct/lin sweep
     Int points {0};   // Number of points for dec/oct/lin sweep
     Value values {0}; // Vector of values for values sweep
-    Int writehb {0};  // 1 = dump cyclostationary operating point to <analysisname>.hb.raw;
+    Int opsolve {1};  // Solve HB problem. If 0, skips HB and evaluates 
+                      // the (quasi)periodic operating point at given nodeset. 
+    Int writehb {0};  // 1 = dump (quasi)periodic operating point to <analysisname>.hb.raw;
     // Nodeset and store parameters of the HB core 
     // are also exposed. 
 
@@ -105,10 +107,16 @@ protected:
     void constructSuffixes();
 
     // Construct omega vector with 2*pi*(f+f_n)
-    void computeOmega(Vector<Real>& omega, Real f);
+    void computeOmega(Real f);
 
     // Fill dense block
     void fillDenseBlock(const VectorView<Complex>& G, const VectorView<Complex>& C, const Vector<Real>& omega, DenseMatrixView<Complex>& block);
+
+    // Build matrix
+    void fillMatrix();
+
+    // Evaluate (quasi)periodic operating point based on given nodeset
+    bool evalOp();
 
     // Clear error
     void clearError() { AnalysisCore::clearError(); lastHBACError = HBACError::OK; }; 
@@ -126,6 +134,8 @@ protected:
 
     std::vector<std::string> suffixes;
     std::vector<int> spurIndices;
+
+    Vector<Real> omega;
 
     double frequency;
 };

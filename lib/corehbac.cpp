@@ -19,6 +19,7 @@ template<> int Introspection<HBACParameters>::setup() {
     registerMember(mode);
     registerMember(points);
     registerMember(values);
+    registerMember(opsolve);
     registerMember(writehb);
     registerMember(outspur);
     registerMember(write);
@@ -53,7 +54,6 @@ HBACCore::~HBACCore() {
     delete outfile;
 }
 
-// TODO
 bool HBACCore::resolveOutputDescriptors(bool strict, Status& s) {
     // Clear output sources
     outputSources.clear();
@@ -176,7 +176,7 @@ void HBACCore::constructSuffixes() {
 // where f_n = smsigFreq[n] is the signed spur frequency from the HB operating point.
 // f    - small-signal input frequency (Hz)
 // omega - output vector, resized to nf (number of spurs)
-void HBACCore::computeOmega(Vector<Real>& omega, Real f) {
+void HBACCore::computeOmega(Real f) {
     auto& smsigFreq = hbCore_.spurs().smsigFreq();
     auto nf = smsigFreq.size();
     for (size_t n = 0; n < nf; n++) {
@@ -234,5 +234,32 @@ void HBACCore::fillDenseBlock(
         p += nf;
     }
 }
+
+void HBACCore::fillMatrix() {
+    acMatrix.zero();
+    for(auto& pos : circuit.sparsityMap().positions()) {
+        // Jacobian spectrum block, column 1 is G, column 2 is C
+        auto [jacSpecBlock, found1] = jacSpec.block(pos);
+        auto G = jacSpecBlock.column(0);
+        auto C = jacSpecBlock.column(1);
+
+        // Get AC matrix block
+        auto [block, found2] = acMatrix.block(pos);
+        
+        // Fill block
+        fillDenseBlock(G, C, omega, block);
+    }
+}
+
+bool HBACCore::evalOp() {
+    // Use HB core's NR solver to evaluate G and C in frequency domain for given nodeset
+
+    // Get nodeset
+
+    // Evaluate
+
+    return true;
+}
+
 
 }

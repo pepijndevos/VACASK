@@ -73,7 +73,7 @@ public:
     // Build grid and spectrum (for HB)
     bool build(const std::vector<double>& fundamentals, const std::vector<int>& nHarmonics, int maxImOrder=0, bool hybrid=false, Int debug=0, Status& s=Status::ignore);
    
-    // Build mixing map for (quasi)cyclostationary small-signal analyses
+    // Build mixing map for (quasi)perodic small-signal analyses
     bool buildMixingMap(int debug=0, Status& s=Status::ignore);
 
     // Range of fow indoces for column i where mixing entries are found
@@ -140,7 +140,7 @@ private:
     // Spectral frequencies, signed, sorted by absolute value - used by HB at APFT construction
     Vector<Real> signedSpectrum_;
 
-    // Small-signal frequencies, sorted - used by cyclostationary small signal analyses
+    // Small-signal frequencies, sorted - used by (quasi)periodic small signal analyses
     // These are absolute spectral frequencies and their negatives, 0 is always included
     Vector<Real> smsigFreq_;
 
