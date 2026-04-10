@@ -180,7 +180,8 @@ SimulatorOptions::SimulatorOptions() {
                     // 0 = pure Euler, 0.5 = pure trapezoidal
     tran_trapltefilter = 1; // enable trap ringing filter for predictor and LTE computation, 
                             // applied only when Adams-Moulton algorithm of order 2 is used 
-    
+    tran_laggednoise = 1; // Use lagged noise coupling (better convergence)
+
     hb_debug = 0; // >0 = enables debugging
                   // >=1 print iteration type, homotopy information, convergence report
                   // >=2 print continuation mode information
@@ -288,6 +289,7 @@ template<> int Introspection<SimulatorOptions>::setup() {
     registerMember(tran_spicelte);
     registerMember(tran_xmu);
     registerMember(tran_trapltefilter);
+    registerMember(tran_laggednoise);
 
     registerMember(hb_debug);
     registerMember(hb_itl);

@@ -244,7 +244,7 @@ TranCore::TranCore(
     KluRealMatrix& jacobian, VectorRepository<double>& solution, VectorRepository<double>& states
 ) : AnalysisCore(parentResolver, circuit, commons), params(params), outfile(nullptr), opCore_(opCore), 
     jacobian(jacobian), solution(solution), states(states), 
-    nrSolver(circuit, commons, jacobian, states, solution, nrSettings, integCoeffs, whiteBlock) { 
+    nrSolver(circuit, commons, jacobian, states, solution, nrSettings, integCoeffs) { 
     // Slots 0 (current) and -1 (future) are used for the NR solver
     // Slots 1, 2, ... correspond to past values (at t_{k}, t_{k-1}, ...)
     // Therefore historyOffset needs to be set to 1 when calling 
@@ -639,42 +639,8 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
         // Seed random generator
         randomGenerator.seed(params.noiseseed);
 
-        // Count white and flicker noise sources
-        // Device/model/instance loops
-        // Must traverse in exactly the same order each time at noise load. 
-        auto ndev = circuit.deviceCount();
-        for(decltype(ndev) idev=0; idev<ndev; idev++) {
-            auto dev = circuit.device(idev);
-            auto nmod = dev->modelCount();
-            for(decltype(nmod) imod=0; imod<nmod; imod++) {
-                auto mod = dev->model(imod);
-                auto ninst = mod->instanceCount();
-                for(decltype(ninst) iinst=0; iinst<ninst; iinst++) {
-                    auto inst = mod->instance(iinst);
-                    // Noise source count
-                    auto nsCount = inst->noiseSourceCount();
-                    if (nsCount<=0) {
-                        continue;
-                    }
-                    // Go through noise sources
-                    for(decltype(nsCount) ins=0; ins<nsCount; ins++) {
-                        auto nstype = inst->noiseSourceType(ins);
-                        switch (nstype) {
-                            case NoiseType::White:
-                                nWhite++;
-                                break;
-                            case NoiseType::Flicker:
-                                nFlicker++;
-                                break;
-                        }
-                    }
-                }
-            }
-        }
-
-        // Resize noise generator blocks
-        // New noise sample time is 2*noiseStepLimit
-        whiteBlock.reset(0.0, 2*noiseStepLimit, nWhite, 1, randomGenerator);
+        // Initialize transient noise generators
+        nrSolver.initializeNoise(noiseStepLimit, randomGenerator);
     }
     
     if (progressReporter) {
@@ -1498,14 +1464,9 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
 
             // Advance transient noise generators
             if (params.noisefmax) {
-                bool changed = false;
-                if (whiteBlock.advance(tk, randomGenerator)) {
-                    changed = true;
-                }
-
-                // It is sufficient to check step sanity with white noise block
-                // flicker noise block would perform the same check. 
-                if (!whiteBlock.stepSanityCheck(tk)) {
+                auto [ok, changed] = nrSolver.advanceNoise(tk, randomGenerator);
+                // ok indicated if time step is not too small
+                if (!ok) {
                     setError(TranError::TimestepTooSmall);
                     co_yield CoreState::Aborted;
                 }
@@ -1546,10 +1507,7 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
 
             // Revert transient noise generators
             if (params.noisefmax) {
-                bool changed = false;
-                if (whiteBlock.revert(tk, randomGenerator)) {
-                    changed = true;
-                }
+                nrSolver.revertNoise(tk, randomGenerator);
             }
         }
 

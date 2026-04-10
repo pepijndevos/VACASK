@@ -16,10 +16,19 @@ public:
     TranNRSolver(
         Circuit& circuit, CommonData& commons, KluRealMatrix& jac, 
         VectorRepository<double>& states, VectorRepository<double>& solution, 
-        NRSettings& settings, IntegratorCoeffs& integCoeffs, 
-        TimeDomainWhiteNoise& whiteBlock
+        NRSettings& settings, IntegratorCoeffs& integCoeffs
     ); 
 
+    // Called in the beginning of transient noise analysis
+    void initializeNoise(double noiseStepLimit, std::mt19937_64& gen);
+    
+    // Called on accepted timepoint
+    // Return value: step ok, sample index changed
+    std::tuple<bool, bool> advanceNoise(double time, std::mt19937_64& gen);
+
+    // Called on rejected timepoint
+    bool revertNoise(double time, std::mt19937_64& gen);
+    
     virtual bool initialize(bool continuePrevious);
 
     // No need to override buildSysten() and computeResidual() to set 
@@ -30,12 +39,16 @@ public:
     virtual std::tuple<bool, bool> buildSystem(bool continuePrevious);
     
 private:
+    void buildNoiseResidual(double* noiseResidualContribution);
+    
     IntegratorCoeffs* integCoeffs;
 
     // Transient noise
     RealVector noisePower;
     RealVector noiseExponent;
-    TimeDomainWhiteNoise& whiteBlock;
+    TimeDomainWhiteNoise whiteBlock;
+    VectorRepository<double> noiseResidual;
+    int reverted;
 };
 
 }

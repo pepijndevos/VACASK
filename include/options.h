@@ -80,6 +80,7 @@ typedef struct SimulatorOptions  {
     Int tran_spicelte;
     Real tran_xmu;
     Int tran_trapltefilter;
+    Int tran_laggednoise;
     Int hb_debug;
     Int hb_itl;
     Int hb_itlcont;

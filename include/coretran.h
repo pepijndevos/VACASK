@@ -183,7 +183,6 @@ private:
     
     // Transient noise
     std::mt19937_64 randomGenerator;
-    TimeDomainWhiteNoise whiteBlock;
 };
 
 }
