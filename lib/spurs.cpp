@@ -342,7 +342,8 @@ bool Spurs::buildMixingMap(Int debug, Status& s) {
     // - 1 = DC
     // - 2 = smallest nonzero positive frequency
     // - ...
-    // - -1 = negative of smallest nonzero positive frequency
+    // - -1 = not valid
+    // - -2 = negative of smallest nonzero positive frequency
     // - ...
     DenseMatrix<Int> mat(1, n, DenseMatrix<Int>::Major::Row);
     auto outW = mat.row(0);
@@ -368,7 +369,7 @@ bool Spurs::buildMixingMap(Int debug, Status& s) {
                     // Negative of a spur
                     // Offset from DC index of the corresponding positive spur
                     auto posNdx = static_cast<int>(dcIndex-jacF);
-                    jacIndex = -posNdx;
+                    jacIndex = -posNdx-1;
                 } else {
                     // Original spur
                     auto posNdx = static_cast<int>(jacF-dcIndex);
@@ -409,7 +410,7 @@ bool Spurs::buildMixingMap(Int debug, Status& s) {
                 if (ijac!=noJacIndex) {
                     auto fin = smsigFreq_[iin]; 
                     auto fout = smsigFreq_[iout];
-                    auto fjac = ijac<0 ? spurs_[-ijac].f : spurs_[ijac-1].f;
+                    auto fjac = ijac<0 ? spurs_[-ijac+1].f : spurs_[ijac-1].f;
                     Simulator::out() << "  (" << fout << ", " << fin << ") : " << fjac << (ijac<0 ? " (conjugated)" : "") << "\n";
                 }
             }

@@ -77,7 +77,7 @@ void HBACCore::fillDenseBlock(
         for(size_t n = start; n < end; n++) {
             if (*jacIndex != Spurs::noJacIndex) {
                 bool conjugated = (*jacIndex < 0);
-                auto k = static_cast<size_t>(conjugated ? (-*jacIndex) : (*jacIndex - 1));
+                auto k = (conjugated ? (-*jacIndex) : *jacIndex) - 1;
                 Complex g = conjugated ? std::conj(G[k]) : G[k];
                 Complex c = conjugated ? std::conj(C[k]) : C[k];
                 *p1 = g + Complex(0.0, *om) * c;
