@@ -86,7 +86,7 @@ bool HBCore::resolveOutputDescriptors(bool strict, Status& s) {
         // TODO: handle output variables someday
         switch (it->type) {
         case OutdSolComponent:
-            ok = addComplexVarOutputSource(strict, it->id, outputPhasors, it->name, s); 
+            ok = addComplexVarOutputSource(strict, it->id, outputPhasors, 1, 0, it->name, s); 
             break;
         case OutdFrequency:
             outputSources.emplace_back(&outputFreq, it->name);

@@ -68,10 +68,11 @@ public:
     };
        
     HBACCore(
-        OutputDescriptorResolver& parentResolver, HBACParameters& params, HBCore& opCore, Circuit& circuit, 
-        CommonData& commons, 
-        KluRealMatrix& dcJacobian, VectorRepository<double>& dcSolution, VectorRepository<double>& dcStates, 
-        KluComplexMatrix& acMatrix, Vector<Complex>& acSolution
+        OutputDescriptorResolver& parentResolver, HBACParameters& params, HBCore& opCore, 
+        Circuit& circuit, CommonData& commons, 
+        KluBlockSparseComplexMatrix& jacSpec, 
+        VectorRepository<Complex>& hbSolution, 
+        KluBlockSparseComplexMatrix& acMatrix, Vector<Complex>& acSolution
     ); 
     ~HBACCore();
     
@@ -117,15 +118,14 @@ protected:
     double errorFreq;
     Status errorStatus;
 
-    Vector<Complex>& hbSolution;
-    KluBlockSparseRealMatrix jacFd;
-    KluBlockSparseComplexMatrix jacG;
-    KluBlockSparseComplexMatrix jacC;
-    KluBlockSparseComplexMatrix acMatrix;
+    VectorRepository<Complex>& hbSolution;
+    KluBlockSparseComplexMatrix& jacSpec;
+    KluBlockSparseComplexMatrix& acMatrix;
     Vector<Complex>& acSolution;
     HBACParameters& params;
 
     std::vector<std::string> suffixes;
+    std::vector<int> spurIndices;
 
     double frequency;
 };

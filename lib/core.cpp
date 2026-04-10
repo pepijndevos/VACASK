@@ -368,14 +368,15 @@ bool AnalysisCore::addRealVarOutputSource(bool strict, Id name, const VectorRepo
     return true;
 }
 
-bool AnalysisCore::addComplexVarOutputSource(bool strict, Id name, const Vector<Complex>& solution, Id asName, Status& s) {
+bool AnalysisCore::addComplexVarOutputSource(bool strict, Id name, const Vector<Complex>& solution, size_t stride, size_t offset, Id asName, Status& s) {
     clearError();
     // Solution vector component
     auto node = circuit.findNode(name);
     // Get unknown
     if (node) {
         auto unknown = node->unknownIndex();
-        outputSources.emplace_back(&solution, node->unknownIndex(), asName);
+        auto pos = (unknown-1)*stride+1+offset;
+        outputSources.emplace_back(&solution, pos, asName);
     } else if (strict) {
         s.set(Status::NotFound, "Node '"+std::string(name)+"' not found.");
         return false;
@@ -385,14 +386,15 @@ bool AnalysisCore::addComplexVarOutputSource(bool strict, Id name, const Vector<
     return true;
 }
 
-bool AnalysisCore::addComplexVarOutputSource(bool strict, Id name, const VectorRepository<Complex>& solution, Id asName, Status& s) {
+bool AnalysisCore::addComplexVarOutputSource(bool strict, Id name, const VectorRepository<Complex>& solution, size_t stride, size_t offset, Id asName, Status& s) {
     clearError();
     // Solution vector component
     auto node = circuit.findNode(name);
     // Get unknown
     if (node) {
         auto unknown = node->unknownIndex();
-        outputSources.emplace_back(&solution, node->unknownIndex(), asName);
+        auto pos = (unknown-1)*stride+1+offset;
+        outputSources.emplace_back(&solution, pos, asName);
     } else if (strict) {
         s.set(Status::NotFound, "Node '"+std::string(name)+"' not found.");
         return false;
