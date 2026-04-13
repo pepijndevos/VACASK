@@ -39,16 +39,14 @@ public:
     virtual std::tuple<bool, bool> buildSystem(bool continuePrevious);
     
 private:
-    void buildNoiseResidual(double* noiseResidualContribution);
-    
     IntegratorCoeffs* integCoeffs;
 
     // Transient noise
-    RealVector noisePower;
-    RealVector noiseExponent;
+    void buildNoiseResidual(double* noiseResidualContribution);
     TimeDomainWhiteNoise whiteBlock;
     VectorRepository<double> noiseResidual;
     int reverted;
+    size_t maxNsCount;
 };
 
 }

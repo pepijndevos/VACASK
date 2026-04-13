@@ -83,6 +83,7 @@ void TranNRSolver::initializeNoise(double noiseStepLimit, std::mt19937_64& gen) 
     // Must traverse in exactly the same order each time at noise load. 
     size_t nWhite = 0;
     size_t nFlicker = 0;
+    maxNsCount = 0;
     auto ndev = circuit.deviceCount();
     for(decltype(ndev) idev=0; idev<ndev; idev++) {
         auto dev = circuit.device(idev);
@@ -96,6 +97,9 @@ void TranNRSolver::initializeNoise(double noiseStepLimit, std::mt19937_64& gen) 
                 auto nsCount = inst->noiseSourceCount();
                 if (nsCount<=0) {
                     continue;
+                }
+                if (nsCount>maxNsCount) {
+                    maxNsCount = nsCount;
                 }
                 // Go through noise sources
                 for(decltype(nsCount) ins=0; ins<nsCount; ins++) {
@@ -164,7 +168,15 @@ bool TranNRSolver::revertNoise(double time, std::mt19937_64& gen) {
 void TranNRSolver::buildNoiseResidual(double* noiseResidualContribution) {
     size_t atWhite = 0;
     size_t atFlicker = 0;
-
+    
+    // These two will hopefully be elided to stack
+    // TODO: use a stack-based container
+    // need to allocate here beacause in the future 
+    // if we use OpenMP these will be thread-local variables. 
+    // TODO: check all classes for persistent storage, mark it for replacement
+    RealVector noisePower(maxNsCount);
+    RealVector noiseExponent(maxNsCount);
+    
     auto whiteSamples = whiteBlock.values();
 
     auto ndev = circuit.deviceCount();
@@ -182,8 +194,6 @@ void TranNRSolver::buildNoiseResidual(double* noiseResidualContribution) {
                     continue;
                 }
                 // Get noise source parameters
-                noisePower.resize(nsCount);
-                noiseExponent.resize(nsCount);
                 inst->loadNoiseParameters(circuit, noisePower.data(), noiseExponent.data());
                 // Go through noise sources
                 for(decltype(nsCount) ndx=0; ndx<nsCount; ndx++) {

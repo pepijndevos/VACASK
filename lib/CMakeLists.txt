@@ -186,6 +186,7 @@ add_library(simlib STATIC
     antran.cpp 
     anhb.cpp
     tdnblock.cpp
+    tdnvmcoeff.cpp
     location.cpp
     "${BISON_dflparser_OUTPUTS}"
     "${FLEX_dfllexer_OUTPUTS}"
