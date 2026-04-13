@@ -3,7 +3,8 @@
 
 #include "coreopnr.h"
 #include "coretrancoef.h"
-#include "tdnblock.h"
+#include "tdnwhite.h"
+#include "tdnflicker.h"
 #include "common.h"
 
 
@@ -16,14 +17,27 @@ public:
     TranNRSolver(
         Circuit& circuit, CommonData& commons, KluRealMatrix& jac, 
         VectorRepository<double>& states, VectorRepository<double>& solution, 
-        NRSettings& settings, IntegratorCoeffs& integCoeffs
+        NRSettings& settings, IntegratorCoeffs& integCoeffs, 
+        VMCoefficientsRepository& vmCoefficients
     ); 
+
+    enum class TranNRSolverError {
+        OK, 
+        BadFlickerExponent, 
+        FlickerExponentChanged, 
+    };
+
+    // Clear error
+    void clearError() { OpNRSolver::clearError(); lastTranNRError = TranNRSolverError::OK; }; 
+
+    // Format error, return false on error - this function is not cheap (works with strings)
+    bool formatError(Status& s=Status::ignore, NameResolver* resolver=nullptr) const; 
 
     // Called in the beginning of transient noise analysis
     void initializeNoise(double noiseStepLimit, std::mt19937_64& gen);
     
     // Called on accepted timepoint
-    // Return value: step ok, sample index changed
+    // Return value: ok, sample index changed
     std::tuple<bool, bool> advanceNoise(double time, std::mt19937_64& gen);
 
     // Called on rejected timepoint
@@ -42,11 +56,17 @@ private:
     IntegratorCoeffs* integCoeffs;
 
     // Transient noise
-    void buildNoiseResidual(double* noiseResidualContribution);
-    TimeDomainWhiteNoise whiteBlock;
+    bool buildNoiseResidual(double* noiseResidualContribution);
+    TimeDomainWhiteNoise<std::mt19937_64> whiteBlock;
+    TimeDomainFlickerNoise<std::mt19937_64> flickerBlock;
+    VMCoefficientsRepository& vmCoefficients;
     VectorRepository<double> noiseResidual;
     int reverted;
     size_t maxNsCount;
+
+protected:
+    TranNRSolverError lastTranNRError;
+    Instance* errorInstance;
 };
 
 }

@@ -81,6 +81,7 @@ public:
         Fmin, 
         Fmax, 
         Oversample, 
+        Rows, 
         Method, 
         IcMode, 
         Predictor, 
@@ -183,6 +184,7 @@ private:
     
     // Transient noise
     std::mt19937_64 randomGenerator;
+    VMCoefficientsRepository vmCoeffs;
 };
 
 }

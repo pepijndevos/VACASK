@@ -8,8 +8,10 @@ namespace NAMESPACE {
 TranNRSolver::TranNRSolver(
     Circuit& circuit, CommonData& commons, KluRealMatrix& jac, 
     VectorRepository<double>& states, VectorRepository<double>& solution, 
-    NRSettings& settings, IntegratorCoeffs& integCoeffs
-) : OpNRSolver(circuit, commons, jac, states, solution, settings, 3), integCoeffs(&integCoeffs) {
+    NRSettings& settings, IntegratorCoeffs& integCoeffs, 
+    VMCoefficientsRepository& vmCoefficients
+) : OpNRSolver(circuit, commons, jac, states, solution, settings, 3), integCoeffs(&integCoeffs), 
+    vmCoefficients(vmCoefficients), flickerBlock(vmCoefficients) {
     // TranNRSolver has 2 force slots
     // 0 .. continuation nodesets for sweep and homotopy
     //      cannot contain branch forces
@@ -62,6 +64,9 @@ bool TranNRSolver::initialize(bool continuePrevious) {
         // Assume parent has set lastError
         return false;
     }
+
+    // Clear OP NR solver error
+    clearError();
 
     // Set output vector for building linear system (reactive residual derivative)
     loadSetup_.reactiveResidualDerivative = delta.data();
@@ -119,7 +124,13 @@ void TranNRSolver::initializeNoise(double noiseStepLimit, std::mt19937_64& gen) 
 
     // Resize noise generator blocks
     // New noise sample time is 2*noiseStepLimit
-    whiteBlock.reset(0.0, 2*noiseStepLimit, nWhite, 1, gen);
+    // Initialize to all zeros (no random generator passed)
+    // This means the first point is noiseless. 
+    whiteBlock.reset(0.0, 2*noiseStepLimit, nWhite, 1);
+    flickerBlock.reset(0.0, 2*noiseStepLimit, nFlicker, 1);
+
+    // Turn on noise evaluation in evalSetup_
+    evalSetup_.evaluateNoise = true;
 }
 
 std::tuple<bool, bool> TranNRSolver::advanceNoise(double time, std::mt19937_64& gen) {
@@ -137,12 +148,10 @@ std::tuple<bool, bool> TranNRSolver::advanceNoise(double time, std::mt19937_64& 
         }
         // Rebuild lagged noise residual
         noiseResidual.zero();
-        buildNoiseResidual(noiseResidual.data());
-    }
-    // It is sufficient to check step sanity with white noise block
-    // flicker noise block would perform the same check. 
-    if (!whiteBlock.stepSanityCheck(time)) {
-        return std::make_tuple(false, changed);
+        auto ok = buildNoiseResidual(noiseResidual.data());
+        if (!ok) {
+            return std::make_tuple(false, changed);
+        }
     }
     return std::make_tuple(true, changed);
 }
@@ -165,7 +174,7 @@ bool TranNRSolver::revertNoise(double time, std::mt19937_64& gen) {
 }
 
 
-void TranNRSolver::buildNoiseResidual(double* noiseResidualContribution) {
+bool TranNRSolver::buildNoiseResidual(double* noiseResidualContribution) {
     size_t atWhite = 0;
     size_t atFlicker = 0;
     
@@ -178,6 +187,7 @@ void TranNRSolver::buildNoiseResidual(double* noiseResidualContribution) {
     RealVector noiseExponent(maxNsCount);
     
     auto whiteSamples = whiteBlock.values();
+    auto flickerSamples = flickerBlock.values();
 
     auto ndev = circuit.deviceCount();
     for(decltype(ndev) idev=0; idev<ndev; idev++) {
@@ -206,9 +216,26 @@ void TranNRSolver::buildNoiseResidual(double* noiseResidualContribution) {
                             sample = whiteSamples[atWhite] * std::sqrt(noisePower[ndx]);
                             atWhite++;
                             break;
-                        case NoiseType::Flicker:
+                        case NoiseType::Flicker: {
+                            auto expStatus = flickerBlock.setExponent(atFlicker, noiseExponent[ndx]);
+                            if (expStatus==ExponentStatus::Unchanged) {
+                                // Do nothing
+                            } else if (expStatus==ExponentStatus::OutOfRange) {
+                                // Out of range
+                                errorInstance = inst;
+                                lastTranNRError = TranNRSolverError::BadFlickerExponent;
+                                return false;
+                            } else if (expStatus==ExponentStatus::Changed) {
+                                // Changed, but should not
+                                errorInstance = inst;
+                                lastTranNRError = TranNRSolverError::FlickerExponentChanged;
+                                return false;
+                            }
+                            // Scale sample with sqrt(PSD) because this is a time-domain sample
+                            sample = flickerSamples[atFlicker] * std::sqrt(noisePower[ndx]);
                             atFlicker++;
                             break;
+                        }
                         default:
                             continue;
                     }
@@ -220,6 +247,7 @@ void TranNRSolver::buildNoiseResidual(double* noiseResidualContribution) {
             }
         }
     }
+    return true;
 }
 
 std::tuple<bool, bool> TranNRSolver::buildSystem(bool continuePrevious) {
@@ -229,6 +257,7 @@ std::tuple<bool, bool> TranNRSolver::buildSystem(bool continuePrevious) {
     // Now load the tranisent noise residuals
     if (ok) {
         if (circuit.simulatorOptions().core().tran_laggednoise) {
+            // Lagged noise residual
             auto n = jac.nRow();
             // Skip ground node contribution
             auto nrvec = noiseResidual.data();
@@ -237,11 +266,38 @@ std::tuple<bool, bool> TranNRSolver::buildSystem(bool continuePrevious) {
             }
         } else {
             // Fully coupled noise residual
-            buildNoiseResidual(loadSetup_.resistiveResidual);
+            auto ok = buildNoiseResidual(loadSetup_.resistiveResidual);
+            if (!ok) {
+                return std::make_tuple(false, preventConvergence);
+            }
         }
     }
 
     return std::make_tuple(ok, preventConvergence);
+}
+
+bool TranNRSolver::formatError(Status& s, NameResolver* resolver) const {
+    // Error in NRSolver
+    if (lastError!=NRSolver::Error::OK) {
+        NRSolver::formatError(s, resolver);
+        return false;
+    }
+
+    if (lastError!=OpNRSolver::Error::OK) {
+        OpNRSolver::formatError(s, resolver);
+        return false;
+    }
+
+    switch (lastTranNRError) {
+        case TranNRSolverError::BadFlickerExponent:
+            s.set(Status::BadArguments, "Flicker noise exponent out of range for '"+std::string(errorInstance->name())+"'.");
+            return false;
+        case TranNRSolverError::FlickerExponentChanged:
+            s.set(Status::BadArguments, "Flicker noise exponent is not constant for '"+std::string(errorInstance->name())+"'.");
+            return false;
+        default:
+            return true;
+    }
 }
 
 }

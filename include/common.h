@@ -99,6 +99,8 @@ const double timeRelativeTolerance = std::numeric_limits<double>::epsilon()*8;
 #endif
 }
 
+const size_t SIZE_T_MAX = std::numeric_limits<std::size_t>::max();
+
 // Noise type .. must match OSDI macros
 #include "osdi.h"
 enum class NoiseType {

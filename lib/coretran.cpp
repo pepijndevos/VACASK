@@ -244,7 +244,7 @@ TranCore::TranCore(
     KluRealMatrix& jacobian, VectorRepository<double>& solution, VectorRepository<double>& states
 ) : AnalysisCore(parentResolver, circuit, commons), params(params), outfile(nullptr), opCore_(opCore), 
     jacobian(jacobian), solution(solution), states(states), 
-    nrSolver(circuit, commons, jacobian, states, solution, nrSettings, integCoeffs) { 
+    nrSolver(circuit, commons, jacobian, states, solution, nrSettings, integCoeffs, vmCoeffs) { 
     // Slots 0 (current) and -1 (future) are used for the NR solver
     // Slots 1, 2, ... correspond to past values (at t_{k}, t_{k-1}, ...)
     // Therefore historyOffset needs to be set to 1 when calling 
@@ -636,10 +636,26 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
             co_yield CoreState::Aborted;
         }
 
+        // Compute number of VM rows
+        // Because a noise smaple is generated every 1/(fmax*oversample) seconds
+        // actual fmax = fmax*oversample
+        // Add extra octaves (rows)
+        auto k = 4 + int(std::ceil(std::log(params.noiseoversample*params.noisefmax/params.noisefmin)/std::log(2)));
+        if (k>63) {
+            // Too many rows
+            setError(TranError::Rows);
+            co_yield CoreState::Aborted;
+        }
+
+        // k above 52 does not make sense (exceeds double precision)
+
+        // Initialize VM coefficients repository
+        vmCoeffs.reset(k, 2*params.noisefmax);
+
         // Seed random generator
         randomGenerator.seed(params.noiseseed);
 
-        // Initialize transient noise generators
+        // Initialize transient noise generators, prepare first sample
         nrSolver.initializeNoise(noiseStepLimit, randomGenerator);
     }
     
@@ -798,6 +814,14 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
     
     // Rotate states -1 and 0 so that future (-1) becomes current (0)
     states.rotate();
+
+    // At this point solutiom at t=0 is accepted
+    // Advance transient noise generators
+    auto [ok, changed] = nrSolver.advanceNoise(tk, randomGenerator);
+    if (!ok) {
+        setError(TranError::NRSolver);
+        co_yield CoreState::Aborted;
+    }
 
     // Set up break points
     // We just accepted solution at tsolve=0. 
@@ -1465,9 +1489,8 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
             // Advance transient noise generators
             if (params.noisefmax) {
                 auto [ok, changed] = nrSolver.advanceNoise(tk, randomGenerator);
-                // ok indicated if time step is not too small
                 if (!ok) {
-                    setError(TranError::TimestepTooSmall);
+                    setError(TranError::NRSolver);
                     co_yield CoreState::Aborted;
                 }
             }
