@@ -133,7 +133,7 @@ bool OperatingPointCore::storeState(size_t ndx, bool storeDetails) {
     }
     repo.solution.setValues(solution.vector());
     // Store current state
-    repo.solution.setAuxData(states.vector());
+    repo.solution.setOpStates(states.vector());
     // Stored state is coherent and valid
     repo.coherent = true;
     repo.valid = true;
@@ -294,13 +294,13 @@ std::tuple<bool, bool> OperatingPointCore::runSolver(bool continuePrevious) {
         if (continueState &&
             continueState->valid && continueState->coherent &&
             continueState->solution.values().size()==circuit.unknownCount()+1 &&
-            continueState->solution.auxData().size()==circuit.statesCount() 
+            continueState->solution.opStates().size()==circuit.statesCount() 
         ) {
             // Continue a state
             // State is valid, coherent, and its lengths match those of the solver vectors
             // Restore current state
             solution.vector() = continueState->solution.values();
-            states.vector() = continueState->solution.auxData();
+            states.vector() = continueState->solution.opStates();
             runInContinueMode = true;
             // No forces applied
             nrSolver.enableForces(0, false);

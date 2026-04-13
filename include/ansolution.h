@@ -4,6 +4,7 @@
 #include "ansupport.h"
 #include "node.h"
 #include "value.h"
+#include "spurs.h"
 #include "common.h"
 
 
@@ -32,9 +33,12 @@ public:
     void setNames(Circuit& circuit);
     void clearNames() { names_.clear(); };
 
-    // States (DC), frequencies (HB)
-    const Vector<double>& auxData() const { return auxData_; };
-    void setAuxData(const Vector<double>& vec) { auxData_ = vec; };
+    // States (DC), frequencies and timepoints (HB)
+    const Vector<double>& opStates() const { return realVec_; };
+    const Spurs& hbSpurs() const { return spurs_; };
+    const Vector<double>& hbTimepoints() const { return realVec_; };
+    void setOpStates(const Vector<double>& vec) { realVec_ = vec; };
+    void setHBAuxData(const Spurs& spurs, const Vector<double>& timepoints);
     
 private:
     typedef std::variant<Vector<double>, Vector<Complex>> VectorVariant;
@@ -48,8 +52,12 @@ private:
     std::vector<Id> names_;
 
     // Vector of auxiliary data
-    // - hb: list of frequencies including DC (first component)
-    Vector<double> auxData_;
+    // - op: states
+    // - hb: timepoints
+    Vector<double> realVec_;
+
+    // Spurs (HB)
+    Spurs spurs_;
 };
 
 }

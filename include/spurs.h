@@ -33,10 +33,10 @@ public:
     
     Spurs() = default;
     
-    Spurs           (const Spurs&)  = delete;
-    Spurs           (      Spurs&&) = delete;
+    explicit Spurs  (const Spurs&)  = default; // Allow explicit copy constructor
+    Spurs           (      Spurs&&) = default;
     Spurs& operator=(const Spurs&)  = delete;
-    Spurs& operator=(      Spurs&&) = delete;
+    Spurs& operator=(      Spurs&&) = default;
 
     // Truncated grid points and their negatives if mixing map is created
     const std::vector<Spur>& spurs() const { return spurs_; };

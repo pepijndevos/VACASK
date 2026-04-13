@@ -134,7 +134,7 @@ bool HBCore::finalizeOutputs(Status& s) {
         auto sol = circuit.newStoredSolution("hb", params.store);
         sol->setNames(circuit);
         sol->setCxValues(solutionFD);
-        sol->setAuxData(spurs_.spectrum());
+        sol->setHBAuxData(spurs_, timepoints);
     }
     return true;
 }
@@ -165,7 +165,7 @@ bool HBCore::storeState(size_t ndx, bool storeDetails) {
     repo.solution.setCxValues(solutionFD);
     
     // Store frequencies
-    repo.solution.setAuxData(spurs_.spectrum());
+    repo.solution.setHBAuxData(spurs_, timepoints);
     
     // Stored state is coherent and valid
     repo.coherent = true;
@@ -379,10 +379,11 @@ std::tuple<bool, bool> HBCore::runSolver(bool continuePrevious) {
     // Handle continuation
     if (continuePrevious) {
         // Continue mode
+        auto& storedSpurs = continueState->solution.hbSpurs();
         if (continueState &&
             continueState->valid && continueState->coherent &&
             continueState->solution.cxValues().size()==circuit.unknownCount()*timepoints.size() && 
-            continueState->solution.auxData().size()==spurs_.spectrum().size()
+            storedSpurs.spectrum().size()==spurs_.spectrum().size()
         ) {
             // Continue a state
             // State is valid, coherent, and its lengths match those of the solver vectors

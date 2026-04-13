@@ -27,4 +27,12 @@ void AnnotatedSolution::setNames(Circuit& circuit) {
     }
 }
 
+void AnnotatedSolution::setHBAuxData(const Spurs& spurs, const Vector<double>& timepoints) {
+    // Explicitly copy and then move to destination
+    Spurs tmp(spurs);
+    spurs_ = std::move(tmp);
+    // Copy
+    realVec_ = timepoints;
+}
+
 }

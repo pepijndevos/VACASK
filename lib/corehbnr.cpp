@@ -82,7 +82,7 @@ bool HBNRSolver::setForces(Int ndx, const AnnotatedSolution& storedSolution, boo
     f.unknownForced_.resize(n*blockSize+1, false);
     
     // Number of frequencies in solution and solver
-    auto nfSolution = storedSolution.auxData().size();
+    auto nfSolution = storedSolution.hbSpurs().spectrum().size();
     auto nfSolver = frequencies.size();
 
     // Prepare frequency translator between solution and solver
@@ -100,7 +100,7 @@ bool HBNRSolver::setForces(Int ndx, const AnnotatedSolution& storedSolution, boo
     decltype(nfSolution) ndxSolution = 1;
     for(; ndxSolver<nfSolver && ndxSolution<nfSolution;) {
         auto fSolver = frequencies[ndxSolver];
-        auto fSolution = storedSolution.auxData()[ndxSolution];
+        auto fSolution = storedSolution.hbSpurs().spectrum()[ndxSolution];
         if (std::abs(fSolver-fSolution)<=std::max(std::abs(fSolver), std::abs(fSolution))*1e-14) {
             // Frequencies are almost the same, store translator
             xlat[ndxSolver] = ndxSolution;
