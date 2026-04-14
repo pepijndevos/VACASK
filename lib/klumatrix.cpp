@@ -60,8 +60,8 @@ void SparsityMap::dump(int indent, std::ostream& os) const {
 
 
 template<typename IndexType, typename ValueType> KluMatrixCore<IndexType, ValueType>::KluMatrixCore() 
-    : AN(0), AP(nullptr), AI(nullptr), numeric(nullptr), symbolic(nullptr),  
-      Ax(nullptr), smap(nullptr), lastError(Error::OK), acct(nullptr) {
+    : AN(0), numeric(nullptr), symbolic(nullptr),  
+      smap(nullptr), lastError(Error::OK), acct(nullptr) {
     // Sanity check: IndexType can only be int32_t or int64_t
     static_assert(
         std::is_same<IndexType, int>::value || std::is_same<IndexType, int64_t>::value, 
@@ -74,7 +74,7 @@ template<typename IndexType, typename ValueType> KluMatrixCore<IndexType, ValueT
     );
 }
 
-template<typename IndexType, typename ValueType> KluMatrixCore<IndexType, ValueType>::~KluMatrixCore() {
+template<typename IndexType, typename ValueType> void KluMatrixCore<IndexType, ValueType>::deleteKluObjects() {
     if (numeric) {
         if constexpr(std::is_same<ValueType, Complex>::value) {
             if constexpr(std::is_same<int32_t,IndexType>::value) {
@@ -99,37 +99,25 @@ template<typename IndexType, typename ValueType> KluMatrixCore<IndexType, ValueT
         }
         symbolic = nullptr;
     }
-    if (AI) {
-        delete [] AI;
-        AI = nullptr;
-    }
-    if (AP) {
-        delete [] AP;
-        AP = nullptr;
-    }
-    if (Ax) {
-        delete [] Ax;
-        Ax = nullptr;
-    }
+}
+
+template<typename IndexType, typename ValueType> KluMatrixCore<IndexType, ValueType>::~KluMatrixCore() {
+    deleteKluObjects();
 }
 
 template<typename IndexType, typename ValueType> bool KluMatrixCore<IndexType, ValueType>::rebuild(SparsityMap& m, EquationIndex n) {
     clearError();
     
-    this->~KluMatrixCore();
+    deleteKluObjects();
 
     smap = &m;
     
     AN = n;
     nnz_ = m.size();
-    AP = new IndexType[n+1];
-    AI = new IndexType[nnz_];
-    if (!AP || !AI) {
-        this->~KluMatrixCore();
-        lastError = Error::Memory;
-        return false;
-    }
-
+    AP.resize(n+1);
+    AI.resize(nnz_);
+    
+    decltype(nnz_) atCol = 0;
     decltype(nnz_) atNz = 0;
     decltype(nnz_) curCol = 0;   // columns 0..curCol already have AP[] written
     AP[0] = 0;
@@ -173,13 +161,7 @@ template<typename IndexType, typename ValueType> bool KluMatrixCore<IndexType, V
     // If, however we do
     //   new double[...]() 
     // then initialization takes place. 
-    Ax = new ValueType[nnz_];
-    
-    if (!Ax) {
-        this->~KluMatrixCore();
-        lastError = Error::Memory;
-        return false;
-    }
+    Ax.resize(nnz_);
     zero();
     
     int st;
@@ -194,9 +176,9 @@ template<typename IndexType, typename ValueType> bool KluMatrixCore<IndexType, V
     }
 
     if constexpr(std::is_same<int32_t, IndexType>::value) {
-        symbolic = klu_analyze(AN, AP, AI, &common);
+        symbolic = klu_analyze(AN, AP.data(), AI.data(), &common);
     } else {
-        symbolic = klu_l_analyze(AN, AP, AI, &common);
+        symbolic = klu_l_analyze(AN, AP.data(), AI.data(), &common);
     }
     if (!symbolic) {
         lastError = Error::Analysis;
@@ -253,15 +235,15 @@ template<typename IndexType, typename ValueType> bool KluMatrixCore<IndexType, V
     }
     if constexpr(std::is_same<ValueType, Complex>::value) {
         if constexpr(std::is_same<int32_t, IndexType>::value) {
-            numeric = klu_z_factor(AP, AI, reinterpret_cast<double*>(Ax), symbolic, &common);
+            numeric = klu_z_factor(AP.data(), AI.data(), reinterpret_cast<double*>(Ax.data()), symbolic, &common);
         } else {
-            numeric = klu_zl_factor(AP, AI, reinterpret_cast<double*>(Ax), symbolic, &common);
+            numeric = klu_zl_factor(AP.data(), AI.data(), reinterpret_cast<double*>(Ax.data()), symbolic, &common);
         }
     } else {
         if constexpr(std::is_same<int32_t, IndexType>::value) {
-            numeric = klu_factor(AP, AI, Ax, symbolic, &common);
+            numeric = klu_factor(AP.data(), AI.data(), Ax.data(), symbolic, &common);
         } else {
-            numeric = klu_l_factor(AP, AI, Ax, symbolic, &common);
+            numeric = klu_l_factor(AP.data(), AI.data(), Ax.data(), symbolic, &common);
         }
     }
     bool isSingular = common.status==KLU_SINGULAR;
@@ -301,15 +283,15 @@ template<typename IndexType, typename ValueType> bool KluMatrixCore<IndexType, V
     int st;
     if constexpr(std::is_same<ValueType, Complex>::value) {
         if constexpr(std::is_same<int32_t, IndexType>::value) {
-            st = klu_z_refactor(AP, AI, reinterpret_cast<double*>(Ax), symbolic, numeric, &common);
+            st = klu_z_refactor(AP.data(), AI.data(), reinterpret_cast<double*>(Ax.data()), symbolic, numeric, &common);
         } else {
-            st = klu_zl_refactor(AP, AI, reinterpret_cast<double*>(Ax), symbolic, numeric, &common);
+            st = klu_zl_refactor(AP.data(), AI.data(), reinterpret_cast<double*>(Ax.data()), symbolic, numeric, &common);
         }
     } else {
         if constexpr(std::is_same<int32_t, IndexType>::value) {
-            st = klu_refactor(AP, AI, Ax, symbolic, numeric, &common);
+            st = klu_refactor(AP.data(), AI.data(), Ax.data(), symbolic, numeric, &common);
         } else {
-            st = klu_l_refactor(AP, AI, Ax, symbolic, numeric, &common);
+            st = klu_l_refactor(AP.data(), AI.data(), Ax.data(), symbolic, numeric, &common);
         }
     }
     bool isSingular = common.status==KLU_SINGULAR;
@@ -336,15 +318,15 @@ template<typename IndexType, typename ValueType> bool KluMatrixCore<IndexType, V
     int st;
     if constexpr(std::is_same<ValueType, Complex>::value) {
         if constexpr(std::is_same<int32_t, IndexType>::value) {
-            st = klu_z_rgrowth(AP, AI, reinterpret_cast<double*>(Ax), symbolic, numeric, &common);
+            st = klu_z_rgrowth(AP.data(), AI.data(), reinterpret_cast<double*>(Ax.data()), symbolic, numeric, &common);
         } else {
-            st = klu_zl_rgrowth(AP, AI, reinterpret_cast<double*>(Ax), symbolic, numeric, &common);
+            st = klu_zl_rgrowth(AP.data(), AI.data(), reinterpret_cast<double*>(Ax.data()), symbolic, numeric, &common);
         }
     } else {
         if constexpr(std::is_same<int32_t, IndexType>::value) {
-            st = klu_rgrowth(AP, AI, Ax, symbolic, numeric, &common);
+            st = klu_rgrowth(AP.data(), AI.data(), Ax.data(), symbolic, numeric, &common);
         } else {
-            st = klu_l_rgrowth(AP, AI, Ax, symbolic, numeric, &common);
+            st = klu_l_rgrowth(AP.data(), AI.data(), Ax.data(), symbolic, numeric, &common);
         }
     }
     if (!st) {
@@ -653,15 +635,15 @@ template<typename IndexType, typename ValueType> void KluMatrixCore<IndexType, V
             auto [offs, found] = nonzeroOffset(row, col);
             if (found) {
                 if constexpr(std::is_same<ValueType, Complex>::value) {
-                    os << std::setw(colw) << (Ax+offs)->real();
-                    if ((Ax+offs)->imag()>=0) {
-                        os << "+" << std::setw(colw-1) << (Ax+offs)->imag();
+                    os << std::setw(colw) << (Ax.data()+offs)->real();
+                    if ((Ax.data()+offs)->imag()>=0) {
+                        os << "+" << std::setw(colw-1) << (Ax.data()+offs)->imag();
                     } else {
-                        os << std::setw(colw) << (Ax+offs)->imag();
+                        os << std::setw(colw) << (Ax.data()+offs)->imag();
                     }
                     os << "i";
                 } else {
-                    os << std::setw(colw) << *(Ax+offs); 
+                    os << std::setw(colw) << *(Ax.data()+offs); 
                 }
             } else {
                 if constexpr(std::is_same<ValueType, Complex>::value) {
@@ -718,9 +700,6 @@ template<typename IndexType, typename ValueType> bool KluMatrixCore<IndexType, V
     std::string txt;
     IndexType row, col;
     switch (lastError) {
-        case Error::Memory:
-            s.set(Status::LinearSolver, "Out of memory.");
-            return false;
         case Error::Defaults:
             s.set(Status::LinearSolver, "Cannot set up KLU defaults.");
             return false;
@@ -835,7 +814,7 @@ Complex* KluAtomicMatrix<IndexType, ValueType>::cxValuePtr(
     if constexpr(std::is_same<ValueType, Complex>::value) {
         auto entry = KluMatrixCore<IndexType, ValueType>::smap->find(mep);
         if (entry) {
-            return KluMatrixCore<IndexType, ValueType>::Ax+entry->index;
+            return KluMatrixCore<IndexType, ValueType>::Ax.data()+entry->index;
         } else {
             return &(KluMatrixCore<IndexType, ValueType>::bucket_);
         }

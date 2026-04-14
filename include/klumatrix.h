@@ -11,6 +11,7 @@
 #include "flags.h"
 #include "hash.h"
 #include "acct.h"
+#include "ansupport.h"
 #include "common.h"
 
 
@@ -177,7 +178,6 @@ public:
 
     enum class Error {
         OK, 
-        Memory, 
         Defaults, 
         Analysis, 
         Factorization, 
@@ -197,6 +197,8 @@ public:
     KluMatrixCore& operator=(      KluMatrixCore&&) = delete;
 
     virtual ~KluMatrixCore();
+
+    void deleteKluObjects();
 
     // Set accounting structure
     void setAccounting(Accounting& accounting) { acct = &accounting; }; 
@@ -240,15 +242,15 @@ public:
         auto offset = entry->index;
         if constexpr(std::is_same<ValueType, Complex>::value) {
             return (comp==Component::Imaginary) ? 
-                reinterpret_cast<double*>(Ax+offset)+1 : 
-                reinterpret_cast<double*>(Ax+offset);
+                reinterpret_cast<double*>(Ax.data()+offset)+1 : 
+                reinterpret_cast<double*>(Ax.data()+offset);
         } else {
-            return (comp==Component::Imaginary) ? nullptr : (Ax+offset);
+            return (comp==Component::Imaginary) ? nullptr : (Ax.data()+offset);
         }
     };
 
     // Returns internal data array or a real matrix
-    ValueType* data() { return reinterpret_cast<ValueType*>(Ax); };
+    ValueType* data() { return reinterpret_cast<ValueType*>(Ax.data()); };
 
     // Return number of unknowns
     IndexType nRow() const { return AN; };
@@ -321,9 +323,9 @@ protected:
     bool isComplex_;
     IndexType nnz_;
     IndexType AN;
-    IndexType* AP;
-    IndexType* AI;
-    ValueType* Ax;
+    Vector<IndexType> AP;
+    Vector<IndexType> AI;
+    Vector<ValueType> Ax;
     Symbolic* symbolic;
     Numeric* numeric;
     Common common;

@@ -55,7 +55,7 @@ public:
         row--;
         col--;
         return std::make_tuple(
-            DenseMatrixView<ValueType>(Ax+nzPosition, nbRow_, nbCol_, 1, blockColumnStride[col]), 
+            DenseMatrixView<ValueType>(Ax.data()+nzPosition, nbRow_, nbCol_, 1, blockColumnStride[col]), 
             true
         );
     };
@@ -110,10 +110,10 @@ public:
         // Return pointer
         if constexpr(std::is_same<ValueType, Complex>::value) {
             return (comp==Component::Imaginary) ? 
-                reinterpret_cast<double*>(Ax+nzPosition)+1 : 
-                reinterpret_cast<double*>(Ax+nzPosition);
+                reinterpret_cast<double*>(Ax.data()+nzPosition)+1 : 
+                reinterpret_cast<double*>(Ax.data()+nzPosition);
         } else {
-            return (comp==Component::Imaginary) ? nullptr : (Ax+nzPosition);
+            return (comp==Component::Imaginary) ? nullptr : (Ax.data()+nzPosition);
         }
     };
 
@@ -153,14 +153,14 @@ protected:
     // This is the linear index of the nonzero element at the topmost block's origin. 
     // Index is within the array of scalars holding matrix nomnzeros. 
     // Array has n entries. 
-    IndexType* blockColumnOrigin;
+    Vector<IndexType> blockColumnOrigin;
     
     // Number of nnz elements to skip to reach the element 
     // in the next column of the same row of a dense block. 
     // Depends on the number of dense blocks in a column. 
     //   number of dense blocks in the column x nb
     // Array has n elements. 
-    IndexType* blockColumnStride;
+    Vector<IndexType> blockColumnStride;
 
     // Dense blocks are organized in the same order as nonzeros in ordinary 
     // sparse matrices (column major order) in a linear sequence. 
@@ -173,12 +173,13 @@ protected:
     // dense block's column is the offset of blocks's origin from the 
     // origin of the first block in this column in terms of scalars. 
     // Has n+1 elements where the n+1-th element is the number of dense blocks. 
-    IndexType* denseColumnBegin;
+    Vector<IndexType> denseColumnBegin;
 
     // TODO: make bucket static, resize when a larger one is requested
     // We need a block bucket because Jacobian load with offset could add an offset to bucket pointer
     bool largeBucket_;
     ValueType* blockBucket_;
+    Vector<ValueType> bucketStorage_;
     
 public:
     // Matrix binding interface

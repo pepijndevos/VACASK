@@ -7,26 +7,10 @@
 namespace NAMESPACE {
 
 template<typename IndexType, typename ValueType> KluBlockSparseMatrixCore<IndexType, ValueType>::KluBlockSparseMatrixCore(bool largeBucket) 
-    : denseColumnBegin(nullptr), blockColumnOrigin(nullptr), blockColumnStride(nullptr), blockBucket_(nullptr), largeBucket_(largeBucket) {
+    : blockBucket_(nullptr), largeBucket_(largeBucket) {
 }
 
 template<typename IndexType, typename ValueType> KluBlockSparseMatrixCore<IndexType, ValueType>::~KluBlockSparseMatrixCore() {
-    if (denseColumnBegin) {
-        delete [] denseColumnBegin;
-        denseColumnBegin = nullptr;
-    }
-    if (blockColumnOrigin) {
-        delete [] blockColumnOrigin;
-        blockColumnOrigin = nullptr;
-    }
-    if (blockColumnStride) {
-        delete [] blockColumnStride;
-        blockColumnStride = nullptr;
-    }
-    if (blockBucket_ && largeBucket_) {
-        delete [] blockBucket_;
-        blockBucket_ = nullptr;
-    }
 }
 
 template<typename IndexType, typename ValueType> 
@@ -68,7 +52,7 @@ Complex* KluBlockSparseMatrixCore<IndexType, ValueType>::cxValuePtr(
     if constexpr(std::is_same<ValueType, Complex>::value) {
         auto [nzPosition, found] = elementIndex(mep, blockMep);
         if (found) {
-            return Ax+nzPosition;
+            return Ax.data()+nzPosition;
         } else {
             return blockBucket_;
         }
@@ -97,23 +81,14 @@ bool KluBlockSparseMatrixCore<IndexType, ValueType>::rebuild(SparsityMap& m, Equ
     nnz_ = m.size()*nbRow_*nbCol_;
 
     // Allocate arrays
-    denseColumnBegin = new IndexType[n+1];
-    blockColumnOrigin = new IndexType[n];
-    blockColumnStride = new IndexType[n];
+    denseColumnBegin.resize(n+1);
+    blockColumnOrigin.resize(n);
+    blockColumnStride.resize(n);
     if (!storageOnly) {
-        AP = new IndexType[AN+1];
-        AI = new IndexType[nnz_];
-    } else {
-        AP = nullptr;
-        AI = nullptr;
+        AP.resize(AN+1);
+        AI.resize(nnz_);
     }
-    if (((!AP || !AI) && !storageOnly) || !denseColumnBegin || !blockColumnOrigin || !blockColumnStride) {
-        this->~KluBlockSparseMatrixCore();
-        static_cast<KluMatrixCore<IndexType, ValueType>*>(this)->~KluMatrixCore();
-        lastError = Error:: Memory;
-        return false;
-    }
-
+    
     // Element column index
     decltype(nnz_) atCol = 0;
 
@@ -215,19 +190,14 @@ bool KluBlockSparseMatrixCore<IndexType, ValueType>::rebuild(SparsityMap& m, Equ
     }
     
     // Allocate array for nozero element values
-    Ax = new ValueType[nnz_];
+    Ax.resize(nnz_);
     if (largeBucket_) {
-        blockBucket_ = new ValueType[nbRow_*nbCol_];
+        bucketStorage_.resize(nbRow_*nbCol_);
+        blockBucket_ = bucketStorage_.data();
     } else {
         blockBucket_ = &bucket_;
     }
-    if (!Ax || (largeBucket_ && !blockBucket_)) {
-        this->~KluBlockSparseMatrixCore();
-        static_cast<KluMatrixCore<IndexType, ValueType>*>(this)->~KluMatrixCore();
-        lastError = Error::Memory;
-        return false;
-    }
-
+    
     // Zero array
     KluMatrixCore<IndexType, ValueType>::zero();
     
@@ -245,9 +215,9 @@ bool KluBlockSparseMatrixCore<IndexType, ValueType>::rebuild(SparsityMap& m, Equ
 
     if (!storageOnly) {
         if constexpr(std::is_same<int32_t, IndexType>::value) {
-            symbolic = klu_analyze(AN, AP, AI, &common);
+            symbolic = klu_analyze(AN, AP.data(), AI.data(), &common);
         } else {
-            symbolic = klu_l_analyze(AN, AP, AI, &common);
+            symbolic = klu_l_analyze(AN, AP.data(), AI.data(), &common);
         }
         if (!symbolic) {
             lastError = Error::Analysis;
