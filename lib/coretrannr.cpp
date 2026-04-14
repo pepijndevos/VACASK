@@ -217,11 +217,14 @@ bool TranNRSolver::buildNoiseResidual(double* noiseResidualContribution) {
                     auto nstype = inst->noiseSourceType(ndx);
                     double sample = 0;
                     switch (nstype) {
-                        case NoiseType::White:
+                        case NoiseType::White: {
                             // Scale with sqrt(PSD) because this is a time-domain sample
-                            sample = whiteSamples[atWhite] * std::sqrt(noisePower[ndx]);
+                            auto pwr = noisePower[ndx];
+                            auto sgn = pwr>0 ? 1 : -1;
+                            sample = whiteSamples[atWhite] * sgn*std::sqrt(std::abs(pwr));
                             atWhite++;
                             break;
+                        }
                         case NoiseType::Flicker: {
                             auto expStatus = flickerBlock.setExponent(atFlicker, noiseExponent[ndx]);
                             if (expStatus==ExponentStatus::Unchanged) {
@@ -238,7 +241,9 @@ bool TranNRSolver::buildNoiseResidual(double* noiseResidualContribution) {
                                 return false;
                             }
                             // Scale sample with sqrt(PSD) because this is a time-domain sample
-                            sample = flickerSamples[atFlicker] * std::sqrt(noisePower[ndx]);
+                            auto pwr = noisePower[ndx];
+                            auto sgn = pwr>0 ? 1 : -1;
+                            sample = flickerSamples[atFlicker] * sgn*std::sqrt(std::abs(pwr));
                             atFlicker++;
                             break;
                         }
