@@ -181,7 +181,10 @@ SimulatorOptions::SimulatorOptions() {
     tran_trapltefilter = 1; // enable trap ringing filter for predictor and LTE computation, 
                             // applied only when Adams-Moulton algorithm of order 2 is used 
     tran_laggednoise = 1; // Use lagged noise coupling (better convergence)
-
+    tran_noisedebug = 0;  // transient noise debugging
+    tran_extravmrows = 8; // extra Voss-McCartney rows at low frequencies
+                          // This covers flicker noise exponents between 0.2 and 1.8
+    
     hb_debug = 0; // >0 = enables debugging
                   // >=1 print iteration type, homotopy information, convergence report
                   // >=2 print continuation mode information
@@ -290,6 +293,8 @@ template<> int Introspection<SimulatorOptions>::setup() {
     registerMember(tran_xmu);
     registerMember(tran_trapltefilter);
     registerMember(tran_laggednoise);
+    registerMember(tran_extravmrows);
+    registerMember(tran_noisedebug);
 
     registerMember(hb_debug);
     registerMember(hb_itl);

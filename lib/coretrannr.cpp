@@ -9,9 +9,9 @@ TranNRSolver::TranNRSolver(
     Circuit& circuit, CommonData& commons, KluRealMatrix& jac, 
     VectorRepository<double>& states, VectorRepository<double>& solution, 
     NRSettings& settings, IntegratorCoeffs& integCoeffs, 
-    VMCoefficientsRepository& vmCoefficients
+    VMCoefficientsRepository& vmCoeffs
 ) : OpNRSolver(circuit, commons, jac, states, solution, settings, 3), integCoeffs(&integCoeffs), 
-    vmCoefficients(vmCoefficients), flickerBlock(vmCoefficients) {
+    flickerBlock(vmCoeffs) {
     // TranNRSolver has 2 force slots
     // 0 .. continuation nodesets for sweep and homotopy
     //      cannot contain branch forces
@@ -123,11 +123,11 @@ void TranNRSolver::initializeNoise(double noiseStepLimit, std::mt19937_64& gen) 
     }
 
     // Resize noise generator blocks
-    // New noise sample time is 2*noiseStepLimit
+    // Noise sample time is noiseStepLimit (first row changeson average every noiseStepLimit*2 seconds)
     // Initialize to all zeros (no random generator passed)
     // This means the first point is noiseless. 
-    whiteBlock.reset(0.0, 2*noiseStepLimit, nWhite, 1);
-    flickerBlock.reset(0.0, 2*noiseStepLimit, nFlicker, 1);
+    whiteBlock.reset(0.0, noiseStepLimit, nWhite, 1);
+    flickerBlock.reset(0.0, noiseStepLimit, nFlicker, 1);
 
     // Turn on noise evaluation in evalSetup_
     evalSetup_.evaluateNoise = true;
@@ -136,6 +136,9 @@ void TranNRSolver::initializeNoise(double noiseStepLimit, std::mt19937_64& gen) 
 std::tuple<bool, bool> TranNRSolver::advanceNoise(double time, std::mt19937_64& gen) {
     bool changed = false;
     if (whiteBlock.advance(time, gen)) {
+        changed = true;
+    }
+    if (flickerBlock.advance(time, gen)) {
         changed = true;
     }
     // If advancing the noise generator changed noise samnple index
@@ -159,6 +162,9 @@ std::tuple<bool, bool> TranNRSolver::advanceNoise(double time, std::mt19937_64& 
 bool TranNRSolver::revertNoise(double time, std::mt19937_64& gen) {
     bool changed = false;
     if (whiteBlock.revert(time, gen)) {
+        changed = true;
+    }
+    if (flickerBlock.revert(time, gen)) {
         changed = true;
     }
     // If reverting the noise generator changed noise samnple index
@@ -240,9 +246,12 @@ bool TranNRSolver::buildNoiseResidual(double* noiseResidualContribution) {
                             continue;
                     }
                     // Get noise source terminals, add to residuals
-                    auto [e1, e2] = inst->noiseExcitation(circuit, ndx);
-                    noiseResidualContribution[e1] += sample;
-                    noiseResidualContribution[e2] -= sample;
+                    // Do this only if noiseResidualContribution is not nullptr
+                    if (noiseResidualContribution) {
+                        auto [e1, e2] = inst->noiseExcitation(circuit, ndx);
+                        noiseResidualContribution[e1] += sample;
+                        noiseResidualContribution[e2] -= sample;
+                    }
                 }
             }
         }

@@ -153,8 +153,7 @@ AnalysisCoroutine Analysis::coroutine(Status& s) {
     }
     
     // Are we in debug mode
-    auto debugMode = options.sweep_debug || options.op_debug || options.smsig_debug || 
-        options.tran_debug || options.hb_debug || options.nr_debug || options.homotopy_debug;
+    auto debugMode = options.debugMode();
     if (debugMode && progressReporter) {
         progressReporter->disable();
     }

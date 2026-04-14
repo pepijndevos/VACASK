@@ -554,6 +554,9 @@ Id TranCore::methodGear2 = Id::createStatic("gear2");
 
 CoreCoroutine TranCore::coroutine(bool continuePrevious) {
     clearError();
+
+    const double pi = std::numbers::pi;
+
     auto& options = circuit.simulatorOptions().core();
     auto debug = options.tran_debug;
 
@@ -613,34 +616,47 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
     // Transient noise, check parameters, prepare analysis
     double noiseStepLimit = 0;
     double noisefmax = params.noisefmax;
-    double noisefmin = 0;
+    double noisefmin = params.noisefmin;
     size_t nWhite = 0;
     size_t nFlicker = 0;
-    if (params.noisefmax) {
-        if (params.noisefmax<0) {
+    if (noisefmax) {
+        // Check noisefmax
+        if (noisefmax<0) {
             setError(TranError::Fmax);
             co_yield CoreState::Aborted;
         }
+
+        // Check noiseoversample
         if (params.noiseoversample<1) {
             setError(TranError::Oversample);
             co_yield CoreState::Aborted;
         }
-        auto oversampling = 10;
-        noiseStepLimit = 1/params.noisefmax/params.noiseoversample/2;
 
-        if (!params.noisefmin) {
+        // Noise sample rate is 2*fmax*oversample
+        // The fastest row changes on average every 2*noiseStepLimit seconds. 
+        auto oversampling = 10;
+        auto fsampling = 2*noisefmax*params.noiseoversample;
+        noiseStepLimit = 1/fsampling;
+
+        // Default noisefmin
+        if (!noisefmin) {
             noisefmin = noisefmax/1e3;
         }
-        if (params.noisefmin>=noisefmax) {
+
+        // Check noisefmin
+        if (noisefmin>=noisefmax) {
             setError(TranError::Fmin);
             co_yield CoreState::Aborted;
         }
 
         // Compute number of VM rows
-        // Because a noise smaple is generated every 1/(fmax*oversample) seconds
-        // actual fmax = fmax*oversample
+        // First row changes with average rate fmax*oversample/2 because p=0.5. 
+        // Its corner frequency fc/fs = p/(2 pi) so fc = fs/(4 pi) ~ fs/12
+        // With oversampling rate 6 the corner will be approximately at fmax. 
         // Add extra octaves (rows)
-        auto k = 4 + int(std::ceil(std::log(params.noiseoversample*params.noisefmax/params.noisefmin)/std::log(2)));
+        auto fcorner2 = fsampling/(4*pi);
+        // Number of rows is number of octaves + tran_extravmrows
+        auto k = options.tran_extravmrows + int(std::ceil(std::log(fcorner2/noisefmin)/std::log(2)));
         if (k>63) {
             // Too many rows
             setError(TranError::Rows);
@@ -648,9 +664,19 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
         }
 
         // k above 52 does not make sense (exceeds double precision)
-
-        // Initialize VM coefficients repository
-        vmCoeffs.reset(k, 2*params.noisefmax);
+        
+        if (options.tran_noisedebug) {
+            Simulator::dbg() << "Transient noise setup\n";
+            Simulator::dbg() << "  fmin:      " << noisefmin << "\n";
+            Simulator::dbg() << "  fmax:      " << noisefmax << "\n";
+            Simulator::dbg() << "  fcorner1:  " << fcorner2/std::pow(2, k) << "\n";
+            Simulator::dbg() << "  fcorner2:  " << fcorner2 << "\n";
+            Simulator::dbg() << "  fsampling: " << fsampling << "\n";
+            Simulator::dbg() << "  VM rows:   " << k << "\n";
+        }
+        // Initialize VM coefficients repository, noise sample rate is 2*fmax*oversample
+        vmCoeffs.reset(k, fsampling, params.noiseoversample, noisefmin, noisefmax, 10);
+        vmCoeffs.setDebug(options.tran_noisedebug);
 
         // Seed random generator
         randomGenerator.seed(params.noiseseed);
@@ -774,6 +800,11 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
         .states = &states, 
     };
 
+    // Turn on noise evaluation in esInit
+    if (noisefmax) {
+        esInit.evaluateNoise = true;
+    }
+
     // States will be loaded into the future slot
     // Make a copy of states from OP analysis 
     // in the future slot (-1)
@@ -783,6 +814,14 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
     if (!evalAndLoadWrapper(esInit, lsInit)) {
         // Error was already set in the wrapper
         co_yield CoreState::Aborted;
+    }
+    // First buildNoiseResidual() call just prepares flicker noise coefficients
+    // Noise samples are all 0 so the generated residual cointribution would also be 0. 
+    if (noisefmax) {
+        if (!nrSolver.buildNoiseResidual(nullptr)) {
+            setError(TranError::NRSolver);
+            co_yield CoreState::Aborted;
+        }
     }
 
     // Check for Stop/Finish at t=0 
@@ -817,10 +856,12 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
 
     // At this point solutiom at t=0 is accepted
     // Advance transient noise generators
-    auto [ok, changed] = nrSolver.advanceNoise(tk, randomGenerator);
-    if (!ok) {
-        setError(TranError::NRSolver);
-        co_yield CoreState::Aborted;
+    if (noisefmax) {
+        auto [ok, changed] = nrSolver.advanceNoise(tk, randomGenerator);
+        if (!ok) {
+            setError(TranError::NRSolver);
+            co_yield CoreState::Aborted;
+        }
     }
 
     // Set up break points
@@ -1487,7 +1528,7 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
             tk = tSolve; 
 
             // Advance transient noise generators
-            if (params.noisefmax) {
+            if (noisefmax) {
                 auto [ok, changed] = nrSolver.advanceNoise(tk, randomGenerator);
                 if (!ok) {
                     setError(TranError::NRSolver);
@@ -1529,7 +1570,7 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
             // Nothing to do, t_k slot (1) remains at the same place
 
             // Revert transient noise generators
-            if (params.noisefmax) {
+            if (noisefmax) {
                 nrSolver.revertNoise(tk, randomGenerator);
             }
         }

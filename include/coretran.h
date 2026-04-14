@@ -57,7 +57,7 @@ typedef struct TranParameters {
     Real noisefmin {0};       // minimum frequency for transient noise
                               // If noisefmin=0 uses noisefmax/1e3. 
                               // If noisefmax!=0 should be <noisefmax.
-    Int noiseoversample {5};  // oversampling factor, thesampling frequency is 
+    Int noiseoversample {6};  // oversampling factor, the sampling frequency is 
                               // noiseoversample*noisefmax*2
     String store {""};        // name of stored solution slot to write transient solution to
     // Nodeset parameter of the operating point core is also exposed. 

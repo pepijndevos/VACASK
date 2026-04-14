@@ -23,10 +23,13 @@ public:
     TimeDomainNoiseBlock& operator=(      TimeDomainNoiseBlock&&) = delete;
 
     void reset(double t0, double timeStep, size_t count, int rollbackDepth) {
+        t0_ = t0;
         timeStep_ = timeStep; 
         atSample_ = 0; 
         atHistoric = 0;
         history.upsize(rollbackDepth+1, count);
+        // By default the initial sample is all-zero
+        zero(history.at());
     };
 
     // Return values corresponding to entry we are at

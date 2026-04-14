@@ -81,6 +81,8 @@ typedef struct SimulatorOptions  {
     Real tran_xmu;
     Int tran_trapltefilter;
     Int tran_laggednoise;
+    Int tran_noisedebug;
+    Int tran_extravmrows;
     Int hb_debug;
     Int hb_itl;
     Int hb_itlcont;
@@ -127,6 +129,11 @@ typedef struct SimulatorOptions  {
     static bool staticInitialize();
 
     bool optionsDiffer(std::unordered_map<Id, ParameterIndex>& optionsList, SimulatorOptions& opt);
+
+    bool debugMode() const {
+        return sweep_debug || op_debug || smsig_debug || tran_debug || 
+            hb_debug || nr_debug || homotopy_debug || tran_noisedebug;
+    };
 } SimulatorOptions;
 
 }

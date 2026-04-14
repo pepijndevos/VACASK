@@ -18,7 +18,7 @@ public:
         Circuit& circuit, CommonData& commons, KluRealMatrix& jac, 
         VectorRepository<double>& states, VectorRepository<double>& solution, 
         NRSettings& settings, IntegratorCoeffs& integCoeffs, 
-        VMCoefficientsRepository& vmCoefficients
+        VMCoefficientsRepository& vmCoeffs
     ); 
 
     enum class TranNRSolverError {
@@ -35,6 +35,10 @@ public:
 
     // Called in the beginning of transient noise analysis
     void initializeNoise(double noiseStepLimit, std::mt19937_64& gen);
+
+    // Build noise residual. We expose this for noise generator coefficient initalization. 
+    // Return value: ok
+    bool buildNoiseResidual(double* noiseResidualContribution);
     
     // Called on accepted timepoint
     // Return value: ok, sample index changed
@@ -42,7 +46,7 @@ public:
 
     // Called on rejected timepoint
     bool revertNoise(double time, std::mt19937_64& gen);
-    
+
     virtual bool initialize(bool continuePrevious);
 
     // No need to override buildSysten() and computeResidual() to set 
@@ -55,11 +59,8 @@ public:
 private:
     IntegratorCoeffs* integCoeffs;
 
-    // Transient noise
-    bool buildNoiseResidual(double* noiseResidualContribution);
     TimeDomainWhiteNoise<std::mt19937_64> whiteBlock;
     TimeDomainFlickerNoise<std::mt19937_64> flickerBlock;
-    VMCoefficientsRepository& vmCoefficients;
     VectorRepository<double> noiseResidual;
     int reverted;
     size_t maxNsCount;
