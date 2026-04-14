@@ -45,12 +45,14 @@ NRSolver::NRSolver(
     iteration(0) {
 }
 
-bool NRSolver::rebuild() {
+bool NRSolver::rebuild(size_t nSolComp) {
     // Allocate space in vectors
     // Jacobian is already built, get number of unknowns excluding ground
-    auto n = jac.nRow();
-    delta.resize(n+1);
-    rowNorm.resize(n+1);
+    // auto n = jac.nRow();
+    // Number of unknowns (index 0 is the bucket and is not an unknown)
+    // auto n = solution.length()-1;
+    delta.resize(nSolComp+1);
+    rowNorm.resize(nSolComp+1);
     
     return true;
 }

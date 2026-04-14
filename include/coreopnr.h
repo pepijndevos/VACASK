@@ -84,7 +84,7 @@ public:
     // Set forces based on preprocessed user forces
     bool setForces(Int ndx, const PreprocessedUserForces& preprocessed, bool uicMode, bool abortOnError);
     
-    virtual bool rebuild() override;
+    virtual bool rebuild(size_t nSolComp) override;
     virtual bool initialize(bool continuePrevious) override;
     virtual bool preIteration(bool continuePrevious) override;
     virtual bool postSolve(bool continuePrevious) override;

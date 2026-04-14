@@ -254,7 +254,8 @@ AnalysisCoroutine Analysis::coroutine(Status& s) {
                     co_yield AnalysisState::Aborted;
                 }
             }
-
+            
+            // TODO: connect this in anhb.cpp
             // Check if any core requests a rebuild
             auto [okcrr, rebuildRequested] = requestsRebuild(s);
             if (!okcrr) {

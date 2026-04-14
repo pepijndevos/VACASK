@@ -124,7 +124,7 @@ public:
     virtual std::tuple<bool, bool> checkDelta() = 0;
 
     // Rebuild internal structures that depend on topology
-    virtual bool rebuild();
+    virtual bool rebuild(size_t n);
 
     // Initialize run (upsize internal structures)
     // Called once at the beginning of NRSolver::run() 

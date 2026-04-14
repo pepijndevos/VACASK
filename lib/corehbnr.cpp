@@ -203,9 +203,9 @@ bool HBNRSolver::setForces(Int ndx, const AnnotatedSolution& storedSolution, boo
     return !error; 
 }
 
-bool HBNRSolver::rebuild() {
+bool HBNRSolver::rebuild(size_t nSolComp) {
     // Call parent's rebuild
-    if (!NRSolver::rebuild()) {
+    if (!NRSolver::rebuild(nSolComp)) {
         // Assume parent has set the error flag
         return false;
     }

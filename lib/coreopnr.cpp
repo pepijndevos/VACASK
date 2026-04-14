@@ -391,15 +391,15 @@ bool OpNRSolver::setForceOnUnknown(Forces& f, Node* node, double value) {
 }
 
 
-bool OpNRSolver::rebuild() {
+bool OpNRSolver::rebuild(size_t nSolComp) {
     // Call parent's rebuild
-    if (!NRSolver::rebuild()) {
+    auto n = nSolComp;
+    if (!NRSolver::rebuild(n)) {
         // Assume parent has set the error flag
         return false;
     }
 
     // Allocate space in vetors
-    auto n = circuit.unknownCount();
     dummyStates.resize(circuit.statesCount());
     maxResidualContribution_.resize(n+1);       
     historicMaxSolution_.resize(n+1);

@@ -272,7 +272,7 @@ bool OperatingPointCore::rebuild(Status& s) {
     }
     
     // Rebuild NR solver structures
-    if (!nrSolver.rebuild()) {
+    if (!nrSolver.rebuild(circuit.unknownCount())) {
         s.set(Status::NonlinearSolver, "Failed to rebuild internal structures of nonlinear solver.");
         return false;
     }

@@ -186,7 +186,10 @@ bool HBCore::restoreState(size_t ndx) {
 }
 
 // Analysis asks cores if they request a rebuild. 
-// HB core replies that it does if the set of frequencies changes. 
+// HB core replies that it does 
+// - if this is the first build
+// - TODO: if previously it was used in evaluate mode
+// - if the set of frequencies changes. 
 // Along with changed set of frequencies this function recomputes
 // - colocation points
 // - transform matrices
@@ -204,7 +207,9 @@ std::tuple<bool, bool> HBCore::requestsRebuild(Status& s) {
         oldParams.truncate != params.truncate || 
         oldParams.samplefac != params.samplefac ||
         oldParams.nper != params.nper || 
-        oldParams.sample != params.sample;
+        oldParams.sample != params.sample ||
+        oldParams.shift != params.shift ||
+        oldParams.solve != params.solve;
     oldParams = params;
     return std::make_tuple(true, needsRebuild);
 }
@@ -281,6 +286,12 @@ bool HBCore::buildGrid(Status& s) {
 
 bool HBCore::rebuild(Status& s) {
     clearError();
+
+    // solve=0 ... evaluate, collect spurs and timepoints from stored solution, 
+    //             set up solution from stored solution
+    //             prepare for linearized circuit evaluation, do not build Jacobian
+
+    // solve=1 ... prepare for solving the HB problem, build Jacobian
 
     auto& options = circuit.simulatorOptions().core();
     nrSettings = NRSettings {
@@ -360,7 +371,8 @@ bool HBCore::rebuild(Status& s) {
     }
     
     // Rebuild NR solver structures
-    if (!nrSolver.rebuild()) {
+    auto n = circuit.unknownCount();
+    if (!nrSolver.rebuild(n*nt)) {
         s.set(Status::NonlinearSolver, "Failed to rebuild internal structures of nonlinear solver.");
         return false;
     }

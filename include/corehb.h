@@ -34,6 +34,8 @@ typedef struct HBParameters {
     Real shift {0.2};      // Sample shift in consecutive sample distance for uniform and mixed sampling
     String store {""};     // Name of stored solution slot to write
     String nodeset {""};   // String specifying stored solution slot to read
+    Int solve {1};         // If true, solves the HB problem, if false evaluates at given stored solution
+                           // Not exposed to user. 
     
     Int write {1};         // Write the results to a file
                              
@@ -90,6 +92,12 @@ public:
     virtual std::tuple<bool, bool> runSolver(bool continuePrevious);
     virtual Int iterations() const;
     virtual Int iterationLimit(bool continuePrevious) const;
+
+    // Set stored solutiuon for evaluation, does not set up Jacobian to save memory
+    bool setSolution(const AnnotatedSolution& solution);
+
+    // Bind circuit to jacColoc and evaluate at current solution
+    bool linearize();
         
     void dump(std::ostream& os) const;
 
