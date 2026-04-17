@@ -99,8 +99,12 @@ add_library(simlib STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/anacxf.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/anacstb.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/anacsp.h 
-    ${CMAKE_CURRENT_SOURCE_DIR}/../include/annoise.h 
-    ${CMAKE_CURRENT_SOURCE_DIR}/../include/antran.h 
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include/annoise.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include/antran.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include/anhb.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include/corepsstran.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include/corepss.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include/anpss.h
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/tdnblock.h
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/tdnzohwhite.h
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/tdnzohflicker.h
@@ -193,14 +197,17 @@ add_library(simlib STATIC
     anacstb.cpp 
     anacsp.cpp 
     annoise.cpp 
-    antran.cpp 
+    antran.cpp
+    anhb.cpp
     tdnblock.cpp
     tdnzohwhite.cpp
     tdnzohflicker.cpp
     tdnsdewhite.cpp
     tdnsdeflicker.cpp
-    anhb.cpp
     anhbac.cpp
+    corepsstran.cpp
+    corepss.cpp
+    anpss.cpp
     location.cpp
     "${BISON_dflparser_OUTPUTS}"
     "${FLEX_dfllexer_OUTPUTS}"

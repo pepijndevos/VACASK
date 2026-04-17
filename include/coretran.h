@@ -160,7 +160,16 @@ protected:
 
     PreprocessedUserForces preprocessedIc;
     // Forces uicForces;
-    
+
+    const IntegratorCoeffs& getIntegCoeffs() const { return integCoeffs; }
+    TranNRSolver& getNrSolver() { return nrSolver; }
+    const CircularBuffer<double>& getPastTimesteps() const { return pastTimesteps; }
+
+    // Called at every accepted timestep after pastTimesteps and tk are
+    // updated but before solution/states history is advanced.
+    // Return false to abort the analysis.
+    virtual bool onTimestepAccepted(double /*tSolve*/, double /*hk*/, Int /*order*/) { return true; }
+
 private:
     std::tuple<size_t, size_t, size_t> countNoiseSources() const;
     bool evalAndLoadWrapper(EvalSetup& evalSetup, LoadSetup& loadSetup);

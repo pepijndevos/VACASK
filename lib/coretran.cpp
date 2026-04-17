@@ -1716,6 +1716,22 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
 
             setProgress(tSolve, tSolve);
 
+            // Store timestep and advance time before the hook so that
+            // pastTimesteps.at(0)==hk, tk==tSolve, and integCoeffs reflects
+            // this step when the hook fires.
+            pastTimesteps.add(hk);
+            tk = tSolve;
+
+            // Notify subclasses (e.g. PssTranCore) of the accepted point.
+            // Pass 'order' (the order used by integCoeffs at this step), not
+            // 'newOrder' (the order chosen for the next step).  The PSS
+            // sensitivity integrator must replay integCoeffs with the same
+            // order that was in effect when this step was accepted.
+            if (!onTimestepAccepted(tSolve, hk, order)) {
+                setError(TranError::EvalAndLoad);
+                co_yield CoreState::Aborted;
+            }
+
             // Check if we are done
             if (tSolve-params.stop>=-timeRelativeTolerance*params.stop) {
                 // Reached stop time, mark analysis as finished

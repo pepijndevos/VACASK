@@ -8,9 +8,10 @@
 #include "anacstb.h"
 #include "anacsp.h"
 #include "antran.h"
-#include "annoise.h" 
-#include "anhb.h" 
+#include "annoise.h"
+#include "anhb.h"
 #include "anhbac.h" 
+#include "anpss.h"
 #include "libplatform.h"
 #include "common.h"
 
@@ -80,6 +81,7 @@ bool Simulator::setup(
     ok &= registerAnalysis<Tran>("tran", s);
     ok &= registerAnalysis<HB>("hb", s);
     ok &= registerAnalysis<HBAC>("hbac", s);
+    ok &= registerAnalysis<Pss>("pss", s);
     
     return ok;
 }

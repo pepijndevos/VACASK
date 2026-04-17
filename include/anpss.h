@@ -1,0 +1,67 @@
+#ifndef __ANPSS_DEFINED
+#define __ANPSS_DEFINED
+
+#include "an.h"
+#include "corepss.h"
+#include "parameterized.h"
+#include "common.h"
+
+
+namespace NAMESPACE {
+
+class Pss : public Analysis {
+public:
+    typedef PssParameters Parameters;
+
+    Pss(Id name, Circuit& circuit, PTAnalysis& ptAnalysis);
+
+    Pss           (const Pss&)  = delete;
+    Pss           (      Pss&&) = delete;
+    Pss& operator=(const Pss&)  = delete;
+    Pss& operator=(      Pss&&) = delete;
+
+    virtual void dump(std::ostream& os) const;
+
+    virtual Parameterized& parameters() { return params_; }
+    virtual const Parameterized& parameters() const { return params_; }
+
+    // Factory function registered with the analysis dispatcher.
+    static Analysis* create(PTAnalysis& ptAnalysis, Circuit& circuit, Status& s=Status::ignore);
+
+protected:
+    virtual bool addCommonOutputDescriptor(const OutputDescriptor& desc);
+    virtual bool addCoreOutputDescriptors(Status& s=Status::ignore);
+    virtual bool resolveSave(const PTSave& save, bool verify, Status& s=Status::ignore);
+    virtual bool addDefaultOutputDescriptors();
+    virtual void clearOutputDescriptors();
+    virtual bool resolveOutputDescriptors(bool strict, Status& s=Status::ignore);
+
+    virtual bool rebuildCores(Status& s=Status::ignore);
+    virtual bool initializeOutputs(Status& s=Status::ignore);
+
+    virtual AnalysisCore& analysisCore() { return pssCore_; }
+    virtual CoreCoroutine coreCoroutine(bool continuePrevious) {
+        return std::move(pssCore_.coroutine(continuePrevious));
+    }
+    virtual bool formatCoreError(Status& s=Status::ignore) {
+        return pssCore_.formatError(s);
+    }
+
+    virtual bool finalizeOutputs(Status& s=Status::ignore);
+    virtual bool deleteOutputs(Status& s=Status::ignore);
+
+private:
+    IStruct<PssParameters> params_;
+
+    // Shared Jacobian and solution/state repositories.
+    // Owned here and passed by reference into pssCore_.
+    KluRealMatrix            jac_;
+    VectorRepository<double> solution_;
+    VectorRepository<double> states_;
+
+    PssCore pssCore_;
+};
+
+} // namespace NAMESPACE
+
+#endif // __ANPSS_DEFINED
