@@ -180,8 +180,8 @@ else:
 
     fig1.axes[1].loglog(f, Pxx, label="PSD")
     # fig1.axes[1].set_ylim(refpsd.min()/10, refpsd.max()*10)
-    fig1.axes[1].loglog(reff1, refpsd1, 'r', label="PSD (AC noise, mean abs current), LF")
-    fig1.axes[1].loglog(reff2, refpsd2, 'r--', label="PSD (AC noise, mean abs current), HF")
+    fig1.axes[1].loglog(reff1, refpsd1, 'r', label="PSD (modulated noise, LF)")
+    fig1.axes[1].loglog(reff2, refpsd2, 'r--', label="PSD (Modulated noise, HF)")
     fig1.axes[1].legend(loc='lower left')
 
     fig1.axes[2].set_title('Error')

@@ -151,7 +151,7 @@ module simdio(A,C);
         I(br_a_c) <+ white_noise(2*`P_Q*abs(Id), "shot");
 
         // Flicker noise
-        I(br_a_c) <+ flicker_noise(KF*pow(abs(Id), AF), EF, "flicker");
+        I(br_a_c) <+ flicker_noise((Id>0?1:-1)*KF*pow(abs(Id), AF), EF, "flicker");
 
     end
 endmodule
