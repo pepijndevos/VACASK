@@ -3,9 +3,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // 
 // SPICE flavour: ngspice
-// Version      : ngspice-45-109-g4cac27191
+// Version      : ngspice-45-116-gf11f4594e
 // Origin       : https://sourceforge.net/u/arpadbuermen/ngspice/ci/vadng-pre-46/tree/
-// Date         : 2026-01-07 14:06:40 UTC
+// Date         : 2026-02-02 07:35:45 UTC
 // Module name  : sp_resistor
 // Model variant: default
 // 
@@ -314,7 +314,7 @@ module sp_resistor(pos, neg);
         noise_dtemp = RESdtemp;
       end
       I(pos, neg) <+ white_noise(4*(VACONSTboltz*(($temperature+noise_dtemp)*RESconduct)), "thermal");
-      I(pos, neg) <+ flicker_noise(kf*pow(abs(REScurrent), af)/RESeffNoiseArea, ef, "flicker");
+      I(pos, neg) <+ flicker_noise(((REScurrent>=0) ? (1) : (-1))*(kf*pow(abs(REScurrent), af)/RESeffNoiseArea), ef, "flicker");
     end
 
     // Instance output variable computation

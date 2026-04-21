@@ -3,9 +3,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // 
 // SPICE flavour: ngspice
-// Version      : ngspice-45-109-g4cac27191
+// Version      : ngspice-45-116-gf11f4594e
 // Origin       : https://sourceforge.net/u/arpadbuermen/ngspice/ci/vadng-pre-46/tree/
-// Date         : 2026-01-07 14:09:13 UTC
+// Date         : 2026-02-02 07:38:29 UTC
 // Module name  : sp_jfet2
 // Model variant: sn
 // 
@@ -990,7 +990,7 @@ module sp_jfet2(d, g, s);
     I(d_int, d) <+ white_noise(4*(VACONSTboltz*($temperature*(JFET2drainConduct*area))), "rd");
     I(s_int, s) <+ white_noise(4*(VACONSTboltz*($temperature*(JFET2sourceConduct*area))), "rs");
     I(d_int, s_int) <+ white_noise(4*(VACONSTboltz*($temperature*(2.0/3.0*abs(JFET2gm)))), "id");
-    I(d_int, s_int) <+ flicker_noise(kf*exp(af*ln(((abs(JFET2dcCurrent)>1E-38) ? (abs(JFET2dcCurrent)) : (1E-38)))), 1, "flicker");
+    I(d_int, s_int) <+ flicker_noise(((JFET2dcCurrent>=0) ? (1) : (-1))*(kf*exp(af*ln(((abs(JFET2dcCurrent)>1E-38) ? (abs(JFET2dcCurrent)) : (1E-38))))), 1, "flicker");
 
     // Instance output variable computation
     vgs = JFET2vgs;

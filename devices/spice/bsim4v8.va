@@ -3,9 +3,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // 
 // SPICE flavour: ngspice
-// Version      : ngspice-45-109-g4cac27191
+// Version      : ngspice-45-116-gf11f4594e
 // Origin       : https://sourceforge.net/u/arpadbuermen/ngspice/ci/vadng-pre-46/tree/
-// Date         : 2026-01-07 14:08:45 UTC
+// Date         : 2026-02-02 07:38:00 UTC
 // Module name  : sp_bsim4v8
 // Model variant: default
 // 
@@ -38,8 +38,8 @@
 //   available. In AC analysis the linearized version of the trnqs model is used. 
 //   
 //   When used with Ngspice, compile the module with __NGSPICE__ defined. 
-//   This will rename the gare resistor noise for rgratemod=3 from rg into rg3. 
-//   This is neccessary because the gate resistor noise for rgatemod=3 
+//   This will rename the gate resistor noise for rgratemod=3 from rg into rg3. 
+//   This is necessary because the gate resistor noise for rgatemod=3 
 //   contributes to a different branch than for rgatemod<3. Due to different 
 //   references these two noise sources cannot be merged into one by 
 //   VADistiller. Unfortunately Ngspice also does not know how to merge 
@@ -9765,7 +9765,7 @@ module sp_bsim4v8(d, g, s, b);
 
     case (BSIM4fnoiMod)
       0: begin
-        flicker_psd = noise_mult_fn*kf*exp(af*ln(((abs(BSIM4cd)>1E-38) ? (abs(BSIM4cd)) : (1E-38))))/(BSIM4leff*BSIM4leff*BSIM4coxe);
+        flicker_psd = ((BSIM4mode*BSIM4cd>=0) ? (1) : (-1))*(noise_mult_fn*kf*exp(af*ln(((abs(BSIM4mode*BSIM4cd)>1E-38) ? (abs(BSIM4mode*BSIM4cd)) : (1E-38))))/(BSIM4leff*BSIM4leff*BSIM4coxe));
         flicker_exp = ef;
       end
       1: begin
@@ -9807,7 +9807,7 @@ module sp_bsim4v8(d, g, s, b);
         Swi = noise_T10/noise_T11*BSIM4cd*BSIM4cd;
         noise_T1 = Swi+Ssi;
         if (noise_T1>0.0) begin
-          flicker_psd = noise_mult_fn*(Ssi*Swi)/noise_T1;
+          flicker_psd = ((BSIM4mode*BSIM4cd>=0) ? (1) : (-1))*(noise_mult_fn*(Ssi*Swi)/noise_T1);
           flicker_exp = ef;
         end else begin
           flicker_psd = 0.0;

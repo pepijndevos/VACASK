@@ -3,9 +3,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // 
 // SPICE flavour: ngspice
-// Version      : ngspice-45-109-g4cac27191
+// Version      : ngspice-45-116-gf11f4594e
 // Origin       : https://sourceforge.net/u/arpadbuermen/ngspice/ci/vadng-pre-46/tree/
-// Date         : 2026-01-07 14:07:12 UTC
+// Date         : 2026-02-02 07:36:19 UTC
 // Module name  : sp_mes1
 // Model variant: default
 // 
@@ -593,7 +593,7 @@ module sp_mes1(d, g, s);
     I(d_int, d) <+ white_noise(4*(VACONSTboltz*($temperature*(MESdrainConduct*area))), "rd");
     I(s_int, s) <+ white_noise(4*(VACONSTboltz*($temperature*(MESsourceConduct*area))), "rs");
     I(d_int, s_int) <+ white_noise(4*(VACONSTboltz*($temperature*(2.0/3.0*abs(MESgm)))), "id");
-    I(d_int, s_int) <+ flicker_noise(kf*exp(af*ln(((abs(MEScd)>1E-38) ? (abs(MEScd)) : (1E-38)))), 1, "flicker");
+    I(d_int, s_int) <+ flicker_noise(((MEScd>=0) ? (1) : (-1))*(kf*exp(af*ln(((abs(MEScd)>1E-38) ? (abs(MEScd)) : (1E-38))))), 1, "flicker");
 
     // Instance output variable computation
     vgs = MESvgs;

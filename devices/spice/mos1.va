@@ -3,9 +3,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // 
 // SPICE flavour: ngspice
-// Version      : ngspice-45-109-g4cac27191
+// Version      : ngspice-45-116-gf11f4594e
 // Origin       : https://sourceforge.net/u/arpadbuermen/ngspice/ci/vadng-pre-46/tree/
-// Date         : 2026-01-07 14:07:18 UTC
+// Date         : 2026-02-02 07:36:27 UTC
 // Module name  : sp_mos1
 // Model variant: default
 // 
@@ -1204,16 +1204,16 @@ module sp_mos1(d, g, s, b);
     I(d_int, s_int) <+ white_noise(4*(VACONSTboltz*(($temperature+noise_dtemp)*Sid)), "id");
     case (nlev)
       0: begin
-        flicker_psd = kf*exp(af*ln(((abs(MOS1cd)>1E-38) ? (abs(MOS1cd)) : (1E-38))))/((MOS1l-2*ld)*(MOS1l-2*ld)*sqrt(coxSquared));
+        flicker_psd = ((MOS1cd>=0) ? (1) : (-1))*(kf*exp(af*ln(((abs(MOS1cd)>1E-38) ? (abs(MOS1cd)) : (1E-38))))/((MOS1l-2*ld)*(MOS1l-2*ld)*sqrt(coxSquared)));
         flicker_exp = 1;
       end
       1: begin
-        flicker_psd = kf*exp(af*ln(((abs(MOS1cd)>1E-38) ? (abs(MOS1cd)) : (1E-38))))/(MOS1w*(MOS1l-2*ld)*sqrt(coxSquared));
+        flicker_psd = ((MOS1cd>=0) ? (1) : (-1))*(kf*exp(af*ln(((abs(MOS1cd)>1E-38) ? (abs(MOS1cd)) : (1E-38))))/(MOS1w*(MOS1l-2*ld)*sqrt(coxSquared)));
         flicker_exp = 1;
       end
       2, 
       3: begin
-        flicker_psd = kf*MOS1gm*MOS1gm/(MOS1w*(MOS1l-2*ld)*sqrt(coxSquared));
+        flicker_psd = ((MOS1cd>=0) ? (1) : (-1))*(kf*MOS1gm*MOS1gm/(MOS1w*(MOS1l-2*ld)*sqrt(coxSquared)));
         flicker_exp = af;
       end
     endcase

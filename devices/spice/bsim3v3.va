@@ -3,9 +3,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // 
 // SPICE flavour: ngspice
-// Version      : ngspice-45-109-g4cac27191
+// Version      : ngspice-45-116-gf11f4594e
 // Origin       : https://sourceforge.net/u/arpadbuermen/ngspice/ci/vadng-pre-46/tree/
-// Date         : 2026-01-07 14:08:07 UTC
+// Date         : 2026-02-02 07:37:19 UTC
 // Module name  : sp_bsim3v3
 // Model variant: default
 // 
@@ -4143,7 +4143,7 @@ module sp_bsim3v3(d, g, s, b);
       1, 
       4, 
       5: begin
-        flicker_psd = kf*exp(af*ln(((abs(BSIM3cd)>1E-38) ? (abs(BSIM3cd)) : (1E-38))))/(BSIM3leff*BSIM3leff*BSIM3cox);
+        flicker_psd = ((BSIM3mode*BSIM3cd>=0) ? (1) : (-1))*(kf*exp(af*ln(((abs(BSIM3mode*BSIM3cd)>1E-38) ? (abs(BSIM3mode*BSIM3cd)) : (1E-38))))/(BSIM3leff*BSIM3leff*BSIM3cox));
         flicker_exp = ef;
       end
       2, 
@@ -4187,7 +4187,7 @@ module sp_bsim3v3(d, g, s, b);
         Swi = noise_T10/noise_T11*BSIM3cd*BSIM3cd;
         noise_T1 = Swi+Ssi;
         if (noise_T1>0.0) begin
-          flicker_psd = Ssi*Swi/noise_T1;
+          flicker_psd = ((BSIM3mode*BSIM3cd>=0) ? (1) : (-1))*(Ssi*Swi/noise_T1);
           flicker_exp = ef;
         end else begin
           flicker_psd = 0.0;

@@ -3,9 +3,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // 
 // SPICE flavour: ngspice
-// Version      : ngspice-45-109-g4cac27191
+// Version      : ngspice-45-116-gf11f4594e
 // Origin       : https://sourceforge.net/u/arpadbuermen/ngspice/ci/vadng-pre-46/tree/
-// Date         : 2026-01-07 14:10:12 UTC
+// Date         : 2026-02-02 07:39:31 UTC
 // Module name  : sp_bjt
 // Model variant: full
 // 
@@ -1420,7 +1420,7 @@ module sp_bjt(c, b, e, sub);
     I(e_int, e) <+ white_noise(4*(VACONSTboltz*(($temperature+noise_dtemp)*BJTtemitterConduct)), "re");
     I(c_int, e_int) <+ white_noise(2*(VACONSTcharge*BJTcc), "ic");
     I(b_int, e_int) <+ white_noise(2*(VACONSTcharge*BJTcb), "ib");
-    I(b_int, e_int) <+ flicker_noise(kf*exp(af*ln(((abs(BJTcb)>1E-38) ? (abs(BJTcb)) : (1E-38)))), 1, "flicker");
+    I(b_int, e_int) <+ flicker_noise(((BJTcb>=0) ? (1) : (-1))*(kf*exp(af*ln(((abs(BJTcb)>1E-38) ? (abs(BJTcb)) : (1E-38))))), 1, "flicker");
 
     // Instance output variable computation
     ic = BJTcc * BJTtype;
