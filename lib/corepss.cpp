@@ -100,14 +100,21 @@ PssCore::~PssCore() {
 // ----------------------------------------------------------------
 
 bool PssCore::addCoreOutputDescriptors() {
-    // Delegates to pssTran_ for time-domain output descriptors (node voltages,
-    // branch currents along the converged shooting trajectory).
-    // Frequency-domain spectrum output can be added here in the future.
-    return pssTran_.addCoreOutputDescriptors();
+    // pssTran_ gates descriptor registration on params.write, but stabilParams.write
+    // is 0 here (it stays 0 during Newton iterations and is only raised to 1 just
+    // before the final output shoot).  Temporarily set it to the PSS-level write flag
+    // so that TranCore::addCoreOutputDescriptors() registers the time descriptor.
+    params_.stabilParams.write = params_.write;
+    bool ok = pssTran_.addCoreOutputDescriptors();
+    params_.stabilParams.write = 0;
+    return ok;
 }
 
 bool PssCore::addDefaultOutputDescriptors() {
-    return pssTran_.addDefaultOutputDescriptors();
+    params_.stabilParams.write = params_.write;
+    bool ok = pssTran_.addDefaultOutputDescriptors();
+    params_.stabilParams.write = 0;
+    return ok;
 }
 
 bool PssCore::resolveOutputDescriptors(bool strict, Status& s) {
@@ -140,11 +147,12 @@ bool PssCore::rebuild(Status& s) {
 }
 
 bool PssCore::initializeOutputs(Id name, Status& s) {
+    // Store the name for use when the output file is opened after convergence.
+    // Do NOT open the pssTran_ raw file here: it must be opened only once,
+    // after the Newton loop converges, so that intermediate shooting iterations
+    // do not pollute the output.
     name_ = name;
-    if (!params_.write || Simulator::noOutput()) {
-        return true;
-    }
-    return pssTran_.initializeOutputs(name, s);
+    return true;
 }
 
 bool PssCore::finalizeOutputs(Status& s) {
@@ -310,6 +318,26 @@ bool PssCore::run(bool continuePrevious) {
             Simulator::dbg() << "PSS: converged in " + std::to_string(l)
                              + " iterations, f0="
                              + std::to_string(1.0 / T0) + " Hz\n";
+
+            // Write the converged periodic steady-state waveform.
+            // Open the raw file now (not at initializeOutputs time) so that
+            // only the single converged trajectory is recorded.
+            if (params_.write && !Simulator::noOutput()) {
+                params_.stabilParams.write = 1;
+                if (!pssTran_.initializeOutputs(name_, s)) {
+                    setError(PssError::OutputError);
+                    return false;
+                }
+                solution_.vector() = x0;
+                pssTran_.setShootIC(x0);
+                pssTran_.clearTrajectory();
+                if (!runShoot(T0, s)) {
+                    setError(PssError::ShootFailed);
+                    return false;
+                }
+                // pssTran_.finalizeOutputs() is called by the outer framework.
+            }
+
             return true;
         }
 
@@ -414,7 +442,7 @@ bool PssCore::runShoot(double T0, Status& s) {
     params_.stabilParams.maxstep = T0 / 20.0;
     params_.stabilParams.start   = 0.0;
     params_.stabilParams.icmode  = TranCore::icmodeUic;
-    params_.stabilParams.write   = params_.write;
+    // write is left as-is: 0 during Newton iterations, 1 for the final output shoot.
 
     if (!pssTran_.run(false)) {
         pssTran_.formatError(s);

@@ -69,7 +69,7 @@ control
 
   // ic=["1"; 0.9]: start stabilisation from V(1)=0.9V (away from the DC
   // fixed point at V=0) so the oscillation grows to the limit cycle.
-  analysis pss1 pss Tper=200n Tstab=5u MaxItr=10 EpsMax=1e-5 ic=["1"; 0.9] writestab=1
+  analysis pss1 pss Tper=200n Tstab=5u MaxItr=50 EpsMax=1e-5 ic=["1"; 0.9] writestab=1
   //analysis tran1 tran start=0 stop=5u step=2.2n maxstep=22n ic=["1"; 0.9] 
 
   postprocess(PYTHON, "runme.py")
