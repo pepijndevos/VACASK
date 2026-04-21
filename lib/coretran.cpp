@@ -227,7 +227,7 @@ template<> int Introspection<TranParameters>::setup() {
     registerMember(noisescale);
     registerMember(noisefmax);
     registerMember(noisefmin);
-    registerMember(noiseoversample);
+    registerMember(oversample);
     registerNamedMember(opParams.nodeset, "nodeset");
     registerMember(ic);
     registerMember(store);
@@ -626,8 +626,8 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
             co_yield CoreState::Aborted;
         }
 
-        // Check noiseoversample
-        if (params.noiseoversample<1) {
+        // Check oversample
+        if (params.oversample<1) {
             setError(TranError::Oversample);
             co_yield CoreState::Aborted;
         }
@@ -635,7 +635,7 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
         // Noise sample rate is 2*fmax*oversample
         // The fastest row changes on average every 2*noiseStepLimit seconds. 
         auto oversampling = 10;
-        auto fsampling = 2*noisefmax*params.noiseoversample;
+        auto fsampling = 2*noisefmax*params.oversample;
         noiseStepLimit = 1/fsampling;
 
         // Default noisefmin
@@ -675,7 +675,7 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
             Simulator::dbg() << "  VM rows:   " << k << "\n";
         }
         // Initialize VM coefficients repository, noise sample rate is 2*fmax*oversample
-        vmCoeffs.reset(k, fsampling, params.noiseoversample, noisefmin, noisefmax, 10);
+        vmCoeffs.reset(k, fsampling, params.oversample, noisefmin, noisefmax, 10);
         vmCoeffs.setDebug(options.tran_noisedebug);
 
         // Seed random generator
@@ -1684,7 +1684,7 @@ bool TranCore::formatError(Status& s) const {
             s.set(Status::Analysis, "Transient noisefmax must not be negative.");
             break;
         case TranError::Oversample: 
-            s.set(Status::Analysis, "Transient noiseoversample must be >=1.");
+            s.set(Status::Analysis, "Transient oversample must be >=1.");
             break;
         case TranError::Method: 
             s.set(Status::Analysis, "Unknown integration method '"+std::string(errorId)+"'.");
