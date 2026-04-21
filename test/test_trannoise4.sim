@@ -27,7 +27,7 @@ control
   var fmod=1k
 
   // Transient noise frequency range
-  var fmin=50
+  var fmin=20.0
   var fmax=10k
   
   save p(r0,i) default
@@ -35,13 +35,12 @@ control
   options rawfile="binary" strictsave=1
   options reltol=1e-3 vntol=1e-6 abstol=1e-12
   options tran_method="trap"
-  options tran_laggednoise=1 
-  analysis tran1 tran stop=1 step=1m noisefmax=fmax noisefmin=fmin
+  analysis tran1 tran stop=40/fmin step=1m noisefmax=fmax noisefmin=fmin
   
-  // Flicker noise not accounting for modulation (I^2=1)
+  // Flicker noise, not accounting for modulation (I^2=1)
   alter instance("i1") sinedc=1
   elaborate changes
-  analysis noise1 noise out="1" in="i1" from=fmin to=fmax mode="dec" points=1000
+  analysis noise1 noise out="1" in="i1" from=fmin to=fmax mode="dec" points=200
   
   postprocess(PYTHON, "runme.py")
 endc
@@ -82,6 +81,7 @@ endmodule
 
 embed "runme.py" <<<FILE
 from rawfile import rawread
+from vacaskpp import *
 from runtest import *
 import numpy as np
 from scipy.signal import welch
@@ -110,21 +110,20 @@ f0 = 1e3
 #   fmin..f0-fmin and f0+fmin..fmax-fmin
 
 # Compute scale for LF range fmin..f0-fmin, interpolate refpsd
-npts1 = int(np.ceil(np.log((f0-fmin)/fmin)/np.log(10)*10))
+npts1 = int(np.ceil(np.log((f0-fmin)/fmin)/np.log(10)*200))
 dxi1 = np.log((f0-fmin)/fmin)/npts1
 reff1 = np.exp(np.arange(np.log(fmin), np.log(f0-fmin) + dxi1, dxi1))
 # Compute scale for HF range f0+fmin..fmax-fmin
-npts2 = int(np.ceil(np.log((fmax-fmin)/(f0+fmin))/np.log(10)*10))
+npts2 = int(np.ceil(np.log((fmax-fmin)/(f0+fmin))/np.log(10)*200))
 dxi2 = np.log((fmax-fmin)/(f0+fmin))/npts2
 reff2 = np.exp(np.arange(np.log(f0+fmin), np.log(fmax-fmin) + dxi2, dxi2))
 
 # Scale with squared sine amplitude
-# Compute modulated PSD, LF range
+# Compute reference modulated PSD, LF range
 refpsd1 = ampl**2*(np.interp(np.abs(f0-reff1), reff, refpsd) + np.interp(np.abs(f0+reff1), reff, refpsd))/4
-# Compute modulated PSD, HF range
+# Compute reference modulated PSD, HF range
 refpsd2 = ampl**2*(np.interp(np.abs(f0-reff2), reff, refpsd) + np.interp(np.abs(f0+reff2), reff, refpsd))/4
 
-# Actual time step limit is 1/fmax/oversample/2
 # Average timestep should be <= timestep limit
 dx = x.max()/x.shape[0]
 xs = np.arange(x[0], x[-1] + dx, dx)
@@ -149,16 +148,19 @@ f, Pxx = welch(
     average='mean'
 )
 
+ferr1, err1 = errorWrtRef(reff1, refpsd1, f, Pxx, mode='db10')
+ferr2, err2 = errorWrtRef(reff2, refpsd2, f, Pxx, mode='db10')
+
 Pxxi1 = np.interp(reff1, f, Pxx)
 Pxxi2 = np.interp(reff2, f, Pxx)
     
-diff = np.abs(10*np.log10(Pxxi1/refpsd1)).max()
-status = diff<5
+diff = np.abs(err1).max()
+status = diff<3
 print("max lf err [dB] =", diff, status)
 tests.append(status)
 
-diff = np.abs(10*np.log10(Pxxi2/refpsd2)).max()
-status = diff<5
+diff = np.abs(err2).max()
+status = diff<3
 print("max hf err [dB] =", diff, status)
 tests.append(status)
 
@@ -168,13 +170,13 @@ else:
     import matplotlib.pyplot as plt 
 
     fig1, ax1 = plt.subplots(3, 1, figsize=(6,8), dpi=100)
-    fig1.axes[0].set_title('Transient modulated shot noise, fmod=1kHz, R=1k')
-    fig1.axes[0].set_ylabel('V(1)-V(10) [V]')
+    fig1.axes[0].set_title('Transient modulated flicker noise, fmod=1kHz, R=1k')
+    fig1.axes[0].set_ylabel('V(1) noise [V]')
     fig1.axes[0].set_xlabel('time [ms]')
-    fig1.axes[0].plot(x*1000, y, label="V(1)")
-    fig1.axes[0].set_xlim(0, 1)
-
-    fig1.axes[1].set_title('PSD')
+    yndx = np.where(x<2e-3)
+    fig1.axes[0].plot(x[yndx]*1000, y[yndx], label="V(1) noise")
+    
+    fig1.axes[1].set_title('Power spectral density')
     fig1.axes[1].set_ylabel('PSD [V^2/Hz]')
     fig1.axes[1].set_xlabel('f [Hz]')
 
@@ -187,9 +189,9 @@ else:
     fig1.axes[2].set_title('Error')
     fig1.axes[2].set_ylabel('Error [dB]')
     fig1.axes[2].set_xlabel('f [Hz]')
-    fig1.axes[2].semilogx(reff1, 10*np.log10(Pxxi1/refpsd1), 'b', label="Error, LF")
-    fig1.axes[2].semilogx(reff2, 10*np.log10(Pxxi2/refpsd2), 'b--', label="Error, HF")
-    fig1.axes[2].legend(loc='upper left')
+    fig1.axes[2].semilogx(ferr1, err1, 'b', label="Error, LF")
+    fig1.axes[2].semilogx(ferr2, err2, 'b--', label="Error, HF")
+    fig1.axes[2].legend(loc='lower left')
     
     fig1.tight_layout()
 

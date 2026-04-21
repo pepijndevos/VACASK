@@ -1,5 +1,6 @@
 set(python_files
     rawfile.py
+    vacaskpp.py
     runtest.py
     sg13g2tovc.py
     xschem2vc.py

@@ -15,8 +15,8 @@ i1 (0 1) isource dc=0
 control
   abort always
 
-  // print instance("r1")
-
+  // Transient noise frequency range
+  var fmin=1.0
   var fmax=1k
   
   options sweep_debug=0 op_debug=0 tran_debug=0 tran_noisedebug=1
@@ -24,9 +24,8 @@ control
   options reltol=1e-3 vntol=1e-6 abstol=1e-12
   options tran_method="trap"
   options tran_laggednoise=1 
-  analysis tran1 tran stop=20 step=1m noisefmax=fmax noisefmin=1 noiseoversample=6
-  analysis noise1 noise out="1" in="i1" from=1 to=fmax mode="dec" points=10
-  // print stats
+  analysis tran1 tran stop=20/fmin step=1m noisefmax=fmax noisefmin=fmin noiseoversample=6
+  analysis noise1 noise out="1" in="i1" from=fmin to=fmax mode="dec" points=10
   
   postprocess(PYTHON, "runme.py")
 endc
@@ -66,6 +65,7 @@ endmodule
 
 embed "runme.py" <<<FILE
 from rawfile import rawread
+from vacaskpp import *
 from runtest import *
 import numpy as np
 from scipy.signal import welch
@@ -84,15 +84,10 @@ refpsd = noise['onoise']
 fmin = reff.min()
 fmax = reff.max()
 
-# Actual time step limit is 1/fmax/oversample/2
 # Average timestep should be <= timestep limit
 dx = x.max()/x.shape[0]
 xs = np.arange(x[0], x[-1] + dx, dx)
 ys = np.interp(xs, x, y)
-
-rms = np.mean(ys**2)**0.5
-print("rms", rms)
-print("rms^2", rms**2)
 
 # Compute nperseg so that frequency resolution is fmin/2
 N = xs.shape[0]
@@ -113,9 +108,10 @@ f, Pxx = welch(
     average='mean'
 )
 
-Pxxi = np.interp(reff, f, Pxx)
-diff = np.abs(10*np.log10(Pxxi/refpsd)).max()
-status = diff<5
+f, Pxx = logBinMean(f, Pxx, 10)
+ferr, err = errorWrtRef(reff, refpsd, f, Pxx, mode='db10')
+diff = np.abs(err).max()
+status = diff<3
 print("max err [dB] =", diff, status)
 tests.append(status)
 
@@ -127,15 +123,14 @@ else:
     fig1, ax1 = plt.subplots(3, 1, figsize=(6,8), dpi=100)
     fig1.axes[0].set_title('Transient noise, R=1k (flicker noise)')
     fig1.axes[0].set_ylabel('V(1) [V]')
-    fig1.axes[0].set_xlabel('time [ms]')
+    fig1.axes[0].set_xlabel('time [s]')
+    fig1.axes[0].plot(plot['time'], plot['1'], label="V(1)")
 
-    fig1.axes[0].plot(plot['time']*1000, plot['1'], label="V(1)")
-
-    fig1.axes[1].set_title('PSD')
+    fig1.axes[1].set_title('Power spectral density')
     fig1.axes[1].set_ylabel('PSD [V^2/Hz]')
     fig1.axes[1].set_xlabel('f [Hz]')
 
-    fig1.axes[1].loglog(f, Pxx, label="PSD")
+    fig1.axes[1].loglog(f, Pxx, label="PSD (log-bin mean)")
     fig1.axes[1].set_ylim(refpsd.min()/10, refpsd.max()*10)
     fig1.axes[1].loglog(reff, refpsd, 'r', label="PSD (AC noise analysis)")
     
@@ -145,7 +140,7 @@ else:
     fig1.axes[2].set_title('Error')
     fig1.axes[2].set_ylabel('Error [dB]')
     fig1.axes[2].set_xlabel('f [Hz]')
-    fig1.axes[2].semilogx(reff, 10*np.log10(Pxxi/refpsd), label="Error")
+    fig1.axes[2].semilogx(ferr, err)
     
     fig1.tight_layout()
 
