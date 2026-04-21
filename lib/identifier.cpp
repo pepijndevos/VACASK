@@ -38,9 +38,6 @@ IdentifierIndex Id::nextStatic = Id::maxValidIdentifierIndex;
 void Id::constructorHelper(const char *s, size_t n, bool makeStatic) {
     // Look it up
     auto it = nameToIndex().find(s); 
-    if (std::string(s)=="instance") {
-        auto a=1;
-    }
     if (it!=nameToIndex().end()) {
         // Exists
         id_ = it->second;

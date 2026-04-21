@@ -745,17 +745,41 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
             Simulator::dbg() << "Setting initial conditions.\n";
         }
         // Prepare RHS with values based on ic parameter
-        auto strictforce = circuit.simulatorOptions().core().strictforce; 
-        // First, build the RHS values using force mechanism
         bool uicMode = true;
-        // if (!uicForces.set(circuit, preprocessedIc, uicMode, strictforce)) {
-        if (!nrSolver.setForces(2, preprocessedIc, uicMode, strictforce)) {
-            // Abort on error if strictforce is set
-            if (strictforce) {
-                setError(TranError::NRSolver);
-                co_yield CoreState::Aborted;
+        auto strictforce = circuit.simulatorOptions().core().strictforce; 
+        
+        // First, build the RHS values using force mechanism
+        auto& icParam = params.ic;
+        if (icParam.type()==Value::Type::String) {
+            // IC is given as a stored solution
+            String& solutionName = icParam.val<String>();
+            if (solutionName.length()>0) {
+                // Get solution from repository
+                auto solPtr = circuit.storedSolution("dc", solutionName);    
+                if (solPtr) {
+                    if (!nrSolver.setForces(2, *solPtr, strictforce)) {
+                        // Abort on error if strictforce is set
+                        if (strictforce) {
+                            setError(TranError::NRSolver);
+                            co_yield CoreState::Aborted;
+                        }
+                    }
+                }
             }
+        } else if (icParam.type()==Value::Type::ValueVec) {
+            // IC is given as a list of user-defined ICs
+            if (!nrSolver.setForces(2, preprocessedIc, uicMode, strictforce)) {
+                // Abort on error if strictforce is set
+                if (strictforce) {
+                    setError(TranError::NRSolver);
+                    co_yield CoreState::Aborted;
+                }
+            }
+        } else {
+            // Zero initial condition
+            nrSolver.forces(2).clear();
         }
+        
         // Copy values to RHS
         solution.vector() = nrSolver.forces(2).unknownValue_;
     } else {

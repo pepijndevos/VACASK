@@ -212,9 +212,6 @@ OsdiFile::OsdiFile(void* handle_, std::string file_, Status& s)
                 // Convert parameter name to lowercase
                 toLowercase(tmp);
                 translator[Id(tmp)] = j;
-                // if (tmp=="type") {
-                //     int a=1;
-                // }
             }
             // Add id to instance/model/output variable osdi ID lists
             if ((paramInfo.flags & PARA_KIND_MASK) == PARA_KIND_INST) {
