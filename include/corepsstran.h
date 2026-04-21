@@ -90,7 +90,8 @@ public:
     // state still holds xT and lastAlr_ holds the factored Alr at xT.
     bool integrateSensitivity(
         DenseMatrix<double>& PhiT,
-        Vector<double>&      PsiT
+        Vector<double>&      PsiT,
+        Vector<double>&      x_laststep
     );
 
 protected:

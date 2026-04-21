@@ -262,6 +262,27 @@ bool PssCore::run(bool continuePrevious) {
             ss << " ]\n";
             Simulator::dbg() << ss.str();
         }
+        
+        {
+            std::stringstream ss;
+            ss << std::scientific << std::setprecision(4);
+            ss << "PSS: shoot l=" << l << " x(T-1)=[";
+            auto n = circuit.unknownCount();
+            for (decltype(n) i = 1; i <= n; i++) ss << " " << solution_.pastVector()[i];
+            ss << " ]\n";
+            Simulator::dbg() << ss.str();
+        }
+
+        {
+            std::stringstream ss;
+            ss << std::scientific << std::setprecision(4);
+            ss << "PSS: shoot l=" << l << " x(T-1) - x(T)=[";
+            auto n = circuit.unknownCount();
+            for (decltype(n) i = 1; i <= n; i++) ss << " " << solution_.pastVector()[i] - xT[i];
+            ss << " ]\n";
+            Simulator::dbg() << ss.str();
+        }
+        
 
         // Shooting residual Fp = x0 - xT.
         auto n = circuit.unknownCount();
@@ -271,12 +292,16 @@ bool PssCore::run(bool continuePrevious) {
             Fp[i] = x0[i] - xT[i];
             eps = std::max(eps, std::abs(Fp[i]));
         }
-
+        
         {
             std::stringstream ss;
-            ss << std::scientific << std::setprecision(4) << eps;
-            Simulator::dbg() << "PSS: l=" + std::to_string(l)
-                             + "  norm(Fp)=" + ss.str() + "\n";
+            ss << std::scientific << std::setprecision(4);
+            ss << "PSS: shoot l=" << l << " Fp=[";
+            auto n = circuit.unknownCount();
+            for (decltype(n) i = 1; i <= n; i++) ss << " " << Fp[i];
+            ss << " ]\n";
+            ss << "  epsilon=" << eps << "\n";
+            Simulator::dbg() << ss.str();
         }
 
         if (eps < params_.EpsMax) {
@@ -408,7 +433,11 @@ bool PssCore::runSensitivity(
     Vector<double>&      PsiT,
     Status& s
 ) {
-    if (!pssTran_.integrateSensitivity(PhiT, PsiT)) {
+    auto n = circuit.unknownCount();
+    Vector<double> x_laststep(n, 0.0);
+    for (int i=0; i < n; i++)
+        x_laststep[i] = solution_.pastVector()[i+1] - solution_.vector()[i+1];
+    if (!pssTran_.integrateSensitivity(PhiT, PsiT, x_laststep)) {
         s.set(Status::Analysis, "PSS sensitivity integration failed.");
         return false;
     }
@@ -439,6 +468,17 @@ bool PssCore::solveNewtonStep(
     // Phase constraint vector.
     Vector<double> alpha(n + 1, 0.0);
     computePhaseConstraint(x0, T0, PsiT, alpha);
+    {
+        std::stringstream ss;
+        ss << std::scientific << std::setprecision(4);
+        ss << "PSS: alpha=\n";
+        ss << "  [ ";
+        for (decltype(n) i = 0; i <= n; i++) {
+            ss << alpha[i] << " ";
+        }
+        ss << "]\n";
+        Simulator::dbg() << ss.str();
+    }
 
     // Augmented (n+1) x (n+1) Newton system:
     //
@@ -479,6 +519,18 @@ bool PssCore::solveNewtonStep(
     // that dwarfs the shooting residual and destroys convergence.
     RHS.at(n, 0) = 0.0;
 
+    {
+        std::stringstream ss;
+        ss << std::scientific << std::setprecision(4);
+        ss << "PSS: Jaug=\n";
+        for (decltype(n) i = 0; i <= n; i++) {
+            ss << "  [ ";
+            for (decltype(n) j = 0; j <= n; j++) ss << Jaug.at(i, j) << " ";
+            ss << "]  rhs=" << RHS.at(i, 0) << "\n";
+        }
+        Simulator::dbg() << ss.str();
+    }
+
     // Solve in place via dense LU factorisation.
     auto rhsView = RHS.column(0);
     if (!Jaug.destructiveSolve(rhsView)) {
@@ -486,6 +538,29 @@ bool PssCore::solveNewtonStep(
         return false;
     }
     // rhsView now holds [dx0; dT0].
+    /*
+    // Step-size limiting: scale down the full Newton step if any component
+    // changes more than 50% relative to its current magnitude.
+    double scale = 1.0;
+    for (decltype(n) i = 0; i < n; i++) {
+        double rel = std::abs(rhsView[i]) / (std::abs(x0[i + 1]) + 1e-12);
+        if (rel > 0.5) scale = std::min(scale, 0.5 / rel);
+    }
+    {
+        double relT = std::abs(rhsView[n]) / T0;
+        if (relT > 0.5) scale = std::min(scale, 0.5 / relT);
+    }
+    
+    {
+        std::stringstream ss;
+        ss << std::scientific << std::setprecision(4);
+        ss << "PSS: Newton step scale=" << scale
+           << "  dx0=[ ";
+        for (decltype(n) i = 0; i < n; i++) ss << rhsView[i] << " ";
+        ss << "]  dT0=" << rhsView[n] << " s\n";
+        Simulator::dbg() << ss.str();
+    }
+    */
 
     for (decltype(n) i = 0; i < n; i++) {
         x0[i + 1] -= rhsView[i];
@@ -537,11 +612,21 @@ void PssCore::computePhaseConstraint(
     }
     norm = std::sqrt(norm);
 
+    {
+        std::stringstream ss;
+        ss << std::scientific << std::setprecision(4);
+        ss << "PSS: computePhaseConstraint\n" << "\tPsiT=[";
+        for (decltype(n) i = 0; i < PsiT.size(); i++) ss << PsiT[i] << " ";
+        ss << "]  norm=" << norm << " s\n";
+        Simulator::dbg() << ss.str();
+    }
+
     if (norm > 0.0) {
         for (decltype(n) i = 1; i <= n; i++) {
             alpha[i] = PsiT[i] / norm;
         }
     } else {
+        Simulator::dbg() << "PsiT is zero\n";
         // PsiT is zero (purely resistive circuit or degenerate first step).
         // Fall back to pinning the first unknown.
         if (n >= 1) {

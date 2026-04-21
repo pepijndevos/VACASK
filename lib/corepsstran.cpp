@@ -248,7 +248,8 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
 
 bool PssTranCore::integrateSensitivity(
     DenseMatrix<double>& PhiT,
-    Vector<double>&      PsiT
+    Vector<double>&      PsiT,
+    Vector<double>&      x_laststep
 ) {
     if (!phiValid_) {
         Simulator::err() << "PssTranCore: no accepted steps since clearTrajectory(); "
@@ -259,39 +260,30 @@ bool PssTranCore::integrateSensitivity(
     // PhiT: the inline-computed sensitivity matrix is ready.
     PhiT = phiCurrent_;
 
-    // PsiT = -dxT/dT0 = alpha_last * Alr_last^{-1} * g(xT).
-    //
-    // g(xT) is evaluated from the current circuit state (solution = xT,
-    // unchanged since the last accepted step) using the resistive residual.
     auto n = circuit.unknownCount();
-    Vector<double> gxT(n + 1, 0.0);
     {
-        EvalSetup es = getNrSolver().evalSetup();
-        es.evaluateResistiveJacobian = false;
-        es.evaluateReactiveJacobian  = false;
-        es.evaluateResistiveResidual = true;
-        es.evaluateReactiveResidual  = false;
-        es.evaluateOutvars           = false;
-        es.allowBypass               = false;
-
-        LoadSetup ls;
-        ls.resistiveResidual = gxT.data();
-
-        if (!circuit.evalAndLoad(commons, &es, &ls, nullptr)) {
-            return false;
-        }
+        std::stringstream ss;
+        ss << std::scientific << std::setprecision(4);
+        ss << "PSS: lastAlpha_= " << lastAlpha_ << "\n";
+        ss << "\tx_laststep=[";
+        for (decltype(n) i = 0; i < n; i++) ss << x_laststep[i] << " ";
+        ss << "]\n";
+        Simulator::dbg() << ss.str();
     }
 
-    // lastAlr_ is still factored from the last accepted step (it was not
-    // zeroed or touched between onTimestepAccepted() and here).
     PsiT.resize(n + 1);
     PsiT[0] = 0.0;
     for (decltype(n) i = 0; i < n; i++) {
-        PsiT[i + 1] = lastAlpha_ * gxT[i + 1];
+        PsiT[i + 1] = lastAlpha_ * x_laststep[i];
     }
-    if (!lastAlr_.solve(dataWithoutBucket(PsiT))) {
-        Simulator::err() << "PssTranCore: PsiT solve failed.\n";
-        return false;
+
+    {
+        std::stringstream ss;
+        ss << std::scientific << std::setprecision(4);
+        ss << "PSS: PsiT=[ ";
+        for (decltype(n) i = 0; i < n; i++) ss << PsiT[i+1] << " ";
+        ss << "]\n";
+        Simulator::dbg() << ss.str();
     }
 
     return true;
