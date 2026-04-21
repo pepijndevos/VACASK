@@ -41,7 +41,7 @@ namespace NAMESPACE {
 
 typedef struct TranParameters {
     OperatingPointParameters opParams;
-    Real step {0.0};          // Initial timestep
+    Real step {0.0};          // Initial timestep, if 0 a default is used
     Real stop {0.0};          // Time up to which the circuit is to be simulated
     Real start {0.0};         // Time at which the results start being recorded
     Real maxstep {0.0};       // Maximal timestep (optional)
@@ -74,7 +74,6 @@ public:
     typedef TranParameters Parameters;
     enum class TranError {
         OK, 
-        Tstep, 
         Tstop, 
         Tstart, 
         Maxstep, 

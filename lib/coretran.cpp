@@ -571,11 +571,6 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
     ss << std::scientific << std::setprecision(15);
 
     // Check parameters
-    if (params.step<=0) {
-        setError(TranError::Tstep);
-        co_yield CoreState::Aborted;
-    }
-
     if (params.stop<=0) {
         setError(TranError::Tstop);
         co_yield CoreState::Aborted;
@@ -905,8 +900,12 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
     // so that we can apply it when timepoint is rejected
     acceptedBoundStep = esInit.boundStep;
 
-    // Initial timestep
-    auto h0 = params.step;
+    // Initial timestep equals stop time
+    auto h0 = params.stop;
+    // Limit by step
+    if (params.step>0) {
+        h0 = std::min(h0, params.step);
+    }
     // Limited by maxstep
     if (params.maxstep>0) {
         h0 = std::min(h0, params.maxstep);
@@ -1162,7 +1161,7 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
         double hmax;
         hmax = params.stop - params.start;
         // Limit to tran_rmax*step if tran_rmax>=1
-        if (options.tran_rmax>=1) {
+        if (options.tran_rmax>=1 && params.step>0) {
             hmax = std::min(hmax, options.tran_rmax*params.step);
         } 
         // Limit to (stop-start)/tran_minpts if tran_minpts>0
@@ -1664,9 +1663,6 @@ bool TranCore::formatError(Status& s) const {
             break;
         case TranError::NRSolver:
             nrSolver.formatError(s, &nr);
-            break;
-        case TranError::Tstep:
-            s.set(Status::Analysis, "Transient time step must be greater than zero.");
             break;
         case TranError::Tstop: 
             s.set(Status::Analysis, "Transient stop time must be greater than zero.");
