@@ -15,7 +15,10 @@ namespace NAMESPACE {
 
 Pss::Pss(Id name, Circuit& circuit, PTAnalysis& ptAnalysis)
     : Analysis(name, circuit, ptAnalysis),
-      pssCore_(*this, params_.core(), circuit, commons, jac_, solution_, states_) {
+      opCore_(*this, params_.core().opParams, circuit, commons, jac_, solution_, states_),
+      stabilTran_(*this, params_.core().stabilParams, opCore_, circuit, commons, jac_, solution_, states_),
+      pssTran_(*this, params_.core().stabilParams, opCore_, circuit, commons, jac_, solution_, states_),
+      pssCore_(*this, params_.core(), circuit, commons, jac_, solution_, states_, opCore_, stabilTran_, pssTran_) {
 }
 
 Analysis* Pss::create(PTAnalysis& ptAnalysis, Circuit& circuit, Status& s) {
@@ -113,6 +116,19 @@ bool Pss::deleteOutputs(Status& s) {
         pssCore_.formatError(s);
     }
     return ok;
+}
+
+std::tuple<bool, bool> Pss::preMapping(Status& s) {
+    // Forward IC and icmode to stabilParams so stabilTran_.preMapping()
+    // sees them and populates preprocessedIc before rebuild() is called.
+    auto& core = params_.core();
+    bool hasIc = (core.ic.type() == Value::Type::ValueVec);
+    if (hasIc) {
+        core.stabilParams.ic     = core.ic;
+        core.stabilParams.icmode = TranCore::icmodeUic;
+    }
+    auto [ok, needsMapping] = stabilTran_.preMapping(s);
+    return std::make_tuple(ok, needsMapping);
 }
 
 bool Pss::rebuildCores(Status& s) {

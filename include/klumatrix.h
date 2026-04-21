@@ -289,6 +289,11 @@ public:
     
     // Solve after factorization, result is stored in rhs
     bool solve(ValueType* b);
+
+    // Block solve: solve for nrhs right-hand sides simultaneously.
+    // B is stored column-major with leading dimension AN (ldim = AN).
+    // On return B contains the solution columns, overwriting the RHS.
+    bool solveBlock(ValueType* B, IndexType nrhs);
     
     // Matrix-vector product, result is stored in res
     bool product(ValueType* vec, ValueType* res);

@@ -536,6 +536,50 @@ template<typename IndexType, typename ValueType> bool KluMatrixCore<IndexType, V
     return true;
 }
 
+template<typename IndexType, typename ValueType> bool KluMatrixCore<IndexType, ValueType>::solveBlock(ValueType* B, IndexType nrhs) {
+    auto t0 = Accounting::wclk();
+    if (acct) {
+        if constexpr(std::is_same<ValueType, Complex>::value) {
+            acct->acctNew.cxsolve += nrhs;
+        } else {
+            acct->acctNew.solve += nrhs;
+        }
+    }
+
+    clearError();
+
+    int st;
+    if constexpr(std::is_same<ValueType, Complex>::value) {
+        if constexpr(std::is_same<int32_t, IndexType>::value) {
+            st = klu_z_solve(symbolic, numeric, AN, nrhs,
+                             reinterpret_cast<double*>(B), &common);
+        } else {
+            st = klu_zl_solve(symbolic, numeric, AN, nrhs,
+                              reinterpret_cast<double*>(B), &common);
+        }
+    } else {
+        if constexpr(std::is_same<int32_t, IndexType>::value) {
+            st = klu_solve(symbolic, numeric, AN, nrhs, B, &common);
+        } else {
+            st = klu_l_solve(symbolic, numeric, AN, nrhs, B, &common);
+        }
+    }
+
+    if (acct) {
+        if constexpr(std::is_same<ValueType, Complex>::value) {
+            acct->acctNew.tcxsolve += Accounting::wclkDelta(t0);
+        } else {
+            acct->acctNew.tsolve += Accounting::wclkDelta(t0);
+        }
+    }
+
+    if (!st) {
+        lastError = Error::Solve;
+        return false;
+    }
+    return true;
+}
+
 // Both vectors must be distinct
 template<typename IndexType, typename ValueType> bool KluMatrixCore<IndexType, ValueType>::product(ValueType* vec, ValueType* res) {
     // Zero out result

@@ -98,6 +98,9 @@ typedef struct PssParameters {
     // Write output datasets (1) or suppress output (0).
     Int  write  {1};
 
+    // Write the stabilisation transient to <name>_stabtran.raw (1) or suppress (0).
+    Int  writestab {0};
+
     // Initial conditions for the stabilisation transient.
     // Same format as TranParameters::ic: a list ["node"; value; ...].
     // When non-empty, the stabilisation transient uses icmodeUic so the
@@ -138,7 +141,10 @@ public:
         CommonData& commons,
         KluRealMatrix& jacobian,
         VectorRepository<double>& solution,
-        VectorRepository<double>& states
+        VectorRepository<double>& states,
+        OperatingPointCore& opCore,
+        TranCore& stabilTran,
+        PssTranCore& pssTran
     );
 
     ~PssCore();
@@ -195,16 +201,10 @@ protected:
     VectorRepository<double>&   solution_;
     VectorRepository<double>&   states_;
 
-    // DC operating point core used to compute the initial DC solution.
-    OperatingPointCore opCore_;
-
-    // Stabilisation transient: lets initial transients decay before shooting.
-    // Uses plain TranCore because G(t) and C(t) collection is not needed here.
-    TranCore stabilTran_;
-
-    // Shooting transient: integrates exactly one period T0 per Newton iteration.
-    // Uses PssTranCore to collect G(t) and C(t) and integrate the LR equations.
-    PssTranCore pssTran_;
+    // Cores owned by the enclosing Pss analysis and passed here by reference.
+    OperatingPointCore& opCore_;
+    TranCore&           stabilTran_;
+    PssTranCore&        pssTran_;
 
     // Output file handle for the converged PSS trajectory.
     OutputRawfile* outfile_;
@@ -212,6 +212,9 @@ protected:
     // Converged results. Populated on successful run().
     double         T0_converged_;
     Vector<double> x0_converged_;
+
+    // Analysis name stored at initializeOutputs() time, used by runStabilisation().
+    Id name_;
 
 private:
     PssParameters& params_;

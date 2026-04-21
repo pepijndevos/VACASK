@@ -1,8 +1,7 @@
 // corepsstran.cpp
 //
 // PssTranCore implementation.
-// See corepsstran.h for design description and corepss.h for the
-// algorithm context.
+// See corepsstran.h for design description and algorithm context.
 
 #include "corepsstran.h"
 #include "simulator.h"
@@ -21,383 +20,276 @@ PssTranCore::PssTranCore(
     VectorRepository<double>& solution,
     VectorRepository<double>& states
 ) : TranCore(parentResolver, params, opCore, circuit, commons,
-             jacobian, solution, states) {
+             jacobian, solution, states),
+    lastAlpha_(0.0),
+    phiValid_(false) {
 }
 
 
 // ----------------------------------------------------------------
-// Trajectory management
+// rebuild
 // ----------------------------------------------------------------
 
-void PssTranCore::clearTrajectory() {
-    trajectory_.clear();
-}
-
-
-// ----------------------------------------------------------------
-// Hook called at every accepted timestep
-// ----------------------------------------------------------------
-
-bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
-    // The NR solve has converged. solution.at(0) holds xs(tk+1).
-    // Re-evaluate the circuit to extract G(t) and C(t) separately
-    // into the new trajectory point.
-
-    PssTrajectoryPoint pt;
-    pt.t     = tSolve;
-    pt.hk    = hk;
-    pt.order = order;
-
-    if (!collectGC(pt)) {
+bool PssTranCore::rebuild(Status& s) {
+    if (!TranCore::rebuild(s)) return false;
+    auto n = circuit.unknownCount();
+    if (!lastAlr_.rebuild(circuit.sparsityMap(), n)) {
+        s.set(Status::Analysis, "PssTranCore: failed to rebuild Alr scratch matrix.");
         return false;
     }
-
-    // Snapshot pastTimesteps so integrateSensitivity() can replay the
-    // LMS coefficients for this step exactly.
-    snapshotPastTimesteps(pt.pastTimestepsSnapshot);
-
-    trajectory_.push_back(std::move(pt));
+    if (!scratchC_.rebuild(circuit.sparsityMap(), n)) {
+        s.set(Status::Analysis, "PssTranCore: failed to rebuild C scratch matrix.");
+        return false;
+    }
     return true;
 }
 
 
 // ----------------------------------------------------------------
-// Collect G(t) and C(t) at the current converged circuit state
+// setShootIC
 // ----------------------------------------------------------------
 
-bool PssTranCore::collectGC(PssTrajectoryPoint& pt) {
-    // Allocate and rebuild pt.G and pt.C with the circuit sparsity pattern.
-    // This is the only rebuild needed - sparsity is fixed for the
-    // entire analysis.
-    pt.G = std::make_unique<KluRealMatrix>();
-    if (!pt.G->rebuild(circuit.sparsityMap(), circuit.unknownCount())) {
-        Simulator::err() << "PssTranCore: failed to rebuild G matrix.\n";
-        return false;
-    }
-    pt.C = std::make_unique<KluRealMatrix>();
-    if (!pt.C->rebuild(circuit.sparsityMap(), circuit.unknownCount())) {
-        Simulator::err() << "PssTranCore: failed to rebuild C matrix.\n";
-        return false;
-    }
-
-    // evalSetup_ from nrSolver already points solution and states at
-    // the current converged state. Copy it and override the flags.
-
-    // --- Resistive Jacobian G = dg/dx ---
-    // Stamp into jac (using the existing circuit binding), then copy
-    // the nonzero values into pt.G. The sparsity structure of pt.G
-    // and jac are identical so the Ax arrays have the same layout.
-    jacobian.zero();
-    {
-        EvalSetup esG = getNrSolver().evalSetup();
-        esG.evaluateResistiveJacobian = true;
-        esG.evaluateReactiveJacobian  = false;
-        esG.evaluateResistiveResidual = false;
-        esG.evaluateReactiveResidual  = false;
-        esG.evaluateOutvars           = false;
-        esG.allowBypass               = false;
-
-        LoadSetup lsG;
-        lsG.loadResistiveJacobian = true;
-
-        if (!circuit.evalAndLoad(commons, &esG, &lsG, nullptr)) {
-            return false;
+void PssTranCore::setShootIC(const Vector<double>& x0) {
+    // Populate preprocessedIc with every circuit unknown so that TranCore's
+    // UIC branch (setForces -> unknownValue_ -> solution) starts the shoot
+    // from x0.  setForces zeros unknownValue_ before applying forces, so we
+    // must supply ALL unknowns here — not just the user-visible IC nodes.
+    preprocessedIc.clear();
+    auto nNodes = circuit.nodeCount();
+    for (NodeIndex i = 0; i < nNodes; i++) {
+        Node* nd = circuit.node(i);
+        auto u = nd->unknownIndex();
+        if (u > 0) {
+            preprocessedIc.nodes.push_back(nd);
+            preprocessedIc.nodeValues.push_back(x0[u]);
         }
-
-        // Copy Ax values from jacobian into pt.G.
-        // AP and AI are identical in both matrices (same sparsity rebuild),
-        // so entry k in jacobian.data() corresponds to entry k in pt.G.data().
-        auto nnz = jacobian.nnz();
-        std::copy(jacobian.data(), jacobian.data() + nnz, pt.G->data());
-    }
-
-    // --- Reactive Jacobian C = dq/dx (unscaled, not alpha * C) ---
-    jacobian.zero();
-    {
-        EvalSetup esC = getNrSolver().evalSetup();
-        esC.evaluateResistiveJacobian = false;
-        esC.evaluateReactiveJacobian  = true;
-        esC.evaluateResistiveResidual = false;
-        esC.evaluateReactiveResidual  = false;
-        esC.evaluateOutvars           = false;
-        esC.allowBypass               = false;
-
-        LoadSetup lsC;
-        lsC.loadReactiveJacobian   = true;
-        lsC.reactiveJacobianFactor = 1.0;
-
-        if (!circuit.evalAndLoad(commons, &esC, &lsC, nullptr)) {
-            return false;
-        }
-
-        auto nnz = jacobian.nnz();
-        std::copy(jacobian.data(), jacobian.data() + nnz, pt.C->data());
-    }
-
-    // Leave jacobian zeroed. TranCore rebuilds it at the next NR iteration.
-    jacobian.zero();
-    return true; 
-}
-
-
-// ----------------------------------------------------------------
-// Snapshot pastTimesteps for LMS replay
-// ----------------------------------------------------------------
-
-void PssTranCore::snapshotPastTimesteps(std::vector<double>& snapshot) {
-    // After pastTimesteps.add(hk), at(0)=hk, at(1)=h_{k-1}, ...
-    // snapshot[0] = hk (= pt.hk, passed as newStep to compute()).
-    // snapshot[1..] = h_{k-1}, h_{k-2}, ... (past steps for the replay).
-    // See the replay loop in integrateSensitivity() for how they are used.
-    auto needed = getIntegCoeffs().pastStatesNeeded();
-    snapshot.resize(needed);
-    for (decltype(needed) i = 0; i < needed; i++) {
-        snapshot[i] = getPastTimesteps().at(i);
     }
 }
 
 
 // ----------------------------------------------------------------
-// Sensitivity matrix integration
+// clearTrajectory
+// ----------------------------------------------------------------
+
+void PssTranCore::clearTrajectory() {
+    phiHist_.clear();
+    lastAlpha_ = 0.0;
+    phiValid_  = false;
+
+    auto n = circuit.unknownCount();
+    phiCurrent_.resize(n, n, DenseMatrix<double>::Major::Column);
+    phiCurrent_.identity();
+}
+
+
+// ----------------------------------------------------------------
+// onTimestepAccepted — inline Phi advancement
+// ----------------------------------------------------------------
+
+bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
+    // Retrieve the LMS coefficients that were active for this step.
+    // getIntegCoeffs() is valid here: TranCore has already called
+    // compute() and scaleDifferentiator() before entering NR.
+    const auto& ic  = getIntegCoeffs();
+    const auto& bsc = ic.bScaled();
+
+    // BDF methods have bScaled empty.  Methods with past-derivative terms
+    // (e.g. trapezoidal) are not supported because xdot history is not
+    // collected during the shoot.
+    if (!bsc.empty()) {
+        Simulator::err() << "PssTranCore: PSS sensitivity requires a BDF method "
+                            "(no past-derivative terms); method has "
+                         << bsc.size() << " bScaled entries at t=" << tSolve << "\n";
+        return false;
+    }
+
+    double      alpha = ic.leadingCoeff();
+    const auto& asc   = ic.aScaled();
+    auto        n     = circuit.unknownCount();
+    auto        nnz   = jacobian.nnz();
+
+    // ----------------------------------------------------------------
+    // 1. Capture Alr = G_k + alpha_k * C_k from the factored NR jacobian.
+    //
+    //    At this point jacobian.data() holds the Ax values of G + alpha*C
+    //    that the NR loop evaluated and factored for the accepted step.
+    //    Copy them directly so lastAlr_ contains the identical matrix —
+    //    no additional evalAndLoad call is needed for Alr.
+    // ----------------------------------------------------------------
+    std::copy(jacobian.data(), jacobian.data() + nnz, lastAlr_.data());
+
+    // ----------------------------------------------------------------
+    // 2. Evaluate C_k alone.
+    //
+    //    C_k is needed to build the Phi RHS.  Using jacobian as the
+    //    scratch buffer (zeroes it; TranCore will rebuild from scratch
+    //    at the next NR iteration).
+    // ----------------------------------------------------------------
+    jacobian.zero();
+    {
+        EvalSetup es = getNrSolver().evalSetup();
+        es.evaluateResistiveJacobian = false;
+        es.evaluateReactiveJacobian  = true;
+        es.evaluateResistiveResidual = false;
+        es.evaluateReactiveResidual  = false;
+        es.evaluateOutvars           = false;
+        es.allowBypass               = false;
+
+        LoadSetup ls;
+        ls.loadReactiveJacobian   = true;
+        ls.reactiveJacobianFactor = 1.0;
+
+        if (!circuit.evalAndLoad(commons, &es, &ls, nullptr)) {
+            Simulator::err() << "PssTranCore: evalAndLoad(C) failed at t="
+                             << tSolve << "\n";
+            return false;
+        }
+    }
+    std::copy(jacobian.data(), jacobian.data() + nnz, scratchC_.data());
+    jacobian.zero();  // leave clean; TranCore rebuilds for the next step
+
+    // ----------------------------------------------------------------
+    // 3. Factor lastAlr_.
+    //
+    //    refactor() reuses the symbolic factorisation from rebuild(),
+    //    performing only the cheaper numeric factorisation each step.
+    // ----------------------------------------------------------------
+    if (!lastAlr_.refactor()) {
+        Simulator::err() << "PssTranCore: Alr refactorisation failed at t="
+                         << tSolve << "\n";
+        return false;
+    }
+    lastAlpha_ = alpha;
+
+    // ----------------------------------------------------------------
+    // 4. Extend phiHist with identity matrices during order ramp-up.
+    //
+    //    asc.size() past Phi matrices are needed (index 0 = current, i>=1
+    //    come from phiHist).  Fill any missing slots with I: before t0 the
+    //    circuit is at the limit cycle so the sensitivity is the identity.
+    // ----------------------------------------------------------------
+    while (phiHist_.size() + 1 < asc.size()) {
+        DenseMatrix<double> id(n, n, DenseMatrix<double>::Major::Column);
+        id.identity();
+        phiHist_.push_back(std::move(id));
+    }
+
+    // ----------------------------------------------------------------
+    // 5. Build the RHS matrix (column-major n×n).
+    //
+    //    RHS[:,j] = C_k * phiSum[:,j]
+    //    phiSum[:,j] = sum_{si=0}^{asc.size()-1} asc[si] * src[si][:,j]
+    //    src[0] = phiCurrent_ (= Phi_{k}),  src[si>=1] = phiHist_[si-1].
+    //
+    //    Column-major layout lets the block solve (step 6) pass the raw
+    //    data pointer directly to klu_solve with ldim = n.
+    // ----------------------------------------------------------------
+    DenseMatrix<double> phiSnap(phiCurrent_);  // snapshot before overwriting
+
+    DenseMatrix<double> phiRhs(n, n, DenseMatrix<double>::Major::Column);
+
+    Vector<double> colBuf(n);   // phiSum column j (contiguous scratch)
+    Vector<double> cvec(n);     // C_k * colBuf (0-based, no bucket element)
+
+    for (decltype(n) j = 0; j < n; j++) {
+        // Accumulate phiSum[:,j]
+        for (decltype(n) i = 0; i < n; i++) colBuf[i] = 0.0;
+        for (size_t si = 0; si < asc.size(); si++) {
+            DenseMatrix<double>* src = (si == 0) ? &phiSnap : &phiHist_[si - 1];
+            auto src_col = src->column(j);
+            for (decltype(n) i = 0; i < n; i++) colBuf[i] += asc[si] * src_col[i];
+        }
+
+        // RHS[:,j] = C_k * phiSum[:,j]
+        // Column j of column-major phiRhs starts at offset j*n.
+        double* rhs_col = phiRhs.data().data() + static_cast<size_t>(j) * n;
+        if (!scratchC_.product(colBuf.data(), rhs_col)) {
+            Simulator::err() << "PssTranCore: C*v product failed at t="
+                             << tSolve << ", column " << j << "\n";
+            return false;
+        }
+    }
+
+    // ----------------------------------------------------------------
+    // 6. Block solve: lastAlr_ * PhiT_new = phiRhs (all n columns).
+    //
+    //    klu_solve accepts nrhs > 1 with the RHS stored column-major
+    //    (ldim = n).  After the call phiRhs contains the solution.
+    // ----------------------------------------------------------------
+    if (!lastAlr_.solveBlock(phiRhs.data().data(), static_cast<Int>(n))) {
+        Simulator::err() << "PssTranCore: block Alr solve failed at t="
+                         << tSolve << "\n";
+        return false;
+    }
+    phiCurrent_ = phiRhs;   // phiRhs now holds PhiT at this step
+
+    // ----------------------------------------------------------------
+    // 7. Rotate phiHist (circular buffer, depth always >= 1).
+    //
+    //    phiSnap (= Phi before this step) becomes phiHist_[0].
+    //    Trim to keepDepth so the buffer never exceeds p entries.
+    //    Keeping at least 1 entry ensures a future BDF order ramp-up
+    //    (e.g. BDF-1 → BDF-2) finds the real Phi_{k-1} rather than an
+    //    identity placeholder.
+    // ----------------------------------------------------------------
+    phiHist_.push_front(std::move(phiSnap));
+    size_t keepDepth = (asc.size() > 0) ? asc.size() - 1 : 0;
+    if (keepDepth < 1) keepDepth = 1;
+    while (phiHist_.size() > keepDepth) phiHist_.pop_back();
+
+    phiValid_ = true;
+    return true;
+}
+
+
+// ----------------------------------------------------------------
+// integrateSensitivity
 // ----------------------------------------------------------------
 
 bool PssTranCore::integrateSensitivity(
     DenseMatrix<double>& PhiT,
     Vector<double>&      PsiT
 ) {
-    if (trajectory_.empty()) {
-        Simulator::err() << "PssTranCore: trajectory is empty, cannot integrate sensitivity.\n";
+    if (!phiValid_) {
+        Simulator::err() << "PssTranCore: no accepted steps since clearTrajectory(); "
+                            "PhiT is not available.\n";
         return false;
     }
 
+    // PhiT: the inline-computed sensitivity matrix is ready.
+    PhiT = phiCurrent_;
+
+    // PsiT = -dxT/dT0 = alpha_last * Alr_last^{-1} * g(xT).
+    //
+    // g(xT) is evaluated from the current circuit state (solution = xT,
+    // unchanged since the last accepted step) using the resistive residual.
     auto n = circuit.unknownCount();
-
-    // PhiT starts as the n x n identity: PhiT(t0) = I.
-    // Column j of PhiT represents the response to a unit perturbation
-    // in direction ej at t0.
-    PhiT.resize(n, n);
-    for (decltype(n) i = 0; i < n; i++) {
-        for (decltype(n) j = 0; j < n; j++) {
-            PhiT.at(i, j) = (i == j) ? 1.0 : 0.0;
-        }
-    }
-
-    // Alr = G + alpha * C at each step.
-    // Rebuilt from stored trajectory snapshots, never via evalAndLoad.
-    KluRealMatrix Alr;
-    if (!Alr.rebuild(circuit.sparsityMap(), n)) {
-        Simulator::err() << "PssTranCore: failed to rebuild Alr matrix.\n";
-        return false;
-    }
-
-    // Working vectors for the sparse matrix-vector product and the solve.
-    // col_buf: flat copy of a PhiT column for product() — DenseMatrix columns
-    //   are strided in row-major layout and cannot be passed directly as a
-    //   contiguous array pointer.
-    // Cv:      result of C * col_buf, 0-based, no bucket.
-    // rhs:     RHS for Alr solve, 1-based, with bucket.
-    Vector<double> col_buf(n);  // contiguous copy of one PhiT column
-    Vector<double> Cv(n);       // result of C * col_buf, 0-based, no bucket
-    Vector<double> rhs(n + 1);  // RHS for Alr solve, 1-based, with bucket
-
-    // alphaLast is captured each iteration so it is available after the loop
-    // for the PsiT solve, which reuses the final factored Alr.
-    double alphaLast = 0.0;
-
-    // History of past PhiT matrices for multi-step LMS integration.
-    // phiHist[i] = PhiT at step k-i-1 (i.e. dx_{k-1-i}).
-    // Extended with identity matrices during order ramp-up (the circuit
-    // was at steady state before t0, so the sensitivity is the identity).
-    std::deque<DenseMatrix<double>> phiHist;
-
-    // Snapshot of PhiT (= dx_k) taken before overwriting it column by column.
-    // Saved into phiHist[0] at the end of each step.
-    DenseMatrix<double> PhiT_snap;
-
-    for (const auto& pt : trajectory_) {
-        // Replay integrator coefficients for this step using the stored
-        // pastTimesteps snapshot to get the same alpha as the original run.
-        IntegratorCoeffs replayCoeffs = getIntegCoeffs();
-        replayCoeffs.setOrder(pt.order);
-
-        // Reconstruct the past-step circular buffer from the snapshot.
-        // snapshot[0] == pt.hk — passed as newStep below, not a past step.
-        // snapshot[1..] == h_{k-1}, h_{k-2}, ... — add in reverse order so
-        // that replaySteps.at(0) == h_{k-1} (most recent past step), matching
-        // the state of pastTimesteps before pastTimesteps.add(hk) was called.
-        CircularBuffer<double> replaySteps;
-        auto snapSize = static_cast<Int>(pt.pastTimestepsSnapshot.size());
-        replaySteps.upsize(snapSize + 1);
-        for (int si = snapSize - 1; si >= 1; si--) {
-            replaySteps.add(pt.pastTimestepsSnapshot[si]);
-        }
-        if (!replayCoeffs.compute(replaySteps, pt.hk)) {
-            Simulator::err() << "PssTranCore: failed to compute integrator coefficients at t="
-                             << pt.t << "\n";
-            return false;
-        }
-        if (!replayCoeffs.scaleDifferentiator(pt.hk)) {
-            Simulator::err() << "PssTranCore: failed to scale differentiator at t="
-                             << pt.t << "\n";
-            return false;
-        }
-
-        double alpha = replayCoeffs.leadingCoeff();
-        alphaLast = alpha;
-
-        const auto& asc = replayCoeffs.aScaled();
-        const auto& bsc = replayCoeffs.bScaled();
-
-        // Methods with past-derivative terms (e.g. trapezoidal) require an
-        // xdot history that is not collected during the transient run.
-        // BDF and Adams-Moulton without past derivatives are supported.
-        if (!bsc.empty()) {
-            Simulator::err() << "PssTranCore: sensitivity integration does not support "
-                             << "LMS methods with past-derivative terms (e.g. trapezoidal) "
-                             << "at t=" << pt.t << "\n";
-            return false;
-        }
-
-        // Build Alr = G_k + alpha * C_k element-wise.
-        // pt.G and pt.C share the same sparsity as Alr, so their
-        // data() arrays are aligned entry-for-entry.
-        auto nnz = Alr.nnz();
-        for (decltype(nnz) k = 0; k < nnz; k++) {
-            Alr.data()[k] = pt.G->data()[k] + alpha * pt.C->data()[k];
-        }
-
-        if (!Alr.factor()) {
-            Simulator::err() << "PssTranCore: LR factorisation failed at t="
-                             << pt.t << "\n";
-            return false;
-        }
-
-        // Extend phiHist with identity matrices to cover newly needed history
-        // depth during order ramp-up. asc.size()-1 past PhiT matrices are
-        // needed; slots not yet present are filled with the identity.
-        while (phiHist.size() + 1 < asc.size()) {
-            DenseMatrix<double> id;
-            id.resize(n, n);
-            for (decltype(n) row = 0; row < n; row++)
-                for (decltype(n) col = 0; col < n; col++)
-                    id.at(row, col) = (row == col) ? 1.0 : 0.0;
-            phiHist.push_back(std::move(id));
-        }
-
-        // Snapshot PhiT (= dx_k) BEFORE overwriting it column by column.
-        // It will become phiHist[0] after the column updates.
-        PhiT_snap = PhiT;
-
-        // Advance each column j of PhiT through this LMS step.
-        //
-        // The discretised LR equation is:
-        //   Alr * dx_{k+1} = C * sum_{i=0}^{p-1} asc[i] * dx_{k-i}
-        //
-        // where asc = aScaled_ from the replayed integrator coefficients.
-        // dx_{k-0} = PhiT_snap (PhiT before this update).
-        // dx_{k-i} for i >= 1 = phiHist[i-1].
-        //
-        // For BDF-1 (p=1): asc[0]=1, so RHS = alpha*C*dx_k (as before).
-        // For BDF-2/Gear-2 (p=2): RHS = C*(asc[0]*dx_k + asc[1]*dx_{k-1}).
-        for (decltype(n) j = 0; j < n; j++) {
-            auto col_j = PhiT.column(j);
-
-            // Accumulate RHS = C * sum_i asc[i] * hist[i][:, j].
-            // Source matrices are row-major so columns are strided; copy each
-            // to col_buf before passing to C->product() (which expects a
-            // contiguous array). Write-back via col_j[i] is correct because
-            // VectorView::operator[] applies the stride automatically.
-            rhs[0] = 0.0;
-            for (decltype(n) i = 0; i < n; i++) rhs[i + 1] = 0.0;
-
-            for (size_t si = 0; si < asc.size(); si++) {
-                DenseMatrix<double>* srcPtr =
-                    (si == 0) ? &PhiT_snap : &phiHist[si - 1];
-                auto src_col = srcPtr->column(j);
-                for (decltype(n) i = 0; i < n; i++) col_buf[i] = src_col[i];
-
-                if (!pt.C->product(col_buf.data(), Cv.data())) {
-                    Simulator::err() << "PssTranCore: C*v product failed at t="
-                                     << pt.t << ", column " << j
-                                     << ", history slot " << si << "\n";
-                    return false;
-                }
-
-                for (decltype(n) i = 0; i < n; i++) rhs[i + 1] += asc[si] * Cv[i];
-            }
-
-            // Solve Alr * dx_{k+1} = rhs in place.
-            // dataWithoutBucket returns rhs.data() + 1, skipping the bucket.
-            if (!Alr.solve(dataWithoutBucket(rhs))) {
-                Simulator::err() << "PssTranCore: LR solve failed at t="
-                                 << pt.t << ", column " << j << "\n";
-                return false;
-            }
-
-            // Store dx_{k+1} back into column j of PhiT.
-            for (decltype(n) i = 0; i < n; i++) {
-                col_j[i] = rhs[i + 1];
-            }
-        }
-
-        // Rotate history: PhiT_snap (dx_k) becomes phiHist[0] for the next
-        // step. Keep at least 1 entry so that a future order ramp-up (e.g.
-        // BDF-1 → BDF-2) finds the real dx_{k-1} rather than the identity
-        // placeholder filled in by the while-loop above.
-        phiHist.push_front(std::move(PhiT_snap));
-        size_t keepDepth = (asc.size() > 0) ? asc.size() - 1 : 0;
-        if (keepDepth < 1) keepDepth = 1;
-        while (phiHist.size() > keepDepth) {
-            phiHist.pop_back();
-        }
-    }
-
-    // Compute PsiT = -dxT/dT0, the period sensitivity vector.
-    //
-    // PsiT is the negated circuit velocity at the end of the trajectory:
-    //   PsiT = -xdot_s(t0 + T0)
-    //
-    // From the circuit equations: g(xT) + C(xT)*xdot = 0
-    //   => PsiT = C(xT)^{-1} * g(xT)
-    //
-    // C(xT) alone is singular for purely resistive nodes (zero rows).
-    // Instead we reuse Alr = G + alphaLast*C from the last trajectory step,
-    // which is already factored above. The approximation:
-    //
-    //   PsiT = alphaLast * Alr^{-1} * g(xT)
-    //
-    // is exact when alphaLast*C >> G (oscillating circuits at their operating
-    // frequency) and degenerates correctly to zero for purely resistive
-    // circuits where g(xT) = 0 at the DC operating point.
-
-    // Evaluate g(xT) at the current circuit state. solution.at(0) = xT
-    // because integrateSensitivity() is called immediately after the shoot.
     Vector<double> gxT(n + 1, 0.0);
     {
-        EvalSetup esV = getNrSolver().evalSetup();
-        esV.evaluateResistiveJacobian = false;
-        esV.evaluateReactiveJacobian  = false;
-        esV.evaluateResistiveResidual = true;
-        esV.evaluateReactiveResidual  = false;
-        esV.evaluateOutvars           = false;
-        esV.allowBypass               = false;
+        EvalSetup es = getNrSolver().evalSetup();
+        es.evaluateResistiveJacobian = false;
+        es.evaluateReactiveJacobian  = false;
+        es.evaluateResistiveResidual = true;
+        es.evaluateReactiveResidual  = false;
+        es.evaluateOutvars           = false;
+        es.allowBypass               = false;
 
-        LoadSetup lsV;
-        lsV.resistiveResidual = gxT.data();
+        LoadSetup ls;
+        ls.resistiveResidual = gxT.data();
 
-        if (!circuit.evalAndLoad(commons, &esV, &lsV, nullptr)) {
+        if (!circuit.evalAndLoad(commons, &es, &ls, nullptr)) {
             return false;
         }
     }
 
-    // PsiT = alphaLast * Alr^{-1} * g(xT).
-    // Load the scaled g(xT) into PsiT (1-based), then solve in place.
+    // lastAlr_ is still factored from the last accepted step (it was not
+    // zeroed or touched between onTimestepAccepted() and here).
     PsiT.resize(n + 1);
     PsiT[0] = 0.0;
     for (decltype(n) i = 0; i < n; i++) {
-        PsiT[i + 1] = alphaLast * gxT[i + 1];
+        PsiT[i + 1] = lastAlpha_ * gxT[i + 1];
     }
-    if (!Alr.solve(dataWithoutBucket(PsiT))) {
+    if (!lastAlr_.solve(dataWithoutBucket(PsiT))) {
         Simulator::err() << "PssTranCore: PsiT solve failed.\n";
         return false;
     }

@@ -1,0 +1,151 @@
+Van der Pol LC oscillator - PSS convergence test
+
+// Circuit
+// -------
+// A single-node LC oscillator with a Van der Pol nonlinear conductance,
+// implemented in one embedded Verilog-A module (no external OSDI models):
+//
+//   C  = 1 nF  (ddt)
+//   L  = 1 uH  (idt, IL(0)=0)
+//   VdP: I(V) = (-G0 + G1*V^2)*V
+//        G0 = 0.01 S, G1 = 0.01 S/V^2  => amplitude ~ sqrt(4*G0/(3*G1)) ~ 1.15 V
+//
+// Resonant frequency:
+//   f0 = 1 / (2*pi*sqrt(L*C)) = 1 / (2*pi*sqrt(1e-6*1e-9)) ~= 5.033 MHz
+//   T0 ~= 198.69 ns
+//
+// The DC operating point is V=0, which is a fixed point of BDF.
+// To kick the oscillation, ic=["1"; 0.9] sets V(1)=0.9 V at t=0.
+//
+// PSS parameters
+// --------------
+//   Tper  = 200ns  (initial guess, ~1% above exact T0)
+//   Tstab = 5us    (25 periods; enough for the oscillation to settle)
+//   tran_method = "gear"  (BDF; trapezoidal not supported by the PSS
+//                          sensitivity integrator)
+
+ground 0
+
+embed "vdposc.va" <<<FILE
+`include "constants.vams"
+`include "disciplines.vams"
+
+// Full LC-VdP oscillator in one module.
+// Implements:
+//   - Capacitor: I <+ ddt(C * V)
+//   - Inductor:  I <+ idt(V/L, 0)   [IL(0)=0]
+//   - VdP conductance: I <+ (-G0 + G1*V^2)*V
+// Hardcoded values (VACASK Verilog-A parameters are not yet settable from
+// the netlist for embedded compiled models):
+//   C=1e-9 F, L=1e-6 H, G0=0.01 S, G1=0.01 S/V^2
+module vdposc(A, B);
+    inout A, B;
+    electrical A, B;
+
+    analog begin
+        // Capacitor
+        I(A,B) <+ ddt(1e-9 * V(A,B));
+        // Inductor (IL(0)=0)
+        I(A,B) <+ idt(V(A,B) / 1e-6, 0);
+        // Van der Pol nonlinear conductance
+        I(A,B) <+ (-0.01 + 0.01 * pow(V(A,B), 2)) * V(A,B);
+    end
+endmodule
+>>>FILE
+
+load "vdposc.va"
+model vdposc vdposc
+osc1 (1 0) vdposc
+
+control
+  abort never
+
+  options op_debug=3 tran_debug=0
+  options rawfile="binary" strictsave=1
+  options tran_debug=3
+  options tran_method="gear"
+
+  save default
+
+  // ic=["1"; 0.9]: start stabilisation from V(1)=0.9V (away from the DC
+  // fixed point at V=0) so the oscillation grows to the limit cycle.
+  analysis pss1 pss Tper=200n Tstab=5u MaxItr=10 EpsMax=1e-5 ic=["1"; 0.9] writestab=1
+  //analysis tran1 tran start=0 stop=5u step=2.2n maxstep=22n ic=["1"; 0.9] 
+
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+from runtest import *
+import numpy as np
+import sys
+import matplotlib.pyplot as plt
+
+V_exact  = np.sqrt(4.0 * 0.01 / (3.0 * 0.01))  # ~1.155 V
+T0_exact = 2 * np.pi * np.sqrt(1e-6 * 1e-9)
+
+# --- Stabilisation transient (always present) ---
+stab = rawread('pss1_stabtran.raw').get()
+ts   = np.real(stab['time'])
+vs   = np.real(stab['1'])
+V_final = np.max(np.abs(vs[-200:]))
+print(f"Stab: {len(ts)} points, final Vpp envelope ~{V_final:.4f} V "
+      f"(expected {V_exact:.4f} V)")
+
+# --- PSS result (may be absent if PSS did not write output) ---
+tests  = []
+pss_ok = False
+try:
+    pss1 = rawread('pss1.raw').get()
+    time = np.real(pss1['time'])
+    v1   = np.real(pss1['1'])
+    pss_ok = True
+
+    T0_sim  = time[-1]
+    T0_err  = abs(T0_sim - T0_exact) / T0_exact
+    status1 = T0_err < 0.02
+    print(f"T0_exact={T0_exact*1e9:.4f} ns  T0_sim={T0_sim*1e9:.4f} ns  "
+          f"rel_err={T0_err:.4e}  {'PASS' if status1 else 'FAIL'}")
+    tests.append(status1)
+
+    V_peak  = np.max(np.abs(v1))
+    V_err   = abs(V_peak - V_exact) / V_exact
+    status2 = V_err < 0.10
+    print(f"V_peak={V_peak:.4f} V  V_exact={V_exact:.4f} V  "
+          f"rel_err={V_err:.4e}  {'PASS' if status2 else 'FAIL'}")
+    tests.append(status2)
+except FileNotFoundError:
+    print("pss1.raw not found — PSS did not produce output")
+    tests.append(False)
+except KeyError:
+    print("pss1.raw does not contain the correct key names")
+    tests.append(False)
+
+if isTest():
+    sys.exit(not all(tests))
+
+n_panels = 2 if pss_ok else 1
+fig, axes = plt.subplots(n_panels, 1, figsize=(10, 4 * n_panels), dpi=100, squeeze=False)
+axes = axes.flatten()
+
+axes[0].set_title('Van der Pol LC oscillator - stabilisation transient')
+axes[0].set_xlabel('time [µs]')
+axes[0].set_ylabel('V(1) [V]')
+axes[0].plot(ts * 1e6, vs, lw=0.5)
+axes[0].axhline( V_exact, color='r', linestyle='--', label=f'limit-cycle ±{V_exact:.3f} V')
+axes[0].axhline(-V_exact, color='r', linestyle='--')
+axes[0].legend()
+
+if pss_ok:
+    axes[1].set_title('Van der Pol LC oscillator - PSS steady-state trajectory')
+    axes[1].set_xlabel('time [ns]')
+    axes[1].set_ylabel('V(1) [V]')
+    axes[1].plot(time * 1e9, v1, marker='.', markersize=3)
+    axes[1].axhline( V_exact, color='r', linestyle='--', label=f'±{V_exact:.3f} V limit')
+    axes[1].axhline(-V_exact, color='r', linestyle='--')
+    axes[1].legend()
+
+plt.tight_layout()
+plt.show()
+>>>FILE

@@ -36,6 +36,7 @@ protected:
     virtual void clearOutputDescriptors();
     virtual bool resolveOutputDescriptors(bool strict, Status& s=Status::ignore);
 
+    virtual std::tuple<bool, bool> preMapping(Status& s=Status::ignore);
     virtual bool rebuildCores(Status& s=Status::ignore);
     virtual bool initializeOutputs(Status& s=Status::ignore);
 
@@ -53,13 +54,14 @@ protected:
 private:
     IStruct<PssParameters> params_;
 
-    // Shared Jacobian and solution/state repositories.
-    // Owned here and passed by reference into pssCore_.
     KluRealMatrix            jac_;
     VectorRepository<double> solution_;
     VectorRepository<double> states_;
 
-    PssCore pssCore_;
+    OperatingPointCore opCore_;
+    TranCore           stabilTran_;
+    PssTranCore        pssTran_;
+    PssCore            pssCore_;
 };
 
 } // namespace NAMESPACE

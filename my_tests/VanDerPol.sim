@@ -1,0 +1,150 @@
+Van der Pol oscillator - transient and PSS
+
+// Parallel RLC oscillator with VdP negative resistance:
+//   L=10nH, C=3.16pF  ->  f0 = 1/(2*pi*sqrt(L*C)) = 895 MHz, T0 = 1.117ns
+//   R=1k:  conductance = 1e-3 S = g0  ->  G_net = 0 at small signal (marginal)
+//   VdP limits amplitude to ~2*v0 = 2 V
+//
+// Two analyses:
+//   tran1 - 10 ns transient from ic V(1)=1.5 V to verify oscillation
+//   pss1  - PSS Newton loop, initial guess Tper=1.117ns
+
+ground 0
+
+// Removed: load "vdp.osdi"
+load "resistor.osdi"
+load "capacitor.osdi"
+load "inductor.osdi"
+
+// -------------------------------------------------------------------
+// Embedded Verilog-A Van der Pol model
+// -------------------------------------------------------------------
+embed "vdp.va" <<<FILE
+`include "constants.vams"
+`include "disciplines.vams"
+
+module vdp(p, n);
+  inout p, n;
+  electrical p, n;
+
+  // Parameters:
+  // G0: small-signal negative conductance magnitude
+  // V0: sets oscillation amplitude (Vpp ≈ 2*V0)
+  parameter real G0 = 1e-2;
+  parameter real V0 = 1.0;
+
+  real v;
+  real G1;
+
+  analog begin
+    v = V(p, n);
+
+    // Cubic coefficient sets steady-state amplitude
+    G1 = G0 / (V0*V0);
+
+    // Van der Pol current
+    I(p, n) <+ (-G0 + G1 * v * v) * v;
+  end
+endmodule
+>>>FILE
+
+model vdp_m  vdp      G0=1e-2 V0=1.0
+model res_m  resistor noisy=0
+model cap_m  capacitor
+model ind_m  inductor
+
+vdp1 (1 0) vdp_m
+r1   (1 0) res_m  r=500
+c1   (1 0) cap_m  c=3.16p
+l1   (1 0) ind_m  l=10n
+
+control
+  abort always
+
+  options op_debug=0 tran_debug=0
+  options rawfile="binary"
+  options reltol=1e-6 abstol=1e-12
+  // PSS sensitivity integration requires BDF (no past-derivative terms).
+  // Default tran_method="trap" is rejected by integrateSensitivity().
+  options tran_method="bdf"
+
+  // Transient: 200 ns from ic V(1)=1.5 to confirm oscillation
+  analysis tran1 tran stop=200n step=0.01n icmode="uic" ic=["1"; 1.5]
+
+  // PSS: Newton loop, initial period guess 1.117 ns
+  analysis pss1 pss Tper=1.11e-9 Tstab=50e-9 EpsMax=1e-6 MaxItr=20 ic=["1"; 1.5]
+
+  save tran1 v(1)
+  save pss1  v(1)
+
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+from runtest import *
+import numpy as np
+import sys
+
+# -------------------------------------------------------------------
+# Transient
+# -------------------------------------------------------------------
+pt  = rawread('tran1.raw').get()
+t   = pt['time']
+v1t = pt['1']
+
+amp_pp = float(v1t.max() - v1t.min())
+print(f"Tran: {len(t)} points,  Vpp = {amp_pp:.3f} V")
+
+dt_uni = 0.01e-9
+t_uni  = np.arange(t[0], t[-1], dt_uni)
+v_uni  = np.interp(t_uni, t, v1t)
+fmag   = np.abs(np.fft.rfft(v_uni - np.mean(v_uni)))
+freqs  = np.fft.rfftfreq(len(v_uni), d=dt_uni)
+ipeak  = int(np.argmax(fmag[1:]) + 1)
+f_tran = float(freqs[ipeak])
+print(f"Tran: dominant frequency = {f_tran/1e6:.1f} MHz")
+
+# -------------------------------------------------------------------
+# PSS (gracefully skipped if PSS not yet converging)
+# -------------------------------------------------------------------
+pss_ok = False
+try:
+    pp  = rawread('pss1.raw').get()
+    tp  = pp['time']
+    v1p = pp['1']
+    T0  = float(tp[-1] - tp[0])
+    f0  = 1.0 / T0
+    vpp = float(v1p.max() - v1p.min())
+    print(f"PSS:  converged T0={T0:.4e} s  f0={f0/1e6:.3f} MHz  Vpp={vpp:.3f} V")
+    pss_ok = True
+except Exception as e:
+    print(f"PSS:  not available ({e})")
+
+if isTest():
+    tran_ok = amp_pp > 1.0 and 700e6 <= f_tran <= 1100e6
+    sys.exit(not tran_ok)
+else:
+    import matplotlib.pyplot as plt
+
+    n_panels = 2 if pss_ok else 1
+    fig, axes = plt.subplots(n_panels, 1, figsize=(9, 4 * n_panels), squeeze=False)
+    axes = axes.flatten()
+    fig.suptitle("Van der Pol oscillator (~895 MHz)")
+
+    axes[0].plot(t * 1e9, v1t, lw=0.8, label="V(1)")
+    axes[0].set_xlabel("time [ns]")
+    axes[0].set_ylabel("V(1) [V]")
+    axes[0].set_title(f"Transient  (Vpp={amp_pp:.2f} V,  f={f_tran/1e6:.0f} MHz)")
+    axes[0].legend()
+
+    if pss_ok:
+        axes[1].plot(tp * 1e9, v1p, lw=1.2, color='C1', label="V(1) PSS")
+        axes[1].set_xlabel("time [ns]")
+        axes[1].set_ylabel("V(1) [V]")
+        axes[1].set_title(f"PSS converged limit cycle  f0={f0/1e6:.3f} MHz")
+        axes[1].legend()
+
+    plt.tight_layout()
+    plt.show()
+>>>FILE

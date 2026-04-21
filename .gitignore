@@ -9,3 +9,5 @@ benchmark/rundir
 build/
 theory
 docs/internals/
+build
+.cache

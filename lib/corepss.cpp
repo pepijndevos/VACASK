@@ -22,6 +22,7 @@ template<> int Introspection<PssParameters>::setup() {
     registerMember(MaxItr);
     registerMember(EpsMax);
     registerMember(write);
+    registerMember(writestab);
     registerMember(ic);
     registerNamedMember(opParams.nodeset, "nodeset");
     return 0;
@@ -72,18 +73,18 @@ PssCore::PssCore(
     CommonData& commons,
     KluRealMatrix& jacobian,
     VectorRepository<double>& solution,
-    VectorRepository<double>& states
+    VectorRepository<double>& states,
+    OperatingPointCore& opCore,
+    TranCore& stabilTran,
+    PssTranCore& pssTran
 ) : AnalysisCore(parentResolver, circuit, commons),
     params_(params),
     jac_(jacobian),
     solution_(solution),
     states_(states),
-    opCore_(parentResolver, params.opParams, circuit, commons,
-            jacobian, solution, states),
-    stabilTran_(parentResolver, params.stabilParams, opCore_, circuit, commons,
-                jacobian, solution, states),
-    pssTran_(parentResolver, params.stabilParams, opCore_, circuit, commons,
-             jacobian, solution, states),
+    opCore_(opCore),
+    stabilTran_(stabilTran),
+    pssTran_(pssTran),
     outfile_(nullptr),
     T0_converged_(0.0)
 {
@@ -129,10 +130,17 @@ bool PssCore::rebuild(Status& s) {
     if (!pssTran_.rebuild(s)) {
         return false;
     }
+    if (params_.writestab) {
+        params_.stabilParams.write = 1;
+        stabilTran_.addCoreOutputDescriptors();
+        stabilTran_.addDefaultOutputDescriptors();
+        stabilTran_.resolveOutputDescriptors(false);
+    }
     return true;
 }
 
 bool PssCore::initializeOutputs(Id name, Status& s) {
+    name_ = name;
     if (!params_.write || Simulator::noOutput()) {
         return true;
     }
@@ -224,7 +232,18 @@ bool PssCore::run(bool continuePrevious) {
         // Load x0 as the shooting initial condition and clear the
         // trajectory so onTimestepAccepted() starts fresh.
         solution_.vector() = x0;
+        pssTran_.setShootIC(x0);
         pssTran_.clearTrajectory();
+
+        {
+            std::stringstream ss;
+            ss << std::scientific << std::setprecision(4);
+            ss << "PSS: shoot l=" << l << " x0=[";
+            auto n = circuit.unknownCount();
+            for (decltype(n) i = 1; i <= n; i++) ss << " " << x0[i];
+            ss << " ]\n";
+            Simulator::dbg() << ss.str();
+        }
 
         // Shoot one period T0 from x0. On return solution_ = xT.
         if (!runShoot(T0, s)) {
@@ -233,6 +252,16 @@ bool PssCore::run(bool continuePrevious) {
         }
 
         Vector<double> xT = solution_.vector();
+
+        {
+            std::stringstream ss;
+            ss << std::scientific << std::setprecision(4);
+            ss << "PSS: shoot l=" << l << " xT=[";
+            auto n = circuit.unknownCount();
+            for (decltype(n) i = 1; i <= n; i++) ss << " " << xT[i];
+            ss << " ]\n";
+            Simulator::dbg() << ss.str();
+        }
 
         // Shooting residual Fp = x0 - xT.
         auto n = circuit.unknownCount();
@@ -264,9 +293,36 @@ bool PssCore::run(bool continuePrevious) {
             return false;
         }
 
+        {
+            auto n = circuit.unknownCount();
+            std::stringstream ss;
+            ss << std::scientific << std::setprecision(4);
+            ss << "PSS: PsiT=[ ";
+            for (decltype(n) i = 1; i <= n; i++) ss << PsiT[i] << " ";
+            ss << "]\n";
+            ss << "PSS: PhiT=\n";
+            for (decltype(n) i = 0; i < n; i++) {
+                ss << "  [ ";
+                for (decltype(n) j = 0; j < n; j++) ss << PhiT.at(i, j) << " ";
+                ss << "]\n";
+            }
+            Simulator::dbg() << ss.str();
+        }
+
         if (!solveNewtonStep(x0, T0, xT, PhiT, PsiT, s)) {
             setError(PssError::LinearSolveFailed);
             return false;
+        }
+
+        {
+            std::stringstream ss;
+            ss << std::scientific << std::setprecision(6);
+            ss << "PSS: updated T0=" << T0 << " s  f0=" << 1.0/T0 << " Hz\n";
+            ss << "PSS: updated x0=[ ";
+            auto n = circuit.unknownCount();
+            for (decltype(n) i = 1; i <= n; i++) ss << x0[i] << " ";
+            ss << "]\n";
+            Simulator::dbg() << ss.str();
         }
     }
 
@@ -292,17 +348,12 @@ bool PssCore::runStabilisation(Status& s) {
     params_.stabilParams.stop    = params_.Tstab;
     params_.stabilParams.maxstep = params_.Tper / 10.0;
     params_.stabilParams.start   = 0.0;
-    params_.stabilParams.write   = 0;
+    params_.stabilParams.write   = params_.writestab;
 
-    // If the user supplied IC values, use UIC mode for the stabilisation
-    // transient.  This lets self-oscillating circuits start away from their
-    // (possibly degenerate) DC operating point, which is a fixed point of
-    // the BDF equations and would otherwise suppress oscillation growth.
+    // icmode and ic were forwarded to stabilParams in Pss::preMapping().
+    // If no IC was given, run the DC operating point now.
     bool hasIc = (params_.ic.type() == Value::Type::ValueVec);
-    if (hasIc) {
-        params_.stabilParams.ic     = params_.ic;
-        params_.stabilParams.icmode = TranCore::icmodeUic;
-    } else {
+    if (!hasIc) {
         params_.stabilParams.icmode = TranCore::icmodeOp;
         if (!opCore_.run(false)) {
             opCore_.formatError(s);
@@ -310,9 +361,19 @@ bool PssCore::runStabilisation(Status& s) {
         }
     }
 
+    bool writeStab = params_.writestab && !Simulator::noOutput();
+    Id stabName = Id(std::string(name_) + "_stabtran");
+    if (writeStab) {
+        if (!stabilTran_.initializeOutputs(stabName, s)) {
+            return false;
+        }
+    }
     if (!stabilTran_.run(false)) {
         stabilTran_.formatError(s);
         return false;
+    }
+    if (writeStab) {
+        stabilTran_.finalizeOutputs(s);
     }
     return true;
 }
