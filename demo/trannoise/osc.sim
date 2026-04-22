@@ -48,15 +48,15 @@ control
 
   // Steady state, noisy
   // We don't care about 1/f noise fidelity at high frequencies, so oversample=1
-  analysis tran3 tran (
-    stop=periods/fmin maxstep=1.0/(fmax*ptsper) ic="ss" icmode="uic" 
-    noisefmax=fmax noisefmin=fmin oversample=1
-  )
+  // analysis tran3 tran (
+  //   stop=periods/fmin maxstep=1.0/(fmax*ptsper) ic="ss" icmode="uic" 
+  //   noisefmax=fmax noisefmin=fmin oversample=1
+  // )
 
   // Steady state, no noise (reference)
-  analysis tran4 tran (
-    stop=periods/fmin maxstep=1.0/(fmax*ptsper) ic="ss" icmode="uic" 
-  )
+  // analysis tran4 tran (
+  //   stop=periods/fmin maxstep=1.0/(fmax*ptsper) ic="ss" icmode="uic" 
+  // )
   
   postprocess(PYTHON, "runme.py")
 endc
@@ -97,6 +97,8 @@ ax_dict["B"].set_ylabel('Vc [V]')
 ax_dict["B"].set_xlabel('time [s]')
 ax_dict["B"].plot(x, y)
 
+
+# Determine period from steady state
 y_mean = (y.max()+y.min())/2
 
 # Rising crossings: y[i] < mean and y[i+1] >= mean
@@ -109,67 +111,78 @@ t_cross = (
 )
 
 k = np.arange(len(t_cross))
-# t_cross ≈ a*k + b -> a = T
+# fit a*k + b to t_cross -> a = T
 a, b = np.polyfit(k, t_cross, 1)
 T = a
 
 fosc = 1/T
-print("f=", fosc)
+print("fosc=", fosc)
 
 
-raw = rawread('tran3.raw')
-plot = raw.get()
-x = plot['time']
-y = plot['c']
+def psd(x, y, fmintarget, fosc):
+  # Integer number of periods
+  nper = np.floor(x[-1]*fosc)
+  xend = nper/fosc
 
-# Integer number of periods
-xend = np.floor(x[-1]*fosc)/fosc
-fmin = 10/xend
+  # Original sampling time
+  dxorig = x[-1]/x.shape[0]
 
-# Sampling frequency slightly greater than original
-dx = xend/x.shape[0]
-fmax = 1/dx
+  # Number of points in period, round up to power of 2
+  nptsper = 1/(fosc*dxorig)
+  nptsper = 2**np.ceil(np.log(nptsper)/np.log(2))
 
-# Interpolate
-xs = np.arange(x[0], xend + dx, dx)
-ys = np.interp(xs, x, y)
+  # New sampling frequency, greater than original
+  dx = 1/(fosc*nptsper)
+  fmax = 1/dx
 
-# Remove mean
-ys = ys - np.mean(ys)
+  # Number of periods per segment so that we reach fmin
+  fmintarget = 10
+  nperinseg = np.ceil(fosc/fmintarget)
 
-# Number of points and number of points per segment
-N = xs.shape[0]
-nperseg = int(np.ceil(fmax/(fmin)))
+  # Number of points per segment
+  nperseg = nperinseg*nptsper
+  fmin = 1/dx/nperseg
 
-print("Welch estimation of PSD")
-print("fmin=", fmin)
-print("fmax=", fmax)
-print("Interpolated points:", N)
-print("Segment length:", nperseg)
-print("Segments:", int(np.floor(N/(nperseg/2)-1)))
+  # Interpolate
+  xs = np.arange(x[0], xend, dx)
+  ys = np.interp(xs, x, y)
 
-f, Pxx = welch(
-    ys,
-    fs=1/dx,
-    window='hann',
-    nperseg=nperseg,      
-    noverlap=nperseg/2,      
-    detrend=False,
-    return_onesided=True,
-    scaling='density', 
-    average='mean'
-)
+  # Remove mean
+  ys = ys - np.mean(ys)
 
-ax_dict["C"].set_title('PSD')
-ax_dict["C"].set_ylabel('PSD [V^2/Hz]')
-ax_dict["C"].set_xlabel('f [Hz]')
-ax_dict["C"].semilogy(f, Pxx)
-ax_dict["C"].set_xlim(10, 2e6)
+  # Number of points and number of points per segment
+  N = xs.shape[0]
+
+  print("Welch estimation of PSD")
+  print("Frequency:       ", fosc)
+  print("Original points: ", x.shape[0])
+  print("Recorded periods:", nper)
+  print("fmin:            ", fmin)
+  print("fmax:            ", fmax)
+  print("fosc/fmin:       ", fosc/fmin)
+  print("Interpolated pts:", N)
+  print("Segment length:  ", nperseg)
+  print("Segments:        ", int(np.floor(N/(nperseg/2)-1)))
+
+  f, Pxx = welch(
+      ys,
+      fs=1/dx,
+      window='hann',
+      nperseg=nperseg,      
+      noverlap=nperseg/2,      
+      detrend=False,
+      return_onesided=True,
+      scaling='density', 
+      average='mean'
+  )
+
+  return f, Pxx
 
 def phaseJitter(x, y, fosc, B, taps=2001, trim=True):
-    dx = xend/x.shape[0]
+    n = 2**np.ceil(np.log(x.shape[0])/np.log(2))
+    dx = x[-1]/n
     
-    xs = np.arange(x[0], xend + dx, dx)
+    xs = np.arange(x[0], x[-1] + dx, dx)
     ys = np.interp(xs, x, y)
     
     bp = firwin(
@@ -199,24 +212,53 @@ def phaseJitter(x, y, fosc, B, taps=2001, trim=True):
 
     return xs, phi
 
-print("Phase jitter")
-B = 25e3
-    
-print("  noisy signal")
-xn, pn = phaseJitter(x, y, fosc, B)
-
-print("  noiseless signal")
-raw = rawread('tran4.raw')
-plot = raw.get()
-x = plot['time']
-y = plot['c']
-x0, p0 = phaseJitter(x, y, fosc, B)
+ax_dict["C"].set_title('PSD')
+ax_dict["C"].set_ylabel('PSD [V^2/Hz]')
+ax_dict["C"].set_xlabel('f [Hz]')
 
 ax_dict["D"].set_title('Phase jitter')
 ax_dict["D"].set_ylabel('Phase jitter [rad]')
 ax_dict["D"].set_xlabel('t [s]')
+
+# Bandwidth around oscillation frequency
+B = 25e3
+
+print("Noisy signal")
+raw = rawread('tran3.raw')
+plot = raw.get()
+x = plot['time']
+y = plot['c']
+f, Pxx = psd(x, y, 10, fosc)
+
+mask = (f>=242e3) & (f<250e3)
+f = f[mask]
+Pxx = Pxx[mask]
+ax_dict["C"].semilogy(f, Pxx, label="noisy")
+
+print("Phase jitter of noisy signal")
+xn, pn = phaseJitter(x, y, fosc, B)
+
 ax_dict["D"].plot(xn, pn, 'b', label="noisy")
+
+
+print("Noiseless signal")
+raw = rawread('tran4.raw')
+plot = raw.get()
+x = plot['time']
+y = plot['c']
+f, Pxx = psd(x, y, 10, fosc)
+
+mask = (f>=242e3) & (f<250e3)
+f = f[mask]
+Pxx = Pxx[mask]
+ax_dict["C"].semilogy(f, Pxx, 'r', label="noiseless")
+
+print("Phase jitter of noiseless signal")
+x0, p0 = phaseJitter(x, y, fosc, B)
 ax_dict["D"].plot(x0, p0, 'r', label="noiseless")
+
+
+ax_dict["C"].legend(loc='upper right')
 ax_dict["D"].legend(loc='lower right')
 
 
