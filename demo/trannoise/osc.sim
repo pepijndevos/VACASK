@@ -1,0 +1,228 @@
+Oscillator phase noise
+
+load "resistor.osdi"
+load "capacitor.osdi"
+load "inductor.osdi"
+load "spice/bjt.osdi"
+
+model i isource
+model v vsource
+model r resistor
+model c capacitor
+model l inductor
+
+model q2n2222 sp_bjt ( type=1
+  is=15.2f nf=1 bf=105 vaf=98.5 ikf=0.5
+  ise=8.2p ne=2 br=4 nr=1 var=20 ikr=0.225
+  re=0.373 rb=1.49 rc=0.149 xtb=1.5
+  cje=35.5p cjc=12.2p tf=500p tr=85n
+  kf=1e-12 af=1
+)
+
+r1 (vdd b) r r=47k
+r2 (e 0) r r=470
+q1 (c b e) q2n2222
+c1 (vdd c) c c=2n
+l1 (vdd c) l l=200u
+c2 (c e) c c=5000p
+cb (b 0) c c=100n
+vdd (vdd 0) v dc=9
+// ipulse (0 c) i type="pulse" val0=0 val1=100m rise=1n fall=1n width=1u delay=1u
+
+control
+  var fmin=10.0
+  var fmax=4e5
+  var ptsper=50
+  var periods=10
+
+  options reltol=1e-6 vntol=1e-9 abstol=1e-12
+  // Transient, store final state
+  analysis tran1 tran step=1u stop=60m maxstep=0.1u store="ss"
+  // Steady state, noiseless
+  analysis tran2 tran step=1u stop=10u maxstep=0.01u ic="ss" icmode="uic"
+  
+  // Output files are huge, store only what is absolutely necessary
+  save v(c)
+
+  // Each of these analyses takes a few minutes
+
+  // Steady state, noisy
+  // We don't care about 1/f noise fidelity at high frequencies, so oversample=1
+  analysis tran3 tran (
+    stop=periods/fmin maxstep=1.0/(fmax*ptsper) ic="ss" icmode="uic" 
+    noisefmax=fmax noisefmin=fmin oversample=1
+  )
+
+  // Steady state, no noise (reference)
+  analysis tran4 tran (
+    stop=periods/fmin maxstep=1.0/(fmax*ptsper) ic="ss" icmode="uic" 
+  )
+  
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.signal import welch
+from scipy.signal import firwin, fftconvolve, filtfilt, hilbert
+
+fig1 = plt.figure(figsize=(8,12), dpi=100)
+fig1.suptitle('LC oscillator')
+ax_dict = fig1.subplot_mosaic("""
+A
+B
+C
+D
+""")
+
+
+raw = rawread('tran1.raw')
+plot = raw.get()
+
+ax_dict["A"].set_title('Oscillator response')
+ax_dict["A"].set_ylabel('Vc [V]')
+ax_dict["A"].set_xlabel('time [s]')
+ax_dict["A"].plot(plot['time'], plot['c'])
+
+
+raw = rawread('tran2.raw')
+plot = raw.get()
+x = plot['time']
+y = plot['c']
+
+ax_dict["B"].set_title('Oscillator steady state')
+ax_dict["B"].set_ylabel('Vc [V]')
+ax_dict["B"].set_xlabel('time [s]')
+ax_dict["B"].plot(x, y)
+
+y_mean = (y.max()+y.min())/2
+
+# Rising crossings: y[i] < mean and y[i+1] >= mean
+idx = np.where((y[:-1] < y_mean) & (y[1:] >= y_mean))[0]
+
+# Linear interpolation of crossing times
+t_cross = (
+    x[idx]
+    + (y_mean - y[idx]) * (x[idx + 1] - x[idx]) / (y[idx + 1] - y[idx])
+)
+
+k = np.arange(len(t_cross))
+# t_cross ≈ a*k + b -> a = T
+a, b = np.polyfit(k, t_cross, 1)
+T = a
+
+fosc = 1/T
+print("f=", fosc)
+
+
+raw = rawread('tran3.raw')
+plot = raw.get()
+x = plot['time']
+y = plot['c']
+
+# Integer number of periods
+xend = np.floor(x[-1]*fosc)/fosc
+fmin = 10/xend
+
+# Sampling frequency slightly greater than original
+dx = xend/x.shape[0]
+fmax = 1/dx
+
+# Interpolate
+xs = np.arange(x[0], xend + dx, dx)
+ys = np.interp(xs, x, y)
+
+# Remove mean
+ys = ys - np.mean(ys)
+
+# Number of points and number of points per segment
+N = xs.shape[0]
+nperseg = int(np.ceil(fmax/(fmin)))
+
+print("Welch estimation of PSD")
+print("fmin=", fmin)
+print("fmax=", fmax)
+print("Interpolated points:", N)
+print("Segment length:", nperseg)
+print("Segments:", int(np.floor(N/(nperseg/2)-1)))
+
+f, Pxx = welch(
+    ys,
+    fs=1/dx,
+    window='hann',
+    nperseg=nperseg,      
+    noverlap=nperseg/2,      
+    detrend=False,
+    return_onesided=True,
+    scaling='density', 
+    average='mean'
+)
+
+ax_dict["C"].set_title('PSD')
+ax_dict["C"].set_ylabel('PSD [V^2/Hz]')
+ax_dict["C"].set_xlabel('f [Hz]')
+ax_dict["C"].semilogy(f, Pxx)
+ax_dict["C"].set_xlim(10, 2e6)
+
+def phaseJitter(x, y, fosc, B, taps=2001, trim=True):
+    dx = xend/x.shape[0]
+    
+    xs = np.arange(x[0], xend + dx, dx)
+    ys = np.interp(xs, x, y)
+    
+    bp = firwin(
+        2001, # numtaps
+        [fosc-B, fosc+B],
+        fs=1/dx,
+        pass_zero=False,
+        window="blackmanharris"
+    )
+    ysbp = fftconvolve(ys, bp, mode="same")
+
+    # Hilbert transform
+    z = hilbert(ysbp)
+
+    # Trim taps leading and trailing samples
+    if trim:
+        z = z[taps:-taps]
+        xs = xs[taps:-taps]
+
+    # Downmix to baseband and compute phase 
+    z_bb = z * np.exp(-1j * 2*np.pi * fosc * xs)
+    phase = np.unwrap(np.angle(z_bb))
+
+    # Remove remaining linear trend -> phase jitter
+    a, b = np.polyfit(xs, phase, 1)
+    phi = phase - (a*xs + b)
+
+    return xs, phi
+
+print("Phase jitter")
+B = 25e3
+    
+print("  noisy signal")
+xn, pn = phaseJitter(x, y, fosc, B)
+
+print("  noiseless signal")
+raw = rawread('tran4.raw')
+plot = raw.get()
+x = plot['time']
+y = plot['c']
+x0, p0 = phaseJitter(x, y, fosc, B)
+
+ax_dict["D"].set_title('Phase jitter')
+ax_dict["D"].set_ylabel('Phase jitter [rad]')
+ax_dict["D"].set_xlabel('t [s]')
+ax_dict["D"].plot(xn, pn, 'b', label="noisy")
+ax_dict["D"].plot(x0, p0, 'r', label="noiseless")
+ax_dict["D"].legend(loc='lower right')
+
+
+fig1.tight_layout()
+
+plt.show()
+>>>FILE
+
+
