@@ -1,0 +1,223 @@
+VDP LC oscillator PSS - OSC.#1 from Djurhuus & Krozer (2025)
+
+// OSC.#1: Van der Pol equivalent oscillator, Fig. 2 of the QUCS-COPEN paper.
+// Parameters from [Djurhuus & Krozer, IJCTA 50(1):35-55, 2022], primary set.
+//
+// Resonant frequency (L1 || C2):
+//   f0 = 1/(2*pi*sqrt(L1*C2)) = 1/(2*pi*sqrt(7e-9*4.5e-12)) ~= 896.6 MHz
+//   T0 ~= 1.1152 ns
+//
+// VdP limit-cycle amplitude:
+//   A ~= sqrt(4*|a1| / (3*a3)) = sqrt(4e-3 / 3e-4) ~= 3.65 V
+//
+// PSS parameters (from paper):
+//   Tper  = 1.0 ns  (initial guess, ~0.3% above exact T0)
+//   Tstab = 30.5 ns (approx. 27 periods)
+//
+// Initialisation: 1mA pulse (I1=0, I2=1mA, T1=0, T2=1ns) kicks V(vout)
+// away from the DC fixed point at t=0, as in the paper's Fig. 2 schematic.
+
+ground 0
+
+load "resistor.osdi"
+load "capacitor.osdi"
+load "inductor.osdi"
+
+model resistor  resistor
+model capacitor capacitor
+model inductor  inductor
+model isource   isource
+
+embed "vdp_nl.va" <<<FILE
+`include "constants.vams"
+`include "disciplines.vams"
+
+// VdP nonlinear conductance only: I = a1*V + a3*V^3
+// a1 = -1e-3 S (negative conductance), a3 = 100e-6 A/V^3
+module vdp_nl(p, n);
+    inout p, n;
+    electrical p, n;
+    analog begin
+        I(p, n) <+ -1e-3*V(p, n) + 100e-6 * V(p, n) * V(p, n) * V(p, n);
+    end
+endmodule
+>>>FILE
+
+load "vdp_nl.va"
+model vdp_nl vdp_nl
+
+c2  (vout 0)    capacitor c=4.5p
+l1  (vout lp)   inductor  l=7n
+r1  (lp   0)    resistor  r=0.5
+c1  (lp   0)    capacitor c=1p
+d1  (vout 0)    vdp_nl
+
+// I1: 1mA kick pulse at t=0, width=1ns (single shot, no period).
+// Matches I1=0/I2=1mA/T1=0/T2=1ns from Fig. 2 of the paper.
+i1 (0 vout) isource type="pulse" val0=0 val1=1m delay=0 width=1n rise=10p fall=10p
+
+control
+  abort never
+
+  options rawfile="binary" strictsave=1
+  options tran_method="gear"
+
+  save default
+
+  analysis pssosc1 pss Tper=1n Tstab=150n MaxItr=50 EpsMax=1e-12 writestab=1
+  analysis tranosc1 tran start=200n stop=300n maxstep=1p step=0.5p
+
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+from runtest import *
+import numpy as np
+import sys
+import matplotlib.pyplot as plt
+
+# Expected values — reference frequency from Keysight-ADS, Table 1 of
+# Djurhuus & Krozer (2025), OSC.#1
+f0_expected = 896.64032e6     # Hz, Keysight-ADS result
+T0_expected = 1.0 / f0_expected
+# Amplitude: lossless formula sqrt(4|a1|/3a3) overestimates because R1=0.5Ω in
+# series with L1=7nH presents an equivalent parallel conductance at resonance:
+#   Gp = R1/(omega0*L1)^2  (high-Q approx, error < 0.1% for Q≈79)
+# Net negative conductance available for oscillation: |a1| - Gp
+_omega0 = 2 * np.pi * f0_expected
+_Gp     = 0.5 / (_omega0 * 7e-9)**2           # R1/(omega0*L1)^2
+V_lc = np.sqrt(4 * (1e-3 - _Gp) / (3 * 100e-6))  # ~3.008 V
+
+tests = []
+pss_ok = False
+
+# --- Stabilisation transient (always written) ---
+try:
+    stab = rawread('pssosc1_stabtran.raw').get()
+    ts = np.real(stab['time'])
+    vs = np.real(stab['vout'])
+    V_final = np.max(np.abs(vs[-200:]))
+    print(f"Stab: {len(ts)} points, final envelope ~{V_final:.4f} V "
+          f"(expected ~{V_lc:.4f} V)")
+except FileNotFoundError:
+    print("pssosc1_stabtran.raw not found")
+
+# --- PSS result ---
+try:
+    pss = rawread('pssosc1.raw').get()
+    time = np.real(pss['time'])
+    v = np.real(pss['vout'])
+    pss_ok = True
+
+    T0_sim = time[-1]
+    f0_sim = 1.0 / T0_sim
+
+    T0_err = abs(T0_sim - T0_expected) / T0_expected
+    status1 = T0_err < 0.05
+    print(f"T0_expected={T0_expected*1e9:.4f} ns  T0_sim={T0_sim*1e9:.4f} ns  "
+          f"rel_err={T0_err:.4e}  {'PASS' if status1 else 'FAIL'}")
+    tests.append(status1)
+
+    V_peak = np.max(np.abs(v))
+    V_err = abs(V_peak - V_lc) / V_lc
+    status2 = V_err < 0.10
+    print(f"V_peak={V_peak:.4f} V  V_lc={V_lc:.4f} V  "
+          f"rel_err={V_err:.4e}  {'PASS' if status2 else 'FAIL'}")
+    tests.append(status2)
+
+    # --- Comparison with Table 1 of Djurhuus & Krozer (2025) ---
+    # Γf = (f0^A - f0^B) / f0^A  (eq. 3.1 of paper)
+    f0_QUCS = 896.62903e6   # Hz, QUCS-COPEN result, Table 1 OSC.#1
+    f0_KADS = 896.64032e6   # Hz, Keysight-ADS result, Table 1 OSC.#1
+    Gf_QC_KADS  = abs(f0_QUCS - f0_KADS) / f0_QUCS
+    Gf_VAC_KADS = abs(f0_sim  - f0_KADS) / f0_sim
+    Gf_VAC_QC   = abs(f0_sim  - f0_QUCS) / f0_sim
+    print()
+    print(f"{'Simulator':<16} {'f0 [MHz]':>14}  {'|Γf| vs K-ADS':>14}")
+    print(f"{'QUCS-COPEN':<16} {f0_QUCS/1e6:>14.5f}  {Gf_QC_KADS*100:>13.5f}%")
+    print(f"{'Keysight-ADS':<16} {f0_KADS/1e6:>14.5f}  {'—':>14}")
+    print(f"{'VACASK':<16} {f0_sim/1e6:>14.5f}  {Gf_VAC_KADS*100:>13.5f}%")
+    print(f"|Γf| VACASK vs QUCS-COPEN = {Gf_VAC_QC*100:.5f}%")
+
+except FileNotFoundError:
+    print("pssosc1.raw not found — PSS did not produce output")
+    tests.append(False)
+except KeyError as e:
+    print(f"pssosc1.raw missing key: {e}")
+    tests.append(False)
+
+if isTest():
+    sys.exit(not all(tests))
+
+n_panels = 2 if pss_ok else 1
+fig, axes = plt.subplots(n_panels, 1, figsize=(10, 4 * n_panels), dpi=100, squeeze=False)
+axes = axes.flatten()
+
+if 'ts' in dir():
+    axes[0].set_title('OSC.#1 VDP oscillator — stabilisation transient')
+    axes[0].set_xlabel('time [ns]')
+    axes[0].set_ylabel('V(vout) [V]')
+    axes[0].plot(ts * 1e9, vs, lw=0.5)
+    axes[0].axhline( V_lc, color='r', linestyle='--', label=f'limit-cycle ±{V_lc:.3f} V')
+    axes[0].axhline(-V_lc, color='r', linestyle='--')
+    axes[0].legend()
+
+if pss_ok:
+    axes[1].set_title('OSC.#1 VDP oscillator — PSS steady-state waveform')
+    axes[1].set_xlabel('time [ns]')
+    axes[1].set_ylabel('V(vout) [V]')
+    axes[1].plot(time * 1e9, v, marker='.', markersize=3)
+    axes[1].axhline( V_lc, color='r', linestyle='--', label=f'±{V_lc:.3f} V limit')
+    axes[1].axhline(-V_lc, color='r', linestyle='--')
+    axes[1].legend()
+
+plt.tight_layout()
+plt.show()
+
+# --- Extract last cycle from tranosc1 ---
+try:
+    tran = rawread('tranosc1.raw').get()
+    tt = np.real(tran['time'])
+    vv = np.real(tran['vout'])
+
+    # --- Detect zero crossings (rising) ---
+    sign = np.sign(vv)
+    crossings = np.where((sign[:-1] < 0) & (sign[1:] >= 0))[0]
+
+    if len(crossings) < 2:
+        print("Not enough zero crossings to estimate period.")
+    else:
+        # Take last two rising zero crossings
+        i1 = crossings[-2]
+        i2 = crossings[-1]
+
+        t1 = tt[i1]
+        t2 = tt[i2]
+        T_est = t2 - t1
+
+        print(f"Transient-derived period: {T_est * 1e9:.6f} ns")
+
+        # --- Extract one full cycle ---
+        mask = (tt >= t1) & (tt <= t2)
+        t_cycle = tt[mask]
+        v_cycle = vv[mask]
+
+        # --- Plot last cycle ---
+        plt.figure(figsize=(10, 4), dpi=100)
+        plt.title('OSC.#1 VDP oscillator — last transient cycle')
+        plt.xlabel('time [ns]')
+        plt.ylabel('V(vout) [V]')
+        plt.plot((t_cycle - t1) * 1e9, v_cycle, marker='.', markersize=3)
+        plt.axhline( V_lc, linestyle='--', label=f'±{V_lc:.3f} V limit')
+        plt.axhline(-V_lc, linestyle='--')
+        plt.legend()
+        plt.tight_layout()
+        plt.show()
+
+except FileNotFoundError:
+    print("tranosc1.raw not found")
+except KeyError as e:
+    print(f"tranosc1.raw missing key: {e}")
+
+>>>FILE

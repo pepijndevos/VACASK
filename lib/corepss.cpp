@@ -438,8 +438,8 @@ bool PssCore::runStabilisation(Status& s) {
 
 bool PssCore::runShoot(double T0, Status& s) {
     params_.stabilParams.stop    = T0;
-    params_.stabilParams.step    = T0 / 200.0;
-    params_.stabilParams.maxstep = T0 / 20.0;
+    params_.stabilParams.step    = T0 / 1e3;
+    params_.stabilParams.maxstep = T0 / 0.1e3;
     params_.stabilParams.start   = 0.0;
     params_.stabilParams.icmode  = TranCore::icmodeUic;
     // write is left as-is: 0 during Newton iterations, 1 for the final output shoot.
