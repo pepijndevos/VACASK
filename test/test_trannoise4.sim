@@ -91,12 +91,12 @@ tests=[]
 
 plot = rawread('tran1.raw').get()
 x = plot['time']
-y = plot['1'] - plot['10']
+y = (plot['1'] - plot['10'])/1e3
 print("Samples:", x.shape[0])
 
 noise = rawread('noise1.raw').get()
 reff = noise['frequency']
-refpsd = noise['onoise']
+refpsd = noise['onoise']/1e3**2
 fmin = reff.min()
 fmax = reff.max()
 # Extract current amplitude
@@ -170,20 +170,20 @@ else:
     import matplotlib.pyplot as plt 
 
     fig1, ax1 = plt.subplots(3, 1, figsize=(6,8), dpi=100)
-    fig1.axes[0].set_title('Transient modulated flicker noise, fmod=1kHz, R=1k')
-    fig1.axes[0].set_ylabel('V(1) noise [V]')
+    fig1.axes[0].set_title('Modulated flicker noise, af=2, alpha=1, fmod=1kHz')
+    fig1.axes[0].set_ylabel('In [A]')
     fig1.axes[0].set_xlabel('time [ms]')
     yndx = np.where(x<2e-3)
     fig1.axes[0].plot(x[yndx]*1000, y[yndx], label="V(1) noise")
     
     fig1.axes[1].set_title('Power spectral density')
-    fig1.axes[1].set_ylabel('PSD [V^2/Hz]')
+    fig1.axes[1].set_ylabel('PSD [A^2/Hz]')
     fig1.axes[1].set_xlabel('f [Hz]')
 
     fig1.axes[1].loglog(f, Pxx, label="PSD")
     # fig1.axes[1].set_ylim(refpsd.min()/10, refpsd.max()*10)
-    fig1.axes[1].loglog(reff1, refpsd1, 'r', label="PSD (modulated noise, LF)")
-    fig1.axes[1].loglog(reff2, refpsd2, 'r--', label="PSD (Modulated noise, HF)")
+    fig1.axes[1].loglog(reff1, refpsd1, 'r', label="PSD (reference, LF)")
+    fig1.axes[1].loglog(reff2, refpsd2, 'r--', label="PSD (reference, HF)")
     fig1.axes[1].legend(loc='lower left')
 
     fig1.axes[2].set_title('Error')
