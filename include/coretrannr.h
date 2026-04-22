@@ -33,6 +33,9 @@ public:
     // Format error, return false on error - this function is not cheap (works with strings)
     bool formatError(Status& s=Status::ignore, NameResolver* resolver=nullptr) const; 
 
+    // Disable noise
+    void disableNoise() { noiseEnabled = false; };
+
     // Called in the beginning of transient noise analysis
     void initializeNoise(double noiseStepLimit, std::mt19937_64& gen);
 
@@ -59,6 +62,7 @@ public:
 private:
     IntegratorCoeffs* integCoeffs;
 
+    bool noiseEnabled;
     TimeDomainWhiteNoise<std::mt19937_64> whiteBlock;
     TimeDomainFlickerNoise<std::mt19937_64> flickerBlock;
     VectorRepository<double> noiseResidual;

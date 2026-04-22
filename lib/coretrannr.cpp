@@ -10,8 +10,8 @@ TranNRSolver::TranNRSolver(
     VectorRepository<double>& states, VectorRepository<double>& solution, 
     NRSettings& settings, IntegratorCoeffs& integCoeffs, 
     VMCoefficientsRepository& vmCoeffs
-) : OpNRSolver(circuit, commons, jac, states, solution, settings, 3), integCoeffs(&integCoeffs), 
-    flickerBlock(vmCoeffs) {
+) : OpNRSolver(circuit, commons, jac, states, solution, settings, 3), 
+    integCoeffs(&integCoeffs), noiseEnabled(false), flickerBlock(vmCoeffs) {
     // TranNRSolver has 2 force slots
     // 0 .. continuation nodesets for sweep and homotopy
     //      cannot contain branch forces
@@ -86,6 +86,7 @@ void TranNRSolver::initializeNoise(double noiseStepLimit, std::mt19937_64& gen) 
     // Count white and flicker noise sources
     // Device/model/instance loops
     // Must traverse in exactly the same order each time at noise load. 
+    noiseEnabled = true;
     size_t nWhite = 0;
     size_t nFlicker = 0;
     maxNsCount = 0;
@@ -269,7 +270,7 @@ std::tuple<bool, bool> TranNRSolver::buildSystem(bool continuePrevious) {
     auto [ok, preventConvergence] = OpNRSolver::buildSystem(continuePrevious);
 
     // Now load the tranisent noise residuals
-    if (ok) {
+    if (ok && noiseEnabled) {
         if (circuit.simulatorOptions().core().tran_laggednoise) {
             // Lagged noise residual
             auto n = jac.nRow();

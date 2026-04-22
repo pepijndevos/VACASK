@@ -678,6 +678,8 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
 
         // Initialize transient noise generators, prepare first sample
         nrSolver.initializeNoise(noiseStepLimit, randomGenerator);
+    } else {
+        nrSolver.disableNoise();
     }
     
     if (progressReporter) {
