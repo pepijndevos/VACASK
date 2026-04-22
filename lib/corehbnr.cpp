@@ -429,7 +429,7 @@ bool HBNRSolver::evalAndLoadWrapper(EvalSetup& evalSetup, LoadSetup& loadSetup) 
     return true;
 }
 
-std::tuple<bool, bool> HBNRSolver::buildSystem(bool continuePrevious) {
+bool HBNRSolver::evaluate(bool continuePrevious) {
     // Jacobian values at colocation points are stored in jacColoc with dense 
     // blocks of size nt x 2, where nt is the number of colocation points. 
     // Resistive Jacobian is bound to 0-based subentry (0, 0) of each dense block. 
@@ -439,7 +439,58 @@ std::tuple<bool, bool> HBNRSolver::buildSystem(bool continuePrevious) {
     // i.e. (k, 0) with resistive and (k, 1) with reactive Jacobian values 
     // at times coresponding to timepoints tk, k=0..nb-1 because KLU matrices are 
     // stored in column major order. 
-    // 
+    auto n = bsjac.nBlockRows();
+    auto nb = bsjac.nBlockElementRows();
+
+    // Old solution is in time domain. Get it. 
+    auto solTD = solution.data();
+
+    // Clear Jacobian at colocation points
+    jacColoc.zero();
+    
+    // Loop through timepoints 0..nb-1
+    for(decltype(nb) k=0; k<nb; k++) {
+        // We read old solution starting at index 1+k
+        // (skip bucket, k-th unknown, first timepoint)
+        // Vector length n, stride nb
+        // We write to the vector of old solutions at timepoint t_k, 
+        // start at index 1 (skip bucket), length n, stride 1
+        VectorView(oldSolutionAtTk.vector(), 1, n, 1) = VectorView(solution.vector(), 1+k, n, nb);
+
+        // Zero residual vectors where evalAndLoad() will load the residuals at t_k
+        zero(resistiveResidualAtTk);
+        zero(reactiveResidualAtTk);
+
+        // Zero maximal residual contribution at timepoint
+        zero(maxResidualContributionAtTk_);
+        
+        // Set time and offset
+        evalSetup_.time = timepoints[k];
+        loadSetup_.jacobianLoadOffset = k;
+
+        // For k-th timepoint (t_k) load 
+        // - resistive and reactive Jacobian at t_k with offset i, 
+        // - resistive residuals for all equations at t_k
+        // - reactive residuals for all equations at t_k
+        // Values are stored in jacColoc. 
+        auto ok = evalAndLoadWrapper(evalSetup_, loadSetup_);
+        if (!ok) {
+            return false;
+        }
+
+        // Put resistive residuals at t_k in the residuals vector
+        VectorView(resistiveResidual, k, n, nb) = VectorView(resistiveResidualAtTk, 1, n, 1);
+        VectorView(reactiveResidual, k, n, nb) = VectorView(reactiveResidualAtTk, 1, n, 1);
+
+        // Put maximal resistive residual contribution at t_k into maxResidualContribution_
+        VectorView(maxResidualContribution_, k, n, nb) = 
+            VectorView(maxResidualContributionAtTk_, 1, n, 1);
+    }
+
+    return true;
+}
+
+std::tuple<bool, bool> HBNRSolver::buildSystem(bool continuePrevious) {
     // Let Jr_ijk and Jc_ijk denote the resistive and reactive Jacobian value 
     // from block with 1-based position (i+1, j+1) at timepoint with index k. 
     // i, j and k are all 0-based. 
@@ -480,46 +531,9 @@ std::tuple<bool, bool> HBNRSolver::buildSystem(bool continuePrevious) {
     // Clear maximal residual contribution
     zero(maxResidualContribution_);
 
-    // Old solution is in time domain. Get it. 
-    auto solTD = solution.data();
-
-    // Clear Jacobian at colocation points
-    jacColoc.zero();
-    
-    // Loop through timepoints 0..nb-1
-    for(decltype(nb) k=0; k<nb; k++) {
-        // We read old solution starting at index 1+k
-        // (skip bucket, k-th unknown, first timepoint)
-        // Vector length n, stride nb
-        // We write to the vector of old solutions at timepoint t_k, 
-        // start at index 1 (skip bucket), length n, stride 1
-        VectorView(oldSolutionAtTk.vector(), 1, n, 1) = VectorView(solution.vector(), 1+k, n, nb);
-
-        // Zero residual vectors where evalAndLoad() will load the residuals at t_k
-        zero(resistiveResidualAtTk);
-        zero(reactiveResidualAtTk);
-
-        // Zero maximal residual contribution at timepoint
-        zero(maxResidualContributionAtTk_);
-        
-        // Set time and offset
-        evalSetup_.time = timepoints[k];
-        loadSetup_.jacobianLoadOffset = k;
-
-        // For k-th timepoint (t_k) load 
-        // - resistive and reactive Jacobian at t_k with offset i, 
-        // - resistive residuals for all equations at t_k
-        // - reactive residuals for all equations at t_k
-        // Values are stored in jacColoc. 
-        auto ok = evalAndLoadWrapper(evalSetup_, loadSetup_);
-
-        // Put resistive residuals at t_k in the residuals vector
-        VectorView(resistiveResidual, k, n, nb) = VectorView(resistiveResidualAtTk, 1, n, 1);
-        VectorView(reactiveResidual, k, n, nb) = VectorView(reactiveResidualAtTk, 1, n, 1);
-
-        // Put maximal resistive residual contribution at t_k into maxResidualContribution_
-        VectorView(maxResidualContribution_, k, n, nb) = 
-            VectorView(maxResidualContributionAtTk_, 1, n, 1);
+    // Evaluate at colocation points
+    if (!evaluate(continuePrevious)) {
+        return std::make_tuple(false, false); ;
     }
 
     // For each block (ordered in column major order)

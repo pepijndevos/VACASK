@@ -49,10 +49,10 @@ public:
     enum class HBError {
         OK, 
         NoAlgorithm, 
-        MatrixError, 
         SolverError,
         InitialHB, 
         Homotopy,
+        NoNodeset, 
     };
 
     HBCore(
@@ -94,11 +94,10 @@ public:
     virtual Int iterationLimit(bool continuePrevious) const;
 
     // Set stored solutiuon for evaluation, does not set up Jacobian to save memory
-    bool setSolution(const AnnotatedSolution& solution);
-
     // Bind circuit to jacColoc and evaluate at current solution
-    bool linearize();
-        
+    bool evaluateAtNodeset(Status& s=Status::ignore);
+    bool getFrequencyDomainJacobians(KluBlockSparseComplexMatrix& jacSpec);
+
     void dump(std::ostream& os) const;
 
     static Id truncateBox;

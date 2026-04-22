@@ -53,6 +53,8 @@ public:
     virtual bool postIteration(bool continuePrevious);
     virtual bool postRun(bool continuePrevious); 
     
+    bool evaluate(bool continuePrevious);
+    
     virtual std::tuple<bool, bool> buildSystem(bool continuePrevious);
     virtual std::tuple<bool, bool> checkResidual();
     virtual std::tuple<bool, bool> checkDelta();

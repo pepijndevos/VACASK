@@ -39,6 +39,18 @@ template<> int Introspection<HBParameters>::setup() {
 }
 instantiateIntrospection(HBParameters);
 
+class HbUnknownNameResolver : public NameResolver {
+public:
+    HbUnknownNameResolver(Circuit& circuit, size_t nb) : circuit(circuit), nb(nb) {};
+
+    virtual Id operator()(MatrixEntryIndex u) {
+        return circuit.reprNode(u/nb+1)->name();
+    };
+
+private:
+    Circuit& circuit;
+    size_t nb;
+};
 
 HBCore::HBCore(
     OutputDescriptorResolver& parentResolver, HBParameters& params, Circuit& circuit, CommonData& commons, 
@@ -284,6 +296,89 @@ bool HBCore::buildGrid(Status& s) {
     return true;
 }
 
+// Called after build
+bool HBCore::evaluateAtNodeset(Status& s) {
+    clearError();
+
+    auto& options = circuit.simulatorOptions().core();
+    nrSettings = NRSettings {
+        .debug = options.nr_debug, 
+        .matrixCheck = bool(options.matrixcheck), 
+    };
+
+    // Copy from forces slot 2 to solution vector
+    solution.vector() = nrSolver.forces(2).unknownValue_;
+
+    // Disable forces
+    nrSolver.enableForces(0, false);
+    nrSolver.enableForces(1, false);
+    
+    // Rebuild NR solver structures
+    auto n = circuit.unknownCount();
+    auto nt = timepoints.size();
+    if (!nrSolver.rebuild(n*nt)) {
+        s.set(Status::NonlinearSolver, "Failed to rebuild internal structures of nonlinear solver.");
+        return false;
+    }
+
+    // Initialize NR solver (continue previous)
+    if (!nrSolver.initialize(true)) {
+        setError(HBError::SolverError);
+        return false;
+    }
+
+    // Run evaluation (continue previous)
+    if (!nrSolver.evaluate(true)) {
+        setError(HBError::SolverError);
+        return false;
+    }
+
+    return true;
+}
+
+bool HBCore::getFrequencyDomainJacobians(KluBlockSparseComplexMatrix& jacSpec) {
+    // Assumes evaluation was performed, writes frequency domin jacobians to jacSpec
+    auto nt = timepoints.size();
+
+    // Go through all dense blocks
+    for(auto& pos : circuit.sparsityMap().positions()) {
+        // Get block position (for debugging), make position 0-based
+        auto [i, j] = pos;
+        i--;
+        j--;
+
+        // Get dense block with Jacobian values at colocation points
+        auto [colocBlock, found1] = jacColoc.block(pos);
+        auto gCol = colocBlock.column(0);
+        auto cCol = colocBlock.column(1);
+
+        // Get FD Jacobian dense block
+        auto [fdBlock, found2] = jacSpec.block(pos);
+        auto GCol = fdBlock.column(0);
+        auto CCol = fdBlock.column(1);
+
+        // APFT on stored time-domain values
+        // Start APFT result at imag part of first component
+        // APFT produces dc, f1real, f1imag, f2real, f2imag, ...
+        // but we need   dc, 0, f1real, f1imag, f2real, f2imag, ...
+        // We store APFT starting from imagiunary part of first component (after x): 
+        //   x, dc, f1real, f1imag, f2real, f2imag, ...
+        // them move dc: dc, 0, f1real, f1imag, f2real, f2imag, ...
+        auto gDest = VectorView(reinterpret_cast<double*>(&GCol.at(0))+1, nt, 1);
+        auto cDest = VectorView(reinterpret_cast<double*>(&CCol.at(0))+1, nt, 1);
+
+        // Transform
+        APFT.multiply(gCol, gDest);
+        APFT.multiply(cCol, cDest);
+
+        // Move DC from imag to real part, set imag part to 0
+        GCol.at(0) = GCol.at(0).imag();
+        CCol.at(0) = CCol.at(0).imag();
+    }
+
+    return true;
+}
+
 bool HBCore::rebuild(Status& s) {
     clearError();
 
@@ -308,19 +403,46 @@ bool HBCore::rebuild(Status& s) {
     nrSolver.setForcesFactor(0, options.nr_nsforce);
     nrSolver.setForcesFactor(1, options.nr_nsforce);
 
-    // Compute set of frequencies
-    if (!buildGrid(s)) {
-        return false;
+    // Get nodeset from repository
+    AnnotatedSolution* solPtr = nullptr;
+    String& solutionName = params.nodeset;
+    if (solutionName.length()>0) {
+        // Get solution from repository
+        solPtr = circuit.storedSolution("hb", solutionName);
     }
 
-    // Compute colocation
-    if (!buildColocation(s)) {
-        return false;
-    }
+    if (params.solve) {
+        // Compute set of frequencies
+        if (!buildGrid(s)) {
+            return false;
+        }
 
-    // Recompute transforms
-    if (!buildAPFT(s)) {
-        return false;
+        // Compute colocation
+        if (!buildColocation(s)) {
+            return false;
+        }
+        
+        // Recompute transforms
+        if (!buildAPFT(s)) {
+            return false;
+        }
+    } else {
+        // Assume grid, colocation, and APFT are obtained from nodeset
+        if (!solPtr) {
+            s.set(Status::NotFound, "Nodeset not found.");
+            return false;
+        }
+
+        // Copy spurs
+        spurs_ = Spurs(solPtr->hbSpurs());
+
+        // Copy colocation
+        timepoints = solPtr->hbTimepoints();
+
+        // Need APFT for transforming time-domain Jacobian to frequency-domain Jacobian
+        if (!buildAPFT(s)) {
+            return false;
+        }
     }
 
     // Number of colocation points
@@ -329,10 +451,15 @@ bool HBCore::rebuild(Status& s) {
     // Jacobian entries at colocation points, do not create structures for scalar access
     jacColoc.rebuild(circuit.sparsityMap(), circuit.unknownCount(), nt, 2, true);
 
-    // HB Jacobian
-    if (!bsjac.rebuild(circuit.sparsityMap(), circuit.unknownCount(), nt, nt)) {
-        setError(HBError::MatrixError);
-        return false;
+    // Build Jacobian only if we want to solve the HB problem
+    if (params.solve) {
+        // HB Jacobian
+        if (!bsjac.rebuild(circuit.sparsityMap(), circuit.unknownCount(), nt, nt)) {
+            auto nb = timepoints.size();
+            auto nr = HbUnknownNameResolver(circuit, nb);
+            bsjac.formatError(s, &nr);
+            return false;
+        }
     }
 
     // Bind resistive residuals to 0-based subelement (0,0) 
@@ -347,10 +474,8 @@ bool HBCore::rebuild(Status& s) {
 
     // Prepare nodesets
     auto strictforce = circuit.simulatorOptions().core().strictforce; 
-    String& solutionName = params.nodeset;
     if (solutionName.length()>0) {
-        // Get solution from repository
-        auto solPtr = circuit.storedSolution("hb", solutionName);
+        // Solution from repository (obtained previously)
         if (!solPtr) {
             // No nodesets
             nrSolver.forces(1).clear();
@@ -612,20 +737,6 @@ bool HBCore::run(bool continuePrevious) {
 }
 
 
-class HbUnknownNameResolver : public NameResolver {
-public:
-    HbUnknownNameResolver(Circuit& circuit, size_t nb) : circuit(circuit), nb(nb) {};
-
-    virtual Id operator()(MatrixEntryIndex u) {
-        return circuit.reprNode(u/nb+1)->name();
-    };
-
-private:
-    Circuit& circuit;
-    size_t nb;
-};
-
-
 bool HBCore::formatError(Status& s) const {
     auto nb = timepoints.size();
     auto nr = HbUnknownNameResolver(circuit, nb);
@@ -652,8 +763,8 @@ bool HBCore::formatError(Status& s) const {
         case HBError::NoAlgorithm:
             s.set(Status::Analysis, "No HB algorithm tried."); 
             return false;
-        case HBError::MatrixError:
-            bsjac.formatError(s, &nr);
+        case HBError::NoNodeset:
+            s.set(Status::Analysis, "Nodeset not found."); 
             return false;
         case HBError::SolverError:
             nrSolver.formatError(s, &nr);
