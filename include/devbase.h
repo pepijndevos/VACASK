@@ -527,6 +527,9 @@ public:
     // For a current source this should be 1. 
     // For a voltage source this should be $mfactor. 
     virtual double responseScalingFactor() const { return 1.0; };
+
+    // spur, spurmag, spurphase
+    virtual std::tuple<const ValueVector&, const RealVector&, const RealVector&> spurs() const { return {dummyValueVector, dummyRealVector, dummyRealVector}; };
     
     // Output variable API
     // Returns the number of output variables
@@ -599,13 +602,15 @@ protected:
         );
     }
 
-    
-    
     Id name_; // Hierarchical name of instance
     Model* model_;
     Instance* parent_;
     Flags flags_;
     const PTInstance& parsedInstance_;
+
+private:
+    static ValueVector dummyValueVector;
+    static RealVector dummyRealVector;
 };
 
 }

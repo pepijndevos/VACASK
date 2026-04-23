@@ -9,6 +9,7 @@
 #include "output.h"
 #include "flags.h"
 #include "outrawfile.h"
+#include "devbase.h"
 #include "common.h"
 
 
@@ -42,11 +43,11 @@ typedef struct HBACParameters {
     // Nodeset and store parameters of the HB core 
     // are also exposed. 
 
-    Value outspur {0.0};   // specifies spurs where small signal response is observed
-                        // - scalar real spur frequency
-                        // - integer vector with tone weights defining a spur
-                        // - list holding reals (frequency), integer vectors (tone weights)
-                        // Default is 0.0 (DC output spur). 
+    Value outspur {0.0}; // specifies spurs where small signal response is observed
+                         // - scalar real spur frequency
+                         // - integer vector with tone weights defining a spur
+                         // - list holding reals (frequency), integer vectors (tone weights)
+                         // Default is 0.0 (DC output spur). 
 
     Int write {1};    // Write the results to a file
 
@@ -67,6 +68,13 @@ public:
         SingularMatrix, 
         BadFrequency, 
     };
+
+    typedef struct Excitation {
+        Instance* source;
+        Vector<size_t> spur;
+        Vector<Complex> value;
+
+    } Excitation;
        
     HBACCore(
         OutputDescriptorResolver& parentResolver, HBACParameters& params, HBCore& opCore, 
@@ -102,7 +110,12 @@ public:
     OutputRawfile* outfile;
 
 protected:
+    bool collectExcitations(Status& s);
+
     // Bucket size is nf
+
+    // Excitations
+    Vector<Excitation> excitations;
 
     // Construct suffixes for small-signal frequency in HB spurs
     void constructSuffixes();

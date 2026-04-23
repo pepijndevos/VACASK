@@ -67,8 +67,8 @@ public:
     // Returns the index of the small-signal frequency corresponding to f
     std::tuple<size_t, bool> smsigFreqIndex(double f, double tol=1e-14) const;
     
-    // Decodes an array of spurs given to the simulator into the corresponding small-signal frequency indices
-    bool smsigFreqIndexVector(const Value& v, std::vector<size_t>& smsigFreqIndices, bool emptyIsAll=false, Status& s=Status::ignore) const;
+    // Decodes a spur into the corresponding small-signal frequency index
+    std::tuple<bool, size_t> smsigFreqIndex(const Value& v) const;
     
     // Build grid and spectrum (for HB)
     bool build(const std::vector<double>& fundamentals, const std::vector<int>& nHarmonics, int maxImOrder=0, bool hybrid=false, Int debug=0, Status& s=Status::ignore);

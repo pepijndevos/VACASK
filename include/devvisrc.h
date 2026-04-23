@@ -71,21 +71,16 @@ struct DevSourceInstanceParams {
     Real mag;
     Real phase; // degrees (only for AC)
     // (Quasi)periodic small-signal excitation
-    Value csmixprod;    // spurs where small signal excitations are inserted
-                        // - scalar real spur frequency
-                        // - integer vector with tone weights defining a spur
-                        // - list holding reals (frequency), integer vectors (tone weights)
-                        // Default is empty list {} - no excitation
+    ValueVector spurs; // spurs where small signal excitations are inserted - list holding 
+                       // - reals (frequency), 
+                       // - integer vectors (tone weights)
+                       // Default is empty list {} - no excitation
     // If the vector is shorter than the number of spurs, zeros are assumed. 
     // If it is longer than the number of spurs, the extra components are ignored. 
-    RealVector csmag;   // magnitude corresponding to spurs
-                        // - scalar for single spur
-                        // - vector for multiple spurs
-                        // Empty vector by default. 
-    RealVector csphase; // phase in degrees corresponding to spurs
-                        // - scalar for single spur
-                        // - vector for multiple spurs
-                        // Empty vector by default. 
+    RealVector smag;   // magnitudes corresponding to spurs
+                       // Empty vector by default. 
+    RealVector sphase; // phases in degrees corresponding to spurs
+                       // Empty vector by default. 
     
     DevSourceInstanceParams();
 };

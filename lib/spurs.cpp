@@ -435,78 +435,32 @@ std::tuple<size_t, bool> Spurs::smsigFreqIndex(double f, double tol) const {
     return {0, false};
 }
 
-// Resolve a Value specifying one or more spurs into a vector of smsigFreq_ indices.
+// Resolve a Value specifying a spur into smsigFreq_ index.
 //
-// Accepted formats (matching devvisrc.h csmixprod / corehbac.h outspur):
+// Accepted formats (matching devvisrc.h spurs / corehbac.h outspur):
 //   Real         - spur frequency; resolved via smsigFreqIndex()
-//   IntVector    - tone weights; looked up in spurMap
-//   ValueVec     - list of any of the above, one entry per spur
-//   empty IntVector or empty ValueVec - if emptyIsAll, fill with all small-signal frequency indices
+//   IntVector    - tone weights; looked up in smsigFreqMap
 //
-// Returns false and sets s on any resolution failure.
-bool Spurs::smsigFreqIndexVector(const Value& v, std::vector<size_t>& smsigFreqIndices, bool emptyIsAll, Status& s) const {
-    smsigFreqIndices.clear();
-
-    // Helper: resolve one scalar/vector item to a spur index
-    auto resolveOne = [&](const Value& item) -> std::tuple<size_t, bool> {
-        switch (item.type()) {
-            case Value::Type::Real: {
-                auto [idx, found] = smsigFreqIndex(item.val<const Real>());
-                if (!found) {
-                    s.set(Status::NotFound, "Spur frequency not found in spectrum.");
-                }
-                return {idx, found};
-            }
-            case Value::Type::IntVec: {
-                auto& w = item.val<const IntVector>();
-                if (w.size() != fundamentals_.size()) {
-                    s.set(Status::BadArguments, "Spur weight vector length does not match number of fundamentals.");
-                    return {0, false};
-                }
-                auto it = smsigFreqMap.find(VectorView<Int>(const_cast<Int*>(w.data()), w.size()));
-                if (it == smsigFreqMap.end()) {
-                    s.set(Status::NotFound, "Spur tone weights not found in spectrum.");
-                    return {0, false};
-                }
-                return {it->second, true};
-            }
-            default:
-                s.set(Status::BadArguments, "Spur must be a frequency (real) or tone weights (integer vector).");
-                return {0, false};
+// Returns {true, index} on success, {false, 0} if not found.
+std::tuple<bool, size_t> Spurs::smsigFreqIndex(const Value& v) const {
+    switch (v.type()) {
+        case Value::Type::Real: {
+            return smsigFreqIndex(v.val<const Real>());
         }
-    };
-
-    // Empty IntVector or ValueVec: all spurs or nothing
-    if (v.isVector() && v.size()==0) {
-        if (emptyIsAll) {
-            smsigFreqIndices.resize(smsigFreq_.size());
-            std::iota(smsigFreqIndices.begin(), smsigFreqIndices.end(), 0);
-        }
-        return true;
-    }
-
-    // ValueVec: list of multiple spur specs
-    if (v.type() == Value::Type::ValueVec) {
-        size_t i=0;
-        for (auto& item : v.val<const ValueVector>()) {
-            auto [idx, found] = resolveOne(item);
-            if (!found) {
-                s.extend(std::string("Check position ")+std::to_string(i)+" in spurs array.");
-                return false;
+        case Value::Type::IntVec: {
+            auto& w = v.val<const IntVector>();
+            if (w.size() != fundamentals_.size()) {
+                return {false, 0};
             }
-            smsigFreqIndices.push_back(idx);
-            i++;
+            auto it = smsigFreqMap.find(VectorView<Int>(const_cast<Int*>(w.data()), w.size()));
+            if (it == smsigFreqMap.end()) {
+                return {false, 0};
+            }
+            return {true, it->second};
         }
-        return true;
+        default:
+            return {false, 0};
     }
-
-    // Scalar or single IntVector: one spur
-    auto [idx, found] = resolveOne(v);
-    if (!found) {
-        return false;
-    }
-    smsigFreqIndices.push_back(idx);
-    return true;
 }
 
 }

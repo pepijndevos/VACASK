@@ -262,6 +262,57 @@ bool HBACCore::rebuild(Status& s) {
     return true;
 }
 
+// TODO: add spurs method to devvisrc
+
+bool HBACCore::collectExcitations(Status& s) {
+    excitations.clear();
+
+    auto ndev = circuit.deviceCount();
+    for(decltype(ndev) idev=0; idev<ndev; idev++) {
+        auto dev = circuit.device(idev);
+        if (!dev->isSource()) {
+            continue;
+        }
+        auto nmod = dev->modelCount();
+        for(decltype(nmod) imod=0; imod<nmod; imod++) {
+            auto mod = dev->model(imod);
+            auto ninst = mod->instanceCount();
+            for(decltype(ninst) iinst=0; iinst<ninst; iinst++) {
+                auto inst = mod->instance(iinst);
+                // Extract spurs
+                auto [spurs, mags, phases] = inst->spurs();
+
+                // Check vector lengths
+                auto nSpurs = spurs.size();
+                if (mags.size()>nSpurs) {
+                    // Error
+                }
+                if (phases.size()>nSpurs) {
+                    // Error
+                }
+
+                excitations.push_back(std::move(Excitation(inst, {}, {})));
+                for(decltype(nSpurs) i=0; i<nSpurs; i++) {
+                    auto [ok, ndx] = hbCore_.spurs().smsigFreqIndex(spurs[i]);
+                    if (!ok) {
+                        // Error
+                    }
+                    auto mag = (mags.size()>i) ? mags[i] : 0.0;
+                    auto ph = (phases.size()>i) ? phases[i] : 0.0;
+                    
+                    double re = mag*std::cos(ph*std::numbers::pi/180);
+                    double im = mag*std::sin(ph*std::numbers::pi/180);
+                    
+                    excitations.back().spur.push_back(ndx);
+                    excitations.back().value.push_back(Complex(re, im));
+                }
+            }
+        }
+    }
+
+    return true;
+}
+
 // TODO: set solve parameter of hbCore_ to the opsolve parameter of hbac
 // in analysis rebuild
 
