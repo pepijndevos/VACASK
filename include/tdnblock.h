@@ -16,6 +16,7 @@ namespace NAMESPACE {
 template <std::uniform_random_bit_generator URBG> class TimeDomainNoiseBlock {
 public:
     TimeDomainNoiseBlock() {};
+    virtual ~TimeDomainNoiseBlock() = default;
 
     TimeDomainNoiseBlock           (const TimeDomainNoiseBlock&)  = delete;
     TimeDomainNoiseBlock           (      TimeDomainNoiseBlock&&) = default;

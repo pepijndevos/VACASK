@@ -3,8 +3,8 @@
 
 #include "coreopnr.h"
 #include "coretrancoef.h"
-#include "tdnwhite.h"
-#include "tdnflicker.h"
+#include "tdnzohwhite.h"
+#include "tdnzohflicker.h"
 #include "common.h"
 
 
@@ -18,7 +18,8 @@ public:
         Circuit& circuit, CommonData& commons, KluRealMatrix& jac, 
         VectorRepository<double>& states, VectorRepository<double>& solution, 
         NRSettings& settings, IntegratorCoeffs& integCoeffs, 
-        VMCoefficientsRepository& vmCoeffs
+        TimeDomainZohWhiteNoise<std::mt19937_64>& whiteBlock, 
+        TimeDomainZohFlickerNoise<std::mt19937_64>& flickerBlock
     ); 
 
     enum class TranNRSolverError {
@@ -37,7 +38,7 @@ public:
     void disableNoise() { noiseEnabled = false; };
 
     // Called in the beginning of transient noise analysis
-    void initializeNoise(double noiseStepLimit, std::mt19937_64& gen);
+    void enableNoise(size_t maxNsCount);
 
     // Build noise residual. We expose this for noise generator coefficient initalization. 
     // Return value: ok
@@ -63,11 +64,11 @@ private:
     IntegratorCoeffs* integCoeffs;
 
     bool noiseEnabled;
-    TimeDomainWhiteNoise<std::mt19937_64> whiteBlock;
-    TimeDomainFlickerNoise<std::mt19937_64> flickerBlock;
+    TimeDomainZohWhiteNoise<std::mt19937_64>& whiteBlock;
+    TimeDomainZohFlickerNoise<std::mt19937_64>& flickerBlock;
     VectorRepository<double> noiseResidual;
     int reverted;
-    size_t maxNsCount;
+    size_t maxNsCount_;
 
 protected:
     TranNRSolverError lastTranNRError;

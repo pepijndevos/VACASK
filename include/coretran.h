@@ -159,6 +159,7 @@ protected:
     // Forces uicForces;
     
 private:
+    std::tuple<size_t, size_t, size_t> countNoiseSources() const;
     bool evalAndLoadWrapper(EvalSetup& evalSetup, LoadSetup& loadSetup);
 
     // Update breakpoint, but only if it is after last
@@ -183,7 +184,8 @@ private:
     
     // Transient noise
     std::mt19937_64 randomGenerator;
-    VMCoefficientsRepository vmCoeffs;
+    TimeDomainZohWhiteNoise<std::mt19937_64> whiteBlock;
+    TimeDomainZohFlickerNoise<std::mt19937_64> flickerBlock;
 };
 
 }

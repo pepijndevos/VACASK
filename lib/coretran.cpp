@@ -244,7 +244,7 @@ TranCore::TranCore(
     KluRealMatrix& jacobian, VectorRepository<double>& solution, VectorRepository<double>& states
 ) : AnalysisCore(parentResolver, circuit, commons), params(params), outfile(nullptr), opCore_(opCore), 
     jacobian(jacobian), solution(solution), states(states), 
-    nrSolver(circuit, commons, jacobian, states, solution, nrSettings, integCoeffs, vmCoeffs) { 
+    nrSolver(circuit, commons, jacobian, states, solution, nrSettings, integCoeffs, whiteBlock, flickerBlock) { 
     // Slots 0 (current) and -1 (future) are used for the NR solver
     // Slots 1, 2, ... correspond to past values (at t_{k}, t_{k-1}, ...)
     // Therefore historyOffset needs to be set to 1 when calling 
@@ -552,6 +552,49 @@ Id TranCore::methodTrapezoidal = Id::createStatic("trap");
 Id TranCore::methodBDF2 = Id::createStatic("bdf2");
 Id TranCore::methodGear2 = Id::createStatic("gear2");
 
+std::tuple<size_t, size_t, size_t> TranCore::countNoiseSources() const {
+    // Count white and flicker noise sources
+    // Device/model/instance loops
+    // Must traverse in exactly the same order each time at noise load. 
+    size_t nWhite = 0;
+    size_t nFlicker = 0;
+    size_t maxNsCount = 0;
+    auto ndev = circuit.deviceCount();
+    for(decltype(ndev) idev=0; idev<ndev; idev++) {
+        auto dev = circuit.device(idev);
+        auto nmod = dev->modelCount();
+        for(decltype(nmod) imod=0; imod<nmod; imod++) {
+            auto mod = dev->model(imod);
+            auto ninst = mod->instanceCount();
+            for(decltype(ninst) iinst=0; iinst<ninst; iinst++) {
+                auto inst = mod->instance(iinst);
+                // Noise source count
+                auto nsCount = inst->noiseSourceCount();
+                if (nsCount<=0) {
+                    continue;
+                }
+                if (nsCount>maxNsCount) {
+                    maxNsCount = nsCount;
+                }
+                // Go through noise sources
+                for(decltype(nsCount) ins=0; ins<nsCount; ins++) {
+                    auto nstype = inst->noiseSourceType(ins);
+                    switch (nstype) {
+                        case NoiseType::White:
+                            nWhite++;
+                            break;
+                        case NoiseType::Flicker:
+                            nFlicker++;
+                            break;
+                    }
+                }
+            }
+        }
+    }
+
+    return std::make_tuple(nWhite, nFlicker, maxNsCount);
+}
+
 CoreCoroutine TranCore::coroutine(bool continuePrevious) {
     clearError();
 
@@ -612,8 +655,6 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
     double noiseStepLimit = 0;
     double noisefmax = params.noisefmax;
     double noisefmin = params.noisefmin;
-    size_t nWhite = 0;
-    size_t nFlicker = 0;
     if (noisefmax) {
         // Check noisefmax
         if (noisefmax<0) {
@@ -644,7 +685,7 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
             co_yield CoreState::Aborted;
         }
 
-        // Compute number of VM rows
+        // Compute number of VM rows for ZOH flicker noise generator
         // First row changes with average rate fmax*oversample/2 because p=0.5. 
         // Its corner frequency fc/fs = p/(2 pi) so fc = fs/(4 pi) ~ fs/12
         // With oversampling rate 6 the corner will be approximately at fmax. 
@@ -669,15 +710,18 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
             Simulator::dbg() << "  fsampling: " << fsampling << "\n";
             Simulator::dbg() << "  VM rows:   " << k << "\n";
         }
-        // Initialize VM coefficients repository, noise sample rate is 2*fmax*oversample
-        vmCoeffs.reset(k, fsampling, params.oversample, noisefmin, noisefmax, 10);
-        vmCoeffs.setDebug(options.tran_noisedebug);
-
+        // Initialize time domain noise blocks
+        auto [nWhite, nFlicker, maxNsCount] = countNoiseSources();
+        whiteBlock.reset(0.0, noiseStepLimit, nWhite, 1);
+        flickerBlock.reset(0.0, noiseStepLimit, nFlicker, 1, k);
+        flickerBlock.resetOptimizer(fsampling, noisefmin, noisefmax, 10);
+        flickerBlock.setDebug(options.tran_noisedebug);
+        
         // Seed random generator
         randomGenerator.seed(params.noiseseed);
 
         // Initialize transient noise generators, prepare first sample
-        nrSolver.initializeNoise(noiseStepLimit, randomGenerator);
+        nrSolver.enableNoise(maxNsCount);
     } else {
         nrSolver.disableNoise();
     }

@@ -9,9 +9,11 @@ TranNRSolver::TranNRSolver(
     Circuit& circuit, CommonData& commons, KluRealMatrix& jac, 
     VectorRepository<double>& states, VectorRepository<double>& solution, 
     NRSettings& settings, IntegratorCoeffs& integCoeffs, 
-    VMCoefficientsRepository& vmCoeffs
+    TimeDomainZohWhiteNoise<std::mt19937_64>& whiteBlock,
+    TimeDomainZohFlickerNoise<std::mt19937_64>& flickerBlock
 ) : OpNRSolver(circuit, commons, jac, states, solution, settings, 3), 
-    integCoeffs(&integCoeffs), noiseEnabled(false), flickerBlock(vmCoeffs) {
+    integCoeffs(&integCoeffs), noiseEnabled(false), 
+    whiteBlock(whiteBlock), flickerBlock(flickerBlock) {
     // TranNRSolver has 2 force slots
     // 0 .. continuation nodesets for sweep and homotopy
     //      cannot contain branch forces
@@ -82,54 +84,15 @@ bool TranNRSolver::initialize(bool continuePrevious) {
     return true;
 }  
 
-void TranNRSolver::initializeNoise(double noiseStepLimit, std::mt19937_64& gen) {
+void TranNRSolver::enableNoise(size_t maxNsCount) {
     // Count white and flicker noise sources
     // Device/model/instance loops
     // Must traverse in exactly the same order each time at noise load. 
     noiseEnabled = true;
-    size_t nWhite = 0;
-    size_t nFlicker = 0;
-    maxNsCount = 0;
-    auto ndev = circuit.deviceCount();
-    for(decltype(ndev) idev=0; idev<ndev; idev++) {
-        auto dev = circuit.device(idev);
-        auto nmod = dev->modelCount();
-        for(decltype(nmod) imod=0; imod<nmod; imod++) {
-            auto mod = dev->model(imod);
-            auto ninst = mod->instanceCount();
-            for(decltype(ninst) iinst=0; iinst<ninst; iinst++) {
-                auto inst = mod->instance(iinst);
-                // Noise source count
-                auto nsCount = inst->noiseSourceCount();
-                if (nsCount<=0) {
-                    continue;
-                }
-                if (nsCount>maxNsCount) {
-                    maxNsCount = nsCount;
-                }
-                // Go through noise sources
-                for(decltype(nsCount) ins=0; ins<nsCount; ins++) {
-                    auto nstype = inst->noiseSourceType(ins);
-                    switch (nstype) {
-                        case NoiseType::White:
-                            nWhite++;
-                            break;
-                        case NoiseType::Flicker:
-                            nFlicker++;
-                            break;
-                    }
-                }
-            }
-        }
-    }
-
-    // Resize noise generator blocks
-    // Noise sample time is noiseStepLimit (first row changeson average every noiseStepLimit*2 seconds)
-    // Initialize to all zeros (no random generator passed)
-    // This means the first point is noiseless. 
-    whiteBlock.reset(0.0, noiseStepLimit, nWhite, 1);
-    flickerBlock.reset(0.0, noiseStepLimit, nFlicker, 1);
-
+    
+    // Maximal number of noise sources per instance
+    maxNsCount_ = maxNsCount;
+    
     // Turn on noise evaluation in evalSetup_
     evalSetup_.evaluateNoise = true;
 }
@@ -190,8 +153,8 @@ bool TranNRSolver::buildNoiseResidual(double* noiseResidualContribution) {
     // need to allocate here beacause in the future 
     // if we use OpenMP these will be thread-local variables. 
     // TODO: check all classes for persistent storage, mark it for replacement
-    RealVector noisePower(maxNsCount);
-    RealVector noiseExponent(maxNsCount);
+    RealVector noisePower(maxNsCount_);
+    RealVector noiseExponent(maxNsCount_);
     
     auto whiteSamples = whiteBlock.values();
     auto flickerSamples = flickerBlock.values();

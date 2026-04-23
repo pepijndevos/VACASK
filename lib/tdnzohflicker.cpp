@@ -1,13 +1,95 @@
-#include "tdnflicker.h"
+#include "tdnzohflicker.h"
 #include "simulator.h"
 #include "common.h"
 
 namespace NAMESPACE {
 
-void VMCoefficientsRepository::reset(int k, double fs, int oversample, double fmin, double fmax, int ptsPerDecade, int ni, int ns, double lr) {
+template <std::uniform_random_bit_generator URBG> 
+void TimeDomainZohFlickerNoise<URBG>::reset(double t0, double timeStep, size_t count, int rollbackDepth, int k) {
+    TimeDomainNoiseBlock<URBG>::reset(t0, timeStep, count, rollbackDepth);
+    // k_ rows, for count generators
     k_ = k;
+    rows.upsize(k, count);
+    // Reversion data for rollbackDepth steps, one per generator
+    reversionData.upsize(rollbackDepth, count);
+    // Exponents for generators
+    exponent.resize(count);
+    // Coefficints index in coefficients repository
+    coeffIndex.resize(count);
+    // Coeff index set to SIZE_T_MAX initially so that we can detect initalization
+    std::fill(coeffIndex.begin(), coeffIndex.end(), SIZE_T_MAX);
+    // Generated values
+    history.upsize(rollbackDepth+1, count);
+    // Zero all exponents
+    zero(exponent);
+};
+
+template <std::uniform_random_bit_generator URBG> 
+void TimeDomainZohFlickerNoise<URBG>::reset(double t0, double timeStep, size_t count, int rollbackDepth, int k, URBG& gen) {
+    TimeDomainZohFlickerNoise<URBG>::reset(t0, timeStep, count, rollbackDepth, k);
+    // Generate random sample
+    generate(gen);
+};
+
+template <std::uniform_random_bit_generator URBG> void TimeDomainZohFlickerNoise<URBG>::generate(URBG& gen) {
+    std::normal_distribution<double> norm(0.0, 1.0);
+    // Uniformly distributed unsigned 64-bit integer
+    std::uniform_int_distribution<uint64_t> unif(0, UINT64_MAX);
+    
+    // Previous generator value
+    auto& prevValue = history.at(1);
+
+    // New generator value
+    auto& newValue = history.at();
+
+    // Index of flicker noise generator
+    for(size_t i = 0; i<prevValue.size(); i++) {
+        // Generate uniformly distributed random integer
+        auto rowSelector = unif(gen);
+        
+        // Determine which row to update
+        // Probabilities are 1/2, 1/4, 1/8, ..., 1/2^k; no row 1/2^k
+        // Trailing/leading zero count is fastest operation on AMD64
+        //
+        // Trailing zeros   Probability     Index of row with that probability
+        // 0 (..1)          1/2             0
+        // 1 (..10)         1/4             1
+        // 2 (..100)        1/8             2
+        // i-1              1/2^i           i-1
+        // ...
+        // 63 (100..0)      1/2^64          63
+        // 64 (00..0)       1/2^64          63
+        //
+        // Maximum i is 64. There can be at most 64 rows, i.e. k_<=64. 
+
+        // Get row index, make sure that it is <k_. If it is >=k_, no update is performed. 
+        // The generated number is 64-bit so it can't have more than k_ trailing zeros
+        // k_ trailing zeros correspond to probability 1/2^k_ - probability of updating no row
+        auto rowIndex = std::countr_zero(rowSelector);
+        
+        // Do we need to update a row
+        if (rowIndex < k_) {
+            // Get coefficients for this generator
+            auto& coeffs = getCoefficients(coeffIndex[i]);
+
+            // Generate random number, scale with row coefficient
+            auto newRowValue = norm(gen) * coeffs[rowIndex];
+
+            // Get row
+            auto& row = rows.at(rowIndex);
+
+            // Update sample
+            newValue[i] = prevValue[i] - row[i] + newRowValue;
+
+            // Update row
+            row[i] = newRowValue;
+        }
+    }
+}
+
+template <std::uniform_random_bit_generator URBG> 
+void TimeDomainZohFlickerNoise<URBG>::resetOptimizer(double fs, double fmin, double fmax, int ptsPerDecade, int ni, int ns, double lr) {
     fs_ = fs;
-    oversample_ = oversample;
     data.clear();
     flickerMap.clear();
     fmin_ = fmin;
@@ -18,7 +100,8 @@ void VMCoefficientsRepository::reset(int k, double fs, int oversample, double fm
     lr_ = lr;
 }
 
-std::tuple<size_t, bool> VMCoefficientsRepository::get(double alpha) {
+template <std::uniform_random_bit_generator URBG> 
+std::tuple<size_t, bool> TimeDomainZohFlickerNoise<URBG>::getCoefficients(double alpha) {
     auto it = flickerMap.find(alpha);
     if (it!=flickerMap.end()) {
         // Already in map
@@ -66,7 +149,8 @@ std::tuple<size_t, bool> VMCoefficientsRepository::get(double alpha) {
     return std::make_tuple(index, true);
 }
 
-double VMCoefficientsRepository::err(const std::vector<double>& target, const std::vector<double>& psd) {
+template <std::uniform_random_bit_generator URBG> 
+double TimeDomainZohFlickerNoise<URBG>::err(const std::vector<double>& target, const std::vector<double>& psd) {
     auto n = target.size();
     double sum = 0;
     for(decltype(n) i=0; i<n; i++) {
@@ -76,7 +160,8 @@ double VMCoefficientsRepository::err(const std::vector<double>& target, const st
     return std::sqrt(sum/n);
 }
 
-double VMCoefficientsRepository::computePsd(const std::vector<double>& wpsd, double f, double& zoh, std::vector<double>& rows) {
+template <std::uniform_random_bit_generator URBG> 
+double TimeDomainZohFlickerNoise<URBG>::computePsd(const std::vector<double>& wpsd, double f, double& zoh, std::vector<double>& rows) {
     // Return value is the ZOH scaled PSD
     // PSDs of rows assume rows generate scaled impulse trains
     const double pi = std::numbers::pi;
@@ -104,7 +189,8 @@ double VMCoefficientsRepository::computePsd(const std::vector<double>& wpsd, dou
 }
 
 // wpsd are PSD coeffs, i.e. squared signal coeffs
-void VMCoefficientsRepository::computePsds(const std::vector<double>& wpsd, const std::vector<double>& freq, std::vector<double>& tmpRows, std::vector<double>& result) {
+template <std::uniform_random_bit_generator URBG> 
+void TimeDomainZohFlickerNoise<URBG>::computePsds(const std::vector<double>& wpsd, const std::vector<double>& freq, std::vector<double>& tmpRows, std::vector<double>& result) {
     // result will hold the PSD of generator output
     const double pi = std::numbers::pi;
     auto nf = freq.size();
@@ -118,7 +204,8 @@ void VMCoefficientsRepository::computePsds(const std::vector<double>& wpsd, cons
     }
 }
 
-double VMCoefficientsRepository::computeGradient(const std::vector<double>& wpsd, const std::vector<double>& freq, const std::vector<double>& target, std::vector<double>& tmpRows, std::vector<double>& psd, std::vector<double>& gradient) {
+template <std::uniform_random_bit_generator URBG> 
+double TimeDomainZohFlickerNoise<URBG>::computeGradient(const std::vector<double>& wpsd, const std::vector<double>& freq, const std::vector<double>& target, std::vector<double>& tmpRows, std::vector<double>& psd, std::vector<double>& gradient) {
     // We are minimizing 
     //   F = sum_i (ln(psd_i/target_i))^2
     // where psd_i is the psd at ith frequency. 
@@ -175,7 +262,8 @@ double VMCoefficientsRepository::computeGradient(const std::vector<double>& wpsd
     return err(target, psd);
 }
 
-bool VMCoefficientsRepository::optimizeCoefficients(size_t index, double alpha) {
+template <std::uniform_random_bit_generator URBG> 
+bool TimeDomainZohFlickerNoise<URBG>::optimizeCoefficients(size_t index, double alpha) {
     // Build vector of frequency points and ideal PSD
     auto nint = int(std::ceil(std::log(fmax_/fmin_)/std::log(10)*ptsPerDecade_));
     auto step = std::log(fmax_/fmin_)/nint;
@@ -309,5 +397,8 @@ bool VMCoefficientsRepository::optimizeCoefficients(size_t index, double alpha) 
 
     return true;
 }
+
+// Explicit instantiation of template class
+template class TimeDomainZohFlickerNoise<std::mt19937_64>;
 
 }

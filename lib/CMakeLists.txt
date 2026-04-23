@@ -187,7 +187,8 @@ add_library(simlib STATIC
     annoise.cpp 
     antran.cpp 
     anhb.cpp
-    tdnvmcoeff.cpp
+    tdnzohwhite.cpp
+    tdnzohflicker.cpp
     location.cpp
     "${BISON_dflparser_OUTPUTS}"
     "${FLEX_dfllexer_OUTPUTS}"
