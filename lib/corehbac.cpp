@@ -151,11 +151,6 @@ bool HBACCore::deleteOutputs(Id name, Status& s) {
     return true;
 }
   
-
-// TODO: make list of sources every time core is invoked
-//       somebody might sweep cs* parameters of sources
-
-
 void HBACCore::constructSuffixes() {
     auto& spurs = hbCore_.spurs();
     auto nf = spurs.smsigFreq().size();
@@ -251,15 +246,262 @@ void HBACCore::fillMatrix() {
     }
 }
 
-bool HBACCore::evalOp() {
-    // Use HB core's NR solver to evaluate G and C in frequency domain for given nodeset
+bool HBACCore::rebuild(Status& s) {
+    clearError();
 
-    // Get nodeset
+    auto& spurs = hbCore_.spurs();
+    auto& stencil = spurs.mixingStencil();
+    auto nf = stencil.nRows();
 
-    // Evaluate
-
+    // AC analysis matrix
+    if (!acMatrix.rebuild(circuit.sparsityMap(), circuit.unknownCount(), nf, nf)) {
+        setError(HBACError::MatrixError);
+        return false;
+    }
+    
     return true;
 }
 
+// TODO: set solve parameter of hbCore_ to the opsolve parameter of hbac
+// in analysis rebuild
+
+// TODO: make list of sources every time core is invoked
+//       somebody might sweep cs* parameters of sources
+
+// TODO: if spurs change during sweep, error
+//       if outpiut spurs change, error
+
+/*
+CoreCoroutine HBACCore::coroutine(bool continuePrevious) {
+    acMatrix.setAccounting(circuit.tables().accounting());
+    
+    clearError();
+
+    auto& options = circuit.simulatorOptions().core();
+    Int debug = options.smsig_debug;
+    
+    auto n = circuit.unknownCount(); 
+    auto& spurs = hbCore_.spurs();
+    auto& stencil = spurs.mixingStencil();
+    auto nf = stencil.nRows();
+
+    // Make sure structures are large enough
+    // One bucket for each spur
+    acSolution.resize((n+1)*nf);
+    
+    // Compute HB solution
+    errorFreq = -1;
+    if (params.opsolve) {
+        // Solve HB
+        auto hbOk = hbCore_.run(continuePrevious);
+        if (!hbOk) {
+            setError(HBACError::HBError);
+            co_yield CoreState::Aborted;
+        }
+    } else {
+        // Evaluate HB at nodeset
+        if (!hbCore_.evaluateAtNodeset()) {
+            setError(HBACError::HBError);
+            co_yield CoreState::Aborted;
+        }
+    }
+
+    // Collect frequency-domain Jacobians
+    hbCore_.getFrequencyDomainJacobians(jacSpec);
+
+    // Check if the Jacobians are finite
+    if (options.matrixcheck && !jacSpec.isFinite(true, true)) {
+        setError(HBACError::MatrixError);
+        if (debug>0) {
+            Simulator::dbg() << "A frequency-domain Jacobian matrix entry is not finite.\n";
+        }
+        co_yield CoreState::Aborted;
+    }
+
+    auto& options = circuit.simulatorOptions().core();
+    Int debug = options.smsig_debug;
+
+    if (debug>0) {
+        Simulator::dbg() << "Starting HBAC small-signal analysis.\n";
+    }
+    
+    // Create sweeper
+    ScalarSweep sweeper;
+    if (!sweeper.setup(params, errorStatus)) {
+        setError(HBACError::Sweeper);
+        co_yield CoreState::Aborted;
+    }
+    if (progressReporter) {
+        progressReporter->setValueFormat(ProgressReporter::ValueFormat::Scientific, 6);
+        progressReporter->setValueDecoration("", "Hz");    
+    }
+    initProgress(sweeper.count(), 0);
+    
+    // Frequency sweep
+    sweeper.reset();
+    bool finished = false;
+    frequency = -1.0;
+    std::stringstream ss;
+    ss << std::scientific << std::setprecision(4);
+    bool error = false;
+    do {
+        // Compute should always succeed
+        Value v;
+        if (!sweeper.compute(v, errorStatus)) {
+            setError(HBACError::SweepCompute);
+            error = true;
+            break;
+        }
+
+        // The value, however, must be convertible to real
+        if (!v.convertInPlace(Value::Type::Real, errorStatus)) {
+            setError(HBACError::BadFrequency);
+            if (debug>0) {
+                Simulator::dbg() << "Frequency value cannot be converted to real.\n";
+            }
+            error = true;
+            break;
+        }
+        frequency = v.val<Real>();
+        double omega = 2*std::numbers::pi*frequency;
+
+        if (debug>0) {
+            ss.str(""); ss << frequency;
+            Simulator::dbg() << "frequency=" << ss.str() << "\n";
+        }
+
+        // Construct matrix
+        computeOmega(frequency);
+        fillMatrix();
+
+        // Fill RHS
+
+
+        // Change sign of residual because it is on the RHS 
+        // and we need the small signal response with the correct sign
+        for(decltype(n) i=0; i<=n; i++) {
+            acSolution[i] = -acSolution[i];
+        }
+        
+        if (debug>=100) {
+            Simulator::dbg() << "Linear system at frequency " << frequency << "\n";
+            acMatrix.dump(Simulator::dbg(), dataWithoutBucket(acSolution)); 
+            Simulator::dbg() << "\n";
+        }
+
+        // Check if matrix entries are finite, no need to check RHS 
+        // since we loaded it without any computation (i.e. we only used mag and phase)
+        if (options.matrixcheck && !acMatrix.isFinite(true, true)) {
+            setError(AcError::MatrixError);
+            if (debug>0) {
+                Simulator::dbg() << "A matrix entry is not finite.\n";
+            }
+            error = true;
+            break;
+        }
+
+        // Factor
+        bool forceFullFactorization = false;        
+        if (acMatrix.isFactored()) {
+            // Refactor (if possible)
+            if (!acMatrix.refactor()) {
+                // Failed, try again by fully factoring
+                forceFullFactorization = true;
+            } 
+        }
+        if (forceFullFactorization || !acMatrix.isFactored()) {
+            // Full factorization
+            if (!acMatrix.factor()) {
+                // Failed, give up
+                setError(AcError::MatrixError);
+                if (debug>0) {
+                    Simulator::dbg() << "LU factorization failed.\n";
+                }
+                error = true;
+                break;
+            }
+        }
+        // Check if matrix is singular
+        if (options.rcondcheck>0) { 
+            double rcond;
+            if (!acMatrix.rcond(rcond)) {
+                setError(AcError::MatrixError);
+                if (debug>0) {
+                    Simulator::dbg() << "Condition number estimation failed.\n";
+                }
+                error = true;
+                break;
+            }
+            if (rcond<options.rcondcheck) {
+                if (debug>0) {
+                    Simulator::dbg() << "Matrix is close to singular.\n";
+                }
+                setError(AcError::SingularMatrix);
+                error = true;
+                break;
+            }
+        }
+
+        // Solve, set bucket to 0.0
+        if (!acMatrix.solve(dataWithoutBucket(acSolution))) {
+            setError(AcError::MatrixError);
+            if (debug>2) {
+                Simulator::dbg() << "Failed to solve factored system.\n";
+            }
+            error = true;
+            break;
+        }
+        acSolution[0] = 0.0;
+
+        if (options.solutioncheck && !acMatrix.isFinite(dataWithoutBucket(acSolution), true, true)) {
+            setError(AcError::SolutionError);
+            if (options.smsig_debug) {
+                Simulator::dbg() << "A solution entry is not finite. Solver failed.\n";
+            }
+            error = true;
+            break;
+        }
+        
+        // Dump solution point
+        if (params.write && !Simulator::noOutput() && outfile) {
+            outfile->addPoint();
+        }
+        
+        finished = sweeper.advance();
+        
+        setProgress(sweeper.at(), frequency);
+    } while (!finished && !error);
+    
+    if (debug>0) {
+        Simulator::dbg() << "AC frequency sweep " << (finished ? "completed" : "exited prematurely") << ".\n";
+    }
+
+    if (!finished) {
+        errorFreq = frequency;
+    }
+
+    // No need to bind resistive Jacobian enatries. 
+    // OP analysis will still work fine, even in sweep. 
+    // We only changed the bindings of the reactive Jacobian entries. 
+    
+    if (finished) {
+        co_yield CoreState::Finished;
+    } else {
+        co_yield CoreState::Aborted;
+    }
+}
+
+bool ACCore::run(bool continuePrevious) {
+    auto c = coroutine(continuePrevious);
+    bool ok = true;
+    while (!c.done()) {
+        if (c.resume()==CoreState::Aborted) {
+            ok = false;
+            break;
+        };
+    }
+    return ok;
+}
+*/
 
 }

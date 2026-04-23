@@ -314,7 +314,7 @@ std::tuple<bool, bool> TranNRSolver::buildSystem(bool continuePrevious) {
 
 bool TranNRSolver::computeNoiseSolutionContribution() {
     // Solve with last factored Jacobian
-    if (!jac.solve(dataWithoutBucket(noiseResidual))) {
+    if (!jac.solve(dataWithoutBucket(noiseResidual, bucketSize_))) {
         lastError = Error::LinearSolver;
         errorIteration = iteration;
         if (settings.debug) {

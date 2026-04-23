@@ -162,7 +162,8 @@ OpNRSolver::OpNRSolver(
     VectorRepository<double>& states, VectorRepository<double>& solution, 
     NRSettings& settings, Int forcesSize
 ) : circuit(circuit), commons(commons), states(states), 
-    NRSolver(circuit.tables().accounting(), jac, solution, settings) {
+    NRSolver(circuit.tables().accounting(), jac, solution, settings, 1) {
+    // Bucket size is 1
     // Slot 0 is for sweep continuation and homotopy (set via CoreStateStorage object)
     // Slot 1 is 
     resizeForces(forcesSize);
@@ -734,7 +735,7 @@ bool OpNRSolver::loadForces(bool loadJacobian) {
     auto nf = forcesList.size();
     
     // Get row norms
-    jac.rowMaxNorm(dataWithoutBucket(rowNorm));
+    jac.rowMaxNorm(dataWithoutBucket(rowNorm, bucketSize_));
 
     // Load forces
     auto n = jac.nRow();

@@ -22,7 +22,8 @@ HBNRSolver::HBNRSolver(
 ) : circuit(circuit), commons(commons), jacColoc(jacColoc), bsjac(bsjac), solutionFD(solutionFD), 
     frequencies(frequencies), timepoints(timepoints), DDT(DDT), DDTcolMajor(DDTcolMajor), 
     APFT(APFT), IAPFT(IAPFT), 
-    NRSolver(circuit.tables().accounting(), bsjac, solution, settings) {
+    NRSolver(circuit.tables().accounting(), bsjac, solution, settings, 1) {
+    // Bucket size is 1
     // Slot 0 is for sweep continuation and homotopy (set via CoreStateStorage object)
     // Slot 1 is for nodesets that are read from stored results. 
     resizeForces(2);
@@ -629,7 +630,7 @@ bool HBNRSolver::loadForces(bool loadJacobian) {
     auto nf = forcesList.size();
     
     // Get row norms
-    jac.rowMaxNorm(dataWithoutBucket(rowNorm));
+    jac.rowMaxNorm(dataWithoutBucket(rowNorm, bucketSize_));
 
     // Load forces
     auto n = jac.nRow();

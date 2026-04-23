@@ -297,7 +297,7 @@ bool HBCore::buildGrid(Status& s) {
 }
 
 // Called after build
-bool HBCore::evaluateAtNodeset(Status& s) {
+bool HBCore::evaluateAtNodeset() {
     clearError();
 
     auto& options = circuit.simulatorOptions().core();
@@ -317,7 +317,7 @@ bool HBCore::evaluateAtNodeset(Status& s) {
     auto n = circuit.unknownCount();
     auto nt = timepoints.size();
     if (!nrSolver.rebuild(n*nt)) {
-        s.set(Status::NonlinearSolver, "Failed to rebuild internal structures of nonlinear solver.");
+        setError(HBError::SolverBuild);
         return false;
     }
 
@@ -765,6 +765,9 @@ bool HBCore::formatError(Status& s) const {
             return false;
         case HBError::NoNodeset:
             s.set(Status::Analysis, "Nodeset not found."); 
+            return false;
+        case HBError::SolverBuild:
+            s.set(Status::NonlinearSolver, "Failed to rebuild internal structures of nonlinear solver.");
             return false;
         case HBError::SolverError:
             nrSolver.formatError(s, &nr);

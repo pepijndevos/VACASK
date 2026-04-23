@@ -320,7 +320,7 @@ CoreCoroutine ACCore::coroutine(bool continuePrevious) {
         
         if (debug>=100) {
             Simulator::dbg() << "Linear system at frequency " << frequency << "\n";
-            acMatrix.dump(Simulator::dbg(), dataWithoutBucket(acSolution)); 
+            acMatrix.dump(Simulator::dbg(), dataWithoutBucket(acSolution, bucketSize)); 
             Simulator::dbg() << "\n";
         }
 
@@ -378,7 +378,7 @@ CoreCoroutine ACCore::coroutine(bool continuePrevious) {
         }
 
         // Solve, set bucket to 0.0
-        if (!acMatrix.solve(dataWithoutBucket(acSolution))) {
+        if (!acMatrix.solve(dataWithoutBucket(acSolution, bucketSize))) {
             setError(AcError::MatrixError);
             if (debug>2) {
                 Simulator::dbg() << "Failed to solve factored system.\n";
@@ -388,7 +388,7 @@ CoreCoroutine ACCore::coroutine(bool continuePrevious) {
         }
         acSolution[0] = 0.0;
 
-        if (options.solutioncheck && !acMatrix.isFinite(dataWithoutBucket(acSolution), true, true)) {
+        if (options.solutioncheck && !acMatrix.isFinite(dataWithoutBucket(acSolution, bucketSize), true, true)) {
             setError(AcError::SolutionError);
             if (options.smsig_debug) {
                 Simulator::dbg() << "A solution entry is not finite. Solver failed.\n";

@@ -235,12 +235,12 @@ CoreCoroutine DCXFCore::coroutine(bool continuePrevious) {
 
         if (debug>=100) {
             Simulator::dbg() << "Linear system for instance " << inst->name() << "\n";
-            jacobian.dump(Simulator::dbg(), dataWithoutBucket(incrementalSolution)); 
+            jacobian.dump(Simulator::dbg(), dataWithoutBucket(incrementalSolution, bucketSize)); 
             Simulator::dbg() << "\n";
         }
 
         // Solve
-        if (!jacobian.solve(dataWithoutBucket(incrementalSolution))) {
+        if (!jacobian.solve(dataWithoutBucket(incrementalSolution, bucketSize))) {
             setError(DCXFError::MatrixError);
             error = true;
             break;
@@ -249,7 +249,7 @@ CoreCoroutine DCXFCore::coroutine(bool continuePrevious) {
         // Set bucket to 0
         rhsVec[0] = 0.0;
 
-        if (options.solutioncheck && !jacobian.isFinite(dataWithoutBucket(incrementalSolution), true, true)) {
+        if (options.solutioncheck && !jacobian.isFinite(dataWithoutBucket(incrementalSolution, bucketSize), true, true)) {
             setError(DCXFError::SolutionError);
             if (options.smsig_debug) {
                 Simulator::dbg() << "A solution entry is not finite. Solver failed.\n";

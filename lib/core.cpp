@@ -375,7 +375,7 @@ bool AnalysisCore::addComplexVarOutputSource(bool strict, Id name, const Vector<
     // Get unknown
     if (node) {
         auto unknown = node->unknownIndex();
-        auto pos = (unknown-1)*stride+1+offset;
+        auto pos = unknown*stride+offset;
         outputSources.emplace_back(&solution, pos, asName);
     } else if (strict) {
         s.set(Status::NotFound, "Node '"+std::string(name)+"' not found.");
@@ -393,7 +393,7 @@ bool AnalysisCore::addComplexVarOutputSource(bool strict, Id name, const VectorR
     // Get unknown
     if (node) {
         auto unknown = node->unknownIndex();
-        auto pos = (unknown-1)*stride+1+offset;
+        auto pos = unknown*stride+offset;
         outputSources.emplace_back(&solution, pos, asName);
     } else if (strict) {
         s.set(Status::NotFound, "Node '"+std::string(name)+"' not found.");

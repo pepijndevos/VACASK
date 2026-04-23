@@ -172,14 +172,14 @@ CoreCoroutine DCIncrementalCore::coroutine(bool continuePrevious) {
 
     if (debug>=100) {
         Simulator::dbg() << "Linear system\n";
-        jacobian.dump(Simulator::dbg(), dataWithoutBucket(incrementalSolution)); 
+        jacobian.dump(Simulator::dbg(), dataWithoutBucket(incrementalSolution, bucketSize)); 
         Simulator::dbg() << "\n";
     }
 
     // We don't need max residual contribution because we do not check residual
 
     // Solve 
-    if (!jacobian.solve(dataWithoutBucket(incrementalSolution))) {
+    if (!jacobian.solve(dataWithoutBucket(incrementalSolution, bucketSize))) {
         setError(DCIncrementalError::MatrixError);
         co_yield CoreState::Aborted;
     }
@@ -187,7 +187,7 @@ CoreCoroutine DCIncrementalCore::coroutine(bool continuePrevious) {
     // Set solution bucket to 0
     incrementalSolution[0] = 0.0;
 
-    if (options.solutioncheck && !jacobian.isFinite(dataWithoutBucket(incrementalSolution), true, true)) {
+    if (options.solutioncheck && !jacobian.isFinite(dataWithoutBucket(incrementalSolution, bucketSize), true, true)) {
         setError(DCIncrementalError::SolutionError);
         if (options.smsig_debug) {
             Simulator::dbg() << "A solution entry is not finite. Solver failed.\n";

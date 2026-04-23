@@ -18,12 +18,12 @@ template<typename T> void zero(std::vector<T>& vec) {
     vec.assign(vec.size(), 0); 
 }
 
-template<typename T> T* dataWithoutBucket(std::vector<T>& vec) { 
-    return vec.data()+1; 
+template<typename T> T* dataWithoutBucket(std::vector<T>& vec, size_t bucketSize) { 
+    return vec.data()+bucketSize; 
 }
 
-template<typename T> const T* dataWithoutBucket(const std::vector<T>& vec) { 
-    return vec.data()+1; 
+template<typename T> const T* dataWithoutBucket(const std::vector<T>& vec, size_t bucketSize) { 
+    return vec.data()+bucketSize; 
 }
 
 
@@ -249,13 +249,9 @@ public:
     
     // Return array of doubles without bucket 
     // (for use with linear solver)
-    T* dataWithoutBucket(DepthIndexDelta which=0) { return dataWithoutBucket(vector(which)); };
-    const T* dataWithoutBucket(DepthIndexDelta which=0) const { return dataWithoutBucket(vector(which)); }
-    T* pastDataWithoutBucket() { return dataWithoutBucket(1); };
-    const T* pastDataWithoutBucket() const { return dataWithoutBucket(1); }
-    T* futureDataWithoutBucket() { return dataWithoutBucket(-1); };
-    const T* futureDataWithoutBucket() const { return dataWithoutBucket(-1); }
-
+    T* dataWithoutBucket(DepthIndexDelta which, size_t bucketSize) { return dataWithoutBucket(vector(which, bucketSize)); };
+    const T* dataWithoutBucket(DepthIndexDelta which, size_t bucketSize) const { return dataWithoutBucket(vector(which, bucketSize)); }
+    
 protected:
     using CircularBuffer<Vector<T>>::size_;
     using CircularBuffer<Vector<T>>::valueCount_;

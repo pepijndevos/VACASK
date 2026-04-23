@@ -48,7 +48,8 @@ public:
     typedef HBParameters Parameters;
     enum class HBError {
         OK, 
-        NoAlgorithm, 
+        NoAlgorithm,
+        SolverBuild,  
         SolverError,
         InitialHB, 
         Homotopy,
@@ -95,7 +96,7 @@ public:
 
     // Set stored solutiuon for evaluation, does not set up Jacobian to save memory
     // Bind circuit to jacColoc and evaluate at current solution
-    bool evaluateAtNodeset(Status& s=Status::ignore);
+    bool evaluateAtNodeset();
     bool getFrequencyDomainJacobians(KluBlockSparseComplexMatrix& jacSpec);
 
     void dump(std::ostream& os) const;

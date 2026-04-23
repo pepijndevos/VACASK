@@ -114,6 +114,8 @@ public:
     OutputRawfile* outfile;
 
 protected:
+    static constexpr size_t bucketSize = 1;
+    
     // Clear error
     void clearError() { AnalysisCore::clearError(); lastAcTfError = ACXFError::OK; }; 
 

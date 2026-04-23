@@ -40,9 +40,9 @@ namespace NAMESPACE {
 NRSolver::NRSolver(
     Accounting& acct, KluRealMatrixCore& jac, 
     VectorRepository<double>& solution, 
-    NRSettings& settings
+    NRSettings& settings, size_t bucketSize
 ) : acct(acct), jac(jac), solution(solution), settings(settings), 
-    iteration(0) {
+    bucketSize_(bucketSize), iteration(0) {
 }
 
 bool NRSolver::rebuild(size_t nSolComp) {
@@ -190,7 +190,7 @@ bool NRSolver::run(bool continuePrevious) {
             break;
         }
 
-        if (settings.rhsCheck && !jac.isFinite(dataWithoutBucket(delta), true, true)) {
+        if (settings.rhsCheck && !jac.isFinite(dataWithoutBucket(delta, bucketSize_), true, true)) {
             lastError = Error::LinearSolver;
             errorIteration = iteration;
             if (settings.debug) {
@@ -229,7 +229,7 @@ bool NRSolver::run(bool continuePrevious) {
         
         if (settings.debug>=4) {
             Simulator::dbg() << "Linear system at iteration " << iteration << "\n";
-            jac.dump(Simulator::dbg(), dataWithoutBucket(delta));
+            jac.dump(Simulator::dbg(), dataWithoutBucket(delta, bucketSize_));
             Simulator::dbg() << "\n\n";
         }
         
@@ -266,7 +266,7 @@ bool NRSolver::run(bool continuePrevious) {
         }
 
         // Solve, use vector without ground component (+1)
-        if (!jac.solve(dataWithoutBucket(delta))) {
+        if (!jac.solve(dataWithoutBucket(delta, bucketSize_))) {
             lastError = Error::LinearSolver;
             errorIteration = iteration;
             if (settings.debug) {
@@ -286,7 +286,7 @@ bool NRSolver::run(bool continuePrevious) {
 
         acct.acctNew.nriter++;
 
-        if (settings.solutionCheck && !jac.isFinite(dataWithoutBucket(delta), true, true)) {
+        if (settings.solutionCheck && !jac.isFinite(dataWithoutBucket(delta, bucketSize_), true, true)) {
             lastError = Error::SolutionError;
             errorIteration = iteration;
             if (settings.debug) {

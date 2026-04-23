@@ -105,7 +105,8 @@ public:
     NRSolver(
         Accounting& acct, 
         KluRealMatrixCore& jac, VectorRepository<double>& solution, 
-        NRSettings& settings
+        NRSettings& settings, 
+        size_t bucketSize=0
     );
 
     // Clear error
@@ -211,6 +212,9 @@ public:
     virtual std::string formatConvergence() const { return ""; };
     
 protected:
+    // Bucket size
+    size_t bucketSize_;
+    
     // High precision requested
     bool highPrecision;
 

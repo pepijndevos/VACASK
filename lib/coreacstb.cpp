@@ -454,7 +454,7 @@ CoreCoroutine ACStbCore::coroutine(bool continuePrevious) {
         acSolution[refGnd]       -= 1;
 
         // Solve, set bucket to 0.0
-        if (!acMatrix.solve(dataWithoutBucket(acSolution))) {
+        if (!acMatrix.solve(dataWithoutBucket(acSolution, bucketSize))) {
             setError(StbError::MatrixError);
             if (debug>2) {
                 Simulator::dbg() << "Failed to solve factored system for injected current.\n";
@@ -464,7 +464,7 @@ CoreCoroutine ACStbCore::coroutine(bool continuePrevious) {
         }
         acSolution[0] = 0.0;
 
-        if (options.solutioncheck && !acMatrix.isFinite(dataWithoutBucket(acSolution), true, true)) {
+        if (options.solutioncheck && !acMatrix.isFinite(dataWithoutBucket(acSolution, bucketSize), true, true)) {
             setError(StbError::SolutionError);
             if (options.smsig_debug) {
                 Simulator::dbg() << "A solution entry for injected current is not finite. Solver failed.\n";
@@ -485,7 +485,7 @@ CoreCoroutine ACStbCore::coroutine(bool continuePrevious) {
         acSolution[e2] -= 1;
 
         // Solve, set bucket to 0.0
-        if (!acMatrix.solve(dataWithoutBucket(acSolution))) {
+        if (!acMatrix.solve(dataWithoutBucket(acSolution, bucketSize))) {
             setError(StbError::MatrixError);
             if (debug>2) {
                 Simulator::dbg() << "Failed to solve factored system for injected voltage.\n";
@@ -495,7 +495,7 @@ CoreCoroutine ACStbCore::coroutine(bool continuePrevious) {
         }
         acSolution[0] = 0.0;
 
-        if (options.solutioncheck && !acMatrix.isFinite(dataWithoutBucket(acSolution), true, true)) {
+        if (options.solutioncheck && !acMatrix.isFinite(dataWithoutBucket(acSolution, bucketSize), true, true)) {
             setError(StbError::SolutionError);
             if (options.smsig_debug) {
                 Simulator::dbg() << "A solution entry for injected voltage is not finite. Solver failed.\n";

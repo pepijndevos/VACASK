@@ -517,7 +517,7 @@ CoreCoroutine ACSPCore::coroutine(bool continuePrevious) {
             acSolution[en] -= sourceVector[i]->scaledUnityExcitation();
             
             // Solve, set bucket to 0.0
-            if (!acMatrix.solve(dataWithoutBucket(acSolution))) {
+            if (!acMatrix.solve(dataWithoutBucket(acSolution, bucketSize))) {
                 setError(SPError::MatrixError);
                 if (debug>2) {
                     Simulator::dbg() << "Failed to solve factored system for injected current.\n";
@@ -527,7 +527,7 @@ CoreCoroutine ACSPCore::coroutine(bool continuePrevious) {
             }
             acSolution[0] = 0.0;
 
-            if (options.solutioncheck && !acMatrix.isFinite(dataWithoutBucket(acSolution), true, true)) {
+            if (options.solutioncheck && !acMatrix.isFinite(dataWithoutBucket(acSolution, bucketSize), true, true)) {
                 setError(SPError::SolutionError);
                 if (options.smsig_debug) {
                     Simulator::dbg() << "A solution entry for excitation at port "+std::to_string(i+1)+" is not finite. Solver failed.\n";
