@@ -61,7 +61,6 @@ public:
         OK, 
         Sweeper, 
         SweepCompute, 
-        EvalAndLoad, 
         MatrixError, 
         SolutionError, 
         HBError, 
@@ -103,6 +102,8 @@ public:
     OutputRawfile* outfile;
 
 protected:
+    // Bucket size is nf
+
     // Construct suffixes for small-signal frequency in HB spurs
     void constructSuffixes();
 

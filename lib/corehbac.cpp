@@ -269,9 +269,8 @@ bool HBACCore::rebuild(Status& s) {
 //       somebody might sweep cs* parameters of sources
 
 // TODO: if spurs change during sweep, error
-//       if outpiut spurs change, error
+//       if output spurs change, error
 
-/*
 CoreCoroutine HBACCore::coroutine(bool continuePrevious) {
     acMatrix.setAccounting(circuit.tables().accounting());
     
@@ -317,9 +316,6 @@ CoreCoroutine HBACCore::coroutine(bool continuePrevious) {
         }
         co_yield CoreState::Aborted;
     }
-
-    auto& options = circuit.simulatorOptions().core();
-    Int debug = options.smsig_debug;
 
     if (debug>0) {
         Simulator::dbg() << "Starting HBAC small-signal analysis.\n";
@@ -375,24 +371,18 @@ CoreCoroutine HBACCore::coroutine(bool continuePrevious) {
         fillMatrix();
 
         // Fill RHS
+        // TODO
 
-
-        // Change sign of residual because it is on the RHS 
-        // and we need the small signal response with the correct sign
-        for(decltype(n) i=0; i<=n; i++) {
-            acSolution[i] = -acSolution[i];
-        }
-        
         if (debug>=100) {
             Simulator::dbg() << "Linear system at frequency " << frequency << "\n";
-            acMatrix.dump(Simulator::dbg(), dataWithoutBucket(acSolution)); 
+            acMatrix.dump(Simulator::dbg(), dataWithoutBucket(acSolution, nf)); 
             Simulator::dbg() << "\n";
         }
 
         // Check if matrix entries are finite, no need to check RHS 
         // since we loaded it without any computation (i.e. we only used mag and phase)
         if (options.matrixcheck && !acMatrix.isFinite(true, true)) {
-            setError(AcError::MatrixError);
+            setError(HBACError::MatrixError);
             if (debug>0) {
                 Simulator::dbg() << "A matrix entry is not finite.\n";
             }
@@ -413,7 +403,7 @@ CoreCoroutine HBACCore::coroutine(bool continuePrevious) {
             // Full factorization
             if (!acMatrix.factor()) {
                 // Failed, give up
-                setError(AcError::MatrixError);
+                setError(HBACError::MatrixError);
                 if (debug>0) {
                     Simulator::dbg() << "LU factorization failed.\n";
                 }
@@ -425,7 +415,7 @@ CoreCoroutine HBACCore::coroutine(bool continuePrevious) {
         if (options.rcondcheck>0) { 
             double rcond;
             if (!acMatrix.rcond(rcond)) {
-                setError(AcError::MatrixError);
+                setError(HBACError::MatrixError);
                 if (debug>0) {
                     Simulator::dbg() << "Condition number estimation failed.\n";
                 }
@@ -436,15 +426,15 @@ CoreCoroutine HBACCore::coroutine(bool continuePrevious) {
                 if (debug>0) {
                     Simulator::dbg() << "Matrix is close to singular.\n";
                 }
-                setError(AcError::SingularMatrix);
+                setError(HBACError::SingularMatrix);
                 error = true;
                 break;
             }
         }
 
         // Solve, set bucket to 0.0
-        if (!acMatrix.solve(dataWithoutBucket(acSolution))) {
-            setError(AcError::MatrixError);
+        if (!acMatrix.solve(dataWithoutBucket(acSolution, nf))) {
+            setError(HBACError::MatrixError);
             if (debug>2) {
                 Simulator::dbg() << "Failed to solve factored system.\n";
             }
@@ -453,8 +443,8 @@ CoreCoroutine HBACCore::coroutine(bool continuePrevious) {
         }
         acSolution[0] = 0.0;
 
-        if (options.solutioncheck && !acMatrix.isFinite(dataWithoutBucket(acSolution), true, true)) {
-            setError(AcError::SolutionError);
+        if (options.solutioncheck && !acMatrix.isFinite(dataWithoutBucket(acSolution, nf), true, true)) {
+            setError(HBACError::SolutionError);
             if (options.smsig_debug) {
                 Simulator::dbg() << "A solution entry is not finite. Solver failed.\n";
             }
@@ -473,7 +463,7 @@ CoreCoroutine HBACCore::coroutine(bool continuePrevious) {
     } while (!finished && !error);
     
     if (debug>0) {
-        Simulator::dbg() << "AC frequency sweep " << (finished ? "completed" : "exited prematurely") << ".\n";
+        Simulator::dbg() << "HBAC frequency sweep " << (finished ? "completed" : "exited prematurely") << ".\n";
     }
 
     if (!finished) {
@@ -491,7 +481,7 @@ CoreCoroutine HBACCore::coroutine(bool continuePrevious) {
     }
 }
 
-bool ACCore::run(bool continuePrevious) {
+bool HBACCore::run(bool continuePrevious) {
     auto c = coroutine(continuePrevious);
     bool ok = true;
     while (!c.done()) {
@@ -502,6 +492,70 @@ bool ACCore::run(bool continuePrevious) {
     }
     return ok;
 }
-*/
+
+bool HBACCore::formatError(Status& s) const {
+    auto nr = UnknownNameResolver(circuit);
+    std::stringstream ss;
+    ss << std::scientific << std::setprecision(4);
+    
+    // First, handle AnalysisCore errors
+    if (lastError!=Error::OK) {
+        AnalysisCore::formatError(s);
+        return false;
+    }
+    
+    // Then handle ACCore errors
+    switch (lastHBACError) {
+        case HBACError::Sweeper:
+        case HBACError::SweepCompute:
+            s.set(errorStatus);
+            break;
+        case HBACError::MatrixError:
+            acMatrix.formatError(s, &nr);
+            break;
+        case HBACError::SolutionError:
+            acMatrix.formatError(s, &nr);
+            s.extend("Solution component is not finite.");
+            break;
+        case HBACError::HBError:
+            hbCore_.formatError(s);
+            break;
+        case HBACError::SingularMatrix:
+            s.set(Status::Analysis, "Matrix is close to singular.");
+            break;
+        case HBACError::BadFrequency:
+            s.set(Status::Analysis, "Frequency value cannot be converted to real.");
+            break;
+        default:
+            return true;
+    }
+    if (errorFreq>=0) {
+        ss.str(""); ss << errorFreq;
+        s.extend(std::string("Leaving frequency sweep at frequency=")+ss.str()+".");
+    } else {
+        s.extend("Leaving frequency sweep.");
+    }
+    return false;
+}
+
+void HBACCore::dump(std::ostream& os) const {
+    AnalysisCore::dump(os);
+    os << "  Results\n";
+    auto n = circuit.unknownCount();
+    auto& spurs = hbCore_.spurs();
+    auto nf = spurs.smsigFreq().size();
+    for(decltype(n) i=1; i<=n; i++) {
+        for(decltype(nf) j=0; j<nf; j++) {
+            auto rn = circuit.reprNode(i);
+            auto c = acSolution.data()[i];
+            os << "    " << rn->name() << ", spur=" << spurs.smsigFreq()[j] <<  " : " << c.real();
+            if (c.imag()>=0) {
+                os << "+";
+            }
+            os << c.imag();
+            os << "i\n";
+        }
+    }
+}
 
 }
