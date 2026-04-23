@@ -614,7 +614,7 @@ CoreCoroutine HBCore::coroutine(bool continuePrevious) {
     auto nf = spurs_.spectrum().size();
 
     // Make sure structures are large enough
-    solution.upsize(2, n*nb+1);
+    solution.upsize(2, n*nb);
     
     if (debug>0) {
         Simulator::dbg() << "Starting HB analysis.\n";
@@ -686,11 +686,15 @@ CoreCoroutine HBCore::coroutine(bool continuePrevious) {
         } else if (converged_) {
             // Tried and converged, write results
             if (outfile && params.write) {
-                // Collect results for one frequency
+                // Collect results for one frequency, need a slot for ground
                 outputPhasors.upsize(1, n+1);
                 auto outvec = outputPhasors.data();
+                // Set ground unknown to zero
+                outvec[0] = 0.0;
+                // Go through frequencies
                 for(decltype(nf) k=0; k<nf; k++) {
                     outputFreq = spurs_.spectrum()[k];
+                    // Go through unknowns, fill outvec entries
                     for(decltype(n) i=0; i<n; i++) {
                         outvec[i+1] = solutionFD[i*nf+k];
                     }                    
@@ -781,10 +785,10 @@ void HBCore::dump(std::ostream& os) const {
     os << "  Results\n";
     auto n = circuit.unknownCount();
     auto nf = spurs_.spectrum().size();
-    for(decltype(n) i=1; i<=n; i++) {
+    for(decltype(n) i=0; i<n; i++) {
         auto rn = circuit.reprNode(i);
         for(decltype(nf) k=0; k<nf; k++) {
-            auto c = solutionFD[i];
+            auto c = solutionFD[i*nf+k];
             os << "    " << rn->name() << "@" << spurs_.spectrum()[k] << "Hz : " << c.real();
             if (c.imag()>=0) {
                 os << "+";

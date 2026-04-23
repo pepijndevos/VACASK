@@ -47,12 +47,8 @@ NRSolver::NRSolver(
 
 bool NRSolver::rebuild(size_t nSolComp) {
     // Allocate space in vectors
-    // Jacobian is already built, get number of unknowns excluding ground
-    // auto n = jac.nRow();
-    // Number of unknowns (index 0 is the bucket and is not an unknown)
-    // auto n = solution.length()-1;
-    delta.resize(nSolComp+1);
-    rowNorm.resize(nSolComp+1);
+    delta.resize(nSolComp+bucketSize_);
+    rowNorm.resize(nSolComp+bucketSize_);
     
     return true;
 }
@@ -93,8 +89,8 @@ bool NRSolver::run(bool continuePrevious) {
 
     jac.setAccounting(acct);
 
-    // Number of unknowns (vector length includes a bucket at index 0)
-    auto n = solution.length()-1;
+    // Number of unknowns (vector length includes a bucket)
+    auto n = solution.length()-bucketSize_;
     
     // Iteration limit and damping
     int itlim;
@@ -178,7 +174,12 @@ bool NRSolver::run(bool continuePrevious) {
             // Load error or abort
             break;
         }
-        xdelta[0] = 0.0; // Set RHS bucket to 0
+        if (bucketSize_>0) {
+            // Set RHS bucket to 0
+            for(size_t i=0; i<bucketSize_; i++) {
+                xdelta[i] = 0.0; 
+            }
+        }
 
         // Check if system is finite
         if (settings.matrixCheck && !jac.isFinite(true, true)) {
@@ -265,7 +266,7 @@ bool NRSolver::run(bool continuePrevious) {
             }
         }
 
-        // Solve, use vector without ground component (+1)
+        // Solve, use vector without ground component
         if (!jac.solve(dataWithoutBucket(delta, bucketSize_))) {
             lastError = Error::LinearSolver;
             errorIteration = iteration;
@@ -302,9 +303,13 @@ bool NRSolver::run(bool continuePrevious) {
         // dumpSolution(std::cout, solution.futureArray(), "  ");
         // std::cout << "\n";
         
-        // Set solution delta and new solution buckets to 0. 
-        xdelta[0] = 0.0;
-        xnew[0] = 0.0; 
+        // Set solution delta and new solution bucket to 0. 
+        if (bucketSize_>0) {
+            for(size_t i=0; i<bucketSize_; i++) {
+                xdelta[i] = 0.0;
+                xnew[i] = 0.0; 
+            }
+        }
 
         // std::cout << "Negative solution delta at iteration " << iteration << "\n";
         // dumpSolution(std::cout, delta.data(), "  ");
@@ -372,7 +377,7 @@ bool NRSolver::run(bool continuePrevious) {
         // Not converged yet, compute new solution 
         
         // Compute new solution, use static damping
-        for(decltype(n) i=1; i<=n; i++) {
+        for(decltype(n) i=bucketSize_; i<bucketSize_+n; i++) {
             xnew[i] = xprev[i] - xdelta[i]*settings.dampingFactor;
         }
 

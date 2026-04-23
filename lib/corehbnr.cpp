@@ -22,8 +22,8 @@ HBNRSolver::HBNRSolver(
 ) : circuit(circuit), commons(commons), jacColoc(jacColoc), bsjac(bsjac), solutionFD(solutionFD), 
     frequencies(frequencies), timepoints(timepoints), DDT(DDT), DDTcolMajor(DDTcolMajor), 
     APFT(APFT), IAPFT(IAPFT), 
-    NRSolver(circuit.tables().accounting(), bsjac, solution, settings, 1) {
-    // Bucket size is 1
+    NRSolver(circuit.tables().accounting(), bsjac, solution, settings, 0) {
+    // Bucket size is 0
     // Slot 0 is for sweep continuation and homotopy (set via CoreStateStorage object)
     // Slot 1 is for nodesets that are read from stored results. 
     resizeForces(2);
@@ -77,10 +77,11 @@ bool HBNRSolver::setForces(Int ndx, const AnnotatedSolution& storedSolution, boo
     auto nf = frequencies.size(); // number of frequencies per unknown
     auto blockSize = 2*nf-1; // number of timepoints per unknown
 
-    // Make space for variable forces (also include bucket)
-    f.unknownValue_.resize(n*blockSize+1);
+    // No bucket
+    // Make space for variable forces
+    f.unknownValue_.resize(n*blockSize);
     // By default turn off all forces
-    f.unknownForced_.resize(n*blockSize+1, false);
+    f.unknownForced_.resize(n*blockSize, false);
     
     // Number of frequencies in solution and solver
     auto nfSolution = storedSolution.hbSpurs().spectrum().size();
@@ -97,8 +98,8 @@ bool HBNRSolver::setForces(Int ndx, const AnnotatedSolution& storedSolution, boo
     }
 
     // Translate the rest
-    decltype(nfSolver) ndxSolver = 1;
-    decltype(nfSolution) ndxSolution = 1;
+    decltype(nfSolver) ndxSolver = 0;
+    decltype(nfSolution) ndxSolution = 0;
     for(; ndxSolver<nfSolver && ndxSolution<nfSolution;) {
         auto fSolver = frequencies[ndxSolver];
         auto fSolution = storedSolution.hbSpurs().spectrum()[ndxSolution];
@@ -145,7 +146,7 @@ bool HBNRSolver::setForces(Int ndx, const AnnotatedSolution& storedSolution, boo
         return false;
     }
 
-    // Go through all unknowns. 
+    // Go through all unknowns, skip the unknown corresponding to the bucket 
     for(decltype(n) i=1; i<=n; i++) {
         Node* node;
         if (checkNames) {
@@ -186,12 +187,12 @@ bool HBNRSolver::setForces(Int ndx, const AnnotatedSolution& storedSolution, boo
         }
         // Inverse APFT, store in forces vector
         auto fd = VectorView<double>(forcesFD.data(), blockSize, 1);
-        auto td = VectorView<double>(f.unknownValue_.data()+1+destOrigin, blockSize, 1);
+        auto td = VectorView<double>(f.unknownValue_.data()+destOrigin, blockSize, 1);
         IAPFT.multiply(fd, td);
         // After IAPFT the resulting timepoints are all valid forces, even if not all spectral components were copied
         // Mark all forces for this unknown as set. 
         for(decltype(nf) k=0; k<blockSize; k++) {
-            f.unknownForced_[1+destOrigin+k] = true;
+            f.unknownForced_[destOrigin+k] = true;
         }
     }
 
@@ -228,14 +229,14 @@ bool HBNRSolver::rebuild(size_t nSolComp) {
     // Get diagonal pointers for forces
     auto n = circuit.unknownCount();
     auto nt = timepoints.size();
-    diagPtrs.resize(n*nt+1);
+    diagPtrs.resize(n*nt);
     
-    // Bind diagonal matrix elements
+    // Bind diagonal matrix elements, block indices are 1-based, 0 is the bucket
     // Needed for forcing unknown values
     for(decltype(n) i=0; i<n; i++) {
         for(decltype(nt) j=0; j<nt; j++) {
             // We know the matrix type so we can use the elementPtr() non-virtual function
-            diagPtrs[1+i*nt+j] = bsjac.elementPtr(MatrixEntryPosition(i+1, i+1), Component::Real, MatrixEntryPosition(j, j));
+            diagPtrs[i*nt+j] = bsjac.elementPtr(MatrixEntryPosition(i+1, i+1), Component::Real, MatrixEntryPosition(j, j));
         }
     }
 
@@ -268,6 +269,7 @@ bool HBNRSolver::initialize(bool continuePrevious) {
     reactiveResidualAtTk.resize(n+1);
 
     // Maximum residual contribution at single timepoint
+    // Includes ground node because it is used by evalAndLoad()
     maxResidualContributionAtTk_.resize(n+1);
 
     // Maximum residual contribution for each equation at each timepoint
@@ -379,13 +381,14 @@ bool HBNRSolver::postRun(bool continuePrevious) {
         auto nt = timepoints.size();
         solutionFD.resize(n*nf); // no bucket
 
+        // Data
         for(decltype(n) i=0; i<n; i++) {
             auto cxSpecPtr = solutionFD.data()+nf*i;
             // APFT computes spectrum as complex values, with the exception of DC which is stored as a real value. 
             // We write APFT output starting at the imaginary part of the DC complex magnitude. 
             // This way all complex values will be in the right place, except for the DC value which 
             // will be placed in the DC solution's imaginary part. 
-            auto inPtr = solution.data()+1+i*nt;
+            auto inPtr = solution.data()+i*nt;
             auto outPtr = reinterpret_cast<double*>(cxSpecPtr)+1;
             auto outVec = VectorView<Real>(outPtr, nt, 1);
             APFT.multiply(VectorView<Real>(inPtr, nt, 1), outVec);
@@ -456,7 +459,7 @@ bool HBNRSolver::evaluate(bool continuePrevious) {
         // Vector length n, stride nb
         // We write to the vector of old solutions at timepoint t_k, 
         // start at index 1 (skip bucket), length n, stride 1
-        VectorView(oldSolutionAtTk.vector(), 1, n, 1) = VectorView(solution.vector(), 1+k, n, nb);
+        VectorView(oldSolutionAtTk.vector(), 1, n, 1) = VectorView(solution.vector(), k, n, nb);
 
         // Zero residual vectors where evalAndLoad() will load the residuals at t_k
         zero(resistiveResidualAtTk);
@@ -576,8 +579,7 @@ std::tuple<bool, bool> HBNRSolver::buildSystem(bool continuePrevious) {
         auto resPtr = resistiveResidual.data();
         auto reacPtr = reactiveResidual.data();
         auto maxResPtr = maxResidualContribution_.data();
-        // Skip bucket
-        auto deltaPtr = delta.data()+1;
+        auto deltaPtr = delta.data();
         for(decltype(n) i=0; i<n; i++) {
             // Perform DDT on reactive residual block
             VectorView dest(deltaPtr, nb, 1);
@@ -605,9 +607,6 @@ std::tuple<bool, bool> HBNRSolver::buildSystem(bool continuePrevious) {
             deltaPtr += nb;
             maxResPtr += nb;
         }
-
-        // Bucket
-        delta[0] = 0.0;
     }
 
     // Add forced values to the system
@@ -648,8 +647,8 @@ bool HBNRSolver::loadForces(bool loadJacobian) {
         auto nForceNodes = force.size();
         // Load only if the number of forced unknowns matches 
         // the number of unknowns in the circuit including ground
-        if (nForceNodes==n+1) {
-            for(decltype(nForceNodes) i=1; i<=n; i++) {
+        if (nForceNodes==n) {
+            for(decltype(nForceNodes) i=0; i<n; i++) {
                 if (enabled[i]) {
                     double factor = rowNorm[i]*ff;
                     if (factor==0.0) {
@@ -706,7 +705,7 @@ std::tuple<bool, bool> HBNRSolver::checkResidual() {
     
     // Get point maximum for each residual nature
     pointMaxResidualContribution_.zero(); 
-    // Loop through all nodes
+    // Loop through all unknowns, skip ground
     auto compPtr = maxResidualContribution_.data();
     for(decltype(n) i=1; i<=n; i++) {
         // Get residual nature index
@@ -721,7 +720,7 @@ std::tuple<bool, bool> HBNRSolver::checkResidual() {
         }
     }
     
-    // Go through all variables (except ground)
+    // Go through all unknowns, skip ground
     for(decltype(n) i=1; i<=n; i++) {
         // Representative node (1-based index), associated flow nature index
         auto rn = circuit.reprNode(i);
@@ -749,7 +748,7 @@ std::tuple<bool, bool> HBNRSolver::checkResidual() {
             auto tol = std::max(std::fabs(tolref*options.reltol), commons.residual_abstol[i]);
 
             // Residual component
-            double rescomp = fabs(delta[1+(i-1)*nt+k]);
+            double rescomp = fabs(delta[(i-1)*nt+k]);
 
             // Normalized residual component
             double normResidual = rescomp/tol;
@@ -807,12 +806,12 @@ std::tuple<bool, bool> HBNRSolver::checkDelta() {
     
     // Get point maximum for each solution nature
     auto xold = solution.data();
-    // Skip bucket
+    // Go through all unknowns, skip ground
     for(decltype(n) i=1; i<=n; i++) {
         // Get unknown nature index -- here
         auto ndx = commons.unknown_natureIndex[i];
         for(decltype(nt) k=0; k<nt; k++) {
-            double c = std::fabs(xold[i]);
+            double c = std::fabs(xold[(i-1)*nt+k]);
             // Rows are natures, columns are frequency components (DC, f1, f2, ...)
             if (c>pointMaxSolution_.at(ndx, k)) {
                 pointMaxSolution_.at(ndx, k) = c;
@@ -829,7 +828,7 @@ std::tuple<bool, bool> HBNRSolver::checkDelta() {
             // Compute tolerance reference
             // Point local reference by default
             // Compute tolerance reference, start with previous value of the i-th unknown at j-th frequency
-            double tolref = xold[1+(i-1)*nt+j];
+            double tolref = xold[(i-1)*nt+j];
             
             // Account for global references, no historic reference because we are in frequency domain
             if (globalSolRef) {
@@ -841,7 +840,7 @@ std::tuple<bool, bool> HBNRSolver::checkDelta() {
             double tol = std::max(std::fabs(tolref*options.reltol), commons.unknown_abstol[i]);
 
             // Absolute solution change 
-            double deltaAbs = std::fabs(xdelta[1+(i-1)*nt+j]);;
+            double deltaAbs = std::fabs(xdelta[(i-1)*nt+j]);;
 
             if (computeNorms) {
                 double normDelta = deltaAbs/tol;
@@ -940,7 +939,7 @@ void HBNRSolver::dumpSolution(std::ostream& os, double* solution, const char* pr
     for(decltype(n) i=1; i<=n; i++) {
         auto rn = circuit.reprNode(i);
         for(decltype(nt) k=0; k<nt; k++) {
-            os << prefix << rn->name() << "@t" << k << " : " << solution[1+(i-1)*nt+k] << "\n";
+            os << prefix << rn->name() << "@t" << k << " : " << solution[(i-1)*nt+k] << "\n";
         }
     }
 }
