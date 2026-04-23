@@ -11,3 +11,4 @@ theory
 docs/internals/
 build
 .cache
+.raw
