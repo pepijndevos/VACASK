@@ -11,4 +11,6 @@ theory
 docs/internals/
 build
 .cache
-.raw
+*.raw
+runme.py
+*.origin
