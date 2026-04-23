@@ -241,12 +241,29 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
     return true;
 }
 
-
 // ----------------------------------------------------------------
 // integrateSensitivity
 // ----------------------------------------------------------------
 
 bool PssTranCore::integrateSensitivity(
+    DenseMatrix<double>& PhiT
+) {
+    if (!phiValid_) {
+        Simulator::err() << "PssTranCore: no accepted steps since clearTrajectory(); "
+                            "PhiT is not available.\n";
+        return false;
+    }
+    // PhiT: the inline-computed sensitivity matrix is ready.
+    PhiT = phiCurrent_;
+    return true;
+}
+
+
+// ----------------------------------------------------------------
+// integrateAugmentedSensitivity
+// ----------------------------------------------------------------
+
+bool PssTranCore::integrateAugmentedSensitivity(
     DenseMatrix<double>& PhiT,
     Vector<double>&      PsiT,
     Vector<double>&      x_laststep
@@ -275,15 +292,6 @@ bool PssTranCore::integrateSensitivity(
     PsiT[0] = 0.0;
     for (decltype(n) i = 0; i < n; i++) {
         PsiT[i + 1] = lastAlpha_ * x_laststep[i];
-    }
-
-    {
-        std::stringstream ss;
-        ss << std::scientific << std::setprecision(4);
-        ss << "PSS: PsiT=[ ";
-        for (decltype(n) i = 0; i < n; i++) ss << PsiT[i+1] << " ";
-        ss << "]\n";
-        Simulator::dbg() << ss.str();
     }
 
     return true;

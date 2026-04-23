@@ -85,10 +85,17 @@ public:
     // Must be called before run().
     void setShootIC(const Vector<double>& x0);
 
-    // Return the inline-computed PhiT (= phiCurrent_) and evaluate PsiT.
+    // Return the inline-computed PhiT (= phiCurrent_).
     // Must be called immediately after run() completes, while the circuit
     // state still holds xT and lastAlr_ holds the factored Alr at xT.
     bool integrateSensitivity(
+        DenseMatrix<double>& PhiT
+    );
+
+    // Return the inline-computed PhiT (= phiCurrent_) and evaluate PsiT.
+    // Must be called immediately after run() completes, while the circuit
+    // state still holds xT and lastAlr_ holds the factored Alr at xT.
+    bool integrateAugmentedSensitivity(
         DenseMatrix<double>& PhiT,
         Vector<double>&      PsiT,
         Vector<double>&      x_laststep

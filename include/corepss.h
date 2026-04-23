@@ -80,6 +80,9 @@
 namespace NAMESPACE {
 
 typedef struct PssParameters {
+    // Non-autonomous (driven) circuit flag. Determines wether the augmented Jacobian is used.
+    Int  Driven {0};
+
     // Initial period guess in seconds. Required.
     // The Newton loop converges to the true period starting from this value.
     Real Tper   {0.0};
@@ -238,9 +241,18 @@ private:
         Status& s
     );
 
+    // Build the regular (driven) Newton system from PhiT, x0 and xT. 
+    // Solve it and update x0 and T0.
+    bool solveNewtonStep(
+        Vector<double>&       x0,
+        const Vector<double>& xT,
+        DenseMatrix<double>&  PhiT,
+        Status& s
+    );
+
     // Build the augmented Newton system from PhiT, PsiT, x0, xT, and
     // the phase constraint vector alpha. Solve it and update x0 and T0.
-    bool solveNewtonStep(
+    bool solveAugmentedNewtonStep(
         Vector<double>&       x0,
         double&               T0,
         const Vector<double>& xT,

@@ -17,6 +17,7 @@ namespace NAMESPACE {
 // ----------------------------------------------------------------
 
 template<> int Introspection<PssParameters>::setup() {
+    registerMember(Driven);
     registerMember(Tper);
     registerMember(Tstab);
     registerMember(MaxItr);
@@ -228,8 +229,12 @@ bool PssCore::run(bool continuePrevious) {
     {
         std::stringstream ss;
         ss << std::scientific << std::setprecision(6) << T0;
-        Simulator::dbg() << "PSS: Newton loop starting, T0 initial = "
-                         + ss.str() + " s\n";
+        if (params_.Driven) {
+            Simulator::dbg() << "PSS: Newton loop starting \n";
+        } else {
+            Simulator::dbg() << "PSS: Newton loop starting, T0 initial = "
+                            + ss.str() + " s\n";
+        }
     }
 
     DenseMatrix<double> PhiT;
@@ -350,9 +355,11 @@ bool PssCore::run(bool continuePrevious) {
             auto n = circuit.unknownCount();
             std::stringstream ss;
             ss << std::scientific << std::setprecision(4);
-            ss << "PSS: PsiT=[ ";
-            for (decltype(n) i = 1; i <= n; i++) ss << PsiT[i] << " ";
-            ss << "]\n";
+            if (!params_.Driven) {
+                ss << "PSS: PsiT=[ ";
+                for (decltype(n) i = 1; i <= n; i++) ss << PsiT[i] << " ";
+                ss << "]\n";
+            }
             ss << "PSS: PhiT=\n";
             for (decltype(n) i = 0; i < n; i++) {
                 ss << "  [ ";
@@ -362,12 +369,19 @@ bool PssCore::run(bool continuePrevious) {
             Simulator::dbg() << ss.str();
         }
 
-        if (!solveNewtonStep(x0, T0, xT, PhiT, PsiT, s)) {
-            setError(PssError::LinearSolveFailed);
-            return false;
+        if (params_.Driven){
+            if (!solveNewtonStep(x0, xT, PhiT, s)) {
+                setError(PssError::LinearSolveFailed);
+                return false;
+            }
+        } else {
+            if (!solveAugmentedNewtonStep(x0, T0, xT, PhiT, PsiT, s)) {
+                setError(PssError::LinearSolveFailed);
+                return false;
+            }
         }
 
-        {
+        if (!params_.Driven){
             std::stringstream ss;
             ss << std::scientific << std::setprecision(6);
             ss << "PSS: updated T0=" << T0 << " s  f0=" << 1.0/T0 << " Hz\n";
@@ -462,22 +476,89 @@ bool PssCore::runSensitivity(
     Status& s
 ) {
     auto n = circuit.unknownCount();
-    Vector<double> x_laststep(n, 0.0);
-    for (int i=0; i < n; i++)
-        x_laststep[i] = solution_.pastVector()[i+1] - solution_.vector()[i+1];
-    if (!pssTran_.integrateSensitivity(PhiT, PsiT, x_laststep)) {
-        s.set(Status::Analysis, "PSS sensitivity integration failed.");
-        return false;
+    if (params_.Driven) {
+        if (!pssTran_.integrateSensitivity(PhiT)) {
+            s.set(Status::Analysis, "PSS sensitivity integration failed.");
+            return false;
+        }
+    } else {
+        Vector<double> x_laststep(n, 0.0);
+        for (int i=0; i < n; i++)
+            x_laststep[i] = solution_.pastVector()[i+1] - solution_.vector()[i+1];
+        if (!pssTran_.integrateAugmentedSensitivity(PhiT, PsiT, x_laststep)) {
+            s.set(Status::Analysis, "PSS sensitivity integration failed.");
+            return false;
+        }
     }
     return true;
 }
 
 
+
 // ----------------------------------------------------------------
-// Augmented Newton step
+// Newton step
 // ----------------------------------------------------------------
 
 bool PssCore::solveNewtonStep(
+    Vector<double>&       x0,
+    const Vector<double>& xT,
+    DenseMatrix<double>&  PhiT,
+    Status& s
+) {
+    auto n = circuit.unknownCount();
+
+    // Shooting residual.
+    Vector<double> Fp(n, 0.0);
+    for (decltype(n) i = 0; i < n; i++) {
+        Fp[i] = x0[i + 1] - xT[i + 1];
+    }
+
+    // Regular (n) x (n) Newton system:
+    //
+    //   Jp = | I - PhiT |
+
+    DenseMatrix<double> Jp(n, n);
+
+    // Jacobian: I - PhiT
+    for (decltype(n) i = 0; i < n; i++) {
+        for (decltype(n) j = 0; j < n; j++) {
+            Jp.at(i, j) = (i == j ? 1.0 : 0.0) - PhiT.at(i, j);
+        }
+    }
+    
+    {
+        std::stringstream ss;
+        ss << std::scientific << std::setprecision(4);
+        ss << "PSS: Jp=\n";
+        for (decltype(n) i = 0; i < n; i++) {
+            ss << "  [ ";
+            for (decltype(n) j = 0; j < n; j++) ss << Jp.at(i, j) << " ";
+            ss << "]  Fp=" << Fp[i] << "\n";
+        }
+        Simulator::dbg() << ss.str();
+    }
+
+    // Solve in place via dense LU factorisation.
+    VectorView<double> FpView(Fp);
+    if (!Jp.destructiveSolve(FpView)) {
+        s.set(Status::Analysis, "PSS: Newton system is singular.");
+        return false;
+    }
+    // Fp now holds dx0.
+    
+    for (decltype(n) i = 0; i < n; i++) {
+        x0[i + 1] -= FpView[i];
+    }
+
+    return true;
+}
+
+
+// ----------------------------------------------------------------
+// Augmeneted Newton step
+// ----------------------------------------------------------------
+
+bool PssCore::solveAugmentedNewtonStep(
     Vector<double>&       x0,
     double&               T0,
     const Vector<double>& xT,
