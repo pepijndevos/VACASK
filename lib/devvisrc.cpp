@@ -1015,6 +1015,10 @@ template<> double BuiltinVSourceInstance::responseScalingFactor() const {
     return params.core().mfactor; 
 }
 
+template<> std::tuple<const ValueVector&, const RealVector&, const RealVector&> BuiltinVSourceInstance::spurs() const {
+    return { params.core().spurs, params.core().smag, params.core().sphase };
+}
+
 template<> std::tuple<EquationIndex,EquationIndex> BuiltinISourceInstance::sourceExcitation(Circuit& circuit) const { 
     return std::make_tuple(nodes_[1]->unknownIndex(), nodes_[0]->unknownIndex()); 
 }
@@ -1032,6 +1036,10 @@ template<> double BuiltinISourceInstance::responseScalingFactor() const {
     // Because the computed response (branch voltage) is the same for 
     // all parallel instances the scaling factor must be 1. 
     return 1.0; 
+}
+
+template<> std::tuple<const ValueVector&, const RealVector&, const RealVector&> BuiltinISourceInstance::spurs() const {
+    return { params.core().spurs, params.core().smag, params.core().sphase };
 }
 
 template<> bool BuiltinVSourceInstance::getOutvar(ParameterIndex ndx, Value& v, Status& s) const { 

@@ -187,6 +187,7 @@ public:
     virtual std::tuple<UnknownIndex,UnknownIndex> sourceResponse(Circuit& circuit) const { return std::make_tuple(0, 0); };
     virtual double scaledUnityExcitation() const { return 1.0; };
     virtual double responseScalingFactor() const { return 1.0; };
+    virtual std::tuple<const ValueVector&, const RealVector&, const RealVector&> spurs() const { return {dummyValueVector, dummyRealVector, dummyRealVector}; };
     virtual ParameterIndex outvarCount() const { return data.parameterCount(); };
     virtual std::tuple<ParameterIndex, bool> outvarIndex(Id name) const { return data.parameterIndex(name); };
     virtual Id outvarName(ParameterIndex ndx) const { return data.parameterName(ndx); };

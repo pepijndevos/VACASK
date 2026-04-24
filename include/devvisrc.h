@@ -162,10 +162,12 @@ template<> std::tuple<EquationIndex,EquationIndex> BuiltinVSourceInstance::sourc
 template<> std::tuple<UnknownIndex,UnknownIndex> BuiltinVSourceInstance::sourceResponse(Circuit& circuit) const;
 template<> double BuiltinVSourceInstance::scaledUnityExcitation() const;
 template<> double BuiltinVSourceInstance::responseScalingFactor() const;
+template<> std::tuple<const ValueVector&, const RealVector&, const RealVector&> BuiltinVSourceInstance::spurs() const;
 template<> std::tuple<EquationIndex,EquationIndex> BuiltinISourceInstance::sourceExcitation(Circuit& circuit) const;
 template<> std::tuple<UnknownIndex,UnknownIndex> BuiltinISourceInstance::sourceResponse(Circuit& circuit) const;
 template<> double BuiltinISourceInstance::scaledUnityExcitation() const;
 template<> double BuiltinISourceInstance::responseScalingFactor() const;
+template<> std::tuple<const ValueVector&, const RealVector&, const RealVector&> BuiltinISourceInstance::spurs() const;
 template<> bool BuiltinVSourceInstance::getOutvar(ParameterIndex ndx, Value& v, Status& s) const;
 template<> bool BuiltinISourceInstance::getOutvar(ParameterIndex ndx, Value& v, Status& s) const;
 template<> std::tuple<bool, OutputSource> BuiltinVSourceInstance::outvarOutputSource(ParameterIndex ndx) const;

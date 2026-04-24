@@ -10,6 +10,7 @@
 #include "antran.h"
 #include "annoise.h" 
 #include "anhb.h" 
+#include "anhbac.h" 
 #include "libplatform.h"
 #include "common.h"
 
@@ -78,6 +79,7 @@ bool Simulator::setup(
     ok &= registerAnalysis<Noise>("noise", s);
     ok &= registerAnalysis<Tran>("tran", s);
     ok &= registerAnalysis<HB>("hb", s);
+    ok &= registerAnalysis<HBAC>("hbac", s);
     
     return ok;
 }

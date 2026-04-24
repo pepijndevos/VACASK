@@ -37,8 +37,6 @@ typedef struct HBACParameters {
     Id mode {Id()};   // Mode for dec/oct/lin sweep
     Int points {0};   // Number of points for dec/oct/lin sweep
     Value values {0}; // Vector of values for values sweep
-    Int opsolve {1};  // Solve HB problem. If 0, skips HB and evaluates 
-                      // the (quasi)periodic operating point at given nodeset. 
     Int writehb {0};  // 1 = dump (quasi)periodic operating point to <analysisname>.hb.raw;
     // Nodeset and store parameters of the HB core 
     // are also exposed. 
@@ -49,9 +47,9 @@ typedef struct HBACParameters {
                          // - list holding reals (frequency), integer vectors (tone weights)
                          // Default is 0.0 (DC output spur). 
 
-    Int write {1};    // Write the results to a file
+    Int write {1};       // Write the results to a file
 
-    HBACParameters();
+    HBACParameters();    // Expose solve parameter as opsolve
 } HBACParameters;
 
 
@@ -67,6 +65,9 @@ public:
         HBError, 
         SingularMatrix, 
         BadFrequency, 
+        MagLength, 
+        PhaseLength, 
+        SpurNotFound, 
     };
 
     typedef struct Excitation {
@@ -110,9 +111,10 @@ public:
     OutputRawfile* outfile;
 
 protected:
-    bool collectExcitations(Status& s);
-
     // Bucket size is nf
+
+    // Collect excitations
+    bool collectExcitations();
 
     // Excitations
     Vector<Excitation> excitations;
@@ -139,6 +141,8 @@ protected:
     HBACError lastHBACError;
     double errorFreq;
     Status errorStatus;
+    Instance* errorInst;
+    size_t errorSpur;
 
     VectorRepository<Complex>& hbSolution;
     KluBlockSparseComplexMatrix& jacSpec;
@@ -148,6 +152,7 @@ protected:
 
     std::vector<std::string> suffixes;
     std::vector<int> spurIndices;
+    std::vector<std::vector<Int>> spurSignatures;
 
     Vector<Real> omega;
 

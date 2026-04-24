@@ -608,7 +608,6 @@ protected:
     Flags flags_;
     const PTInstance& parsedInstance_;
 
-private:
     static ValueVector dummyValueVector;
     static RealVector dummyRealVector;
 };

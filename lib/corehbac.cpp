@@ -19,7 +19,6 @@ template<> int Introspection<HBACParameters>::setup() {
     registerMember(mode);
     registerMember(points);
     registerMember(values);
-    registerMember(opsolve);
     registerMember(writehb);
     registerMember(outspur);
     registerMember(write);
@@ -33,6 +32,7 @@ template<> int Introspection<HBACParameters>::setup() {
     registerNamedMember(hbParams.shift, "shift");
     registerNamedMember(hbParams.nodeset, "nodeset");
     registerNamedMember(hbParams.store, "store");
+    registerNamedMember(hbParams.solve, "opsolve");
     
     return 0;
 }
@@ -249,9 +249,74 @@ void HBACCore::fillMatrix() {
 bool HBACCore::rebuild(Status& s) {
     clearError();
 
+    auto& options = circuit.simulatorOptions().core();
+
     auto& spurs = hbCore_.spurs();
+    if (!spurs.buildMixingMap(options.smsig_debug>0, s)) {
+        return false;
+    }
     auto& stencil = spurs.mixingStencil();
     auto nf = stencil.nRows();
+
+    // Collect output spurs
+    std::vector<int> newSpurIndices;
+    if (params.outspur.type() == Value::Type::ValueVec) {
+        // List of spurs: each element is a real frequency or integer weight vector
+        size_t cnt=0;
+        for (const auto& v : params.outspur.val<ValueVector>()) {
+            auto [ok, ndx] = spurs.smsigFreqIndex(v);
+            if (!ok) {
+                s.set(Status::BadArguments, "Output spur #"+std::to_string(ndx)+" not found.");
+                return false;
+            }
+            newSpurIndices.push_back(static_cast<int>(ndx));
+            cnt++;
+        }
+    } else {
+        // Single spur: scalar real frequency or integer weight vector
+        auto [ok, ndx] = spurs.smsigFreqIndex(params.outspur);
+        if (!ok) {
+            s.set(Status::BadArguments, "Output spur not found.");
+            return false;
+        }
+        newSpurIndices.push_back(static_cast<int>(ndx));
+    }
+
+    // No output spurs, error
+    if (newSpurIndices.empty()) {
+        s.set(Status::BadArguments, "No output spur given.");
+        return false;
+    }
+
+    // Collect new spur signatures
+    std::vector<std::vector<Int>> newSignatures;
+    newSignatures.reserve(newSpurIndices.size());
+    for (auto i : newSpurIndices) {
+        auto w = spurs.smsigFreqWeights(i);
+        std::vector<Int> sig(w.n());
+        for (size_t k = 0; k < w.n(); k++) {
+            sig[k] = w[k];
+        }
+        newSignatures.push_back(std::move(sig));
+    }
+
+    // Check for change
+    if (spurIndices.size()!=0) {
+        if (newSignatures.size()!=spurSignatures.size()) {
+            s.set(Status::BadArguments, "Output spurs are not allowed to change.");
+            return false;
+        }
+        for(size_t i=0; i<spurSignatures.size(); i++) {
+            if (newSignatures[i]!=spurSignatures[i]) {
+                s.set(Status::BadArguments, "Output spurs are not allowed to change.");
+                return false;
+            }
+        }
+    }
+
+    // Update spur indices and signatures
+    spurIndices = std::move(newSpurIndices);
+    spurSignatures = std::move(newSignatures);
 
     // AC analysis matrix
     if (!acMatrix.rebuild(circuit.sparsityMap(), circuit.unknownCount(), nf, nf)) {
@@ -262,9 +327,7 @@ bool HBACCore::rebuild(Status& s) {
     return true;
 }
 
-// TODO: add spurs method to devvisrc
-
-bool HBACCore::collectExcitations(Status& s) {
+bool HBACCore::collectExcitations() {
     excitations.clear();
 
     auto ndev = circuit.deviceCount();
@@ -285,17 +348,28 @@ bool HBACCore::collectExcitations(Status& s) {
                 // Check vector lengths
                 auto nSpurs = spurs.size();
                 if (mags.size()>nSpurs) {
-                    // Error
+                    setError(HBACError::MagLength);
+                    errorInst = inst;
+                    return false;
                 }
                 if (phases.size()>nSpurs) {
-                    // Error
+                    setError(HBACError::PhaseLength);
+                    errorInst = inst;
+                    return false;
+                }
+
+                if (nSpurs==0) {
+                    continue;
                 }
 
                 excitations.push_back(std::move(Excitation(inst, {}, {})));
                 for(decltype(nSpurs) i=0; i<nSpurs; i++) {
                     auto [ok, ndx] = hbCore_.spurs().smsigFreqIndex(spurs[i]);
                     if (!ok) {
-                        // Error
+                        setError(HBACError::SpurNotFound);
+                        errorInst = inst;
+                        errorSpur = i;
+                        return false;
                     }
                     auto mag = (mags.size()>i) ? mags[i] : 0.0;
                     auto ph = (phases.size()>i) ? phases[i] : 0.0;
@@ -313,15 +387,6 @@ bool HBACCore::collectExcitations(Status& s) {
     return true;
 }
 
-// TODO: set solve parameter of hbCore_ to the opsolve parameter of hbac
-// in analysis rebuild
-
-// TODO: make list of sources every time core is invoked
-//       somebody might sweep cs* parameters of sources
-
-// TODO: if spurs change during sweep, error
-//       if output spurs change, error
-
 CoreCoroutine HBACCore::coroutine(bool continuePrevious) {
     acMatrix.setAccounting(circuit.tables().accounting());
     
@@ -335,13 +400,18 @@ CoreCoroutine HBACCore::coroutine(bool continuePrevious) {
     auto& stencil = spurs.mixingStencil();
     auto nf = stencil.nRows();
 
+    // Colect excitations
+    if (!collectExcitations()) {
+        co_yield CoreState::Aborted;
+    }
+
     // Make sure structures are large enough
     // One bucket for each spur
     acSolution.resize((n+1)*nf);
     
     // Compute HB solution
     errorFreq = -1;
-    if (params.opsolve) {
+    if (params.hbParams.solve) {
         // Solve HB
         auto hbOk = hbCore_.run(continuePrevious);
         if (!hbOk) {
@@ -422,7 +492,23 @@ CoreCoroutine HBACCore::coroutine(bool continuePrevious) {
         fillMatrix();
 
         // Fill RHS
-        // TODO
+        // Go through sources, go through spurs
+        for (auto& exc : excitations) {
+            // Collect source excitation unknowns
+            auto [pe, ne] = exc.source->sourceExcitation(circuit);
+
+            // Unity excitation accounting for $mfactor
+            auto unity = exc.source->scaledUnityExcitation();
+
+            for (size_t i = 0; i < exc.spur.size(); i++) {
+                // Get spur complex magnitude
+                auto spurIndex = exc.spur[i];
+                auto mag = unity*exc.value[i];
+                // Must load negated excitation, like in AC where the loaded AC residual is negated
+                acSolution[pe*nf+spurIndex] -= mag;
+                acSolution[ne*nf+spurIndex] += mag;
+            }
+        }
 
         if (debug>=100) {
             Simulator::dbg() << "Linear system at frequency " << frequency << "\n";
@@ -576,6 +662,15 @@ bool HBACCore::formatError(Status& s) const {
             break;
         case HBACError::BadFrequency:
             s.set(Status::Analysis, "Frequency value cannot be converted to real.");
+            break;
+        case HBACError::MagLength:
+            s.set(Status::Analysis, "smag length exceeds spur length for instance '"+std::string(errorInst->name())+"'.");
+            break;
+        case HBACError::PhaseLength:
+            s.set(Status::Analysis, "sphase length exceeds spur length for instance '"+std::string(errorInst->name())+"'.");
+            break;
+        case HBACError::SpurNotFound:
+            s.set(Status::Analysis, "Spur #"+std::to_string(errorSpur)+" specified for instance '"+std::string(errorInst->name())+"' not found.");
             break;
         default:
             return true;

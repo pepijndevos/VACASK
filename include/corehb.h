@@ -110,7 +110,7 @@ public:
 
     static bool test();
 
-    const Spurs& spurs() const { return spurs_; };
+    Spurs& spurs() { return spurs_; };
 
 protected:
     // Clear error
