@@ -147,6 +147,10 @@ plt.show()
 >>>FILE
 ```
 
+## See also
+
+- [(Quasi)Periodic Small-Signal Analysis (Harmonic Balance-based)](cmd-analysis-hbac.md)
+
 ## Options
 
 - [Harmonic Balance Options](cmd-options-hb.md)

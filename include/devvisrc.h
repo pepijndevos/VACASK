@@ -71,7 +71,7 @@ struct DevSourceInstanceParams {
     Real mag;
     Real phase; // degrees (only for AC)
     // (Quasi)periodic small-signal excitation
-    ValueVector spurs; // spurs where small signal excitations are inserted - list holding 
+    ValueVector spur; // spurs where small signal excitations are inserted - list holding 
                        // - reals (frequency), 
                        // - integer vectors (tone weights)
                        // Default is empty list {} - no excitation
@@ -162,12 +162,12 @@ template<> std::tuple<EquationIndex,EquationIndex> BuiltinVSourceInstance::sourc
 template<> std::tuple<UnknownIndex,UnknownIndex> BuiltinVSourceInstance::sourceResponse(Circuit& circuit) const;
 template<> double BuiltinVSourceInstance::scaledUnityExcitation() const;
 template<> double BuiltinVSourceInstance::responseScalingFactor() const;
-template<> std::tuple<const ValueVector&, const RealVector&, const RealVector&> BuiltinVSourceInstance::spurs() const;
+template<> std::tuple<const ValueVector&, const RealVector&, const RealVector&> BuiltinVSourceInstance::spur() const;
 template<> std::tuple<EquationIndex,EquationIndex> BuiltinISourceInstance::sourceExcitation(Circuit& circuit) const;
 template<> std::tuple<UnknownIndex,UnknownIndex> BuiltinISourceInstance::sourceResponse(Circuit& circuit) const;
 template<> double BuiltinISourceInstance::scaledUnityExcitation() const;
 template<> double BuiltinISourceInstance::responseScalingFactor() const;
-template<> std::tuple<const ValueVector&, const RealVector&, const RealVector&> BuiltinISourceInstance::spurs() const;
+template<> std::tuple<const ValueVector&, const RealVector&, const RealVector&> BuiltinISourceInstance::spur() const;
 template<> bool BuiltinVSourceInstance::getOutvar(ParameterIndex ndx, Value& v, Status& s) const;
 template<> bool BuiltinISourceInstance::getOutvar(ParameterIndex ndx, Value& v, Status& s) const;
 template<> std::tuple<bool, OutputSource> BuiltinVSourceInstance::outvarOutputSource(ParameterIndex ndx) const;

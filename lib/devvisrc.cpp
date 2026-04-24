@@ -61,7 +61,7 @@ template<> int Introspection<DevSourceInstanceParams>::setup() {
     registerMember(mag);
     registerMember(phase);
 
-    registerMember(spurs);
+    registerMember(spur);
     registerMember(smag);
     registerMember(sphase);
 
@@ -137,7 +137,7 @@ DevSourceInstanceParams::DevSourceInstanceParams() {
     phase = 0.0;
 
     // (quasi)periodic small-signal excitation
-    spurs = ValueVector({});
+    spur = ValueVector({});
     smag = RealVector({});
     sphase = RealVector({});
 }
@@ -1015,8 +1015,8 @@ template<> double BuiltinVSourceInstance::responseScalingFactor() const {
     return params.core().mfactor; 
 }
 
-template<> std::tuple<const ValueVector&, const RealVector&, const RealVector&> BuiltinVSourceInstance::spurs() const {
-    return { params.core().spurs, params.core().smag, params.core().sphase };
+template<> std::tuple<const ValueVector&, const RealVector&, const RealVector&> BuiltinVSourceInstance::spur() const {
+    return { params.core().spur, params.core().smag, params.core().sphase };
 }
 
 template<> std::tuple<EquationIndex,EquationIndex> BuiltinISourceInstance::sourceExcitation(Circuit& circuit) const { 
@@ -1038,8 +1038,8 @@ template<> double BuiltinISourceInstance::responseScalingFactor() const {
     return 1.0; 
 }
 
-template<> std::tuple<const ValueVector&, const RealVector&, const RealVector&> BuiltinISourceInstance::spurs() const {
-    return { params.core().spurs, params.core().smag, params.core().sphase };
+template<> std::tuple<const ValueVector&, const RealVector&, const RealVector&> BuiltinISourceInstance::spur() const {
+    return { params.core().spur, params.core().smag, params.core().sphase };
 }
 
 template<> bool BuiltinVSourceInstance::getOutvar(ParameterIndex ndx, Value& v, Status& s) const { 

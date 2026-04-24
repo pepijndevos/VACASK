@@ -38,6 +38,19 @@ template<> int Introspection<HBACParameters>::setup() {
 }
 instantiateIntrospection(HBACParameters);
 
+class HBACUnknownNameResolver : public NameResolver {
+public:
+    HBACUnknownNameResolver(Circuit& circuit, size_t nf) : circuit(circuit), nf(nf) {};
+
+    virtual Id operator()(MatrixEntryIndex u) {
+        return circuit.reprNode(u/nf+1)->name();
+    };
+
+private:
+    Circuit& circuit;
+    size_t nf;
+};
+
 HBACCore::HBACCore(
     OutputDescriptorResolver& parentResolver, HBACParameters& params, HBCore& hbCore, 
     Circuit& circuit, CommonData& commons, 
@@ -318,6 +331,15 @@ bool HBACCore::rebuild(Status& s) {
     spurIndices = std::move(newSpurIndices);
     spurSignatures = std::move(newSignatures);
 
+    // Build suffixes
+    constructSuffixes();
+
+    // Jacobian spectral components
+    if (!jacSpec.rebuild(circuit.sparsityMap(), circuit.unknownCount(), nf, nf, true)) {
+        setError(HBACError::MatrixError);
+        return false;
+    }
+
     // AC analysis matrix
     if (!acMatrix.rebuild(circuit.sparsityMap(), circuit.unknownCount(), nf, nf)) {
         setError(HBACError::MatrixError);
@@ -343,7 +365,7 @@ bool HBACCore::collectExcitations() {
             for(decltype(ninst) iinst=0; iinst<ninst; iinst++) {
                 auto inst = mod->instance(iinst);
                 // Extract spurs
-                auto [spurs, mags, phases] = inst->spurs();
+                auto [spurs, mags, phases] = inst->spur();
 
                 // Check vector lengths
                 auto nSpurs = spurs.size();
@@ -408,6 +430,9 @@ CoreCoroutine HBACCore::coroutine(bool continuePrevious) {
     // Make sure structures are large enough
     // One bucket for each spur
     acSolution.resize((n+1)*nf);
+
+    // Frequencies near spurs
+    omega.resize(nf);
     
     // Compute HB solution
     errorFreq = -1;
@@ -631,7 +656,7 @@ bool HBACCore::run(bool continuePrevious) {
 }
 
 bool HBACCore::formatError(Status& s) const {
-    auto nr = UnknownNameResolver(circuit);
+    auto nr = HBACUnknownNameResolver(circuit, hbCore_.spurs().smsigFreq().size());
     std::stringstream ss;
     ss << std::scientific << std::setprecision(4);
     

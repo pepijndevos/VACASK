@@ -36,3 +36,4 @@ where $x_0$ is the operating point. $J_r$ captures resistive behavior (conductan
 | [Transient](cmd-analysis-tran.md) | `tran` | Integrates the circuit equations over time. |
 | [Transient noise](cmd-analysis-trannoise.md) | `tran` | Integrates the circuit equations over time, takes device noise into account. |
 | [Harmonic Balance](cmd-analysis-hb.md) | `hb` | Computes the periodic steady-state response in the frequency domain. |
+| [(Quasi)Periodic Small-Signal (Harmonic Balance-based)](cmd-analysis-hbac.md) | `hbac` | Sweeps frequency and computes the small-signal response around a harmonic balance operating point. |
