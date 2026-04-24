@@ -18,6 +18,17 @@
 //
 //   Alr_k * Phi_k = C_k * sum_{i=0}^{p-1} asc[i] * Phi_{k-i-1}
 //
+// or in AM LMS scheme:
+//
+//   (C_k + h_k*b0*G_k) * Phi_k = C_{k-1} * Phi_{k-1} - h_k * sum_{i=1}^{p} (b_i/b0) * G_{k-i} * Phi_{k-i}
+//
+// Multiplying through by alpha_k = 1/(h_k*b0) = ic.leadingCoeff():
+//
+//   Alr_k * Phi_k = alpha_k * C_{k-1} * Phi_{k-1}
+//                 - sum_{i=0}^{p-1} bsc[i] * G_{k-i-1} * Phi_{k-i-1}
+//
+// where bsc[i] = ic.bScaled()[i] = b_{i+1}/b0 (no h_k factor).
+//
 // where Alr_k = G_k + alpha_k * C_k is the already-evaluated transient
 // Jacobian (identical to the NR Jacobian at the converged timestep).
 //
@@ -49,6 +60,7 @@
 //   lastAlr_, scratchC_: two sparse matrices matching jacobian's sparsity.
 //   No per-step trajectory (G, C, pastTimesteps snapshots) is stored.
 
+#include "ansupport.h"
 #include "coretran.h"
 #include "densematrix.h"
 #include "klumatrix.h"
@@ -129,12 +141,28 @@ private:
     // Used to form the Phi RHS columns.  Same sparsity as jacobian.
     KluRealMatrix scratchC_;
 
-    // Leading LMS coefficient alpha from the most-recent accepted step.
+    // Ax values of th previous reactive Jacobian C_{k-1}. Same sparsity as Jacobian.
+    Vector<double> prevCData_;
+
+    // Scratch vector for the unscaled resistive Jacobian G_k Ax values. Same sparsity as Jacobian.
+    Vector<double> scratchG_;
+
+    // Circular history of past resistive Jacobians G_k.
+    // Used in Adams-Moulton sensitivity integration
+    std::deque<Vector<double>> gHistData_;
+
+    // Leading LMS coefficient alpha and leading quadrature weight b1
+    // from the most-recent accepted step.  Together they give 1/h = alpha*b1,
+    // which is the correct velocity scale for PsiT regardless of method.
     double lastAlpha_;
+    double lastB1_;
 
     // True once onTimestepAccepted() has successfully processed at least
     // one step after the last clearTrajectory() call.
     bool phiValid_;
+
+    // False until prevCData_ has been populated for Adams-Moulton.
+    bool prevCValid_;
 };
 
 } // namespace NAMESPACE

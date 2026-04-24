@@ -4,6 +4,7 @@
 // See corepsstran.h for design description and algorithm context.
 
 #include "corepsstran.h"
+#include "ansupport.h"
 #include "simulator.h"
 #include "common.h"
 #include <deque>
@@ -22,6 +23,7 @@ PssTranCore::PssTranCore(
 ) : TranCore(parentResolver, params, opCore, circuit, commons,
              jacobian, solution, states),
     lastAlpha_(0.0),
+    lastB1_(1.0),
     phiValid_(false) {
 }
 
@@ -37,6 +39,12 @@ bool PssTranCore::rebuild(Status& s) {
         s.set(Status::Analysis, "PssTranCore: failed to rebuild Alr scratch matrix.");
         return false;
     }
+
+    // Resize AM scratch/history buffers to match Jacobian non-zero count.
+    auto nnz = jacobian.nnz();
+    prevCData_.resize(nnz);
+    scratchG_.resize(nnz);
+
     if (!scratchC_.rebuild(circuit.sparsityMap(), n)) {
         s.set(Status::Analysis, "PssTranCore: failed to rebuild C scratch matrix.");
         return false;
@@ -79,6 +87,9 @@ void PssTranCore::clearTrajectory() {
     auto n = circuit.unknownCount();
     phiCurrent_.resize(n, n, DenseMatrix<double>::Major::Column);
     phiCurrent_.identity();
+
+    gHistData_.clear();
+    prevCValid_ = false;
 }
 
 
@@ -93,14 +104,10 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
     const auto& ic  = getIntegCoeffs();
     const auto& bsc = ic.bScaled();
 
-    // BDF methods have bScaled empty.  Methods with past-derivative terms
-    // (e.g. trapezoidal) are not supported because xdot history is not
-    // collected during the shoot.
+    // BDF methods have bScaled empty while AM methods fill bScaled
     if (!bsc.empty()) {
-        Simulator::err() << "PssTranCore: PSS sensitivity requires a BDF method "
-                            "(no past-derivative terms); method has "
-                         << bsc.size() << " bScaled entries at t=" << tSolve << "\n";
-        return false;
+    } else {
+
     }
 
     double      alpha = ic.leadingCoeff();
@@ -146,6 +153,18 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
         }
     }
     std::copy(jacobian.data(), jacobian.data() + nnz, scratchC_.data());
+
+    // ----------------------------------------------------------------
+    // 2.1. Compute G_k from lastAlr and C_k
+    //
+    //    G_k is needed to build the Phi RHS in AM methods. 
+    // ----------------------------------------------------------------
+    if (!bsc.empty()) {
+        for (int i=0 ; i < nnz; i ++) {
+            scratchG_[i] = lastAlr_.data()[i] - alpha * scratchC_.data()[i];
+        }
+    }
+
     jacobian.zero();  // leave clean; TranCore rebuilds for the next step
 
     // ----------------------------------------------------------------
@@ -160,6 +179,7 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
         return false;
     }
     lastAlpha_ = alpha;
+    lastB1_    = bsc.empty() ? 1.0 : ic.b1();
 
     // ----------------------------------------------------------------
     // 4. Extend phiHist with identity matrices during order ramp-up.
@@ -172,6 +192,20 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
         DenseMatrix<double> id(n, n, DenseMatrix<double>::Major::Column);
         id.identity();
         phiHist_.push_back(std::move(id));
+    }
+
+    // ----------------------------------------------------------------
+    // 4.1 Extend gHistData_ with zeros during order ramp-up.
+    //
+    //    bsc.size() past G matrices are needed (index 0 = current, i>=1
+    //    come from gHistData_) for AM LMS. Fill any missing slots with 0: 
+    //    AM degrades to BDF-1 until enough entries exist.
+    // ----------------------------------------------------------------
+    if (!bsc.empty()) {
+        while (gHistData_.size() < bsc.size()) {
+            Vector<double> z(nnz, 0);
+            gHistData_.push_back((std::move(z)));
+        }
     }
 
     // ----------------------------------------------------------------
@@ -191,22 +225,76 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
     Vector<double> colBuf(n);   // phiSum column j (contiguous scratch)
     Vector<double> cvec(n);     // C_k * colBuf (0-based, no bucket element)
 
-    for (decltype(n) j = 0; j < n; j++) {
-        // Accumulate phiSum[:,j]
-        for (decltype(n) i = 0; i < n; i++) colBuf[i] = 0.0;
-        for (size_t si = 0; si < asc.size(); si++) {
-            DenseMatrix<double>* src = (si == 0) ? &phiSnap : &phiHist_[si - 1];
-            auto src_col = src->column(j);
-            for (decltype(n) i = 0; i < n; i++) colBuf[i] += asc[si] * src_col[i];
+    Vector<double> cSnap;
+
+    if (!bsc.empty()) {
+        // Snapshot C_k for AM LMS.
+        cSnap.assign(scratchC_.data(), scratchC_.data() + nnz);
+        if (!prevCValid_) prevCData_ = cSnap;
+
+        // ----------------------------------------------------------------
+        // 5 (AM). RHS[:,j] = alpha * C_{k-1} * Phi_{k-1}[:,j]
+        //                  - alpha * sum_{i=0}^{p-1} bsc[i] * G_{k-i-1} * Phi_{k-i-1}[:,j]
+        //
+        //   scratchC_ is reloaded with each matrix's Ax once per matrix,
+        //   then all n columns are multiplied before moving to the next.
+        //   cSnap restores scratchC_ to C_k at the end.
+        // ----------------------------------------------------------------
+
+        // Part A: alpha * C_{k-1} * Phi_{k-1}
+        std::copy(prevCData_.begin(), prevCData_.end(), scratchC_.data());
+        for (decltype(n) j = 0; j < n; j++) {
+            auto phi_col = phiSnap.column(j);
+            for (decltype(n) i = 0; i < n; i++) colBuf[i] = phi_col[i];
+            double* rhs_col = phiRhs.data().data() + static_cast<size_t>(j) * n;
+            if (!scratchC_.product(colBuf.data(), rhs_col)) {
+                Simulator::err() << "PssTranCore: C_{k-1}*v product failed at t="
+                                 << tSolve << ", column " << j << "\n";
+                return false;
+            }
+            for (decltype(n) i = 0; i < n; i++) rhs_col[i] *= alpha;
         }
 
-        // RHS[:,j] = C_k * phiSum[:,j]
-        // Column j of column-major phiRhs starts at offset j*n.
-        double* rhs_col = phiRhs.data().data() + static_cast<size_t>(j) * n;
-        if (!scratchC_.product(colBuf.data(), rhs_col)) {
-            Simulator::err() << "PssTranCore: C*v product failed at t="
-                             << tSolve << ", column " << j << "\n";
-            return false;
+        // Part B: subtract bsc[si] * G_{k-si-1} * Phi_{k-si-1}
+        //   bsc[si] = b_[si] / b1_ = b_i / b_0, which is the correct coefficient.
+        //   No alpha factor here — alpha belongs only on the C_{k-1} term.
+        for (size_t si = 0; si < bsc.size(); si++) {
+            std::copy(gHistData_[si].begin(), gHistData_[si].end(), scratchC_.data());
+            DenseMatrix<double>* phiSrc = (si == 0) ? &phiSnap : &phiHist_[si - 1];
+            for (decltype(n) j = 0; j < n; j++) {
+                auto phi_col = phiSrc->column(j);
+                for (decltype(n) i = 0; i < n; i++) colBuf[i] = phi_col[i];
+                double* rhs_col = phiRhs.data().data() + static_cast<size_t>(j) * n;
+                if (!scratchC_.product(colBuf.data(), cvec.data())) {
+                    Simulator::err() << "PssTranCore: G_{k-si-1}*v product failed at t="
+                                     << tSolve << ", column " << j << "\n";
+                    return false;
+                }
+                for (decltype(n) i = 0; i < n; i++) rhs_col[i] -= bsc[si] * cvec[i];
+            }
+        }
+
+        // Restore scratchC_ to C_k.
+        std::copy(cSnap.begin(), cSnap.end(), scratchC_.data());
+
+    } else {
+        for (decltype(n) j = 0; j < n; j++) {
+            // Accumulate phiSum[:,j]
+            for (decltype(n) i = 0; i < n; i++) colBuf[i] = 0.0;
+            for (size_t si = 0; si < asc.size(); si++) {
+                DenseMatrix<double>* src = (si == 0) ? &phiSnap : &phiHist_[si - 1];
+                auto src_col = src->column(j);
+                for (decltype(n) i = 0; i < n; i++) colBuf[i] += asc[si] * src_col[i];
+            }
+
+            // RHS[:,j] = C_k * phiSum[:,j]
+            // Column j of column-major phiRhs starts at offset j*n.
+            double* rhs_col = phiRhs.data().data() + static_cast<size_t>(j) * n;
+            if (!scratchC_.product(colBuf.data(), rhs_col)) {
+                Simulator::err() << "PssTranCore: C*v product failed at t="
+                                << tSolve << ", column " << j << "\n";
+                return false;
+            }
         }
     }
 
@@ -224,18 +312,30 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
     phiCurrent_ = phiRhs;   // phiRhs now holds PhiT at this step
 
     // ----------------------------------------------------------------
-    // 7. Rotate phiHist (circular buffer, depth always >= 1).
+    // 7. Rotate phiHist and (AM) gHistData_ / prevCData_.
     //
     //    phiSnap (= Phi before this step) becomes phiHist_[0].
     //    Trim to keepDepth so the buffer never exceeds p entries.
     //    Keeping at least 1 entry ensures a future BDF order ramp-up
     //    (e.g. BDF-1 → BDF-2) finds the real Phi_{k-1} rather than an
     //    identity placeholder.
+    //
+    //    For AM: scratchG_ (= G_k) becomes gHistData_[0], trimmed to
+    //    bsc.size() entries.  prevCData_ is updated to C_k (= cSnap).
     // ----------------------------------------------------------------
     phiHist_.push_front(std::move(phiSnap));
     size_t keepDepth = (asc.size() > 0) ? asc.size() - 1 : 0;
+    if (!bsc.empty()) keepDepth = std::max(keepDepth, bsc.size() - 1);
     if (keepDepth < 1) keepDepth = 1;
     while (phiHist_.size() > keepDepth) phiHist_.pop_back();
+
+    if (!bsc.empty()) {
+        gHistData_.push_front(scratchG_);
+        size_t keepG = std::max(bsc.size(), size_t(1));
+        while (gHistData_.size() > keepG) gHistData_.pop_back();
+        prevCData_  = cSnap;
+        prevCValid_ = true;
+    }
 
     phiValid_ = true;
     return true;
@@ -291,7 +391,7 @@ bool PssTranCore::integrateAugmentedSensitivity(
     PsiT.resize(n + 1);
     PsiT[0] = 0.0;
     for (decltype(n) i = 0; i < n; i++) {
-        PsiT[i + 1] = lastAlpha_ * x_laststep[i];
+        PsiT[i + 1] = lastAlpha_ * lastB1_ * x_laststep[i];
     }
 
     return true;
