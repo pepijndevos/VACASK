@@ -31,6 +31,21 @@ The following results were obtained on the above-mentioned [C6288 16x16 multipli
 
 The increased Ngspice memory usage when KLU is used as the solver is probably due to the extra data structures Ngspice uses for setting up the sparse matrix for KLU. 
 
+# How well does it scale?
+
+We tested scalability of VACASK with [digital multiplier simulations ranging from 8-bit to 256-bit](demo/multiplier). The multipliers were simulated as analog circuits. The MOSFETs were modelled with the PSP103.4 model. All tests were run on a single core of an AMD Threadripper 7970 CPU. The 16-bit multiplier is equivalent to the C6288 benchmark problem, but has slightly fewer transistors (we suspect C6288 uses full adders where half adders should have been used). 
+
+|Size [bits]|MOSFETs |Peak RAM [MB]|Elaboration [s]|Speed [ms/timestep]|
+|-----------|--------|-------------|---------------|-------------------|
+|8          |2256    |40.4         |0.029          |6.79               |
+|16         |9888    |138.5        |0.152          |51.2               |
+|32         |41280   |540.9        |0.888          |260                |
+|64         |168576  |2173.1       |4.86           |1197               |
+|128        |681216  |8756.7       |22.1           |5245               |
+|256        |2738688 |35235.6      |100            |24766              |
+
+Of course, simulation is slower for large circuits. The runtime grows superlinearly because with increasing circuit size linear algebra becomes a significant part of the total runtime. Unfortunately LU decomposition time grows superlinearly with matrix size and there is little one can do about it. Nevertheless, this demonstrates that VACASK can handle very large circuits. 
+
 # Do you have a user's manual? 
 
 Yes we do. It is bundled with the binary packages. [The user's manual](docs/index.md) is written in markdown. To read it in [Firefox](https://www.firefox.com/en-US/), instal the [Markdown Viewer Add-on](https://addons.mozilla.org/en-US/firefox/addon/markdown-viewer-chrome/) or the [Markdown Reader Add-on](https://addons.mozilla.org/en-US/firefox/addon/markdown-reader-ext/). 
