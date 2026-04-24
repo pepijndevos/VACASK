@@ -43,9 +43,12 @@ public:
     // Disable noise
     void disableNoise();
 
+    // Collect noise scaling
+    bool collectNoiseScaling();
+
     // Build noise residual. We expose this for noise generator coefficient initalization. 
     // Return value: ok
-    bool buildNoiseResidual(double* noiseResidualContribution);
+    bool buildNoiseResidual();
     
     // Called on accepted timepoint
     // Return value: ok, sample index changed
@@ -69,8 +72,9 @@ private:
     bool noiseEnabled;
     TimeDomainNoiseBlock<std::mt19937_64>* whiteBlock;
     TimeDomainNoiseBlock<std::mt19937_64>* flickerBlock;
-    VectorRepository<double> noiseResidual;
-    int reverted;
+    Vector<double> whiteScaling;
+    Vector<double> flickerScaling;
+    Vector<double> noiseResidual;
     size_t maxNsCount_;
 
 protected:

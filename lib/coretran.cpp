@@ -890,7 +890,7 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
     // First buildNoiseResidual() call just prepares flicker noise coefficients
     // Noise samples are all 0 so the generated residual cointribution would also be 0. 
     if (noisefmax) {
-        if (!nrSolver.buildNoiseResidual(nullptr)) {
+        if (!nrSolver.collectNoiseScaling()) {
             setError(TranError::NRSolver);
             co_yield CoreState::Aborted;
         }

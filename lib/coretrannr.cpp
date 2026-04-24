@@ -76,8 +76,7 @@ bool TranNRSolver::initialize(bool continuePrevious) {
     loadSetup_.maxReactiveResidualDerivativeContribution = loadSetup_.maxResistiveResidualContribution; 
 
     // Resize lagged noise residual vector repository, 1 step of rollback
-    noiseResidual.upsize(2, jac.nRow()+1);
-    reverted = 0;
+    noiseResidual.resize(jac.nRow()+1);
     
     return true;
 }  
@@ -90,6 +89,10 @@ void TranNRSolver::enableNoise(
     // Store noise generators
     whiteBlock = &white;
     flickerBlock = &flicker;
+
+    // Make space for scaling factors
+    whiteScaling.resize(whiteBlock->values().size());
+    flickerScaling.resize(flickerBlock->values().size());
 
     // Count white and flicker noise sources
     // Device/model/instance loops
@@ -110,29 +113,42 @@ void TranNRSolver::disableNoise() {
     evalSetup_.evaluateNoise = true;
 };
 
+// for ZOH
+// advanceNoise() 
+// - if ZOH boundary crossed
+//   - rotates history
+//   - computes new normalized noise sample 
+//
+// revertNoise()
+// - if ZOH boundary crossed
+//   - goes back to previous normalized noise sample 
+
+// for SDE
+// advanceNoise() 
+// - rotates noise history
+// - recomputes normalized noise sample based on new timestep
+//
+// revertNoise()
+// - recomputes normalized noise sample based shortened timestep
+
+
 std::tuple<bool, bool> TranNRSolver::advanceNoise(double time, std::mt19937_64& gen) {
     bool changed = false;
+
+    // Collect noise scaling if lagged noise is used
+    if (circuit.simulatorOptions().core().tran_laggednoise) {
+        if (!collectNoiseScaling()) {
+            std::make_tuple(false, changed);
+        }
+    }
+
     if (whiteBlock->advance(time, gen)) {
         changed = true;
     }
     if (flickerBlock->advance(time, gen)) {
         changed = true;
     }
-    // If advancing the noise generator changed noise samnple index
-    // rebuild lagged noise residual
-    if (circuit.simulatorOptions().core().tran_laggednoise && changed) {
-        noiseResidual.advance(1);
-        if (reverted) {
-            // Moving forward from reverted value
-            reverted -= 1;
-        }
-        // Rebuild lagged noise residual
-        noiseResidual.zero();
-        auto ok = buildNoiseResidual(noiseResidual.data());
-        if (!ok) {
-            return std::make_tuple(false, changed);
-        }
-    }
+    
     return std::make_tuple(true, changed);
 }
 
@@ -146,18 +162,92 @@ bool TranNRSolver::revertNoise(double time, std::mt19937_64& gen) {
     }
     // If reverting the noise generator changed noise samnple index
     // rebuild lagged noise residual
-    if (circuit.simulatorOptions().core().tran_laggednoise && changed) {
-        if (reverted) {
-            throw std::logic_error("Cannot revert noise by more than 1 step.");
-        }
-        noiseResidual.advance(-1);
-        reverted += 1;
-    }
+    
     return changed;
 }
 
+bool TranNRSolver::collectNoiseScaling() {
+    size_t atWhite = 0;
+    size_t atFlicker = 0;
+    
+    // These two will hopefully be elided to stack
+    // TODO: use a stack-based container
+    // need to allocate here beacause in the future 
+    // if we use OpenMP these will be thread-local variables. 
+    // TODO: check all classes for persistent storage, mark it for replacement
+    RealVector noisePower(maxNsCount_);
+    RealVector noiseExponent(maxNsCount_);
 
-bool TranNRSolver::buildNoiseResidual(double* noiseResidualContribution) {
+    auto ndev = circuit.deviceCount();
+    for(decltype(ndev) idev=0; idev<ndev; idev++) {
+        auto dev = circuit.device(idev);
+        auto nmod = dev->modelCount();
+        for(decltype(nmod) imod=0; imod<nmod; imod++) {
+            auto mod = dev->model(imod);
+            auto ninst = mod->instanceCount();
+            for(decltype(ninst) iinst=0; iinst<ninst; iinst++) {
+                auto inst = mod->instance(iinst);
+                // Noise source count
+                auto nsCount = inst->noiseSourceCount();
+                if (nsCount<=0) {
+                    continue;
+                }
+                // Get noise source parameters
+                inst->loadNoiseParameters(circuit, noisePower.data(), noiseExponent.data());
+                // Go through noise sources
+                for(decltype(nsCount) ndx=0; ndx<nsCount; ndx++) {
+                    // Get noise source type
+                    auto nstype = inst->noiseSourceType(ndx);
+                    double sample = 0;
+                    switch (nstype) {
+                        case NoiseType::White: {
+                            // Scale with sqrt(PSD) because this is a time-domain sample
+                            auto pwr = noisePower[ndx];
+                            auto sgn = pwr>0 ? 1 : -1;
+                            whiteScaling[atWhite] = sgn*std::sqrt(std::abs(pwr));
+                            atWhite++;
+                            break;
+                        }
+                        case NoiseType::Flicker: {
+                            // Noise exponent is lagged by one timepoint
+                            // Currently exponent changes are not allowed
+                            auto expStatus = flickerBlock->setShapeParameters(atFlicker, noiseExponent[ndx]);
+                            if (expStatus==ShapeSetStatus::Unchanged) {
+                                // Do nothing
+                            } else if (expStatus==ShapeSetStatus::OutOfRange) {
+                                // Out of range
+                                errorInstance = inst;
+                                lastTranNRError = TranNRSolverError::BadFlickerExponent;
+                                return false;
+                            } else if (expStatus==ShapeSetStatus::Changed) {
+                                // Changed, but should not
+                                errorInstance = inst;
+                                lastTranNRError = TranNRSolverError::FlickerExponentChanged;
+                                return false;
+                            }
+                            // Scale sample with sqrt(PSD) because this is a time-domain sample
+                            auto pwr = noisePower[ndx];
+                            auto sgn = pwr>0 ? 1 : -1;
+                            flickerScaling[atFlicker] = sgn*std::sqrt(std::abs(pwr));
+                            atFlicker++;
+                            break;
+                        }
+                        default:
+                            continue;
+                    }
+                }
+            }
+        }
+    }
+    return true;
+}
+
+
+bool TranNRSolver::buildNoiseResidual() {
+    // Clear, get data
+    zero(noiseResidual);
+    auto noiseResidualContribution = noiseResidual.data();
+    
     size_t atWhite = 0;
     size_t atFlicker = 0;
     
@@ -186,8 +276,6 @@ bool TranNRSolver::buildNoiseResidual(double* noiseResidualContribution) {
                 if (nsCount<=0) {
                     continue;
                 }
-                // Get noise source parameters
-                inst->loadNoiseParameters(circuit, noisePower.data(), noiseExponent.data());
                 // Go through noise sources
                 for(decltype(nsCount) ndx=0; ndx<nsCount; ndx++) {
                     // Get noise source type
@@ -195,34 +283,14 @@ bool TranNRSolver::buildNoiseResidual(double* noiseResidualContribution) {
                     double sample = 0;
                     switch (nstype) {
                         case NoiseType::White: {
-                            // Scale with sqrt(PSD) because this is a time-domain sample
-                            auto pwr = noisePower[ndx];
-                            auto sgn = pwr>0 ? 1 : -1;
-                            sample = whiteSamples[atWhite] * sgn*std::sqrt(std::abs(pwr));
+                            // Scale 
+                            sample = whiteSamples[atWhite] * whiteScaling[atWhite];
                             atWhite++;
                             break;
                         }
                         case NoiseType::Flicker: {
-                            // Noise exponent is lagged by one timepoint
-                            // Currently exponent changes are not allowed
-                            auto expStatus = flickerBlock->setShapeParameters(atFlicker, noiseExponent[ndx]);
-                            if (expStatus==ShapeSetStatus::Unchanged) {
-                                // Do nothing
-                            } else if (expStatus==ShapeSetStatus::OutOfRange) {
-                                // Out of range
-                                errorInstance = inst;
-                                lastTranNRError = TranNRSolverError::BadFlickerExponent;
-                                return false;
-                            } else if (expStatus==ShapeSetStatus::Changed) {
-                                // Changed, but should not
-                                errorInstance = inst;
-                                lastTranNRError = TranNRSolverError::FlickerExponentChanged;
-                                return false;
-                            }
-                            // Scale sample with sqrt(PSD) because this is a time-domain sample
-                            auto pwr = noisePower[ndx];
-                            auto sgn = pwr>0 ? 1 : -1;
-                            sample = flickerSamples[atFlicker] * sgn*std::sqrt(std::abs(pwr));
+                            // Scale
+                            sample = flickerSamples[atFlicker] * flickerScaling[atFlicker];
                             atFlicker++;
                             break;
                         }
@@ -249,20 +317,23 @@ std::tuple<bool, bool> TranNRSolver::buildSystem(bool continuePrevious) {
 
     // Now load the tranisent noise residuals
     if (ok && noiseEnabled) {
-        if (circuit.simulatorOptions().core().tran_laggednoise) {
-            // Lagged noise residual
-            auto n = jac.nRow();
-            // Skip ground node contribution
-            auto nrvec = noiseResidual.data();
-            for(decltype(n) i=1; i<=n; i++) {
-                loadSetup_.resistiveResidual[i] += nrvec[i];
-            }
-        } else {
-            // Fully coupled noise residual
-            auto ok = buildNoiseResidual(loadSetup_.resistiveResidual);
-            if (!ok) {
+        if (!circuit.simulatorOptions().core().tran_laggednoise) {
+            // Fully coupled noise scaling
+            if (!collectNoiseScaling()) {
                 return std::make_tuple(false, preventConvergence);
             }
+        }
+        // Build noise residual
+        auto ok = buildNoiseResidual();
+        if (!ok) {
+            return std::make_tuple(false, preventConvergence);
+        }
+        // Add to RHS
+        auto n = jac.nRow();
+        // Skip ground node contribution
+        auto nrvec = noiseResidual.data();
+        for(decltype(n) i=1; i<=n; i++) {
+            loadSetup_.resistiveResidual[i] += nrvec[i];
         }
     }
 
