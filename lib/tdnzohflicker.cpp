@@ -88,6 +88,24 @@ template <std::uniform_random_bit_generator URBG> void TimeDomainZohFlickerNoise
 }
 
 template <std::uniform_random_bit_generator URBG> 
+ShapeSetStatus TimeDomainZohFlickerNoise<URBG>::setShapeParameters(size_t i, double p) {
+    auto e = p;
+    if (e<0.1 || e>1.9) {
+        return ShapeSetStatus::OutOfRange;
+    }
+    bool init = coeffIndex[i]==SIZE_T_MAX;
+    bool changed = false;
+    bool compute = init || changed;
+    if (compute) {
+        auto [newIndex, ok] = getCoefficients(e);
+        coeffIndex[i] = newIndex;
+        exponent[i] = e;
+        return init ? ShapeSetStatus::Initialized : ShapeSetStatus::Changed;
+    }
+    return ShapeSetStatus::Unchanged;
+}
+
+template <std::uniform_random_bit_generator URBG> 
 void TimeDomainZohFlickerNoise<URBG>::resetOptimizer(double fs, double fmin, double fmax, int ptsPerDecade, int ni, int ns, double lr) {
     fs_ = fs;
     data.clear();

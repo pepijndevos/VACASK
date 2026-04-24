@@ -101,8 +101,8 @@ add_library(simlib STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/antran.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/anhb.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/tdnblock.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/../include/tdnwhite.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/../include/tdnflicker.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include/tdnzohwhite.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include/tdnzohflicker.h
     acct.cpp
     libplatform.cpp 
     dynload.cpp 
@@ -187,6 +187,7 @@ add_library(simlib STATIC
     annoise.cpp 
     antran.cpp 
     anhb.cpp
+    tdnblock.cpp
     tdnzohwhite.cpp
     tdnzohflicker.cpp
     location.cpp

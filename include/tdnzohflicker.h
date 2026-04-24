@@ -9,13 +9,6 @@
 
 namespace NAMESPACE {
 
-enum class ExponentStatus {
-    Initialized, 
-    Unchanged, 
-    Changed, 
-    OutOfRange
-};
-
 // Flicker noise generators (count specifies the number of generators)
 // All generators should use the same random generator (gen). 
 // It is the user's responsibility to seed the generator.
@@ -32,26 +25,10 @@ public:
     void reset(double t0, double timeStep, size_t count, int rollbackDepth, int k);
     void reset(double t0, double timeStep, size_t count, int rollbackDepth, int k, URBG& gen);
     void resetOptimizer(double fs, double fmin, double fmax, int ptsPerDecade=10, int ni=100, int ns=5, double lr=0.1);
-    void setDebug(int debug) { debug_ = debug; };
-
-    // This one should be inlined
-    ExponentStatus setExponent(size_t i, double e) {
-        if (e<0.1 || e>1.9) {
-            return ExponentStatus::OutOfRange;
-        }
-        bool init = coeffIndex[i]==SIZE_T_MAX;
-        bool changed = false;
-        bool compute = init || changed;
-        if (compute) {
-            auto [newIndex, ok] = getCoefficients(e);
-            coeffIndex[i] = newIndex;
-            exponent[i] = e;
-            return init ? ExponentStatus::Initialized : ExponentStatus::Changed;
-        }
-        return ExponentStatus::Unchanged;
-    };
-    // template <std::uniform_random_bit_generator URBG> bool advance(double time, URBG& gen);
-    // template <std::uniform_random_bit_generator URBG> bool revert(double time, URBG& gen);
+    
+    // Set shape parameters for i-th generator (for now p is the exponent of flicker noise)
+    // By default this method should never be called
+    virtual ShapeSetStatus setShapeParameters(size_t i, double p) override;
 
 private:
     // Optimize flicker coefficients for given frequency range
@@ -96,8 +73,6 @@ private:
     // Coefficients repository
     // VMCoefficientsRepository& vmCoeffs;
 
-    // Debug mode
-    int debug_;
     // Number of rows, row 0 has update probability p=1/2, row k-1 has p=2^(-k)
     int k_;
     // Sampling frequency (i.e. update frequency for row with update probability p=1)
@@ -123,6 +98,7 @@ private:
     double lr_;
 
     using TimeDomainNoiseBlock<URBG>::history;
+    using TimeDomainNoiseBlock<URBG>::debug_;
 };
 
 } 

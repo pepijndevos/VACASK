@@ -244,7 +244,7 @@ TranCore::TranCore(
     KluRealMatrix& jacobian, VectorRepository<double>& solution, VectorRepository<double>& states
 ) : AnalysisCore(parentResolver, circuit, commons), params(params), outfile(nullptr), opCore_(opCore), 
     jacobian(jacobian), solution(solution), states(states), 
-    nrSolver(circuit, commons, jacobian, states, solution, nrSettings, integCoeffs, whiteBlock, flickerBlock) { 
+    nrSolver(circuit, commons, jacobian, states, solution, nrSettings, integCoeffs) { 
     // Slots 0 (current) and -1 (future) are used for the NR solver
     // Slots 1, 2, ... correspond to past values (at t_{k}, t_{k-1}, ...)
     // Therefore historyOffset needs to be set to 1 when calling 
@@ -710,19 +710,26 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
             Simulator::dbg() << "  fsampling: " << fsampling << "\n";
             Simulator::dbg() << "  VM rows:   " << k << "\n";
         }
-        // Initialize time domain noise blocks
+        
+        // Seed random generator
+        randomGenerator.seed(params.noiseseed);
+        
+        // Count noise sources, get maximal number of sources per instance
         auto [nWhite, nFlicker, maxNsCount] = countNoiseSources();
+        
+        // Initialize time domain white noise block
         whiteBlock.reset(0.0, noiseStepLimit, nWhite, 1);
+        whiteBlock.setDebug(options.tran_noisedebug);
+        
+        // Initialize time domain flicker noise block
         flickerBlock.reset(0.0, noiseStepLimit, nFlicker, 1, k);
         flickerBlock.resetOptimizer(fsampling, noisefmin, noisefmax, 10);
         flickerBlock.setDebug(options.tran_noisedebug);
         
-        // Seed random generator
-        randomGenerator.seed(params.noiseseed);
-
-        // Initialize transient noise generators, prepare first sample
-        nrSolver.enableNoise(maxNsCount);
+        // Tell NR solver we want transient noise
+        nrSolver.enableNoise(whiteBlock, flickerBlock, maxNsCount);
     } else {
+        // Tell NR solver we don't want transient noise
         nrSolver.disableNoise();
     }
     

@@ -8,12 +8,10 @@ namespace NAMESPACE {
 TranNRSolver::TranNRSolver(
     Circuit& circuit, CommonData& commons, KluRealMatrix& jac, 
     VectorRepository<double>& states, VectorRepository<double>& solution, 
-    NRSettings& settings, IntegratorCoeffs& integCoeffs, 
-    TimeDomainZohWhiteNoise<std::mt19937_64>& whiteBlock,
-    TimeDomainZohFlickerNoise<std::mt19937_64>& flickerBlock
+    NRSettings& settings, IntegratorCoeffs& integCoeffs
 ) : OpNRSolver(circuit, commons, jac, states, solution, settings, 3), 
     integCoeffs(&integCoeffs), noiseEnabled(false), 
-    whiteBlock(whiteBlock), flickerBlock(flickerBlock) {
+    whiteBlock(nullptr), flickerBlock(nullptr) {
     // TranNRSolver has 2 force slots
     // 0 .. continuation nodesets for sweep and homotopy
     //      cannot contain branch forces
@@ -84,7 +82,15 @@ bool TranNRSolver::initialize(bool continuePrevious) {
     return true;
 }  
 
-void TranNRSolver::enableNoise(size_t maxNsCount) {
+void TranNRSolver::enableNoise(
+    TimeDomainNoiseBlock<std::mt19937_64>& white, 
+    TimeDomainNoiseBlock<std::mt19937_64>& flicker, 
+    size_t maxNsCount
+) {
+    // Store noise generators
+    whiteBlock = &white;
+    flickerBlock = &flicker;
+
     // Count white and flicker noise sources
     // Device/model/instance loops
     // Must traverse in exactly the same order each time at noise load. 
@@ -97,12 +103,19 @@ void TranNRSolver::enableNoise(size_t maxNsCount) {
     evalSetup_.evaluateNoise = true;
 }
 
+void TranNRSolver::disableNoise() { 
+    whiteBlock = nullptr;
+    flickerBlock = nullptr;
+    noiseEnabled = false; 
+    evalSetup_.evaluateNoise = true;
+};
+
 std::tuple<bool, bool> TranNRSolver::advanceNoise(double time, std::mt19937_64& gen) {
     bool changed = false;
-    if (whiteBlock.advance(time, gen)) {
+    if (whiteBlock->advance(time, gen)) {
         changed = true;
     }
-    if (flickerBlock.advance(time, gen)) {
+    if (flickerBlock->advance(time, gen)) {
         changed = true;
     }
     // If advancing the noise generator changed noise samnple index
@@ -125,10 +138,10 @@ std::tuple<bool, bool> TranNRSolver::advanceNoise(double time, std::mt19937_64& 
 
 bool TranNRSolver::revertNoise(double time, std::mt19937_64& gen) {
     bool changed = false;
-    if (whiteBlock.revert(time, gen)) {
+    if (whiteBlock->revert(time, gen)) {
         changed = true;
     }
-    if (flickerBlock.revert(time, gen)) {
+    if (flickerBlock->revert(time, gen)) {
         changed = true;
     }
     // If reverting the noise generator changed noise samnple index
@@ -156,8 +169,8 @@ bool TranNRSolver::buildNoiseResidual(double* noiseResidualContribution) {
     RealVector noisePower(maxNsCount_);
     RealVector noiseExponent(maxNsCount_);
     
-    auto whiteSamples = whiteBlock.values();
-    auto flickerSamples = flickerBlock.values();
+    auto whiteSamples = whiteBlock->values();
+    auto flickerSamples = flickerBlock->values();
 
     auto ndev = circuit.deviceCount();
     for(decltype(ndev) idev=0; idev<ndev; idev++) {
@@ -190,15 +203,17 @@ bool TranNRSolver::buildNoiseResidual(double* noiseResidualContribution) {
                             break;
                         }
                         case NoiseType::Flicker: {
-                            auto expStatus = flickerBlock.setExponent(atFlicker, noiseExponent[ndx]);
-                            if (expStatus==ExponentStatus::Unchanged) {
+                            // Noise exponent is lagged by one timepoint
+                            // Currently exponent changes are not allowed
+                            auto expStatus = flickerBlock->setShapeParameters(atFlicker, noiseExponent[ndx]);
+                            if (expStatus==ShapeSetStatus::Unchanged) {
                                 // Do nothing
-                            } else if (expStatus==ExponentStatus::OutOfRange) {
+                            } else if (expStatus==ShapeSetStatus::OutOfRange) {
                                 // Out of range
                                 errorInstance = inst;
                                 lastTranNRError = TranNRSolverError::BadFlickerExponent;
                                 return false;
-                            } else if (expStatus==ExponentStatus::Changed) {
+                            } else if (expStatus==ShapeSetStatus::Changed) {
                                 // Changed, but should not
                                 errorInstance = inst;
                                 lastTranNRError = TranNRSolverError::FlickerExponentChanged;

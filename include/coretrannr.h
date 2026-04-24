@@ -17,9 +17,7 @@ public:
     TranNRSolver(
         Circuit& circuit, CommonData& commons, KluRealMatrix& jac, 
         VectorRepository<double>& states, VectorRepository<double>& solution, 
-        NRSettings& settings, IntegratorCoeffs& integCoeffs, 
-        TimeDomainZohWhiteNoise<std::mt19937_64>& whiteBlock, 
-        TimeDomainZohFlickerNoise<std::mt19937_64>& flickerBlock
+        NRSettings& settings, IntegratorCoeffs& integCoeffs
     ); 
 
     enum class TranNRSolverError {
@@ -34,11 +32,16 @@ public:
     // Format error, return false on error - this function is not cheap (works with strings)
     bool formatError(Status& s=Status::ignore, NameResolver* resolver=nullptr) const; 
 
-    // Disable noise
-    void disableNoise() { noiseEnabled = false; };
-
     // Called in the beginning of transient noise analysis
-    void enableNoise(size_t maxNsCount);
+    // Takes ownership of noise blocks
+    void enableNoise(
+        TimeDomainNoiseBlock<std::mt19937_64>& white, 
+        TimeDomainNoiseBlock<std::mt19937_64>& flicker, 
+        size_t maxNsCount
+    );
+
+    // Disable noise
+    void disableNoise();
 
     // Build noise residual. We expose this for noise generator coefficient initalization. 
     // Return value: ok
@@ -64,8 +67,8 @@ private:
     IntegratorCoeffs* integCoeffs;
 
     bool noiseEnabled;
-    TimeDomainZohWhiteNoise<std::mt19937_64>& whiteBlock;
-    TimeDomainZohFlickerNoise<std::mt19937_64>& flickerBlock;
+    TimeDomainNoiseBlock<std::mt19937_64>* whiteBlock;
+    TimeDomainNoiseBlock<std::mt19937_64>* flickerBlock;
     VectorRepository<double> noiseResidual;
     int reverted;
     size_t maxNsCount_;
