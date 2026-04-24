@@ -32,7 +32,7 @@ See [Vectors and Lists](expr-vectors.md) for details.
 
 - Integer and floating-point literals, including SI suffixes (`1k`, `100n`, `2.5meg`)
 - String literals
-- [Builtin constants](expr-constants.md) (`M_PI`, `P_K`, …)
+- [Builtin constants](expr-constants.md) (`M_PI`, `P_K`, ...)
 - [Special identifiers](expr-special.md) (`$temp`, `$scale`)
 - [Circuit variables](expr-cirvars.md) set with the `var` command
 - Parameters declared with the `parameters` keyword in the enclosing scope

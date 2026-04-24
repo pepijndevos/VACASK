@@ -25,8 +25,9 @@
 - Keep examples minimal and runnable.
 - Input file syntax is gven by the flex and bison files in the library. 
 - What the developer redacts in a file must be kept. He knows better. 
+- Do not use weird UTF chars, use ASCII. Exception to this are given names. 
 
-## Notes on documenting anaylses
+## Notes on documenting analyses
 - Analyses are described in files named an<suffix>.h. 
 - An analysis uses one or more cores from files named core<suffix>.h. 
 - Analysis parameters are in a data structure defined in the core file. 

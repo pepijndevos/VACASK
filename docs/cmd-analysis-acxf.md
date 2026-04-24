@@ -53,10 +53,17 @@ See [AC Small-Signal Analysis](cmd-analysis-ac.md) for a description of sweep mo
 | `zin(source)` | Save the input impedance seen by the given source. |
 | `yin(source)` | Save the input admittance seen by the given source. |
 
-In addition, `acxf` supports all operating point save directives (`v(node)`,
-`i(instance)`, `p(instance,outvar)`) because it runs an operating point core
-internally. These directives apply to the operating point results and specify
-which operating point results to write when `writeop=1`.
+The following operating point save directives are also supported. They apply to
+the operating point results and specify which operating point results to write
+when `writeop=1`.
+
+| Directive | Description |
+|-----------|-------------|
+| `opdefault` | Save all operating point node voltages and branch currents. |
+| `opfull` | Save all operating point unknowns (even those belonging to collapsed nodes). |
+| `v(node)` | Save the operating point voltage at the given node. |
+| `i(instance)` | Save the operating point current through the given instance. Only instances that introduce a current variable in the MNA system are valid (e.g. voltage sources, inductors). |
+| `p(instance,outvar)` | Save the operating point output variable `outvar` of the given instance. |
 
 ## Output
 

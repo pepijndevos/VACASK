@@ -50,11 +50,11 @@ AC analysis exposes the operating point parameters and adds sweep and output con
 
 | Mode | Required parameters | Description |
 |------|---------------------|-------------|
-| Stepped linear | `from`, `to`, `step` | Frequencies `from`, `from+step`, …, `to`. |
+| Stepped linear | `from`, `to`, `step` | Frequencies `from`, `from+step`, ..., `to`. |
 | Linear | `from`, `to`, `mode="lin"`, `points` | `points` linearly spaced frequencies from `from` to `to`. |
 | Decade | `from`, `to`, `mode="dec"`, `points` | `points` frequencies per decade, logarithmically spaced. |
 | Octave | `from`, `to`, `mode="oct"`, `points` | `points` frequencies per octave, logarithmically spaced. |
-| Explicit | `values=[f1, f2, …]` | Frequencies taken directly from the vector. |
+| Explicit | `values=[f1, f2, ...]` | Frequencies taken directly from the vector. |
 
 ## Save directives
 
@@ -65,7 +65,17 @@ AC analysis exposes the operating point parameters and adds sweep and output con
 | `dv(node)` | Save the AC phasor voltage at the given node. |
 | `di(instance)` | Save the AC phasor current through the given instance. Only instances that introduce a current variable in the MNA system are valid (e.g. voltage sources, inductors). Equivalent to `dv('instance:flow(br)')`. |
 
-AC analysis also supports all operating point save directives (`v(node)`, `i(instance)`, `p(instance,outvar)`) because it runs an operating point core internally. These directives apply to the operating point results and specify which operating point results to write when `writeop=1`.
+The following operating point save directives are also supported. They apply to
+the operating point results and specify which operating point results to write
+when `writeop=1`.
+
+| Directive | Description |
+|-----------|-------------|
+| `opdefault` | Save all operating point node voltages and branch currents. |
+| `opfull` | Save all operating point unknowns (even those belonging to collapsed nodes). |
+| `v(node)` | Save the operating point voltage at the given node. |
+| `i(instance)` | Save the operating point current through the given instance. Only instances that introduce a current variable in the MNA system are valid (e.g. voltage sources, inductors). |
+| `p(instance,outvar)` | Save the operating point output variable `outvar` of the given instance. |
 
 ## Output
 

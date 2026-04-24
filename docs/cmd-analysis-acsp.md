@@ -35,7 +35,7 @@ Port impedances may differ between ports.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `ports` | string list | `""` | Alternating list of voltage source and series resistor names defining the ports: `["vsrc1", "rser1", "vsrc2", "rser2", …]`. |
+| `ports` | string list | `""` | Alternating list of voltage source and series resistor names defining the ports: `["vsrc1", "rser1", "vsrc2", "rser2", ...]`. |
 | `nodeset` | string or list | `""` | Initial guess for the operating point. See [Operating Point Analysis](cmd-analysis-op.md). |
 | `store` | string | `""` | Save the computed operating point under the given name. See [Operating Point Analysis](cmd-analysis-op.md). |
 | `from` | real | `0` | Start frequency (Hz) for stepped or mode-based sweeps. |
@@ -53,7 +53,17 @@ See [AC Small-Signal Analysis](cmd-analysis-ac.md) for a description of sweep mo
 
 ## Save directives
 
-`acsp` runs an operating point core internally, so operating point save directives (`v(node)`, `i(instance)`, `p(instance,outvar)`) are also accepted. They apply to the operating point results and are written to `<analysis>.op.*` when `writeop=1`.
+The S-parameters are always saved and cannot be individually suppressed. The
+following operating point save directives are also supported. They apply to the
+operating point results and are written to `<analysis>.op.*` when `writeop=1`.
+
+| Directive | Description |
+|-----------|-------------|
+| `opdefault` | Save all operating point node voltages and branch currents. |
+| `opfull` | Save all operating point unknowns (even those belonging to collapsed nodes). |
+| `v(node)` | Save the operating point voltage at the given node. |
+| `i(instance)` | Save the operating point current through the given instance. Only instances that introduce a current variable in the MNA system are valid (e.g. voltage sources, inductors). |
+| `p(instance,outvar)` | Save the operating point output variable `outvar` of the given instance. |
 
 ## Output
 
