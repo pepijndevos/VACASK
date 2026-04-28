@@ -27,7 +27,6 @@ public:
     void resetOptimizer(double fs, double fmin, double fmax, int ptsPerDecade=10, int ni=100, int ns=5, double lr=0.1);
     
     // Set shape parameters for i-th generator (for now p is the exponent of flicker noise)
-    // By default this method should never be called
     virtual ShapeSetStatus setShapeParameters(size_t i, double p) override;
 
 private:
@@ -49,29 +48,18 @@ private:
     void computePsds(const std::vector<double>& wpsd, const std::vector<double>& freq, std::vector<double>& tmpRows, std::vector<double>& result);
     double computeGradient(const std::vector<double>& wpsd, const std::vector<double>& freq, const std::vector<double>& target, std::vector<double>& tmpRows, std::vector<double>& psd, std::vector<double>& gradient);
     
-    // Information needed to revert generators to previous state
-    typedef struct ReversionData {
-        int row;
-        double previousValue;
-    } ReversionData;
-
     // Generate new sample
     void generate(URBG& gen) override;
 
-    // Rows holding the generators state
+    // Rows holding the state for each generator
+    // Vector holds one row for all generators
     VectorRepository<double> rows;
 
-    // Data needed to revert generators
-    VectorRepository<ReversionData> reversionData;
-
-    // Exponent value for all generators
+    // Exponent value for each generator
     std::vector<double> exponent;
 
     // Coefficients index for each generator
     Vector<size_t> coeffIndex;
-
-    // Coefficients repository
-    // VMCoefficientsRepository& vmCoeffs;
 
     // Number of rows, row 0 has update probability p=1/2, row k-1 has p=2^(-k)
     int k_;
@@ -79,7 +67,7 @@ private:
     double fs_;
     // Oversampling factor (used in computing ZOH effect) - TODO: remove
     int oversample_;
-    // Coefficient data
+    // Coefficient datav (indexed by coeffIndex_)
     std::vector<std::vector<double>> data;
     // Map from flicker noise exponent into coefficients data
     std::unordered_map<double, size_t> flickerMap;

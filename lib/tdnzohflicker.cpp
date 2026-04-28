@@ -10,8 +10,6 @@ void TimeDomainZohFlickerNoise<URBG>::reset(double t0, double timeStep, size_t c
     // k_ rows, for count generators
     k_ = k;
     rows.upsize(k, count);
-    // Reversion data for rollbackDepth steps, one per generator
-    reversionData.upsize(rollbackDepth, count);
     // Exponents for generators
     exponent.resize(count);
     // Coefficints index in coefficients repository

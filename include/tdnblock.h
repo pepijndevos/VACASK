@@ -44,6 +44,7 @@ public:
     // By default this method should never be called
     virtual ShapeSetStatus setShapeParameters(size_t i, double p) { return ShapeSetStatus::Error; };
 
+    // time is the new time at which we should generate a sample
     virtual bool advance(double time, URBG& gen) = 0;
     virtual bool revert(double time, URBG& gen) = 0;
 
