@@ -30,20 +30,6 @@ include "cornerHBT.lib" section=hbt_typ
 model vsrc  vsource
 model isrc  isource
 
-subckt colpitts_osc()
-    vcc_src  (vcc 0)    vsrc                 dc=1.2
-    r_b1     (vcc base) sg13g2_default_mod_r r=3k
-    r_b2     (base 0)   sg13g2_default_mod_r r=10k
-    c_bypass (base 0)   sg13g2_default_mod_c c=100p
-    l1       (vcc col)  sg13g2_default_mod_l l=10n
-    c1       (col em)   sg13g2_default_mod_c c=6.3p
-    c2       (em 0)     sg13g2_default_mod_c c=6.3p
-    r_em     (em 0)     sg13g2_default_mod_r r=100
-    q1       (col base em 0) npn13G2
-    // Kick at t=0.2 ns to start oscillation in transient
-    i_kick   (col 0)    isrc type="pulse" val0=0 val1=1m rise=0.05n fall=0.05n width=0.5n delay=0.2n
-ends
-
 subckt colpitts_osc_pss()
     vcc_src  (vcc 0)    vsrc                 dc=1.2
     r_b1     (vcc base) sg13g2_default_mod_r r=3k
@@ -56,9 +42,6 @@ subckt colpitts_osc_pss()
     q1       (col base em 0) npn13G2
     // Kick at 1.5 ns: fires during Tstab (circuit at correct OP, kicks LC tank)
     //   but NOT during the 1.117 ns PSS shooting window.
-    // Root cause of old delay=200n: ic=["col";0.9] overcharged C2, pulling V_em
-    // to 0.67 V → V_BE=0.25 V → HBT cut off → gm≈0 → no loop gain → kick decayed.
-    // Fix: start stabilisation from icmodeOp (no ic= in analysis) so V_em≈0.22 V,
     // gm≈85 mS, loop gain >> 1, and oscillation grows after the 1.5 ns kick.
     i_kick   (col 0)    isrc type="pulse" val0=0 val1=1m rise=0.05n fall=0.05n width=0.5n delay=1.5n
 ends
@@ -78,7 +61,7 @@ control
     // --- PSS: autonomous circuit (kick disabled), ic perturbs col ---
     elaborate circuit("colpitts_osc_pss")
     save default
-    analysis pss1 pss Tper=1.117e-9 Tstab=300e-8 EpsMax=1e-6 MaxItr=500 writestab=1
+    analysis pss1 pss Tper=1.117e-9 Tstab=100e-8 EpsMax=1e-6 MaxItr=1000 writestab=1
 
     postprocess(PYTHON, "runme.py")
 endc
