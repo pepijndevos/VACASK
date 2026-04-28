@@ -98,9 +98,10 @@ void TranNRSolver::enableNoise(
     // Device/model/instance loops
     // Must traverse in exactly the same order each time at noise load. 
     noiseEnabled = true;
-    
-    // Maximal number of noise sources per instance
-    maxNsCount_ = maxNsCount;
+
+    // Preallocate temporary storage for noise power and exponent
+    noisePower.resize(maxNsCount);
+    noiseExponent.resize(maxNsCount);
     
     // Turn on noise evaluation in evalSetup_
     evalSetup_.evaluateNoise = true;
@@ -112,25 +113,6 @@ void TranNRSolver::disableNoise() {
     noiseEnabled = false; 
     evalSetup_.evaluateNoise = true;
 };
-
-// for ZOH
-// advanceNoise() 
-// - if ZOH boundary crossed
-//   - rotates history
-//   - computes new normalized noise sample 
-//
-// revertNoise()
-// - if ZOH boundary crossed
-//   - goes back to previous normalized noise sample 
-
-// for SDE
-// advanceNoise() 
-// - rotates noise history
-// - recomputes normalized noise sample based on new timestep
-//
-// revertNoise()
-// - recomputes normalized noise sample based shortened timestep
-
 
 std::tuple<bool, bool> TranNRSolver::advanceNoise(double time, std::mt19937_64& gen) {
     bool changed = false;
@@ -170,14 +152,6 @@ bool TranNRSolver::collectNoiseScaling() {
     size_t atWhite = 0;
     size_t atFlicker = 0;
     
-    // These two will hopefully be elided to stack
-    // TODO: use a stack-based container
-    // need to allocate here beacause in the future 
-    // if we use OpenMP these will be thread-local variables. 
-    // TODO: check all classes for persistent storage, mark it for replacement
-    RealVector noisePower(maxNsCount_);
-    RealVector noiseExponent(maxNsCount_);
-
     auto ndev = circuit.deviceCount();
     for(decltype(ndev) idev=0; idev<ndev; idev++) {
         auto dev = circuit.device(idev);
@@ -250,14 +224,6 @@ bool TranNRSolver::buildNoiseResidual() {
     
     size_t atWhite = 0;
     size_t atFlicker = 0;
-    
-    // These two will hopefully be elided to stack
-    // TODO: use a stack-based container
-    // need to allocate here beacause in the future 
-    // if we use OpenMP these will be thread-local variables. 
-    // TODO: check all classes for persistent storage, mark it for replacement
-    RealVector noisePower(maxNsCount_);
-    RealVector noiseExponent(maxNsCount_);
     
     auto whiteSamples = whiteBlock->values();
     auto flickerSamples = flickerBlock->values();

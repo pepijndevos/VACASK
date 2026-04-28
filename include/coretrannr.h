@@ -75,7 +75,10 @@ private:
     Vector<double> whiteScaling;
     Vector<double> flickerScaling;
     Vector<double> noiseResidual;
-    size_t maxNsCount_;
+    
+    // Make these thread-local when OpenMP is introduced
+    RealVector noisePower;
+    RealVector noiseExponent;
 
 protected:
     TranNRSolverError lastTranNRError;
