@@ -1605,7 +1605,7 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
 
             // Advance transient noise generators
             if (noisefmax) {
-                auto [ok, changed] = nrSolver.advanceNoise(tk, randomGenerator);
+                auto [ok, changed] = nrSolver.advanceNoise(tSolveNew, randomGenerator);
                 if (!ok) {
                     setError(TranError::NRSolver);
                     co_yield CoreState::Aborted;
@@ -1647,7 +1647,7 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
 
             // Revert transient noise generators
             if (noisefmax) {
-                nrSolver.revertNoise(tk, randomGenerator);
+                nrSolver.revertNoise(tSolveNew, randomGenerator);
             }
         }
 

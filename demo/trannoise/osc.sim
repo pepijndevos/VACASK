@@ -48,15 +48,15 @@ control
 
   // Steady state, noisy
   // We don't care about 1/f noise fidelity at high frequencies, so oversample=1
-  // analysis tran3 tran (
-  //   stop=periods/fmin maxstep=1.0/(fmax*ptsper) ic="ss" icmode="uic" 
-  //   noisefmax=fmax noisefmin=fmin oversample=1
-  // )
+  analysis tran3 tran (
+    stop=periods/fmin maxstep=1.0/(fmax*ptsper) ic="ss" icmode="uic" 
+    noisefmax=fmax noisefmin=fmin oversample=1
+  )
 
   // Steady state, no noise (reference)
-  // analysis tran4 tran (
-  //   stop=periods/fmin maxstep=1.0/(fmax*ptsper) ic="ss" icmode="uic" 
-  // )
+  analysis tran4 tran (
+    stop=periods/fmin maxstep=1.0/(fmax*ptsper) ic="ss" icmode="uic" 
+  )
   
   postprocess(PYTHON, "runme.py")
 endc
