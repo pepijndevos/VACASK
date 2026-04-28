@@ -13,7 +13,7 @@ namespace NAMESPACE {
 // All generators should use the same random generator (gen). 
 // It is the user's responsibility to seed the generator.
 // All generators have the same number of Voss-McCartney rows
-template <std::uniform_random_bit_generator URBG> class TimeDomainZohFlickerNoise : public TimeDomainNoiseBlock<URBG> {
+template <std::uniform_random_bit_generator URBG> class TimeDomainZohFlickerNoise : public TimeDomainZohNoiseBlock<URBG> {
 public:
     TimeDomainZohFlickerNoise() {};
 

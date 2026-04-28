@@ -6,7 +6,7 @@ namespace NAMESPACE {
 
 template <std::uniform_random_bit_generator URBG> 
 void TimeDomainZohFlickerNoise<URBG>::reset(double t0, double timeStep, size_t count, int rollbackDepth, int k) {
-    TimeDomainNoiseBlock<URBG>::reset(t0, timeStep, count, rollbackDepth);
+    TimeDomainZohNoiseBlock<URBG>::reset(t0, timeStep, count, rollbackDepth);
     // k_ rows, for count generators
     k_ = k;
     rows.upsize(k, count);
