@@ -51,7 +51,7 @@ template <std::uniform_random_bit_generator URBG> bool TimeDomainNoiseBlock<URBG
             throw std::logic_error("Insufficient history for reverting.");
         } else {
             // Go backward
-            atHistoric -= 1;
+            atHistoric += 1;
         }
         atSample_ = index;
         return true;
