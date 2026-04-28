@@ -1,0 +1,126 @@
+Single tone driven PSS of a resistive circuit
+
+ground 0 
+
+load "nl3.va"
+
+model vsource vsource
+model nl3 nl3
+
+v1 (1 0) vsource dc=0 type="sine" sinedc=0.0 ampl=1 freq=1k
+nl1 (1 0) nl3
+
+// Excitation 
+//   x = sin(t)
+// Nonlinearity 
+//   0.5+x^3
+// Response
+//   0.5 + sin(t)**3 = 0.5 + 3/4 sin(t) - 1/4 sin(3t)
+// Spectrum of response
+//   mag   0.5 0.75 0 0.25
+//   phase 0   -90  0 +90
+
+control
+  abort always
+  options tran_method="gear"
+  analysis pss1 pss Driven=1 Tper=1m Tstab=10m EpsMax=1e-6 MaxItr=500 writestab=1
+  
+  postprocess(PYTHON, "runme.py")
+endc
+
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+from runtest import *
+import numpy as np
+import sys
+
+# -------------------------------------------------------------------
+# Transient results
+# -------------------------------------------------------------------
+plot  = rawread('pss1_stabtran.raw').get()
+t     = plot['time']
+v1    = plot['1']
+i1    = -plot['v1:flow(br)']
+
+tests = []
+
+status = bool(np.all(np.isfinite(v1)) and len(t) > 10)
+tests.append(status)
+print(f"Tran: simulation completed ({len(t)} points): {status}")
+
+n_half = len(t) // 2
+i1_2h  = i1[n_half:]
+amp_pp = float(np.max(i1_2h) - np.min(i1_2h))
+status = amp_pp > 0.01
+tests.append(status)
+print(f"Tran: peak-to-peak in 2nd half = {amp_pp*1e3:.1f} mA (expect > 10 mA): {status}")
+
+# -------------------------------------------------------------------
+# PSS results (gracefully skipped if PSS not yet converging)
+# -------------------------------------------------------------------
+pss_ok = False
+try:
+    ppss  = rawread('pss1.raw').get()
+    tp    = ppss['time']
+    vp    = ppss['1']
+    ip    = -ppss['v1:flow(br)']
+    T0    = float(tp[-1] - tp[0])
+    f0    = 1.0 / T0
+    ipp   = float(ip.max() - ip.min())
+    print(f"PSS:  converged T0={T0:.4e} s  f0={f0:.1f} Hz  Ipp={ipp*1e3:.0f} mA")
+    pss_ok = True
+except Exception as e:
+    print(f"PSS:  not available ({e})")
+
+status = pss_ok
+tests.append(status)
+print(f"PSS:  converged: {status}")
+
+# -------------------------------------------------------------------
+# Spectrum from PSS waveform (exact harmonics, no leakage)
+# -------------------------------------------------------------------
+if pss_ok:
+    N_fft  = 1024
+    tp_uni = np.linspace(float(tp[0]), float(tp[0]) + T0, N_fft, endpoint=False)
+    ip_uni = np.interp(tp_uni, tp, ip)
+    fmag   = np.abs(np.fft.rfft(ip_uni)) * (2.0 / N_fft)
+    fmag[0] /= 2                             # DC bin is one-sided already
+    freqs  = np.arange(len(fmag)) * f0      # harmonic frequencies in Hz
+    iph = np.angle(np.fft.rfft(ip_uni)) * 180 / np.pi
+
+    # Expected: DC=0.5, f0=0.75, 2f0=0, 3f0=0.25
+    h1_amp = float(fmag[1])
+    h3_amp = float(fmag[3])
+    print(f"PSS:  H1 amplitude = {h1_amp:.4f} (expect 0.75)")
+    print(f"PSS:  H3 amplitude = {h3_amp:.4f} (expect 0.25)")
+
+if isTest():
+    sys.exit(not all(tests))
+elif pss_ok:
+    import matplotlib.pyplot as plt
+
+    n_panels = 3
+    fig, axes = plt.subplots(n_panels, 1, figsize=(9, 4 * n_panels), constrained_layout=True)
+    fig.suptitle("Single tone driven PSS of a resistive circuit")
+
+    axes[0].plot(tp * 1e3, ip, lw=1.2, color='C1')
+    axes[0].axhline(ip[0], ls='--', alpha=0.2)
+    axes[0].set_xlabel("time [ms]")
+    axes[0].set_ylabel("I(1) [A]")
+    axes[0].set_title(f"PSS periodic response  f0={f0:.1f} Hz")
+
+    axes[1].stem(freqs / 1e3, fmag)
+    axes[1].set_xlabel("frequency [kHz]")
+    axes[1].set_ylabel("|FFT| amplitude [A]")
+    axes[1].set_xlim(left=-1, right=12.5)
+    axes[1].set_title("PSS spectrum")
+
+    axes[2].stem(freqs / 1e3, iph)
+    axes[2].set_xlabel("frequency [kHz]")
+    axes[2].set_ylabel("Phase [deg]")
+    axes[2].set_xlim(left=-1, right=12.5)
+    axes[2].set_title("PSS spectrum (phase)")
+
+    plt.show()
+>>>FILE
