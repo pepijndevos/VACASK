@@ -47,13 +47,14 @@ control
     options temp=27
     options rawfile="binary" strictsave=1
     options reltol=1e-4 abstol=1e-12 vntol=1e-6
+    options pss_debug=1
     // Default tran_method="trap" is rejected by integrateSensitivity().
     options tran_method="gear"
 
     // --- PSS: autonomous circuit, i_kick perturbs the tank during Tstab ---
     elaborate circuit("colpitts_osc_pss")
     save default
-    analysis pss1 pss Tper=1.117e-9 Tstab=300e-8 EpsMax=1e-6 MaxItr=500 writestab=1
+    analysis pss1 pss Tper=1.117e-9 Tstab=300e-8 epsmax=1e-6 maxitr=500 writestab=1
 
     postprocess(PYTHON, "runme.py")
 endc

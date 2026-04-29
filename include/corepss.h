@@ -39,7 +39,7 @@
 //
 //   Stabilise: integrate Tstab seconds from xDC to obtain x0.
 //
-//   For l = 0, 1, ..., MaxItr:
+//   For l = 0, 1, ..., maxitr:
 //
 //     Shoot: set solution = x0, run pssTran_ for T0 seconds.
 //            pssTran_ collects G(t) and C(t) via onTimestepAccepted().
@@ -47,7 +47,7 @@
 //
 //     Residual: Fp = x0 - xT
 //
-//     Converged? if norm(Fp) < EpsMax, store result and return.
+//     Converged? if norm(Fp) < epsmax, store result and return.
 //
 //     Sensitivity: call pssTran_.integrateSensitivity() to obtain:
 //       PhiT  - n x n state-transition matrix dxT/dx0
@@ -80,47 +80,22 @@
 namespace NAMESPACE {
 
 typedef struct PssParameters {
-    // Non-autonomous (driven) circuit flag. Determines wether the augmented Jacobian is used.
-    Int  Driven {0};
+    Int  driven {0};            // Non-autonomous (driven) circuit
+    Real Tper   {0.0};          // Initial period guess
+    Real Tstab  {0.0};          // Stabilization transient time
+    Int  maxitr {20};           // Maximum iterations before aborting
+    Real epsmax {1e-12};        // Convergence tolerance
+    Int  write  {1};            // Write output datasets
+    Int  writestab {0};         // Write the stabilization transient plot
+    Value ic {Value("")};       // Initial conditions
 
-    // Initial period guess in seconds. Required.
-    // The Newton loop converges to the true period starting from this value.
-    Real Tper   {0.0};
-
-    // Stabilisation time in seconds before shooting begins.
-    // Must be long enough for initial transients to decay.
-    // Recommended: Tstab >= 10 * Tper.
-    Real Tstab  {0.0};
-
-    // Maximum number of shooting Newton iterations.
-    Int  MaxItr {20};
-
-    // Convergence tolerance on the shooting residual norm(x0 - xT).
-    Real EpsMax {1e-12};
-
-    // Write output datasets (1) or suppress output (0).
-    Int  write  {1};
-
-    // Write the stabilisation transient to <name>_stabtran.raw (1) or suppress (0).
-    Int  writestab {0};
-
-    // Initial conditions for the stabilisation transient.
-    // Same format as TranParameters::ic: a list ["node"; value; ...].
-    // When non-empty, the stabilisation transient uses icmodeUic so the
-    // oscillation can start away from the (potentially degenerate) DC
-    // operating point.  Example: ic=["1"; 0.9] sets V(1)=0.9 at t=0.
-    Value ic {Value("")};
-
-    // Parameters forwarded to the operating point core.
+    // Parameters forwarded to subsidiary cores
     OperatingPointParameters opParams;
-
-    // Parameters forwarded to the stabilisation and shooting transients.
-    // PssCore fills step, stop, and maxstep automatically from Tper and Tstab.
     TranParameters stabilParams;
 
     PssParameters() {
-        opParams.write    = 0;
-        stabilParams.write = 0;
+        opParams.write      = 0;
+        stabilParams.write  = 0;
     }
 } PssParameters;
 
@@ -135,6 +110,8 @@ public:
         SensitivityFailed,
         LinearSolveFailed,
         OutputError,
+        TperInvalid,
+        SingularJacobian,
     };
 
     PssCore(
@@ -157,7 +134,7 @@ public:
     PssCore& operator=(const PssCore&)  = delete;
     PssCore& operator=(      PssCore&&) = delete;
 
-    // AnalysisCore interface
+    // Format error, return false on error - this function is not cheap (works with strings)
     bool formatError(Status& s = Status::ignore) const;
 
     bool addCoreOutputDescriptors();
@@ -193,24 +170,18 @@ public:
     const Vector<double>& convergedInitialCondition() const { return x0_converged_; }
 
 protected:
-    void clearError() { AnalysisCore::clearError(); lastPssError_ = PssError::OK; }
-    void setError(PssError e) { lastPssError_ = e; lastError = Error::OK; }
+    // Clear error
+    void clearError() { AnalysisCore::clearError(); lastPssError = PssError::OK; }
 
-    PssError lastPssError_;
+    void setError(PssError e) { lastPssError = e; lastError = Error::OK; }
+    PssError lastPssError;
+    Id errorId;
 
-    // Jacobian and solution/state repositories shared by all cores.
-    // Owned by the enclosing PSS analysis and passed here by reference.
-    KluRealMatrix&              jac_;
-    VectorRepository<double>&   solution_;
-    VectorRepository<double>&   states_;
+    KluRealMatrix& jacobian;            // Resistive Jacobian
+    VectorRepository<double>& solution; // Solution history
+    VectorRepository<double>& states;   // Circuit states
 
-    // Cores owned by the enclosing Pss analysis and passed here by reference.
-    OperatingPointCore& opCore_;
-    TranCore&           stabilTran_;
-    PssTranCore&        pssTran_;
-
-    // Output file handle for the converged PSS trajectory.
-    OutputRawfile* outfile_;
+    OutputRawfile* outfile;
 
     // Converged results. Populated on successful run().
     double         T0_converged_;
@@ -220,7 +191,11 @@ protected:
     Id name_;
 
 private:
-    PssParameters& params_;
+    OperatingPointCore& opCore_;
+    TranCore&           stabilTran_;
+    PssTranCore&        pssTran_;
+
+    PssParameters&      params;
 
     // Run the DC operating point and the stabilisation transient.
     // On return, solution_.vector() holds the initial guess x0 for the

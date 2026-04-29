@@ -22,8 +22,8 @@ public:
 
     virtual void dump(std::ostream& os) const;
 
-    virtual Parameterized& parameters() { return params_; }
-    virtual const Parameterized& parameters() const { return params_; }
+    virtual Parameterized& parameters() { return params; }
+    virtual const Parameterized& parameters() const { return params; }
 
     // Factory function registered with the analysis dispatcher.
     static Analysis* create(PTAnalysis& ptAnalysis, Circuit& circuit, Status& s=Status::ignore);
@@ -52,7 +52,7 @@ protected:
     virtual bool deleteOutputs(Status& s=Status::ignore);
 
 private:
-    IStruct<PssParameters> params_;
+    IStruct<PssParameters> params;
 
     KluRealMatrix            jac_;
     VectorRepository<double> solution_;

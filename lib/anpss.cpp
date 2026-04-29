@@ -15,10 +15,10 @@ namespace NAMESPACE {
 
 Pss::Pss(Id name, Circuit& circuit, PTAnalysis& ptAnalysis)
     : Analysis(name, circuit, ptAnalysis),
-      opCore_(*this, params_.core().opParams, circuit, commons, jac_, solution_, states_),
-      stabilTran_(*this, params_.core().stabilParams, opCore_, circuit, commons, jac_, solution_, states_),
-      pssTran_(*this, params_.core().stabilParams, opCore_, circuit, commons, jac_, solution_, states_),
-      pssCore_(*this, params_.core(), circuit, commons, jac_, solution_, states_, opCore_, stabilTran_, pssTran_) {
+      opCore_(*this, params.core().opParams, circuit, commons, jac_, solution_, states_),
+      stabilTran_(*this, params.core().stabilParams, opCore_, circuit, commons, jac_, solution_, states_),
+      pssTran_(*this, params.core().stabilParams, opCore_, circuit, commons, jac_, solution_, states_),
+      pssCore_(*this, params.core(), circuit, commons, jac_, solution_, states_, opCore_, stabilTran_, pssTran_) {
 }
 
 Analysis* Pss::create(PTAnalysis& ptAnalysis, Circuit& circuit, Status& s) {
@@ -27,7 +27,7 @@ Analysis* Pss::create(PTAnalysis& ptAnalysis, Circuit& circuit, Status& s) {
 
 void Pss::clearOutputDescriptors() {
     // Suppress operating-point output; the PSS trajectory is what is saved.
-    params_.core().opParams.write = 0;
+    params.core().opParams.write = 0;
     pssCore_.clearOutputDescriptors();
 }
 
@@ -121,7 +121,7 @@ bool Pss::deleteOutputs(Status& s) {
 std::tuple<bool, bool> Pss::preMapping(Status& s) {
     // Forward IC and icmode to stabilParams so stabilTran_.preMapping()
     // sees them and populates preprocessedIc before rebuild() is called.
-    auto& core = params_.core();
+    auto& core = params.core();
     bool hasIc = (core.ic.type() == Value::Type::ValueVec);
     if (hasIc) {
         core.stabilParams.ic     = core.ic;
@@ -132,9 +132,27 @@ std::tuple<bool, bool> Pss::preMapping(Status& s) {
 }
 
 bool Pss::rebuildCores(Status& s) {
-    // PssCore::rebuild() handles jac, opCore_, stabilTran_, and pssTran_ in
-    // the correct dependency order.
-    return pssCore_.rebuild(s);
+    // Create Jacobian - it is common to PSS, Op and tran core, so we need to rebuild it here
+    if (!jac_.rebuild(circuit.sparsityMap(), circuit.unknownCount())) {
+        jac_.formatError(s);
+        return false;
+    }
+
+    // First rebuild the stabilTran core because its rebuild function stores ICs 
+    // in slot 2 of opCore's nrSolver's forces. 
+    if (!stabilTran_.rebuild(s)) {
+        return false;
+    }
+    if (!opCore_.rebuild(s)) {
+        return false;
+    }
+    if (!pssTran_.rebuild(s)) {
+        return false;
+    }
+    if (!pssCore_.rebuild(s)) {
+        return false;
+    }
+    return true;
 }
 
 void Pss::dump(std::ostream& os) const {

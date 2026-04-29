@@ -1,9 +1,6 @@
-// corepss.cpp
-//
-// PssCore implementation.
-// See corepss.h for design description and algorithm outline.
-
 #include "corepss.h"
+#include "core.h"
+#include "densematrix.h"
 #include "simulator.h"
 #include "common.h"
 #include <cmath>
@@ -17,11 +14,11 @@ namespace NAMESPACE {
 // ----------------------------------------------------------------
 
 template<> int Introspection<PssParameters>::setup() {
-    registerMember(Driven);
+    registerMember(driven);
     registerMember(Tper);
     registerMember(Tstab);
-    registerMember(MaxItr);
-    registerMember(EpsMax);
+    registerMember(maxitr);
+    registerMember(epsmax);
     registerMember(write);
     registerMember(writestab);
     registerMember(ic);
@@ -79,20 +76,20 @@ PssCore::PssCore(
     TranCore& stabilTran,
     PssTranCore& pssTran
 ) : AnalysisCore(parentResolver, circuit, commons),
-    params_(params),
-    jac_(jacobian),
-    solution_(solution),
-    states_(states),
+    params(params),
+    jacobian(jacobian),
+    solution(solution),
+    states(states),
     opCore_(opCore),
     stabilTran_(stabilTran),
     pssTran_(pssTran),
-    outfile_(nullptr),
+    outfile(nullptr),
     T0_converged_(0.0)
 {
 }
 
 PssCore::~PssCore() {
-    delete outfile_;
+    delete outfile;
 }
 
 
@@ -100,21 +97,10 @@ PssCore::~PssCore() {
 // AnalysisCore interface - boilerplate, delegates to pssTran_
 // ----------------------------------------------------------------
 
-bool PssCore::addCoreOutputDescriptors() {
-    // pssTran_ gates descriptor registration on params.write, but stabilParams.write
-    // is 0 here (it stays 0 during Newton iterations and is only raised to 1 just
-    // before the final output shoot).  Temporarily set it to the PSS-level write flag
-    // so that TranCore::addCoreOutputDescriptors() registers the time descriptor.
-    params_.stabilParams.write = params_.write;
-    bool ok = pssTran_.addCoreOutputDescriptors();
-    params_.stabilParams.write = 0;
-    return ok;
-}
-
 bool PssCore::addDefaultOutputDescriptors() {
-    params_.stabilParams.write = params_.write;
+    params.stabilParams.write = params.write;
     bool ok = pssTran_.addDefaultOutputDescriptors();
-    params_.stabilParams.write = 0;
+    params.stabilParams.write = 0;
     return ok;
 }
 
@@ -122,24 +108,16 @@ bool PssCore::resolveOutputDescriptors(bool strict, Status& s) {
     return pssTran_.resolveOutputDescriptors(strict);
 }
 
+bool PssCore::addCoreOutputDescriptors() {
+    params.stabilParams.write = params.write;
+    bool ok = pssTran_.addCoreOutputDescriptors();
+    params.stabilParams.write = 0;
+    return ok;
+}
+
 bool PssCore::rebuild(Status& s) {
-    if (!jac_.rebuild(circuit.sparsityMap(), circuit.unknownCount())) {
-        jac_.formatError(s);
-        return false;
-    }
-    // Rebuild stabilTran_ first: its rebuild populates IC force slot 2
-    // of opCore_ which opCore_.rebuild() depends on.
-    if (!stabilTran_.rebuild(s)) {
-        return false;
-    }
-    if (!opCore_.rebuild(s)) {
-        return false;
-    }
-    if (!pssTran_.rebuild(s)) {
-        return false;
-    }
-    if (params_.writestab) {
-        params_.stabilParams.write = 1;
+    if (params.writestab) {
+        params.stabilParams.write = 1;
         stabilTran_.addCoreOutputDescriptors();
         stabilTran_.addDefaultOutputDescriptors();
         stabilTran_.resolveOutputDescriptors(false);
@@ -168,11 +146,11 @@ bool PssCore::deleteOutputs(Id name, Status& s) {
 }
 
 bool PssCore::formatError(Status& s) const {
-    switch (lastPssError_) {
+    switch (lastPssError) {
         case PssError::NoConvergence:
             s.set(Status::Analysis,
                   "PSS failed to converge in " +
-                  std::to_string(params_.MaxItr) + " iterations.");
+                  std::to_string(params.maxitr) + " iterations.");
             return false;
         case PssError::StabilisationFailed:
             s.set(Status::Analysis, "PSS stabilisation transient failed.");
@@ -207,205 +185,202 @@ void PssCore::dump(std::ostream& os) const {
 // ----------------------------------------------------------------
 
 bool PssCore::run(bool continuePrevious) {
-    clearError();
-
-    Status s;
-
-    if (params_.Tper <= 0) {
-        s.set(Status::Analysis, "PSS: Tper must be greater than zero.");
-        return false;
-    }
-    if (params_.Tstab < 10.0 * params_.Tper) {
-        Simulator::wrn() << "PSS: Tstab < 10 * Tper. "
-                            "Oscillator may not have settled.\n";
-    }
-
-    // Stabilisation transient. On return, solution_.vector() = x0.
-    if (!runStabilisation(s)) {
-        setError(PssError::StabilisationFailed);
-        return false;
-    }
-
-    Vector<double> x0 = solution_.vector();
-    double T0 = params_.Tper;
-
-    {
-        std::stringstream ss;
-        ss << std::scientific << std::setprecision(6) << T0;
-        if (params_.Driven) {
-            Simulator::dbg() << "PSS: Newton loop starting \n";
-        } else {
-            Simulator::dbg() << "PSS: Newton loop starting, T0 initial = "
-                            + ss.str() + " s\n";
+    auto c = coroutine(continuePrevious);
+    bool ok = true;
+    while (!c.done()) {
+        if (c.resume() == CoreState::Aborted) {
+            ok = false;
+            break;
         }
     }
+    return ok;
 
-    DenseMatrix<double> PhiT;
-    Vector<double>      PsiT;
-
-    for (int l = 0; l <= params_.MaxItr; l++) {
-
-        // Load x0 as the shooting initial condition and clear the
-        // trajectory so onTimestepAccepted() starts fresh.
-        solution_.vector() = x0;
-        pssTran_.setShootIC(x0);
-        pssTran_.clearTrajectory();
-
-        {
-            std::stringstream ss;
-            ss << std::scientific << std::setprecision(4);
-            ss << "PSS: shoot l=" << l << " x0=[";
-            auto n = circuit.unknownCount();
-            for (decltype(n) i = 1; i <= n; i++) ss << " " << x0[i];
-            ss << " ]\n";
-            Simulator::dbg() << ss.str();
-        }
-
-        // Shoot one period T0 from x0. On return solution_ = xT.
-        if (!runShoot(T0, s)) {
-            setError(PssError::ShootFailed);
-            return false;
-        }
-
-        Vector<double> xT = solution_.vector();
-
-        {
-            std::stringstream ss;
-            ss << std::scientific << std::setprecision(4);
-            ss << "PSS: shoot l=" << l << " xT=[";
-            auto n = circuit.unknownCount();
-            for (decltype(n) i = 1; i <= n; i++) ss << " " << xT[i];
-            ss << " ]\n";
-            Simulator::dbg() << ss.str();
-        }
-        
-        {
-            std::stringstream ss;
-            ss << std::scientific << std::setprecision(4);
-            ss << "PSS: shoot l=" << l << " x(T-1)=[";
-            auto n = circuit.unknownCount();
-            for (decltype(n) i = 1; i <= n; i++) ss << " " << solution_.pastVector()[i];
-            ss << " ]\n";
-            Simulator::dbg() << ss.str();
-        }
-
-        {
-            std::stringstream ss;
-            ss << std::scientific << std::setprecision(4);
-            ss << "PSS: shoot l=" << l << " x(T-1) - x(T)=[";
-            auto n = circuit.unknownCount();
-            for (decltype(n) i = 1; i <= n; i++) ss << " " << solution_.pastVector()[i] - xT[i];
-            ss << " ]\n";
-            Simulator::dbg() << ss.str();
-        }
-        
-
-        // Shooting residual Fp = x0 - xT.
-        auto n = circuit.unknownCount();
-        Vector<double> Fp(n + 1, 0.0);
-        double eps = 0.0;
-        for (decltype(n) i = 1; i <= n; i++) {
-            Fp[i] = x0[i] - xT[i];
-            eps = std::max(eps, std::abs(Fp[i]));
-        }
-        
-        {
-            std::stringstream ss;
-            ss << std::scientific << std::setprecision(4);
-            ss << "PSS: shoot l=" << l << " Fp=[";
-            auto n = circuit.unknownCount();
-            for (decltype(n) i = 1; i <= n; i++) ss << " " << Fp[i];
-            ss << " ]\n";
-            ss << "  epsilon=" << eps << "\n";
-            Simulator::dbg() << ss.str();
-        }
-
-        if (eps < params_.EpsMax) {
-            T0_converged_ = T0;
-            x0_converged_ = x0;
-            Simulator::dbg() << "PSS: converged in " + std::to_string(l)
-                             + " iterations, f0="
-                             + std::to_string(1.0 / T0) + " Hz\n";
-
-            // Write the converged periodic steady-state waveform.
-            // Open the raw file now (not at initializeOutputs time) so that
-            // only the single converged trajectory is recorded.
-            if (params_.write && !Simulator::noOutput()) {
-                params_.stabilParams.write = 1;
-                if (!pssTran_.initializeOutputs(name_, s)) {
-                    setError(PssError::OutputError);
-                    return false;
-                }
-                solution_.vector() = x0;
-                pssTran_.setShootIC(x0);
-                pssTran_.clearTrajectory();
-                if (!runShoot(T0, s)) {
-                    setError(PssError::ShootFailed);
-                    return false;
-                }
-                // pssTran_.finalizeOutputs() is called by the outer framework.
-            }
-
-            return true;
-        }
-
-        if (!runSensitivity(PhiT, PsiT, s)) {
-            setError(PssError::SensitivityFailed);
-            return false;
-        }
-
-        {
-            auto n = circuit.unknownCount();
-            std::stringstream ss;
-            ss << std::scientific << std::setprecision(4);
-            if (!params_.Driven) {
-                ss << "PSS: PsiT=[ ";
-                for (decltype(n) i = 1; i <= n; i++) ss << PsiT[i] << " ";
-                ss << "]\n";
-            }
-            ss << "PSS: PhiT=\n";
-            for (decltype(n) i = 0; i < n; i++) {
-                ss << "  [ ";
-                for (decltype(n) j = 0; j < n; j++) ss << PhiT.at(i, j) << " ";
-                ss << "]\n";
-            }
-            Simulator::dbg() << ss.str();
-        }
-
-        if (params_.Driven){
-            if (!solveNewtonStep(x0, xT, PhiT, s)) {
-                setError(PssError::LinearSolveFailed);
-                return false;
-            }
-        } else {
-            if (!solveAugmentedNewtonStep(x0, T0, xT, PhiT, PsiT, s)) {
-                setError(PssError::LinearSolveFailed);
-                return false;
-            }
-        }
-
-        if (!params_.Driven){
-            std::stringstream ss;
-            ss << std::scientific << std::setprecision(6);
-            ss << "PSS: updated T0=" << T0 << " s  f0=" << 1.0/T0 << " Hz\n";
-            ss << "PSS: updated x0=[ ";
-            auto n = circuit.unknownCount();
-            for (decltype(n) i = 1; i <= n; i++) ss << x0[i] << " ";
-            ss << "]\n";
-            Simulator::dbg() << ss.str();
-        }
-    }
-
-    setError(PssError::NoConvergence);
-    return false;
 }
 
 CoreCoroutine PssCore::coroutine(bool continuePrevious) {
+    // clearError();
+    // if (!run(continuePrevious)) {
+    //     co_yield CoreState::Aborted;
+    // }
+    // co_yield CoreState::Finished;
     clearError();
-    if (!run(continuePrevious)) {
+
+    auto& options = circuit.simulatorOptions().core();
+    auto debug = options.pss_debug;
+
+    auto n = circuit.unknownCount();
+
+    /// TODO: Move to private class members. Size correctly during rebuild.
+    DenseMatrix<double> PhiT;
+    Vector<double>      PsiT;
+    Vector<double>      Fp(n + 1, 0.0);
+    Vector<double>      alpha(n + 1, 0.0);
+    DenseMatrix<double> Jp(n + 1, n + 1);
+    double              epsilon = params.epsmax + 1;  // Make initial epsilon big enough
+
+    Int iterIndex = 0;
+    Vector<double>  x0;
+    Vector<double>  xT;
+    double          T0;
+
+    bool converged = false;
+
+    Status s;
+    std::stringstream ss;
+    ss << std::scientific << std::setprecision(4);
+
+    // Check parameters
+    if(params.Tper <= 0) {
+        setError(PssError::TperInvalid);
         co_yield CoreState::Aborted;
     }
+
+    if (params.Tstab < 10.0 * params.Tper) {
+        Simulator::wrn() << "PSS: Tstab < 10 * Tper. Oscillator may not have settled.\n";
+    }
+
+    // Stabilisation transient.
+    if (!runStabilisation(s)) {
+        setError(PssError::StabilisationFailed);
+        co_yield CoreState::Aborted;
+    }
+
+    // x_0^(0) is the state of the circuit after running the stabilisation transient
+    x0 = solution.vector();
+    T0 = params.Tper;
+
+    // Obtain x_T^(0) by running a transient simulation for T_0 seconds
+    solution.vector() = x0;
+    pssTran_.setShootIC(x0);
+    pssTran_.clearTrajectory();
+    if (!runShoot(T0, s)) {
+        setError(PssError::ShootFailed);
+        co_yield CoreState::Aborted;
+    }
+    xT = solution.vector();
+
+    // PSS-SHOOT main loop (outer NR)
+    while (iterIndex <= params.maxitr && epsilon > params.epsmax) {
+
+        if (debug>0){
+            ss.str(""); 
+            ss << "PSS: shoot l=" << iterIndex << "\n";
+            ss << "\tx0=[";
+            auto n = circuit.unknownCount();
+            for (decltype(n) i = 1; i <= n; i++) ss << " " << x0[i];
+            ss << " ]\n" << "\txT=[";
+            for (decltype(n) i = 1; i <= n; i++) ss << " " << xT[i];
+            ss << " ]\n";
+            if (!params.driven) {
+                ss << "\tT0=" << T0 << "\n";
+            }
+            Simulator::dbg() << ss.str();
+        }
+
+        // Obtain sensitivity matrices
+        if (!runSensitivity(PhiT, PsiT, s)) {
+            setError(PssError::SensitivityFailed);
+            co_yield CoreState::Aborted;
+        }
+        if (debug>0) {
+            ss.str(""); 
+            auto n = circuit.unknownCount();
+            ss << "\tPhiT=\n";
+            for (decltype(n) i = 0; i < n; i++) {
+                ss << "\t  [ ";
+                for (decltype(n) j = 0; j < n; j++) ss << PhiT.at(i, j) << " ";
+                ss << "]\n";
+            }
+            if(!params.driven) {
+                ss << "\tPsiT=[ ";
+                for (decltype(n) i = 1; i <= n; i++) ss << PsiT[i] << " ";
+                ss << "]\n";
+            }
+            Simulator::dbg() << ss.str();
+        }
+
+        // Compute the residual
+        for (decltype(n) i = 0; i < n; i++) {
+            // skip the bucket at x[0]
+            Fp[i] = x0[i + 1] - xT[i + 1];
+        }
+
+        // Jacobian: I - PhiT
+        for (decltype(n) i = 0; i < n; i++) {
+            for (decltype(n) j = 0; j < n; j++) {
+                Jp.at(i, j) = (i == j ? 1.0 : 0.0) - PhiT.at(i, j);
+            }
+        }
+
+        // Compute phase constraint for autonomous circuits
+        /// TODO: rewrite computePhaseConstraint without weird approximations
+        if (!params.driven){
+            computePhaseConstraint(x0, T0, PsiT, alpha);
+            if (debug>0){
+                ss.str(""); 
+                ss << "\talpha=[ ";
+                for (decltype(n) i = 0; i <= n; i++) ss << alpha[i] << " ";
+                ss << "]\n";
+                Simulator::dbg() << ss.str();
+            }
+            // Add alpha^Tx_0 to the Fp map
+            Fp[n] = 0;
+            //for (decltype(n) i = 0; i <= n; i++) Fp[n] += alpha[i] * x0[i];
+            // Augment the Jacobian
+            // Right column: PsiT
+            for (decltype(n) i = 0; i < n; i++) Jp.at(i, n) = PsiT[i + 1];
+            // Bottom row: alpha^T
+            for (decltype(n) j = 0; j < n; j++) Jp.at(n, j) = alpha[j + 1];
+        }
+        // If the circuit is driven, make sure Jp is not singular by setting the corner to 1
+        Jp.at(n, n) = params.driven ? 1.0 : 0.0;
+
+        // Solve the Newton step
+        VectorView<double> rhsView(Fp);
+        if (!Jp.destructiveSolve(rhsView)) {
+             setError(PssError::SingularJacobian);
+             co_yield CoreState::Aborted;
+        }
+        // Update x0 and T0
+        for (decltype(n) i = 0; i < n; i++) x0[i + 1] -= rhsView[i];
+        T0 -= params.driven ? 0.0 : rhsView[n];
+
+        // Get new xT
+        solution.vector() = x0;
+        pssTran_.setShootIC(x0);
+        pssTran_.clearTrajectory();
+        if (!runShoot(T0, s)) {
+            setError(PssError::ShootFailed);
+            co_yield CoreState::Aborted;
+        }
+        xT = solution.vector();
+
+        // Compute error using infinite-norm
+        epsilon = 0;
+        for (decltype(n) i = 1; i <= n; i++) {
+            epsilon = std::max(epsilon, std::abs(x0[i] - xT[i]));
+        }
+        if (debug>0){
+            ss.str(""); 
+            ss << "\tepsilon= " << epsilon << "\n";
+            Simulator::dbg() << ss.str();
+        }
+
+        if (epsilon < params.epsmax) {
+            // Converged
+            converged = true;
+            break;
+        } else {
+            iterIndex++;
+        }
+    } // end PSS-SHOOT main loop
+    
+    if (!converged) {
+        setError(PssError::NoConvergence);
+    }
+
     co_yield CoreState::Finished;
+    
 }
 
 
@@ -414,24 +389,24 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
 // ----------------------------------------------------------------
 
 bool PssCore::runStabilisation(Status& s) {
-    params_.stabilParams.step    = params_.Tper / 100.0;
-    params_.stabilParams.stop    = params_.Tstab;
-    params_.stabilParams.maxstep = params_.Tper / 10.0;
-    params_.stabilParams.start   = 0.0;
-    params_.stabilParams.write   = params_.writestab;
+    params.stabilParams.step    = params.Tper / 100.0;
+    params.stabilParams.stop    = params.Tstab;
+    params.stabilParams.maxstep = params.Tper / 10.0;
+    params.stabilParams.start   = 0.0;
+    params.stabilParams.write   = params.writestab;
 
     // icmode and ic were forwarded to stabilParams in Pss::preMapping().
     // If no IC was given, run the DC operating point now.
-    bool hasIc = (params_.ic.type() == Value::Type::ValueVec);
+    bool hasIc = (params.ic.type() == Value::Type::ValueVec);
     if (!hasIc) {
-        params_.stabilParams.icmode = TranCore::icmodeOp;
+        params.stabilParams.icmode = TranCore::icmodeOp;
         if (!opCore_.run(false)) {
             opCore_.formatError(s);
             return false;
         }
     }
 
-    bool writeStab = params_.writestab && !Simulator::noOutput();
+    bool writeStab = params.writestab && !Simulator::noOutput();
     Id stabName = Id(std::string(name_) + "_stabtran");
     if (writeStab) {
         if (!stabilTran_.initializeOutputs(stabName, s)) {
@@ -454,11 +429,11 @@ bool PssCore::runStabilisation(Status& s) {
 // ----------------------------------------------------------------
 
 bool PssCore::runShoot(double T0, Status& s) {
-    params_.stabilParams.stop    = T0;
-    params_.stabilParams.step    = T0 / 1e3;
-    params_.stabilParams.maxstep = T0 / 0.1e3;
-    params_.stabilParams.start   = 0.0;
-    params_.stabilParams.icmode  = TranCore::icmodeUic;
+    params.stabilParams.stop    = T0;
+    params.stabilParams.step    = T0 / 1e3;
+    params.stabilParams.maxstep = T0 / 0.1e3;
+    params.stabilParams.start   = 0.0;
+    params.stabilParams.icmode  = TranCore::icmodeUic;
     // write is left as-is: 0 during Newton iterations, 1 for the final output shoot.
 
     if (!pssTran_.run(false)) {
@@ -479,20 +454,21 @@ bool PssCore::runSensitivity(
     Status& s
 ) {
     auto n = circuit.unknownCount();
-    if (params_.Driven) {
-        if (!pssTran_.integrateSensitivity(PhiT)) {
-            s.set(Status::Analysis, "PSS sensitivity integration failed.");
-            return false;
-        }
-    } else {
+    if (!params.driven) {
         Vector<double> x_laststep(n, 0.0);
         for (int i=0; i < n; i++)
-            x_laststep[i] = solution_.pastVector()[i+1] - solution_.vector()[i+1];
+            x_laststep[i] = solution.pastVector()[i+1] - solution.vector()[i+1];
         if (!pssTran_.integrateAugmentedSensitivity(PhiT, PsiT, x_laststep)) {
             s.set(Status::Analysis, "PSS sensitivity integration failed.");
             return false;
         }
+    } else {
+        if (!pssTran_.integrateSensitivity(PhiT)) {
+            s.set(Status::Analysis, "PSS sensitivity integration failed.");
+            return false;
+        }
     }
+
     return true;
 }
 
@@ -580,17 +556,6 @@ bool PssCore::solveAugmentedNewtonStep(
     // Phase constraint vector.
     Vector<double> alpha(n + 1, 0.0);
     computePhaseConstraint(x0, T0, PsiT, alpha);
-    {
-        std::stringstream ss;
-        ss << std::scientific << std::setprecision(4);
-        ss << "PSS: alpha=\n";
-        ss << "  [ ";
-        for (decltype(n) i = 0; i <= n; i++) {
-            ss << alpha[i] << " ";
-        }
-        ss << "]\n";
-        Simulator::dbg() << ss.str();
-    }
 
     // Augmented (n+1) x (n+1) Newton system:
     //
@@ -723,15 +688,6 @@ void PssCore::computePhaseConstraint(
         norm += PsiT[i] * PsiT[i];
     }
     norm = std::sqrt(norm);
-
-    {
-        std::stringstream ss;
-        ss << std::scientific << std::setprecision(4);
-        ss << "PSS: computePhaseConstraint\n" << "\tPsiT=[";
-        for (decltype(n) i = 0; i < PsiT.size(); i++) ss << PsiT[i] << " ";
-        ss << "]  norm=" << norm << " s\n";
-        Simulator::dbg() << ss.str();
-    }
 
     if (norm > 0.0) {
         for (decltype(n) i = 1; i <= n; i++) {
