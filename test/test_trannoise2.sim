@@ -9,7 +9,7 @@ model resistor res
 model isource isource
 model capacitor capacitor
 
-r1 (1 0) resistor r=1k ef=1.5 pf=1e-20 // pw=1e-22
+r1 (1 0) resistor r=1k ef=1.0 pf=1e-20 // pw=1e-22
 i1 (0 1) isource dc=0
 
 control

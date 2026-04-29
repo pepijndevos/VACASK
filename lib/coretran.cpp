@@ -1,6 +1,10 @@
 #include "coretran.h"
 #include "an.h"
 #include "simulator.h"
+#include "tdnzohwhite.h"
+#include "tdnzohflicker.h"
+#include "tdnsdewhite.h"
+#include "tdnsdeflicker.h"
 #include "common.h"
 #include <filesystem>
 #include <algorithm>
@@ -217,7 +221,7 @@ TranParameters::TranParameters() {
     // Turn off output for op analysis
     opParams.write = 0; 
     icmode = TranCore::icmodeOp;
-    noisemode = TranCore::noiseZoh;
+    noisemode = TranCore::noiseSde;
 }
 
 template<> int Introspection<TranParameters>::setup() {
@@ -672,17 +676,8 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
         }
 
         // Check oversample
-        // Default for SDE mode
         double oversampling = params.oversample;
-        if (oversampling==0) {
-            if (params.noisemode==noiseZoh) {
-                // Use default 6 for ZOH mode
-                oversampling = 6;
-            } else {
-                // Use default 1 for SDE mode
-                oversampling = 1;
-            }
-        } else if (oversampling<1) {
+        if (oversampling<1) {
             setError(TranError::Oversample);
             co_yield CoreState::Aborted;
         }
@@ -703,49 +698,79 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
             co_yield CoreState::Aborted;
         }
 
-        // Compute number of VM rows for ZOH flicker noise generator
-        // First row changes with average rate fmax*oversample/2 because p=0.5. 
-        // Its corner frequency fc/fs = p/(2 pi) so fc = fs/(4 pi) ~ fs/12
-        // With oversampling rate 6 the corner will be approximately at fmax. 
-        // Add extra octaves (rows)
-        auto fcorner2 = fsampling/(4*pi);
-        // Number of rows is number of octaves + tran_extravmrows
-        auto k = options.tran_extravmrows + int(std::ceil(std::log(fcorner2/noisefmin)/std::log(2)));
-        if (k>63) {
-            // Too many rows
-            setError(TranError::Rows);
-            co_yield CoreState::Aborted;
-        }
-
-        // k above 52 does not make sense (exceeds double precision)
-        
-        if (options.tran_noisedebug) {
-            Simulator::dbg() << "Transient noise setup\n";
-            Simulator::dbg() << "  fmin:      " << noisefmin << "\n";
-            Simulator::dbg() << "  fmax:      " << noisefmax << "\n";
-            Simulator::dbg() << "  fcorner1:  " << fcorner2/std::pow(2, k) << "\n";
-            Simulator::dbg() << "  fcorner2:  " << fcorner2 << "\n";
-            Simulator::dbg() << "  fsampling: " << fsampling << "\n";
-            Simulator::dbg() << "  VM rows:   " << k << "\n";
-        }
-        
         // Seed random generator
         randomGenerator.seed(params.noiseseed);
         
         // Count noise sources, get maximal number of sources per instance
         auto [nWhite, nFlicker, maxNsCount] = countNoiseSources();
-        
-        // Initialize time domain white noise block
-        whiteBlock.reset(0.0, noiseStepLimit, nWhite, 1);
-        whiteBlock.setDebug(options.tran_noisedebug);
-        
-        // Initialize time domain flicker noise block
-        flickerBlock.reset(0.0, noiseStepLimit, nFlicker, 1, k);
-        flickerBlock.resetOptimizer(fsampling, noisefmin, noisefmax, 10);
-        flickerBlock.setDebug(options.tran_noisedebug);
-        
+            
+        if (params.noisemode==noiseZoh) {
+            // Compute number of VM rows for ZOH flicker noise generator
+            // First row changes with average rate fmax*oversample/2 because p=0.5. 
+            // Its corner frequency fc/fs = p/(2 pi) so fc = fs/(4 pi) ~ fs/12
+            // With oversampling rate 6 the corner will be approximately at fmax. 
+            // Add extra octaves (rows)
+            auto fcorner2 = fsampling/(4*pi);
+            // Number of rows is number of octaves + tran_extraoct
+            auto k = options.tran_extraoct + int(std::ceil(std::log(fcorner2/noisefmin)/std::log(2)));
+            if (k>63) {
+                // Too many rows
+                setError(TranError::Rows);
+                co_yield CoreState::Aborted;
+            }
+
+            // k above 52 does not make sense (exceeds double precision)
+            
+            if (options.tran_noisedebug) {
+                Simulator::dbg() << "Transient noise setup, ZOH mode\n";
+                Simulator::dbg() << "  fmin:      " << noisefmin << "\n";
+                Simulator::dbg() << "  fmax:      " << noisefmax << "\n";
+                Simulator::dbg() << "  fcorner1:  " << fcorner2/std::pow(2, k) << "\n";
+                Simulator::dbg() << "  fcorner2:  " << fcorner2 << "\n";
+                Simulator::dbg() << "  fsampling: " << fsampling << "\n";
+                Simulator::dbg() << "  VM rows:   " << k << "\n";
+            }
+            
+            // Initialize time domain white noise block
+            auto wb = new TimeDomainZohWhiteNoise<std::mt19937_64>();
+            wb->reset(0.0, noiseStepLimit, nWhite, 1);
+            wb->setDebug(options.tran_noisedebug);
+            whiteBlock.reset(wb);
+            
+            // Initialize time domain flicker noise block
+            auto fb = new TimeDomainZohFlickerNoise<std::mt19937_64>();
+            fb->reset(0.0, noiseStepLimit, nFlicker, 1, k);
+            fb->resetOptimizer(fsampling, noisefmin, noisefmax, 10);
+            fb->setDebug(options.tran_noisedebug);
+            flickerBlock.reset(fb);
+        } else {
+            // Compute number of Lorentzians for flicker noise in SDE mode
+            // Corner frequency of first Lorentzian is at fmax
+            auto k = options.tran_extraoct + int(std::ceil(std::log(noisefmax/noisefmin)/std::log(2)));
+
+            if (options.tran_noisedebug) {
+                Simulator::dbg() << "Transient noise setup, SDE mode\n";
+                Simulator::dbg() << "  fmin:        " << noisefmin << "\n";
+                Simulator::dbg() << "  fmax:        " << noisefmax << "\n";
+                Simulator::dbg() << "  fsampling:   " << fsampling << "\n";
+                Simulator::dbg() << "  Lorentzians: " << k << "\n";
+            }
+
+            // Initialize time domain white noise block
+            auto wb = new TimeDomainSdeWhiteNoise<std::mt19937_64>();
+            wb->reset(0.0, nWhite, 1);
+            wb->setDebug(options.tran_noisedebug);
+            whiteBlock.reset(wb);
+
+            // Initialize time domain flicker noise block
+            auto fb = new TimeDomainSdeFlickerNoise<std::mt19937_64>();
+            fb->reset(0.0, nFlicker, 1, k, noisefmax);
+            fb->resetOptimizer(noisefmin, noisefmax, 10);
+            fb->setDebug(options.tran_noisedebug);
+            flickerBlock.reset(fb);
+        }
         // Tell NR solver we want transient noise
-        nrSolver.enableNoise(whiteBlock, flickerBlock, maxNsCount, params.noisescale);
+        nrSolver.enableNoise(*whiteBlock.get(), *flickerBlock.get(), maxNsCount, params.noisescale);
     } else {
         // Tell NR solver we don't want transient noise
         nrSolver.disableNoise();

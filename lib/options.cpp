@@ -182,9 +182,8 @@ SimulatorOptions::SimulatorOptions() {
                             // applied only when Adams-Moulton algorithm of order 2 is used 
     tran_noisedebug = 0;    // transient noise debugging
     tran_laggednoise = 1;   // Use lagged noise coupling (better convergence)
-    tran_extravmrows = 8;   // ZOH mode, extra Voss-McCartney rows at low frequencies
-                            // 8 covers flicker noise exponents between 0.2 and 1.8 with reasonable accuracy
-    tran_extralorentz = 3;  // stochastic DE mode, extra lorentzian flicker noise components beyond fmin/fmax
+    tran_extraoct = 8;     // extra Voss-McCartney rows / SDE Lorentzians at low frequencies
+                           // 8 covers flicker noise exponents between 0.2 and 1.8 with reasonable accuracy
     
     hb_debug = 0; // >0 = enables debugging
                   // >=1 print iteration type, homotopy information, convergence report
@@ -295,8 +294,7 @@ template<> int Introspection<SimulatorOptions>::setup() {
     registerMember(tran_trapltefilter);
     registerMember(tran_noisedebug);
     registerMember(tran_laggednoise);
-    registerMember(tran_extravmrows);
-    registerMember(tran_extralorentz);
+    registerMember(tran_extraoct);
     
     registerMember(hb_debug);
     registerMember(hb_itl);

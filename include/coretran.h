@@ -57,8 +57,7 @@ typedef struct TranParameters {
                               // If noisefmin=0 uses noisefmax/1e3. 
                               // If noisefmax!=0 should be <noisefmax.
     Id noisemode {};          // Noise mode (SDE by default)
-    Int oversample {0};       // oversampling factor, 
-                              // 0=use default, 6 in ZOH mode, 1 in SDE mode. 
+    Int oversample {6};       // oversampling factor, 6 by default
                               // The timestep is limited to 0.5/(oversample*noisefmax). 
     String store {""};        // name of stored solution slot to write transient solution to
     // Nodeset parameter of the operating point core is also exposed. 
@@ -188,8 +187,8 @@ private:
     
     // Transient noise
     std::mt19937_64 randomGenerator;
-    TimeDomainZohWhiteNoise<std::mt19937_64> whiteBlock;
-    TimeDomainZohFlickerNoise<std::mt19937_64> flickerBlock;
+    std::unique_ptr<TimeDomainNoiseBlock<std::mt19937_64>> whiteBlock;
+    std::unique_ptr<TimeDomainNoiseBlock<std::mt19937_64>> flickerBlock;
 };
 
 }

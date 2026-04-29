@@ -20,13 +20,6 @@ template <std::uniform_random_bit_generator URBG> void TimeDomainZohWhiteNoise<U
     }
 }
 
-template <std::uniform_random_bit_generator URBG> 
-void TimeDomainZohWhiteNoise<URBG>::reset(double t0, double timeStep, size_t count, int rollbackDepth, URBG& gen) {
-    TimeDomainZohNoiseBlock<URBG>::reset(t0, timeStep, count, rollbackDepth);
-    // Generate random sample
-    generate(gen);
-};
-
 // Explicit instantiation of template class
 template class TimeDomainZohWhiteNoise<std::mt19937_64>;
 

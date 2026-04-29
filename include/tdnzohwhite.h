@@ -12,6 +12,7 @@ namespace NAMESPACE {
 template <std::uniform_random_bit_generator URBG> class TimeDomainZohWhiteNoise : public TimeDomainZohNoiseBlock<URBG> {
 public:
     TimeDomainZohWhiteNoise() = default; 
+    virtual ~TimeDomainZohWhiteNoise() override = default; 
 
     TimeDomainZohWhiteNoise           (const TimeDomainZohWhiteNoise&)  = delete;
     TimeDomainZohWhiteNoise           (      TimeDomainZohWhiteNoise&&) = default;
@@ -19,8 +20,7 @@ public:
     TimeDomainZohWhiteNoise& operator=(      TimeDomainZohWhiteNoise&&) = delete;
 
     using TimeDomainZohNoiseBlock<URBG>::reset;
-    void reset(double t0, double timeStep, size_t count, int rollbackDepth, URBG& gen);
-
+    
 private:
     // Generate new sample
     void generate(URBG& gen) override;  

@@ -152,6 +152,7 @@ protected:
 class TimeDomainNoiseCoeffs {
 public:
     TimeDomainNoiseCoeffs() : debug_(0) {};
+    virtual ~TimeDomainNoiseCoeffs() = default;
 
     TimeDomainNoiseCoeffs           (const TimeDomainNoiseCoeffs&)  = delete;
     TimeDomainNoiseCoeffs           (      TimeDomainNoiseCoeffs&&) = default;
@@ -176,7 +177,8 @@ protected:
     virtual void analyticalCoefficients(double alpha, std::vector<double>& coeffs) = 0;
 
     // Target PSD for given frequency points
-    virtual void computeTargetPsd(double alpha, std::vector<double>& target, const std::vector<double>& freq) = 0;
+    // Returns true if coefficient optimization is requested
+    virtual bool computeTargetPsd(double alpha, std::vector<double>& target, const std::vector<double>& freq) = 0;
 
     // Optimize flicker coefficients for given frequency range
     bool optimizeCoefficients(double alpha, std::vector<double>& coeffs);

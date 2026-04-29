@@ -19,8 +19,8 @@ void VmFlickerCoeffs::reset(int k, double fs, double fmin, double fmax, int ptsP
 // w_i = 1/fact 2^(i(alpha-1)/2) 
 //
 // Produces one-sided PSD in midband:
-//   S = 1/fact^2 2 fs^(alpha-1) pi 2^(1-alpha) / (ln(2) sin(pi alpha / 2) (2 pi)^alpha) f^(-alpha) sinc(pi f / fs)^2
-//     = f^(-alpha) sinc(pi f / fs)^2
+// S = 1/fact^2 2 fs^(alpha-1) pi 2^(1-alpha) / (ln(2) sin(pi alpha / 2) (2 pi)^alpha) f^(-alpha) sinc(pi f / fs)^2
+//   = f^(-alpha) sinc(pi f / fs)^2
 void VmFlickerCoeffs::analyticalCoefficients(double alpha, std::vector<double>& coeffs) {
     const double pi = std::numbers::pi;
     // Scaling that makes one-sided PSD 1/f^alpha
@@ -35,11 +35,12 @@ void VmFlickerCoeffs::analyticalCoefficients(double alpha, std::vector<double>& 
 }
 
 // Target one-sided PSD does not include the sinc() term: S = f^(-alpha)
-void VmFlickerCoeffs::computeTargetPsd(double alpha, std::vector<double>& target, const std::vector<double>& freq) {
+bool VmFlickerCoeffs::computeTargetPsd(double alpha, std::vector<double>& target, const std::vector<double>& freq) {
     auto n = freq.size();
     for(int i=0; i<n; i++) {
         target[i] = 1.0/std::pow(freq[i], alpha);
     }
+    return true;
 }
 
 // Compute PSD for given PSD coeffs at given frequency
@@ -74,7 +75,6 @@ double VmFlickerCoeffs::computePsd(const std::vector<double>& wpsd, double f, st
 
 template <std::uniform_random_bit_generator URBG> 
 void TimeDomainZohFlickerNoise<URBG>::reset(double t0, double timeStep, size_t count, int rollbackDepth, int k) {
-    TimeDomainZohNoiseBlock<URBG>::reset(t0, timeStep, count, rollbackDepth);
     // k_ rows, for count generators
     k_ = k;
     rows.upsize(k, count);
@@ -88,13 +88,8 @@ void TimeDomainZohFlickerNoise<URBG>::reset(double t0, double timeStep, size_t c
     history.upsize(rollbackDepth+1, count);
     // Zero all exponents
     zero(exponent);
-};
 
-template <std::uniform_random_bit_generator URBG> 
-void TimeDomainZohFlickerNoise<URBG>::reset(double t0, double timeStep, size_t count, int rollbackDepth, int k, URBG& gen) {
-    TimeDomainZohFlickerNoise<URBG>::reset(t0, timeStep, count, rollbackDepth, k);
-    // Generate random sample
-    generate(gen);
+    TimeDomainZohNoiseBlock<URBG>::reset(t0, timeStep, count, rollbackDepth);
 };
 
 template <std::uniform_random_bit_generator URBG> void TimeDomainZohFlickerNoise<URBG>::generate(URBG& gen) {

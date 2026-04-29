@@ -243,7 +243,10 @@ bool TimeDomainNoiseCoeffs::optimizeCoefficients(double alpha, std::vector<doubl
     for(int i=0; i<=nint; i++) {
         freq[i] = fmin_ * std::exp(i*step);
     }
-    computeTargetPsd(alpha, psd_target, freq);
+    if (!computeTargetPsd(alpha, psd_target, freq)) {
+        // No optimization
+        return true;
+    }
 
     // PSD weights (copy, compute squared coeffs because optimizer works with PSD coefficients)
     auto wpsd = coeffs;

@@ -13,6 +13,7 @@ namespace NAMESPACE {
 class VmFlickerCoeffs : public TimeDomainNoiseCoeffs {
 public:
     VmFlickerCoeffs() {};
+    virtual ~VmFlickerCoeffs() override = default;
 
     VmFlickerCoeffs           (const VmFlickerCoeffs&)  = delete;
     VmFlickerCoeffs           (      VmFlickerCoeffs&&) = default;
@@ -23,7 +24,7 @@ public:
 
 protected:
     virtual void analyticalCoefficients(double alpha, std::vector<double>& coeffs) override;
-    virtual void computeTargetPsd(double alpha, std::vector<double>& target, const std::vector<double>& freq) override;
+    virtual bool computeTargetPsd(double alpha, std::vector<double>& target, const std::vector<double>& freq) override;
     virtual double computePsd(const std::vector<double>& wpsd, double f, std::vector<double>& contributions) override;
 
     double fs_;
@@ -35,6 +36,7 @@ template <std::uniform_random_bit_generator URBG>
 class TimeDomainZohFlickerNoise : public TimeDomainZohNoiseBlock<URBG>, public VmFlickerCoeffs {
 public:
     TimeDomainZohFlickerNoise() {};
+    virtual ~TimeDomainZohFlickerNoise() override = default;
 
     TimeDomainZohFlickerNoise           (const TimeDomainZohFlickerNoise&)  = delete;
     TimeDomainZohFlickerNoise           (      TimeDomainZohFlickerNoise&&) = default;
@@ -42,7 +44,6 @@ public:
     TimeDomainZohFlickerNoise& operator=(      TimeDomainZohFlickerNoise&&) = delete;
 
     void reset(double t0, double timeStep, size_t count, int rollbackDepth, int k);
-    void reset(double t0, double timeStep, size_t count, int rollbackDepth, int k, URBG& gen);
     void resetOptimizer(double fs, double fmin, double fmax, int ptsPerDecade=10, int ni=100, int ns=5, double lr=0.1) {
         VmFlickerCoeffs::reset(k_, fs, fmin, fmax, ptsPerDecade, ni, ns, lr);
     }
