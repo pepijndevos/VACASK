@@ -12,14 +12,11 @@ IHP SG13G2 Colpitts oscillator - transient and PSS
 //   I_em = V_em / R_em = 0.22/100 = 2.2 mA
 //   gm = I_em / V_T ~= 85 mS  (excess loop gain >> 1)
 //
-// Transient:
-//   A 1 mA current pulse at t=0.2 ns kicks the LC tank.
-//   Oscillation builds up over ~10 periods and reaches steady state.
 //
 // PSS:
-//   A second subcircuit colpitts_osc_pss has the kick delayed to 200 ns
-//   so it does not fire during the 1.117 ns shooting window.
-//   ic=["col";0.9] perturbs the tank to start oscillation during Tstab.
+//   colpitts_osc_pss uses i_kick with delay=1.5 ns: fires during Tstab to
+//   kick the LC tank, but NOT during the 1.117 ns shooting window.
+//   Tstab=300e-8 (3 µs ≈ 2685 periods): long startup due to small excess gain.
 //   Tper=1.117e-9 is the initial period guess; Newton refines it.
 
 ground 0
@@ -53,15 +50,10 @@ control
     // Default tran_method="trap" is rejected by integrateSensitivity().
     options tran_method="gear"
 
-    // --- Transient: 50 ns, kick at 0.2 ns ---
-    //elaborate circuit("colpitts_osc")
-    //save default
-    //analysis tran1 tran stop=50n step=0.05n icmode="op"
-
-    // --- PSS: autonomous circuit (kick disabled), ic perturbs col ---
+    // --- PSS: autonomous circuit, i_kick perturbs the tank during Tstab ---
     elaborate circuit("colpitts_osc_pss")
     save default
-    analysis pss1 pss Tper=1.117e-9 Tstab=100e-8 EpsMax=1e-6 MaxItr=1000 writestab=1
+    analysis pss1 pss Tper=1.117e-9 Tstab=300e-8 EpsMax=1e-6 MaxItr=500 writestab=1
 
     postprocess(PYTHON, "runme.py")
 endc
