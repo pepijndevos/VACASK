@@ -114,7 +114,7 @@ void TranNRSolver::disableNoise() {
     evalSetup_.evaluateNoise = true;
 };
 
-std::tuple<bool, bool> TranNRSolver::advanceNoise(double time, std::mt19937_64& gen) {
+std::tuple<bool, bool> TranNRSolver::advanceNoise(double time, double h, std::mt19937_64& gen) {
     bool changed = false;
 
     // Collect noise scaling if lagged noise is used
@@ -124,26 +124,24 @@ std::tuple<bool, bool> TranNRSolver::advanceNoise(double time, std::mt19937_64& 
         }
     }
 
-    if (whiteBlock->advance(time, gen)) {
+    if (whiteBlock->advance(time, h, gen)) {
         changed = true;
     }
-    if (flickerBlock->advance(time, gen)) {
+    if (flickerBlock->advance(time, h, gen)) {
         changed = true;
     }
     
     return std::make_tuple(true, changed);
 }
 
-bool TranNRSolver::revertNoise(double time, std::mt19937_64& gen) {
+bool TranNRSolver::revertNoise(double time, double h, std::mt19937_64& gen) {
     bool changed = false;
-    if (whiteBlock->revert(time, gen)) {
+    if (whiteBlock->revert(time, h, gen)) {
         changed = true;
     }
-    if (flickerBlock->revert(time, gen)) {
+    if (flickerBlock->revert(time, h, gen)) {
         changed = true;
     }
-    // If reverting the noise generator changed noise samnple index
-    // rebuild lagged noise residual
     
     return changed;
 }

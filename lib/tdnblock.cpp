@@ -3,7 +3,7 @@
 
 namespace NAMESPACE {
 
-template <std::uniform_random_bit_generator URBG> bool TimeDomainZohNoiseBlock<URBG>::advance(double time, URBG& gen) {
+template <std::uniform_random_bit_generator URBG> bool TimeDomainZohNoiseBlock<URBG>::advance(double time, double h, URBG& gen) {
     // Compute new sample number
     auto index = sampleIndex(time);
 
@@ -35,7 +35,7 @@ template <std::uniform_random_bit_generator URBG> bool TimeDomainZohNoiseBlock<U
     return false;
 }
 
-template <std::uniform_random_bit_generator URBG> bool TimeDomainZohNoiseBlock<URBG>::revert(double time, URBG& gen) {
+template <std::uniform_random_bit_generator URBG> bool TimeDomainZohNoiseBlock<URBG>::revert(double time, double h, URBG& gen) {
     // Compute sample number to revert to
     auto index = sampleIndex(time);
     if (index == atSample_) {

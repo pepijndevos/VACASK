@@ -926,16 +926,6 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
     // Rotate states -1 and 0 so that future (-1) becomes current (0)
     states.rotate();
 
-    // At this point solutiom at t=0 is accepted
-    // Advance transient noise generators
-    if (noisefmax) {
-        auto [ok, changed] = nrSolver.advanceNoise(tk, randomGenerator);
-        if (!ok) {
-            setError(TranError::NRSolver);
-            co_yield CoreState::Aborted;
-        }
-    }
-
     // Set up break points
     // We just accepted solution at tsolve=0. 
     // Therefore t=0 is the first past breakpoint. 
@@ -998,6 +988,16 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
        
     // Set next timepoint
     auto tSolve = tk+hk;
+
+    // At this point solutiom at t=0 is accepted
+    // Advance transient noise generators
+    if (noisefmax) {
+        auto [ok, changed] = nrSolver.advanceNoise(tSolve, hk, randomGenerator);
+        if (!ok) {
+            setError(TranError::NRSolver);
+            co_yield CoreState::Aborted;
+        }
+    }
 
     // Set current algorithm order
     order = 1;
@@ -1605,7 +1605,7 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
 
             // Advance transient noise generators
             if (noisefmax) {
-                auto [ok, changed] = nrSolver.advanceNoise(tSolveNew, randomGenerator);
+                auto [ok, changed] = nrSolver.advanceNoise(tSolveNew, tSolveNew-tSolve, randomGenerator);
                 if (!ok) {
                     setError(TranError::NRSolver);
                     co_yield CoreState::Aborted;
@@ -1647,7 +1647,7 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
 
             // Revert transient noise generators
             if (noisefmax) {
-                nrSolver.revertNoise(tSolveNew, randomGenerator);
+                nrSolver.revertNoise(tSolveNew, tSolveNew-tSolve, randomGenerator);
             }
         }
 

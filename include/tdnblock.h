@@ -45,8 +45,9 @@ public:
     virtual ShapeSetStatus setShapeParameters(size_t i, double p) { return ShapeSetStatus::Error; };
 
     // time is the new time at which we should generate a sample
-    virtual bool advance(double time, URBG& gen) = 0;
-    virtual bool revert(double time, URBG& gen) = 0;
+    // h is the timestep from last accepted point to the point with new time
+    virtual bool advance(double time, double h, URBG& gen) = 0;
+    virtual bool revert(double time, double h, URBG& gen) = 0;
 
     void setDebug(int debug) { debug_ = debug; };
 
@@ -84,8 +85,8 @@ public:
         return size_t(std::floor((time-t0_)/timeStep_));
     };
 
-    virtual bool advance(double time, URBG& gen) override;
-    virtual bool revert(double time, URBG& gen) override;
+    virtual bool advance(double time, double h, URBG& gen) override;
+    virtual bool revert(double time, double h, URBG& gen) override;
 
 protected: 
     // To be defined in derived classes

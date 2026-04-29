@@ -52,10 +52,10 @@ public:
     
     // Called on accepted timepoint
     // Return value: ok, sample index changed
-    std::tuple<bool, bool> advanceNoise(double time, std::mt19937_64& gen);
+    std::tuple<bool, bool> advanceNoise(double time, double h, std::mt19937_64& gen);
 
     // Called on rejected timepoint
-    bool revertNoise(double time, std::mt19937_64& gen);
+    bool revertNoise(double time, double h, std::mt19937_64& gen);
 
     virtual bool initialize(bool continuePrevious);
 
