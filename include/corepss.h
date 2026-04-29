@@ -72,6 +72,7 @@
 #include "core.h"
 #include "coreop.h"
 #include "corepsstran.h"
+#include "coretran.h"
 #include "densematrix.h"
 #include "output.h"
 #include "outrawfile.h"
@@ -92,10 +93,12 @@ typedef struct PssParameters {
     // Parameters forwarded to subsidiary cores
     OperatingPointParameters opParams;
     TranParameters stabilParams;
+    TranParameters shootParams;
 
     PssParameters() {
         opParams.write      = 0;
         stabilParams.write  = 0;
+        shootParams.write   = 0;
     }
 } PssParameters;
 
@@ -136,11 +139,7 @@ public:
 
     // Format error, return false on error - this function is not cheap (works with strings)
     bool formatError(Status& s = Status::ignore) const;
-
-    bool addCoreOutputDescriptors();
-    bool addDefaultOutputDescriptors();
-    bool resolveOutputDescriptors(bool strict, Status& s = Status::ignore);
-
+    
     // Output descriptor proxy methods.
     // PSS output is produced by the shooting transient (pssTran_).  These
     // shadowing methods route all save directives directly to pssTran_ so

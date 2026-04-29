@@ -378,16 +378,6 @@ bool PssTranCore::integrateAugmentedSensitivity(
     PhiT = phiCurrent_;
 
     auto n = circuit.unknownCount();
-    {
-        std::stringstream ss;
-        ss << std::scientific << std::setprecision(4);
-        ss << "PSS: lastAlpha_= " << lastAlpha_ << "\n";
-        ss << "PSS: lastB1_= " << lastB1_ << "\n";
-        ss << "\tx_laststep=[";
-        for (decltype(n) i = 0; i < n; i++) ss << x_laststep[i] << " ";
-        ss << "]\n";
-        Simulator::dbg() << ss.str();
-    }
 
     PsiT.resize(n + 1);
     PsiT[0] = 0.0;

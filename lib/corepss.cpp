@@ -92,35 +92,20 @@ PssCore::~PssCore() {
     delete outfile;
 }
 
-
-// ----------------------------------------------------------------
-// AnalysisCore interface - boilerplate, delegates to pssTran_
-// ----------------------------------------------------------------
-
-bool PssCore::addDefaultOutputDescriptors() {
-    params.stabilParams.write = params.write;
-    bool ok = pssTran_.addDefaultOutputDescriptors();
-    params.stabilParams.write = 0;
-    return ok;
-}
-
-bool PssCore::resolveOutputDescriptors(bool strict, Status& s) {
-    return pssTran_.resolveOutputDescriptors(strict);
-}
-
-bool PssCore::addCoreOutputDescriptors() {
-    params.stabilParams.write = params.write;
-    bool ok = pssTran_.addCoreOutputDescriptors();
-    params.stabilParams.write = 0;
-    return ok;
-}
-
 bool PssCore::rebuild(Status& s) {
     if (params.writestab) {
         params.stabilParams.write = 1;
         stabilTran_.addCoreOutputDescriptors();
         stabilTran_.addDefaultOutputDescriptors();
         stabilTran_.resolveOutputDescriptors(false);
+    }
+    if (params.write) {
+        params.shootParams.write = 1;
+        pssTran_.addCoreOutputDescriptors();
+        pssTran_.addDefaultOutputDescriptors();
+        pssTran_.resolveOutputDescriptors(false);
+        // Turn writing off for now, only write converged waveform
+        params.shootParams.write = 0;
     }
     return true;
 }
@@ -377,6 +362,32 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
     
     if (!converged) {
         setError(PssError::NoConvergence);
+        co_yield CoreState::Finished;
+    }
+
+    Simulator::dbg() << "PSS analysis finshed.\n";
+    if (debug>0) {
+        ss.str("");
+        ss << "Converged in " << iterIndex + 1 << " iterations.\n";
+        ss << "Final epsilon = " << epsilon << "\n";
+        Simulator::dbg() << ss.str();
+    }
+
+    // If write is enabled, write the obtained PSS solution
+    if (params.write && !Simulator::noOutput()) {
+        params.shootParams.write = 1;
+        if (!pssTran_.initializeOutputs(name_, s)) {
+            setError(PssError::OutputError);
+            // This is not a PSS failure, Core is finished, not aborted
+            co_yield CoreState::Finished;
+        }
+        solution.vector() = x0;
+        pssTran_.setShootIC(x0);
+        pssTran_.clearTrajectory();
+        if (!runShoot(T0, s)) {
+            setError(PssError::ShootFailed);
+            co_yield CoreState::Aborted;
+        }
     }
 
     co_yield CoreState::Finished;
@@ -429,11 +440,11 @@ bool PssCore::runStabilisation(Status& s) {
 // ----------------------------------------------------------------
 
 bool PssCore::runShoot(double T0, Status& s) {
-    params.stabilParams.stop    = T0;
-    params.stabilParams.step    = T0 / 1e3;
-    params.stabilParams.maxstep = T0 / 0.1e3;
-    params.stabilParams.start   = 0.0;
-    params.stabilParams.icmode  = TranCore::icmodeUic;
+    params.shootParams.stop    = T0;
+    params.shootParams.step    = T0 / 1e3;
+    params.shootParams.maxstep = T0 / 0.1e3;
+    params.shootParams.start   = 0.0;
+    params.shootParams.icmode  = TranCore::icmodeUic;
     // write is left as-is: 0 during Newton iterations, 1 for the final output shoot.
 
     if (!pssTran_.run(false)) {
