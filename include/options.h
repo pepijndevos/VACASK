@@ -81,7 +81,6 @@ typedef struct SimulatorOptions  {
     Real tran_xmu;
     Int tran_trapltefilter;
     Int tran_noisedebug;
-    Id tran_noisemode;
     Int tran_laggednoise;
     Int tran_extravmrows;
     Int tran_extralorentz;

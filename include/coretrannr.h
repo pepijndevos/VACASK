@@ -37,7 +37,8 @@ public:
     void enableNoise(
         TimeDomainNoiseBlock<std::mt19937_64>& white, 
         TimeDomainNoiseBlock<std::mt19937_64>& flicker, 
-        size_t maxNsCount
+        size_t maxNsCount, 
+        double noiseScale=1.0
     );
 
     // Disable noise
@@ -75,6 +76,7 @@ private:
     Vector<double> whiteScaling;
     Vector<double> flickerScaling;
     Vector<double> noiseResidual;
+    double noiseScale_;
     
     // Make these thread-local when OpenMP is introduced
     RealVector noisePower;

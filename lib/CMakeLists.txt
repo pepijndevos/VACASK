@@ -103,6 +103,7 @@ add_library(simlib STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/tdnblock.h
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/tdnzohwhite.h
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/tdnzohflicker.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include/tdnsdewhite.h
     acct.cpp
     libplatform.cpp 
     dynload.cpp 
@@ -190,6 +191,7 @@ add_library(simlib STATIC
     tdnblock.cpp
     tdnzohwhite.cpp
     tdnzohflicker.cpp
+    tdnsdewhite.cpp
     location.cpp
     "${BISON_dflparser_OUTPUTS}"
     "${FLEX_dfllexer_OUTPUTS}"

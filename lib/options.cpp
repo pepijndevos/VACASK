@@ -181,8 +181,7 @@ SimulatorOptions::SimulatorOptions() {
     tran_trapltefilter = 1; // enable trap ringing filter for predictor and LTE computation, 
                             // applied only when Adams-Moulton algorithm of order 2 is used 
     tran_noisedebug = 0;    // transient noise debugging
-    tran_noisemode = "sde"; // zoh = zero order hold, sde = stochastic DE
-    tran_laggednoise = 1;   // ZOH mode, use lagged noise coupling (better convergence)
+    tran_laggednoise = 1;   // Use lagged noise coupling (better convergence)
     tran_extravmrows = 8;   // ZOH mode, extra Voss-McCartney rows at low frequencies
                             // 8 covers flicker noise exponents between 0.2 and 1.8 with reasonable accuracy
     tran_extralorentz = 3;  // stochastic DE mode, extra lorentzian flicker noise components beyond fmin/fmax
@@ -295,7 +294,6 @@ template<> int Introspection<SimulatorOptions>::setup() {
     registerMember(tran_xmu);
     registerMember(tran_trapltefilter);
     registerMember(tran_noisedebug);
-    registerMember(tran_noisemode);
     registerMember(tran_laggednoise);
     registerMember(tran_extravmrows);
     registerMember(tran_extralorentz);

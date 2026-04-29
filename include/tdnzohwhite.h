@@ -8,9 +8,7 @@
 
 namespace NAMESPACE {
 
-// White noise generators (count specifies the number of generators)
-// All generators should use the same random generator (gen). 
-// It is the user's responsibility to seed the generator.
+// Zero-order hold white noise generator block
 template <std::uniform_random_bit_generator URBG> class TimeDomainZohWhiteNoise : public TimeDomainZohNoiseBlock<URBG> {
 public:
     TimeDomainZohWhiteNoise() = default; 

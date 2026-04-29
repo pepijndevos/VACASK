@@ -84,11 +84,14 @@ bool TranNRSolver::initialize(bool continuePrevious) {
 void TranNRSolver::enableNoise(
     TimeDomainNoiseBlock<std::mt19937_64>& white, 
     TimeDomainNoiseBlock<std::mt19937_64>& flicker, 
-    size_t maxNsCount
+    size_t maxNsCount, 
+    double noiseScale
 ) {
     // Store noise generators
     whiteBlock = &white;
     flickerBlock = &flicker;
+
+    noiseScale_ = noiseScale;
 
     // Make space for scaling factors
     whiteScaling.resize(whiteBlock->values().size());
@@ -176,7 +179,7 @@ bool TranNRSolver::collectNoiseScaling() {
                             // Scale with sqrt(PSD) because this is a time-domain sample
                             auto pwr = noisePower[ndx];
                             auto sgn = pwr>0 ? 1 : -1;
-                            whiteScaling[atWhite] = sgn*std::sqrt(std::abs(pwr));
+                            whiteScaling[atWhite] = sgn*std::sqrt(std::abs(pwr))*noiseScale_;
                             atWhite++;
                             break;
                         }
@@ -200,7 +203,7 @@ bool TranNRSolver::collectNoiseScaling() {
                             // Scale sample with sqrt(PSD) because this is a time-domain sample
                             auto pwr = noisePower[ndx];
                             auto sgn = pwr>0 ? 1 : -1;
-                            flickerScaling[atFlicker] = sgn*std::sqrt(std::abs(pwr));
+                            flickerScaling[atFlicker] = sgn*std::sqrt(std::abs(pwr))*noiseScale_;
                             atFlicker++;
                             break;
                         }

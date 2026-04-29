@@ -51,14 +51,15 @@ typedef struct TranParameters {
                               // for transient analysis
     Int noiseseed {0};        // seed for noise generators
     Real noisescale {1.0};    // scaling factor for noise generators
-    Real noisefmax {0};       // maximum frequency for transient noise (fsampling/2)
+    Real noisefmax {0};       // maximum frequency for transient noise 
                               // 0 = disable transient noise
-                              // Limits timestep to 0.5/noisefmax. 
     Real noisefmin {0};       // minimum frequency for transient noise
                               // If noisefmin=0 uses noisefmax/1e3. 
                               // If noisefmax!=0 should be <noisefmax.
-    Int oversample {6};       // oversampling factor, the sampling frequency is 
-                              // oversample*noisefmax*2
+    Id noisemode {};          // Noise mode (SDE by default)
+    Int oversample {0};       // oversampling factor, 
+                              // 0=use default, 6 in ZOH mode, 1 in SDE mode. 
+                              // The timestep is limited to 0.5/(oversample*noisefmax). 
     String store {""};        // name of stored solution slot to write transient solution to
     // Nodeset parameter of the operating point core is also exposed. 
 
@@ -80,6 +81,7 @@ public:
         Fmin, 
         Fmax, 
         Oversample, 
+        NoiseMode, 
         Rows, 
         Method, 
         IcMode, 
@@ -135,6 +137,8 @@ public:
     static Id methodTrapezoidal;
     static Id methodBDF2;
     static Id methodGear2;
+    static Id noiseZoh;
+    static Id noiseSde;
 
 protected:
     // Clear error

@@ -210,11 +210,14 @@ int nGlobalDbg = sizeof(globalDbg)/(sizeof(double)*2);
 
 Id TranCore::icmodeOp = Id::createStatic("op");
 Id TranCore::icmodeUic = Id::createStatic("uic"); 
+Id TranCore::noiseZoh = Id::createStatic("zoh"); 
+Id TranCore::noiseSde = Id::createStatic("sde"); 
 
 TranParameters::TranParameters() {
     // Turn off output for op analysis
     opParams.write = 0; 
     icmode = TranCore::icmodeOp;
+    noisemode = TranCore::noiseZoh;
 }
 
 template<> int Introspection<TranParameters>::setup() {
@@ -227,6 +230,7 @@ template<> int Introspection<TranParameters>::setup() {
     registerMember(noisescale);
     registerMember(noisefmax);
     registerMember(noisefmin);
+    registerMember(noisemode);
     registerMember(oversample);
     registerNamedMember(opParams.nodeset, "nodeset");
     registerMember(ic);
@@ -656,6 +660,11 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
     double noisefmax = params.noisefmax;
     double noisefmin = params.noisefmin;
     if (noisefmax) {
+        // Check noise mode
+        if (params.noisemode!=noiseZoh && params.noisemode!=noiseSde) {
+            setError(TranError::NoiseMode);
+        }
+
         // Check noisefmax
         if (noisefmax<0) {
             setError(TranError::Fmax);
@@ -663,15 +672,24 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
         }
 
         // Check oversample
-        if (params.oversample<1) {
+        // Default for SDE mode
+        double oversampling = params.oversample;
+        if (oversampling==0) {
+            if (params.noisemode==noiseZoh) {
+                // Use default 6 for ZOH mode
+                oversampling = 6;
+            } else {
+                // Use default 1 for SDE mode
+                oversampling = 1;
+            }
+        } else if (oversampling<1) {
             setError(TranError::Oversample);
             co_yield CoreState::Aborted;
         }
 
         // Noise sample rate is 2*fmax*oversample
         // The fastest row changes on average every 2*noiseStepLimit seconds. 
-        auto oversampling = 10;
-        auto fsampling = 2*noisefmax*params.oversample;
+        auto fsampling = 2*noisefmax*oversampling;
         noiseStepLimit = 1/fsampling;
 
         // Default noisefmin
@@ -727,7 +745,7 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
         flickerBlock.setDebug(options.tran_noisedebug);
         
         // Tell NR solver we want transient noise
-        nrSolver.enableNoise(whiteBlock, flickerBlock, maxNsCount);
+        nrSolver.enableNoise(whiteBlock, flickerBlock, maxNsCount, params.noisescale);
     } else {
         // Tell NR solver we don't want transient noise
         nrSolver.disableNoise();
@@ -1725,6 +1743,9 @@ bool TranCore::formatError(Status& s) const {
             break;
         case TranError::Maxstep: 
             s.set(Status::Analysis, "Transient maximal step time must not be negative. ");
+            break;
+        case TranError::NoiseMode: 
+            s.set(Status::Analysis, "Unknown transient noise mode.");
             break;
         case TranError::Fmin: 
             s.set(Status::Analysis, "Transient noisefmin must be below noisefmax.");
