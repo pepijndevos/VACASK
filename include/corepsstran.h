@@ -82,6 +82,9 @@ public:
         VectorRepository<double>& states
     );
 
+    bool addDefaultOutputDescriptors();
+    bool initializeOutputs(Id name, Status& s = Status::ignore);
+
     // Hides TranCore::rebuild().  Calls TranCore::rebuild() then rebuilds
     // lastAlr_ and scratchC_ with the circuit sparsity pattern.
     bool rebuild(Status& s = Status::ignore);

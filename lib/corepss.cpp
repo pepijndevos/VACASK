@@ -161,6 +161,9 @@ bool PssCore::finalizeOutputs(Status& s) {
 }
 
 bool PssCore::deleteOutputs(Id name, Status& s) {
+    // TranCore::deleteOutputs checks for params.write, which is always 0 here so the
+    // output will not be deleted. One option would be to force params.write=1 temporarily
+    // before calling pssTran_.deleteOutputs().
     return pssTran_.deleteOutputs(name, s);
 }
 

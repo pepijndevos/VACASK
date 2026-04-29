@@ -382,6 +382,7 @@ bool PssTranCore::integrateAugmentedSensitivity(
         std::stringstream ss;
         ss << std::scientific << std::setprecision(4);
         ss << "PSS: lastAlpha_= " << lastAlpha_ << "\n";
+        ss << "PSS: lastB1_= " << lastB1_ << "\n";
         ss << "\tx_laststep=[";
         for (decltype(n) i = 0; i < n; i++) ss << x_laststep[i] << " ";
         ss << "]\n";
@@ -394,6 +395,40 @@ bool PssTranCore::integrateAugmentedSensitivity(
         PsiT[i + 1] = lastAlpha_ * lastB1_ * x_laststep[i];
     }
 
+    return true;
+}
+
+
+// ----------------------------------------------------------------
+// PSS rawfile output
+// ----------------------------------------------------------------
+
+static std::string pssIntegratorName(Id m) {
+    if (m == TranCore::methodTrapezoidal)                          return "am1";
+    if (m == TranCore::methodBDF2 || m == TranCore::methodGear2)   return "bdf2";
+    if (m == TranCore::methodBDF  || m == TranCore::methodGear)    return "bdf";
+    if (m == TranCore::methodAM)                                   return "am";
+    if (m == TranCore::methodEuler)                                return "bdf1";
+    return std::string(m);
+}
+
+bool PssTranCore::addDefaultOutputDescriptors() {
+    if (Simulator::noOutput()) return true;
+    return addAllUnknowns(PTSave("default", Id(), Id()));
+}
+
+bool PssTranCore::initializeOutputs(Id name, Status& s) {
+    if (!outfile) {
+        outfile = new OutputRawfile(
+            std::string(name), outputDescriptors, outputSources,
+            (circuit.simulatorOptions().core().rawfile == SimulatorOptions::rawfileBinary
+                ? OutputRawfile::Flags::Binary : OutputRawfile::Flags::None) |
+            OutputRawfile::Flags::Padded);
+        outfile->setTitle(circuit.title());
+        Id method = circuit.simulatorOptions().core().tran_method;
+        outfile->setPlotname("Periodic Steady State " + pssIntegratorName(method));
+    }
+    outfile->prologue(s);
     return true;
 }
 
