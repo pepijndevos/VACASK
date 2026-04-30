@@ -144,15 +144,8 @@ private:
     // Used to form the Phi RHS columns.  Same sparsity as jacobian.
     KluRealMatrix scratchC_;
 
-    // Ax values of th previous reactive Jacobian C_{k-1}. Same sparsity as Jacobian.
-    Vector<double> prevCData_;
-
-    // Scratch vector for the unscaled resistive Jacobian G_k Ax values. Same sparsity as Jacobian.
-    Vector<double> scratchG_;
-
-    // Circular history of past resistive Jacobians G_k.
-    // Used in Adams-Moulton sensitivity integration
-    std::deque<Vector<double>> gHistData_;
+    // Circular history of past reactive Jacobians C_k.
+    std::deque<Vector<double>> cHistData_;
 
     // Leading LMS coefficient alpha and leading quadrature weight b1
     // from the most-recent accepted step.  Together they give 1/h = alpha*b1,
