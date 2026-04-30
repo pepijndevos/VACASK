@@ -13,7 +13,7 @@ b1 (1 0) lightbulb
 control
   abort always
   options tran_method="gear"
-  analysis pss1 pss Driven=1 Tper=20m Tstab=0.1n EpsMax=5e-4 MaxItr=500 writestab=1
+  analysis pss1 pss driven=1 Tper=20m Tstab=0.1n epsmax=5e-4 maxitr=500 writestab=1
   postprocess(PYTHON, "runme.py")
 endc
 

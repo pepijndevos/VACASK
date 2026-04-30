@@ -72,7 +72,7 @@ control
   analysis tran1 tran stop=200n step=0.01n icmode="uic" ic=["1"; 1.5]
 
   // PSS: Newton loop, initial period guess 1.117 ns
-  analysis pss1 pss Tper=1.11e-9 Tstab=50e-9 EpsMax=1e-6 MaxItr=20 ic=["1"; 1.5]
+  analysis pss1 pss Tper=1.11e-9 Tstab=50e-9 epsmax=1e-6 maxitr=20 ic=["1"; 1.5]
 
   save tran1 v(1)
   save pss1  v(1)

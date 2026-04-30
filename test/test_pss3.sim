@@ -23,7 +23,7 @@ nl1 (1 0) nl3
 control
   abort always
   options tran_method="gear"
-  analysis pss1 pss Driven=1 Tper=1m Tstab=10m EpsMax=1e-6 MaxItr=500 writestab=1
+  analysis pss1 pss driven=1 Tper=1m Tstab=10m epsmax=1e-6 maxitr=500 writestab=1
   
   postprocess(PYTHON, "runme.py")
 endc

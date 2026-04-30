@@ -64,7 +64,7 @@ control
 
   save default
 
-  analysis pssosc1 pss Tper=1n Tstab=150n MaxItr=50 EpsMax=1e-12 writestab=1
+  analysis pssosc1 pss Tper=1n Tstab=150n maxitr=50 epsmax=1e-12 writestab=1
   analysis tranosc1 tran start=200n stop=300n maxstep=1p step=0.5p
 
   postprocess(PYTHON, "runme.py")
