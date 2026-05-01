@@ -83,8 +83,7 @@ typedef struct SimulatorOptions  {
     Int tran_noisedebug;
     Int tran_laggednoise;
     Int tran_extraoct;
-    Int tran_cleanlte;
-    Int tran_strongsde;
+    Real tran_noiselte;
     Int hb_debug;
     Int hb_itl;
     Int hb_itlcont;

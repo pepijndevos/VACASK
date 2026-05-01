@@ -582,11 +582,19 @@ bool OpNRSolver::postConvergenceCheck(bool continuePrevious) {
             Simulator::dbg() << (iterationConverged ? ", converged" : "");
             if (settings.residualCheck) {
                 ss.str(""); ss << maxResidual;
-                Simulator::dbg() << ", worst residual=" << ss.str() << " @ " << (maxResidualNode ? maxResidualNode->name() : "(unknown)");
+                Simulator::dbg() << ", worst residual=" << ss.str(); 
+                if (!residualWithinTol) {
+                    Simulator::dbg() << " >TOL";
+                }
+                Simulator::dbg() << " @ " << (maxResidualNode ? maxResidualNode->name() : "(unknown)");
             }
             if (iteration>1) {
                 ss.str(""); ss << maxDelta;
-                Simulator::dbg() << ", worst delta=" << ss.str() << " @ " << (maxDeltaNode ? maxDeltaNode->name() : "(unknown)");
+                Simulator::dbg() << ", worst delta=" << ss.str(); 
+                if (!deltaWithinTol) {
+                    Simulator::dbg() << " >TOL";
+                }
+                Simulator::dbg() << " @ " << (maxDeltaNode ? maxDeltaNode->name() : "(unknown)");
             }
         }
         Simulator::dbg() << "\n";
@@ -865,7 +873,7 @@ std::tuple<bool, bool> OpNRSolver::checkResidual() {
     maxResidualNode = nullptr;
     
     // Assume residual is OK
-    bool residualOk = true;
+    residualWithinTol = true;
     
     // Get point maximum for each residual nature
     zero(pointMaxResidualContribution_); 
@@ -935,15 +943,15 @@ std::tuple<bool, bool> OpNRSolver::checkResidual() {
 
         // See if residual component exceeds tolerance
         if (rescomp>tol) {
-            residualOk = false;
+            residualWithinTol = false;
             // Can exit if not computing norms
             if (!computeNorms) {
-                return std::make_tuple(true, residualOk); 
+                return std::make_tuple(true, residualWithinTol); 
             }
         }
     }
     
-    return std::make_tuple(true, residualOk); 
+    return std::make_tuple(true, residualWithinTol); 
 }
 
 std::tuple<bool, bool> OpNRSolver::checkDelta() {
@@ -971,7 +979,7 @@ std::tuple<bool, bool> OpNRSolver::checkDelta() {
     // In iteration 1 assume we did not converge
     
     // Assume we converged
-    bool deltaOk = true;
+    deltaWithinTol = true;
     
     double* xdelta = delta.data();
 
@@ -987,7 +995,7 @@ std::tuple<bool, bool> OpNRSolver::checkDelta() {
         }
     }
 
-    // Use 1-based index (with bucket) because same indexing is used for variables
+    // Use 1-based index (with bucket) because same indexing is used for unknowns
     for(decltype(n) i=1; i<=n; i++) {
         // Get unknown nature index
         auto ndx = commons.unknown_natureIndex[i];
@@ -1029,16 +1037,16 @@ std::tuple<bool, bool> OpNRSolver::checkDelta() {
         // Check tolerance
         if (deltaAbs>tol) {
             // Did not converge
-            deltaOk = false;
+            deltaWithinTol = false;
             
             // Can exit if not computing norms
             if (!computeNorms) {
-                return std::make_tuple(true, deltaOk);
+                return std::make_tuple(true, deltaWithinTol);
             }
         }
     }
     
-    return std::make_tuple(true, deltaOk);
+    return std::make_tuple(true, deltaWithinTol);
 }
 
 void OpNRSolver::resetMaxima() {

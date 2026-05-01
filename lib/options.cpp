@@ -184,9 +184,11 @@ SimulatorOptions::SimulatorOptions() {
     tran_laggednoise = 1;  // Use lagged noise coupling (better convergence)
     tran_extraoct = 8;     // extra Voss-McCartney rows / SDE Lorentzians at low frequencies
                            // 8 covers flicker noise exponents between 0.2 and 1.8 with reasonable accuracy
-    tran_cleanlte = 1;     // Do not include transient noise in LTE computation. 
-    tran_strongsde = 1;    // Enforce strong SDE convergence in transient noise analysis. 
-
+    tran_noiselte = 1;     // >=0, LTE floor in terms of noise contribution. Lower values mean lower floor. 
+                           // For 1 the floor equals the noise contribution. 
+                           // The noise contribution is always subtracted from the noisy solution when
+                           // performing LTE timestep control. 
+                           // Values below 1 can cause convergence problems. 
     hb_debug = 0; // >0 = enables debugging
                   // >=1 print iteration type, homotopy information, convergence report
                   // >=2 print continuation mode information
@@ -297,8 +299,7 @@ template<> int Introspection<SimulatorOptions>::setup() {
     registerMember(tran_noisedebug);
     registerMember(tran_laggednoise);
     registerMember(tran_extraoct);
-    registerMember(tran_cleanlte);
-    registerMember(tran_strongsde);
+    registerMember(tran_noiselte);
     
     registerMember(hb_debug);
     registerMember(hb_itl);

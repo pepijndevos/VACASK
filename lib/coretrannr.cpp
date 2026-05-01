@@ -312,7 +312,7 @@ std::tuple<bool, bool> TranNRSolver::buildSystem(bool continuePrevious) {
     return std::make_tuple(ok, preventConvergence);
 }
 
-const RealVector* TranNRSolver::noiseSolutionContribution() {
+bool TranNRSolver::computeNoiseSolutionContribution() {
     // Solve with last factored Jacobian
     if (!jac.solve(dataWithoutBucket(noiseResidual))) {
         lastError = Error::LinearSolver;
@@ -320,9 +320,115 @@ const RealVector* TranNRSolver::noiseSolutionContribution() {
         if (settings.debug) {
             Simulator::dbg() << "Failed to solve for noise contribution.\n";
         }
-        return nullptr;
+        return false;
     }
-    return &noiseResidual;
+    return true;
+}
+
+std::tuple<bool, bool> TranNRSolver::checkResidual() {
+    // Options
+    auto& options = circuit.simulatorOptions().core();
+
+    // Compute norms only in debug mode
+    bool computeNorms = settings.debug;
+
+    // In residual we have the residual at previous solution
+    // We are going to check that residual
+    
+    // Number of unknowns (vector length includes a bucket at index 0)
+    auto n = circuit.unknownCount();
+
+    // Results
+    maxResidual = 0.0;
+    maxNormResidual = 0.0;
+    l2normResidual2 = 0.0;
+    maxResidualNode = nullptr;
+    
+    // Assume residual is OK
+    residualWithinTol = true;
+    
+    // Get point maximum for each residual nature
+    zero(pointMaxResidualContribution_); 
+    for(decltype(n) i=1; i<=n; i++) {
+        double c = std::fabs(maxResidualContribution_[i]);
+        // Get residual nature index
+        auto ndx = commons.residual_natureIndex[i];
+        if (c>pointMaxResidualContribution_[ndx]) {
+            pointMaxResidualContribution_[ndx] = c;
+        }
+    }
+    
+    // Go through all variables (except ground)
+    for(decltype(n) i=1; i<=n; i++) {
+        // Representative node, associated flow nature index
+        auto rn = circuit.reprNode(i);
+        // Skip this node if residual check is not allowed
+        if (!rn->checkFlags(Node::Flags::ResidualCheck)) {
+            continue;
+        }
+        // Get residual nature index
+        auto ndx = commons.residual_natureIndex[i];
+        
+        // Compute tolerance reference
+        // Point local reference by default
+        // Compute tolerance reference, start with previous value of the i-th unknown
+        double tolref = std::fabs(maxResidualContribution_[i]);
+
+        // Account for global and historic references
+        if (historicResRef) {
+            if (globalResRef) {
+                // Historic global reference, ndx is the nature index
+                tolref = std::max(tolref, globalMaxResidualContribution_[ndx]);
+            } else {
+                // Historic local reference, i is the index of unknown
+                tolref = std::max(tolref, historicMaxResidualContribution_[i]);
+            }
+        } else if (globalResRef) {
+            // Point global reference, ndx is the nature index
+            tolref = std::max(tolref, pointMaxResidualContribution_[ndx]);
+        }
+
+        // For transient noise include noise residual in tolerance reference
+        if (noiseEnabled) {
+            tolref = std::max(tolref, std::abs(noiseResidual[i]));
+        }
+
+        // Residual tolerance (Designer's Guide to Spice and Spectre, chapter 2.2.2)
+        auto tol = std::max(std::fabs(tolref*options.reltol), commons.residual_abstol[i]);
+
+        // TODO: internal nodes when NR converges have a very low residual contribution
+        //       because a single OSDI instance provides all the residual contribution to them 
+        //       and the contribution is close to 0. 
+        //       This means that absolute tolerances may be too low and prevent convergence forever. 
+        //       This is somehow remedied if relrefres is set to pointglobal or global. 
+
+        // Residual component
+        double rescomp = fabs(delta[i]);
+    
+        // Normalized residual component
+        double normResidual = rescomp/tol;
+
+        if (computeNorms) {
+            l2normResidual2 += normResidual*normResidual;
+            // Update largest normalized component
+            if (i==1 || normResidual>maxNormResidual) {
+                maxResidual = rescomp;
+                maxNormResidual = normResidual;
+                maxResidualNode = rn;
+            }
+        }
+
+        // See if residual component exceeds tolerance
+        if (rescomp>tol) {
+            residualWithinTol = false;
+            // Can exit if not computing norms
+            if (!computeNorms) {
+                return std::make_tuple(true, residualWithinTol); 
+            }
+        }
+    }
+    
+    return std::make_tuple(true, residualWithinTol); 
 }
 
 bool TranNRSolver::formatError(Status& s, NameResolver* resolver) const {

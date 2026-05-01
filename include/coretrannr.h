@@ -60,18 +60,26 @@ public:
 
     // Compute the negative of noise contribution to the solution, store it in noise residual. 
     // It is the linearized contribution computed with the last factored Jacobian. 
-    // Can be called after the solver succeeds
-    // Returns pointer to RealVector (solution contribution) or nullptr on faiulure
-    const RealVector* noiseSolutionContribution();
+    // Can be called after the solver succeeds. Call it only once because it overwrites 
+    // noiseResidual which is the RHS for the solver. 
+    // Returns true on success
+    bool computeNoiseSolutionContribution();
 
-    virtual bool initialize(bool continuePrevious);
+    // Returns RealVector (solution contribution of noise)
+    const RealVector& noiseSolutionContribution() { return noiseResidual; };
+
+    virtual bool initialize(bool continuePrevious) override;
 
     // No need to override buildSysten() and computeResidual() to set 
     // nodeset and ic flags to false because 
     // nodeset flag is off due to continue mode and 
     // ic flag is off due to forces slot 2 not being present. 
     // Override buildSystem() for loading trasient noise residuals. 
-    virtual std::tuple<bool, bool> buildSystem(bool continuePrevious);
+    virtual std::tuple<bool, bool> buildSystem(bool continuePrevious) override;
+
+    // Need to obverride this because in transient noise we include noise residual
+    // in tolerance reference
+    virtual std::tuple<bool, bool> checkResidual() override;
     
 private:
     IntegratorCoeffs* integCoeffs;

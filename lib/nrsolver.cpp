@@ -89,13 +89,6 @@ bool NRSolver::run(bool continuePrevious) {
     // Main loop setup
     bool deltaOk;
     bool residualOk;
-    double maxResidual;
-    double maxNormResidual;
-    double l2normResidual2;
-    Id maxResidualNodeId; 
-    double maxDelta;
-    double maxNormDelta; 
-    Id maxDeltaNodeId;
     iteration = 0;
     Int convIter = 0;
     converged = false;

@@ -142,7 +142,6 @@ f, Pxx = welch(
     window='hann',
     nperseg=nperseg,      
     noverlap=nperseg/2,      
-    detrend=False,
     return_onesided=True,
     scaling='density', 
     average='mean'

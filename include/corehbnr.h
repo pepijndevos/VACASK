@@ -126,10 +126,12 @@ protected:
     double l2normResidual2;
     Node* maxResidualNode;
     size_t maxResidualTimepointIndex;
+    bool residualWithinTol;
     double maxDelta; 
     double maxNormDelta; 
     Node* maxDeltaNode;
     size_t maxDeltaTimepointIndex;
+    bool deltaWithinTol;
 
     HBNRSolverError lastHBNRError;
 };

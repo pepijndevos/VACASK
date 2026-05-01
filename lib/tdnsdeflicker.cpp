@@ -122,9 +122,21 @@ template <std::uniform_random_bit_generator URBG> void TimeDomainSdeFlickerNoise
 
     // Go through all Lorentzians, compute a and b for each Lorentzian
     for(int i=0; i<k_; i++) {
-        a[i] = std::exp(-omega[i]*h);
+        auto arg1 = omega[i]*h;
+        a[i] = std::exp(-arg1);
         // b without the weight
-        b[i] = std::sqrt((1-a[i]*a[i])*omega[i])/2;
+        double arg2;
+        // Handle small (omega h)
+        if (std::abs(arg1)<1e-7) {
+            arg2 = arg1*(1+a[i]);
+        } else {
+            arg2 = 1-a[i]*a[i];
+        }
+        // TODO: remove
+        if (arg2<0) {
+            int a=1;
+        }
+        b[i] = std::sqrt(arg2*omega[i])/2;
     }
 
     // It makes more sense to go through all generators in outer loop (easier on cache)

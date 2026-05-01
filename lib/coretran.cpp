@@ -43,6 +43,8 @@ namespace NAMESPACE {
 //                         |     
 //                     alpha in load_jacobian_react() and load_jacobian_tran()
 
+// TODO: proper Brownian bridge in SDE transient noise
+//       enforce strong convergence of the SDE solver
 
 /*
 // Solution of I-L circuit, sinusoidal excitation current, V0=0.5, f=50
@@ -221,7 +223,8 @@ TranParameters::TranParameters() {
     // Turn off output for op analysis
     opParams.write = 0; 
     icmode = TranCore::icmodeOp;
-    noisemode = TranCore::noiseSde;
+    // SDE is based in stochastic DEs, but ZOH is faster and uses less memory
+    noisemode = TranCore::noiseZoh;
 }
 
 template<> int Introspection<TranParameters>::setup() {
@@ -663,6 +666,10 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
     double noiseStepLimit = 0;
     double noisefmax = params.noisefmax;
     double noisefmin = params.noisefmin;
+    
+    // Do not compute noise contribution to the solution by default
+    bool computeNoiseContribution = false;
+
     if (noisefmax) {
         // Check noise mode
         if (params.noisemode!=noiseZoh && params.noisemode!=noiseSde) {
@@ -703,7 +710,7 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
         
         // Count noise sources, get maximal number of sources per instance
         auto [nWhite, nFlicker, maxNsCount] = countNoiseSources();
-            
+        
         if (params.noisemode==noiseZoh) {
             // Compute number of VM rows for ZOH flicker noise generator
             // First row changes with average rate fmax*oversample/2 because p=0.5. 
@@ -772,21 +779,16 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
             fb->resetOptimizer(noisefmax/std::pow(2, ktune), noisefmax, 10);
             fb->setDebug(options.tran_noisedebug);
             flickerBlock.reset(fb);
+            
+            // Decide if wee need noise contribution
+            computeNoiseContribution = true;
+            noiselessSolution.resize(n+1);
         }
         // Tell NR solver we want transient noise
         nrSolver.enableNoise(*whiteBlock.get(), *flickerBlock.get(), maxNsCount, params.noisescale);
-
-        // Decide if we need noiseless solution
-        computeNoiseless = options.tran_cleanlte || options.tran_strongsde;
-
-        // Allocate space for noiseless solution
-        noiselessSolution.resize(n+1);
     } else {
         // Tell NR solver we don't want transient noise
         nrSolver.disableNoise();
-
-        // Don't need noiseless solution
-        computeNoiseless = false;
     }
     
     if (progressReporter) {
@@ -1185,17 +1187,17 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
         }
 
         // Solution is OK, solve for negative noise contribution
-        // computeNoiseless can be active only in transient noise analysis
-        if (solutionOk && computeNoiseless) {
-            auto negNoise = nrSolver.noiseSolutionContribution();
-            if (!negNoise) {
+        // computeNoiseContribution can be active only in transient noise analysis
+        if (solutionOk && computeNoiseContribution) {
+            if (!nrSolver.computeNoiseSolutionContribution()) {
                 setError(TranError::NRSolver);
                 co_yield CoreState::Aborted;
             }
             // Compute noiseless solution
+            auto& negNoise = nrSolver.noiseSolutionContribution();
             auto& solutionVector = solution.vector();
             for(decltype(n) i=1; i<=n; i++) {
-                noiselessSolution[i] = solutionVector[i] + (*negNoise)[i];
+                noiselessSolution[i] = solutionVector[i] + negNoise[i];
             }
             noiselessSolution[0] = 0;
         }
@@ -1208,7 +1210,7 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
             // Use noiseless solution for ringing filter if tran_cleanlte is enabled
             // needNoiseless guarantees computation of noiseless solution
             // but only in transient noise analysis. 
-            auto& solutionVector = (computeNoiseless && options.tran_cleanlte) ? noiselessSolution : solution.vector();
+            auto& solutionVector = (computeNoiseContribution) ? noiselessSolution : solution.vector();
 
             if (integCoeffs.method()==IntegratorCoeffs::Method::AdamsMoulton && integCoeffs.order()==2) {
                 // Need at least 3 past points
@@ -1322,6 +1324,9 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
             hmax = std::min(hmax, options.tran_ffmax/(2*esInit.maxFreq));
         }
 
+        // Assume strong SDE convergence
+        auto strongConv = true;
+
         bool accept;
         double hkNew;
         Int newOrder = order;
@@ -1391,8 +1396,7 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
             double maxRatio = 0.0;
 
             // Choose between noiseless and noisy solution when trap lte filter is not used
-            auto& unfilteredSolution = (computeNoiseless && options.tran_cleanlte) ? noiselessSolution : solution.vector();
-
+            auto& unfilteredSolution = (computeNoiseContribution) ? noiselessSolution : solution.vector();
             for(decltype(n) i=1; i<=n; i++) {
                 // Get unknown nature index
                 auto ndx = commons.unknown_natureIndex[i];
@@ -1449,6 +1453,11 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
                     co_yield CoreState::Aborted;
                 }
 
+                // When performing transient noise, tol should never be below noise contribution
+                if (computeNoiseContribution) {
+                    tol = std::max(tol, std::abs(nrSolver.noiseSolutionContribution()[i])*options.tran_noiselte);
+                }
+
                 // std::cout << i << " predicted=" << predictedSolution[i] 
                 //     << " obtained=" << solution.vector()[i]
                 //     << " delta=" << (solution.vector()[i] - predictedSolution[i])
@@ -1465,6 +1474,7 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
                 if (ratio>maxRatio) {
                     maxRatio = ratio;
                 }
+
             }
             // Update timestep only if maxRatio>0 (0 means no LTE, so step can become infinite)
             // LTE grows with (order+1)-th power of the timestep
@@ -1482,7 +1492,14 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
                 ss.str(""); ss << maxRatio;
                 Simulator::dbg() << "  Maximal LTE/tol="+ss.str();
                 ss.str(""); ss << hkNew;
-                Simulator::dbg() << " suggests dt="+ss.str()+".\n";
+                Simulator::dbg() << " suggests dt="+ss.str();
+                Simulator::dbg() << ".\n";
+            }
+            
+            // Prevent acceptance if strong convergence failed, halve step
+            if (!strongConv) {
+                accept = false;
+                hkNew = std::min(hkNew, hk/2);
             }
             
             // hkNew is now the smallest of these two
@@ -1696,7 +1713,7 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
 
             // Advance transient noise generators
             if (noisefmax) {
-                auto [ok, changed] = nrSolver.advanceNoise(tSolveNew, tSolveNew-tSolve, randomGenerator);
+                auto [ok, changed] = nrSolver.advanceNoise(tSolveNew, hkNew, randomGenerator);
                 if (!ok) {
                     setError(TranError::NRSolver);
                     co_yield CoreState::Aborted;
@@ -1738,7 +1755,8 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
 
             // Revert transient noise generators
             if (noisefmax) {
-                nrSolver.revertNoise(tSolveNew, tSolveNew-tSolve, randomGenerator);
+                // time difference instead of h is wrong
+                nrSolver.revertNoise(tSolveNew, hkNew, randomGenerator);
             }
         }
 

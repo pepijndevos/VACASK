@@ -111,7 +111,6 @@ f, Pxx = welch(
     window='hann',
     nperseg=nperseg,      
     noverlap=nperseg/2,      
-    detrend=False,
     return_onesided=True,
     scaling='density', 
     average='mean'
@@ -141,7 +140,7 @@ else:
     fig1.axes[1].set_xlabel('f [Hz]')
 
     fig1.axes[1].loglog(f, Pxx, label="PSD (log-bin mean)")
-    # fig1.axes[1].set_ylim(refpsd.min()/10, refpsd.max()*10)
+    fig1.axes[1].set_ylim(refpsd.min()/10, refpsd.max()*10)
     fig1.axes[1].loglog(reff, refpsd, 'r', label="PSD (AC noise, mean abs current)")
     
     fig1.axes[1].legend(loc='lower left')

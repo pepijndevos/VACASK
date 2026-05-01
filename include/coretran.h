@@ -170,7 +170,6 @@ private:
 
     VectorRepository<double> filteredSolution;
     
-    bool computeNoiseless;
     RealVector noiselessSolution;
 
     OperatingPointCore& opCore_;

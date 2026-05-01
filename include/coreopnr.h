@@ -81,16 +81,16 @@ public:
     // Set forces based on preprocessed user forces
     bool setForces(Int ndx, const PreprocessedUserForces& preprocessed, bool uicMode, bool abortOnError);
     
-    virtual bool rebuild();
-    virtual bool initialize(bool continuePrevious);
-    virtual bool preIteration(bool continuePrevious);
-    virtual bool postSolve(bool continuePrevious);
-    virtual bool postConvergenceCheck(bool continuePrevious);
-    virtual bool postIteration(bool continuePrevious);
+    virtual bool rebuild() override;
+    virtual bool initialize(bool continuePrevious) override;
+    virtual bool preIteration(bool continuePrevious) override;
+    virtual bool postSolve(bool continuePrevious) override;
+    virtual bool postConvergenceCheck(bool continuePrevious) override;
+    virtual bool postIteration(bool continuePrevious) override;
     
-    virtual std::tuple<bool, bool> buildSystem(bool continuePrevious);
-    virtual std::tuple<bool, bool> checkResidual();
-    virtual std::tuple<bool, bool> checkDelta();
+    virtual std::tuple<bool, bool> buildSystem(bool continuePrevious) override;
+    virtual std::tuple<bool, bool> checkResidual() override;
+    virtual std::tuple<bool, bool> checkDelta() override;
 
     // Reset solution maxima and residual maxima
     void resetMaxima();
@@ -118,7 +118,7 @@ public:
     EvalSetup& evalSetup() { return evalSetup_; };
     LoadSetup& loadSetup() { return loadSetup_; };
     
-    virtual void dumpSolution(std::ostream& os, double* solution, const char* prefix="");
+    virtual void dumpSolution(std::ostream& os, double* solution, const char* prefix="") override;
 
 protected:
     bool setForceOnUnknown(Forces& f, Node* node, double value);
@@ -177,9 +177,11 @@ protected:
     double maxNormResidual; 
     double l2normResidual2;
     Node* maxResidualNode;
+    bool residualWithinTol;
     double maxDelta; 
     double maxNormDelta; 
     Node* maxDeltaNode;
+    bool deltaWithinTol;
 
     OpNRSolverError lastOpNRError;
     Node* errorNode1;
