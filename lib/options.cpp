@@ -180,11 +180,13 @@ SimulatorOptions::SimulatorOptions() {
                     // 0 = pure Euler, 0.5 = pure trapezoidal
     tran_trapltefilter = 1; // enable trap ringing filter for predictor and LTE computation, 
                             // applied only when Adams-Moulton algorithm of order 2 is used 
-    tran_noisedebug = 0;    // transient noise debugging
-    tran_laggednoise = 1;   // Use lagged noise coupling (better convergence)
+    tran_noisedebug = 0;   // transient noise debugging
+    tran_laggednoise = 1;  // Use lagged noise coupling (better convergence)
     tran_extraoct = 8;     // extra Voss-McCartney rows / SDE Lorentzians at low frequencies
                            // 8 covers flicker noise exponents between 0.2 and 1.8 with reasonable accuracy
-    
+    tran_cleanlte = 1;     // Do not include transient noise in LTE computation. 
+    tran_strongsde = 1;    // Enforce strong SDE convergence in transient noise analysis. 
+
     hb_debug = 0; // >0 = enables debugging
                   // >=1 print iteration type, homotopy information, convergence report
                   // >=2 print continuation mode information
@@ -295,6 +297,8 @@ template<> int Introspection<SimulatorOptions>::setup() {
     registerMember(tran_noisedebug);
     registerMember(tran_laggednoise);
     registerMember(tran_extraoct);
+    registerMember(tran_cleanlte);
+    registerMember(tran_strongsde);
     
     registerMember(hb_debug);
     registerMember(hb_itl);

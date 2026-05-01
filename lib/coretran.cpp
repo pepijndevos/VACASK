@@ -775,9 +775,18 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
         }
         // Tell NR solver we want transient noise
         nrSolver.enableNoise(*whiteBlock.get(), *flickerBlock.get(), maxNsCount, params.noisescale);
+
+        // Decide if we need noiseless solution
+        computeNoiseless = options.tran_cleanlte || options.tran_strongsde;
+
+        // Allocate space for noiseless solution
+        noiselessSolution.resize(n+1);
     } else {
         // Tell NR solver we don't want transient noise
         nrSolver.disableNoise();
+
+        // Don't need noiseless solution
+        computeNoiseless = false;
     }
     
     if (progressReporter) {
@@ -1174,24 +1183,53 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
             }
             // No Abort, solver failed
         }
+
+        // Solution is OK, solve for negative noise contribution
+        // computeNoiseless can be active only in transient noise analysis
+        if (solutionOk && computeNoiseless) {
+            auto negNoise = nrSolver.noiseSolutionContribution();
+            if (!negNoise) {
+                setError(TranError::NRSolver);
+                co_yield CoreState::Aborted;
+            }
+            // Compute noiseless solution
+            auto& solutionVector = solution.vector();
+            for(decltype(n) i=1; i<=n; i++) {
+                noiselessSolution[i] = solutionVector[i] + (*negNoise)[i];
+            }
+            noiselessSolution[0] = 0;
+        }
         
         if (solutionOk && options.tran_trapltefilter) {
             // Solver success, apply trap ringing filter
             // Do this only if method we were using was trapezoidal
+            auto& filteredSolutionVector = filteredSolution.vector();
+
+            // Use noiseless solution for ringing filter if tran_cleanlte is enabled
+            // needNoiseless guarantees computation of noiseless solution
+            // but only in transient noise analysis. 
+            auto& solutionVector = (computeNoiseless && options.tran_cleanlte) ? noiselessSolution : solution.vector();
+
             if (integCoeffs.method()==IntegratorCoeffs::Method::AdamsMoulton && integCoeffs.order()==2) {
                 // Need at least 3 past points
                 if (trapHistory>=3) {
-                    filteredSolution.vector()[0] = 0;
+                    // Vectors
+                    auto& solutionVector1 = solution.vector(1);
+                    auto& solutionVector2 = solution.vector(2);
+                    auto& solutionVector3 = solution.vector(3);
+                    
+                    // Past timesteps
+                    auto hk1 = pastTimesteps.at(0);
+                    auto hk2 = pastTimesteps.at(1);
+                    
+                    filteredSolutionVector[0] = 0;
                     for(UnknownIndex i=1; i<=n; i++) {
                         // Latest point
                         auto x0 = solution.vector()[i];
                         // Past points
-                        auto x1 = solution.vector(1)[i];
-                        auto x2 = solution.vector(2)[i];
-                        auto x3 = solution.vector(3)[i];
-                        // Past timesteps
-                        auto hk1 = pastTimesteps.at(0);
-                        auto hk2 = pastTimesteps.at(1);
+                        auto x1 = solutionVector1[i];
+                        auto x2 = solutionVector2[i];
+                        auto x3 = solutionVector3[i];
                         // Slope of envelope defined by x1 and x3
                         auto k13 = (x1-x3)/(hk1+hk2);
                         // Slope of envelope defined by x2 and x0
@@ -1214,15 +1252,15 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
                             // Do correction
                             auto deltaEnvelopeAt2 = x2 - (x3+k13*hk2);
                             // Corrected x0 with half of envelope width
-                            filteredSolution.vector()[i] = x0 - deltaEnvelopeAt2/2;
+                            filteredSolutionVector[i] = x0 - deltaEnvelopeAt2/2;
                         } else {
                             // No correction
-                            filteredSolution.vector()[i] = x0;
+                            filteredSolutionVector[i] = x0;
                         }
                     }
                 } else {
                     // Not enough points yet, copy point
-                    filteredSolution.vector() = solution.vector();    
+                    filteredSolutionVector = solutionVector;    
                 }
                 // Increase timepoint counter
                 if (trapHistory<10) {
@@ -1230,7 +1268,7 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
                 }
             } else {
                 // Not trapezoidal algorithm, copy point
-                filteredSolution.vector() = solution.vector();
+                filteredSolutionVector = solutionVector;
                 // reset timepoint counter
                 trapHistory = 0;
             }
@@ -1351,6 +1389,10 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
             // Go through all unknowns, except for the ground
             bool haveRatio = false;
             double maxRatio = 0.0;
+
+            // Choose between noiseless and noisy solution when trap lte filter is not used
+            auto& unfilteredSolution = (computeNoiseless && options.tran_cleanlte) ? noiselessSolution : solution.vector();
+
             for(decltype(n) i=1; i<=n; i++) {
                 // Get unknown nature index
                 auto ndx = commons.unknown_natureIndex[i];
@@ -1362,9 +1404,11 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
                     integCoeffs.order()==2
                 ) {
                     // Use filtered history if the algorithm we are using is trapezoidal
+                    // and tran_trapltefilter is enabled. 
+                    // It is noiseless if tran_cleanlte is enabled and noiseless solution is computed. 
                     lte = factor*(filteredSolution.vector()[i] - predictedSolution[i]);
                 } else {
-                    lte = factor*(solution.vector()[i] - predictedSolution[i]);
+                    lte = factor*(unfilteredSolution[i] - predictedSolution[i]);
                 }
                 
                 // Compute tolerance

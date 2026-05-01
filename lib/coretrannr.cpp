@@ -97,6 +97,10 @@ void TranNRSolver::enableNoise(
     whiteScaling.resize(whiteBlock->values().size());
     flickerScaling.resize(flickerBlock->values().size());
 
+    // Initial scaling is 0
+    zero(whiteScaling);
+    zero(flickerScaling);
+
     // Count white and flicker noise sources
     // Device/model/instance loops
     // Must traverse in exactly the same order each time at noise load. 
@@ -264,17 +268,18 @@ bool TranNRSolver::buildNoiseResidual() {
                         default:
                             continue;
                     }
-                    // Get noise source terminals, add to residuals
-                    // Do this only if noiseResidualContribution is not nullptr
-                    if (noiseResidualContribution) {
-                        auto [e1, e2] = inst->noiseExcitation(circuit, ndx);
-                        noiseResidualContribution[e1] += sample;
-                        noiseResidualContribution[e2] -= sample;
-                    }
+                    // Get noise source terminals, add to residual
+                    auto [e1, e2] = inst->noiseExcitation(circuit, ndx);
+                    noiseResidualContribution[e1] += sample;
+                    noiseResidualContribution[e2] -= sample;
                 }
             }
         }
     }
+    
+    // Set bucket to 0
+    noiseResidual[0] = 0;
+
     return true;
 }
 
@@ -305,6 +310,19 @@ std::tuple<bool, bool> TranNRSolver::buildSystem(bool continuePrevious) {
     }
 
     return std::make_tuple(ok, preventConvergence);
+}
+
+const RealVector* TranNRSolver::noiseSolutionContribution() {
+    // Solve with last factored Jacobian
+    if (!jac.solve(dataWithoutBucket(noiseResidual))) {
+        lastError = Error::LinearSolver;
+        errorIteration = iteration;
+        if (settings.debug) {
+            Simulator::dbg() << "Failed to solve for noise contribution.\n";
+        }
+        return nullptr;
+    }
+    return &noiseResidual;
 }
 
 bool TranNRSolver::formatError(Status& s, NameResolver* resolver) const {

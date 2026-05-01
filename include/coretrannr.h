@@ -58,6 +58,12 @@ public:
     // Called on rejected timepoint
     bool revertNoise(double time, double h, std::mt19937_64& gen);
 
+    // Compute the negative of noise contribution to the solution, store it in noise residual. 
+    // It is the linearized contribution computed with the last factored Jacobian. 
+    // Can be called after the solver succeeds
+    // Returns pointer to RealVector (solution contribution) or nullptr on faiulure
+    const RealVector* noiseSolutionContribution();
+
     virtual bool initialize(bool continuePrevious);
 
     // No need to override buildSysten() and computeResidual() to set 
@@ -73,9 +79,9 @@ private:
     bool noiseEnabled;
     TimeDomainNoiseBlock<std::mt19937_64>* whiteBlock;
     TimeDomainNoiseBlock<std::mt19937_64>* flickerBlock;
-    Vector<double> whiteScaling;
-    Vector<double> flickerScaling;
-    Vector<double> noiseResidual;
+    RealVector whiteScaling;
+    RealVector flickerScaling;
+    RealVector noiseResidual;
     double noiseScale_;
     
     // Make these thread-local when OpenMP is introduced

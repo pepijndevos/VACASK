@@ -151,8 +151,8 @@ protected:
     VectorRepository<double>& solution; // Solution history
     VectorRepository<double>& states; // Circuit states
 
-    Vector<double> predictedSolution;
-    Vector<double> scaledLte;
+    RealVector predictedSolution;
+    RealVector scaledLte;
 
     OutputRawfile* outfile;
 
@@ -169,6 +169,9 @@ private:
     void updateBreakPoint(double& bp, double candidate, double last) { if (candidate<bp && candidate>last) bp = candidate; };
 
     VectorRepository<double> filteredSolution;
+    
+    bool computeNoiseless;
+    RealVector noiselessSolution;
 
     OperatingPointCore& opCore_;
     NRSettings nrSettings;
