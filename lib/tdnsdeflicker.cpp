@@ -25,7 +25,6 @@ void SdeFlickerCoeffs::analyticalCoefficients(double alpha, std::vector<double>&
 
 // Target PSD: S = f^(-alpha)
 bool SdeFlickerCoeffs::computeTargetPsd(double alpha, std::vector<double>& target, const std::vector<double>& freq) {
-    return false;
     auto n = freq.size();
     for(int i=0; i<n; i++) {
         target[i] = 1.0/std::pow(freq[i], alpha);
@@ -34,8 +33,26 @@ bool SdeFlickerCoeffs::computeTargetPsd(double alpha, std::vector<double>& targe
 }
 
 // Compute PSD for given PSD coeffs at given frequency
+// wpsd are PSD weights, not signal weights
+// Unweighted contributions of individual Lorentzians are stored in contributions. 
+// Return PSD value
 double SdeFlickerCoeffs::computePsd(const std::vector<double>& wpsd, double f, std::vector<double>& contributions) {
-    return 0;
+    const double pi = std::numbers::pi;
+    auto n = wpsd.size();
+
+    // Compute Lorentzians
+    auto fi = fmax_;;
+    double sum = 0;
+    for(decltype(n) i=0; i<n; i++) {
+        // Compute single Lorentzian
+        auto fn = f/fi;
+        auto lorentzian = 1/(1+fn*fn);
+        contributions[i] = lorentzian;
+        sum += wpsd[i] * contributions[i];
+        fi /= 2;
+    }
+    
+    return sum;
 }
 
 template <std::uniform_random_bit_generator URBG> bool TimeDomainSdeFlickerNoise<URBG>::advance(double time, double h, URBG& gen) {

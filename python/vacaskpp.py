@@ -36,8 +36,19 @@ def logBinMean(f, Pxx, binsPerDecade=10):
     idx = np.digitize(f, edges) - 1
 
     fb = np.array([np.sqrt(edges[i] * edges[i+1]) for i in range(nbins)])
-    Pb = np.array([Pxx[idx == i].mean() if np.any(idx == i) else np.nan
-                   for i in range(nbins)])
+    Pb = np.array([Pxx[idx == i].mean() if np.any(idx == i) else np.nan for i in range(nbins)])
+    
+    # Find last nan, get first frequency after last nan
+    idx = np.where(np.isnan(Pb))[0]
+    if idx.size>0:
+        # Have nan, get index of first frequency after nan
+        ifirst = idx[-1]+1
+        # Find last original frequency that is less than fb[ifirst]
+        ilast = np.where(f<fb[ifirst])[0][-1]
 
-    m2 = np.isfinite(Pb)
-    return fb[m2], Pb[m2]
+        # Up to ifirst copy original f and Pxx
+        fret = np.concatenate((f[:ilast+1], fb[ifirst:]))
+        Pret = np.concatenate((Pxx[:ilast+1], Pb[ifirst:]))
+    
+    return fret, Pret
+    

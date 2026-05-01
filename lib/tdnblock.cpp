@@ -135,6 +135,7 @@ std::tuple<size_t, bool> TimeDomainNoiseCoeffs::getCoefficients(double alpha) {
 
     if (debug_) {
         Simulator::dbg() << "Computing coefficients for alpha=" << alpha << "\n";
+        Simulator::dbg() << "  fitting range: " << fmin_ << " .. " << fmax_ << "\n";
     }
 
     // Not in map, insert

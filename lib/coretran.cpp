@@ -712,7 +712,9 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
             // Add extra octaves (rows)
             auto fcorner2 = fsampling/(4*pi);
             // Number of rows is number of octaves + tran_extraoct
-            auto k = options.tran_extraoct + int(std::ceil(std::log(fcorner2/noisefmin)/std::log(2)));
+            auto krange = int(std::ceil(std::log(fcorner2/noisefmin)/std::log(2)));
+            auto k = options.tran_extraoct + krange;
+            auto ktune = k;
             if (k>63) {
                 // Too many rows
                 setError(TranError::Rows);
@@ -740,13 +742,15 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
             // Initialize time domain flicker noise block
             auto fb = new TimeDomainZohFlickerNoise<std::mt19937_64>();
             fb->reset(0.0, noiseStepLimit, nFlicker, 1, k);
-            fb->resetOptimizer(fsampling, noisefmin, noisefmax, 10);
+            fb->resetOptimizer(fsampling, noisefmax/std::pow(2, ktune), noisefmax, 10);
             fb->setDebug(options.tran_noisedebug);
             flickerBlock.reset(fb);
         } else {
             // Compute number of Lorentzians for flicker noise in SDE mode
             // Corner frequency of first Lorentzian is at fmax
-            auto k = options.tran_extraoct + int(std::ceil(std::log(noisefmax/noisefmin)/std::log(2)));
+            auto krange = int(std::ceil(std::log(noisefmax/noisefmin)/std::log(2)));
+            auto k = options.tran_extraoct + krange;
+            auto ktune = k;
 
             if (options.tran_noisedebug) {
                 Simulator::dbg() << "Transient noise setup, SDE mode\n";
@@ -765,7 +769,7 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
             // Initialize time domain flicker noise block
             auto fb = new TimeDomainSdeFlickerNoise<std::mt19937_64>();
             fb->reset(0.0, nFlicker, 1, k, noisefmax);
-            fb->resetOptimizer(noisefmin, noisefmax, 10);
+            fb->resetOptimizer(noisefmax/std::pow(2, ktune), noisefmax, 10);
             fb->setDebug(options.tran_noisedebug);
             flickerBlock.reset(fb);
         }

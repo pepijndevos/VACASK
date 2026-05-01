@@ -44,9 +44,10 @@ bool VmFlickerCoeffs::computeTargetPsd(double alpha, std::vector<double>& target
 }
 
 // Compute PSD for given PSD coeffs at given frequency
+// wpsd are PSD weights, not signal weights
 // Unweighted contributions of rows are stored in contributions. 
+// Return PSD value
 double VmFlickerCoeffs::computePsd(const std::vector<double>& wpsd, double f, std::vector<double>& contributions) {
-    // Return value and the values of row PSDs are ZOH scaled
     const double pi = std::numbers::pi;
     auto n = wpsd.size();
 
