@@ -187,6 +187,8 @@ Examples of SPICE3 model usage are in [demo/spice](demo/spice).
 
 A new version of VACASK is released every now and then. Between releases [(not quite) nightly builds](https://fides.fe.uni-lj.si/vacask/download/) are released. These are great if you want to try VACASK with latest bugfixes. 
 
+All pre-built packages are built as generic binaries (no AVX-512 instructions). For GCC this is the default, while OpenVAF must be passed the `--target_cpu generic` option to disable AVX-512 code generation. You can achieve this by adding `-DOPENVAF_OPTIONS="--target_cpu generic"` to the CMake command line when creating the build system. To obtain maximum performance build VACASK without specifying the aforementioned `-DOPENVAF_OPTIONS` option. 
+
 # Getting started
 There are some examples available in the [`demo`](demo) directory. You can try the simulation of a Miller OTA by running
 ```
