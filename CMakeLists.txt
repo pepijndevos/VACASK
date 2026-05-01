@@ -50,6 +50,7 @@ endif()
 message(STATUS "Program version: ${PROGRAM_VERSION}")
 
 # Platform
+set(Boost_USE_STATIC_LIBS ON)
 if (${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
     # Windows
     set(SIM_PLATFORM "Windows")
