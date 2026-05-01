@@ -4,27 +4,20 @@
 
 namespace NAMESPACE {
 
-// Sum of Lorentzians resulting in a single-sided PSD of the form 1/f^alpha
-// Each contribution is a Lorentzian with corner frequency fc. 
-// Corner frequencies are fmax, fmax/2, fmax/4, ... 
-// Square these coeffs to get the PSD coefficients. 
-// i=0    .. highest corner frequency
-// i=k_-1 .. lowest corner frequency
-//
-// f_i = 2^(-i) fmax
-//
-// w_i = sqrt( 2 ln(2) sin(pi alpha / 2) / pi f_i^(-alpha) )
-//     = sqrt( 2 ln(2) sin(pi alpha / 2) fmax^(-alpha) / pi ) 2^(alpha i / 2) 
-//
-// Produces one-sided PSD in midband:
-// S = f^(-alpha)
+// We approximate PSD = f^(-alpha) as a sum of Lorentzians
+//   PSD = sum_i w_i^2 / (1+(f/f_i)^2) for i=0..k-1
+// with corner frequencies
+//   f_i = 2^(-i) fmax
+// Signal weights are
+//   w_i^2 = 2 sin(pi alpha / 2) ln(2) / pi f_i^(-alpha)
+//         = 2 sin(pi alpha / 2) ln(2) fmax^(-alpha) / pi 2^(alpha i)
 void SdeFlickerCoeffs::analyticalCoefficients(double alpha, std::vector<double>& coeffs) {
     const double pi = std::numbers::pi;
     // Scaling that makes one-sided PSD 1/f^alpha
     double scaling = 2*std::log(2)*std::sin(pi*alpha/2)*std::pow(fmax_, -alpha)/pi;
     // Signal scaling is the square root of PSD scaling
     scaling = std::sqrt(scaling);
-    // Scaled signal coefficients
+    // Signal coefficients
     for(int i=0; i<k_; i++) {
         coeffs[i] = std::pow(2.0, i*alpha/2.0) * scaling;
     }
@@ -57,6 +50,24 @@ template <std::uniform_random_bit_generator URBG> void TimeDomainSdeFlickerNoise
     }
 }
 
+template <std::uniform_random_bit_generator URBG> 
+ShapeSetStatus TimeDomainSdeFlickerNoise<URBG>::setShapeParameters(size_t i, double p) {
+    auto e = p;
+    if (e<0.1 || e>1.9) {
+        return ShapeSetStatus::OutOfRange;
+    }
+    bool init = coeffIndex[i]==SIZE_T_MAX;
+    bool changed = false;
+    bool compute = init || changed;
+    if (compute) {
+        auto [newIndex, ok] = getCoefficients(e);
+        coeffIndex[i] = newIndex;
+        exponent[i] = e;
+        return init ? ShapeSetStatus::Initialized : ShapeSetStatus::Changed;
+    }
+    return ShapeSetStatus::Unchanged;
+}
+
 template <std::uniform_random_bit_generator URBG> void TimeDomainSdeFlickerNoise<URBG>::construct(double h) {
     const double pi = std::numbers::pi;
 
@@ -71,26 +82,51 @@ template <std::uniform_random_bit_generator URBG> void TimeDomainSdeFlickerNoise
     // Get random numbers
     auto randoms = randomNumbers.data();
     
-    // Go through all Lorentzians, compute a and b (weights of old and new sample) for each Lorentzian
+    // A single Lorentzian from analyticalCoefficients()
+    //   PSD = w_i^2 / (1+(f/f_i)^2)
+    //
+    // Match it to the one-sided PSD of x obtained from 
+    //   dx = - omega_i x dt + sigma dW   where W is a Wiener process
+    // 
+    //   w_i^2 / (1 + (f/f_i)^2) = 2 sigma^2 / ((2 pi f_i)^2 + (2 pi f)^2)
+    // 
+    // We get
+    //   sigma = sqrt(2) pi f_i w_i
+    //
+    // x(h) can be expressed with x(0) as
+    //   x(h) = a x(0) + b N(0,1)
+    //
+    //   a = exp(-omega_i h) = exp(-2 pi f_i h)
+    //   b = sigma sqrt((1-a^2)/(2 omega_i))
+    //     = sqrt((1-a^2)/(2 pi f_i)) pi f_i w_i 
+    //     = sqrt(pi f_i (1-a^2)/2) w_i 
+    //     = sqrt(2 pi f_i (1-a^2)/4) w_i 
+    //     = sqrt(omega_i (1-a^2))/2 w_i 
+
+    // Go through all Lorentzians, compute a and b for each Lorentzian
     for(int i=0; i<k_; i++) {
-        a[i] = std::exp(-2*omega[i]*h);
-        b[i] = std::sqrt((1-a[i]*a[i])/(2*omega[i]));
+        a[i] = std::exp(-omega[i]*h);
+        // b without the weight
+        b[i] = std::sqrt((1-a[i]*a[i])*omega[i])/2;
     }
 
     // It makes more sense to go through all generators in outer loop (easier on cache)
     auto count = newSample.size();
     for(decltype(count) i=0; i<count; i++) {
+        // Get coefficients
+        auto& coeffs = getCoefficients(coeffIndex[i]);
+
         // New sample, start with 0
         double sam = 0;
         // Loop through Lorentzians
         for(int j=0; j<k_; j++) {
             // Compute old Lorentzian sample contribution
             auto eta = a[j] * (*oldLor);
-            // Add random number contribution
-            eta += b[j] * (*randoms);
+            // Add random number contribution, multiply with weight
+            eta += coeffs[j] * b[j] * (*randoms);
             // Store new Lorentzian sample
             *newLor = eta;
-            // Add to new sample
+            // Add to new flicker sample
             sam += eta;
             // Move on
             newLor++;
@@ -107,11 +143,23 @@ void TimeDomainSdeFlickerNoise<URBG>::reset(double t0, size_t count, int rollbac
     k_ = k;
     fmax_ = fmax;
 
+    // Exponents for generators
+    exponent.resize(count);
+    
+    // Coefficints index in coefficients repository
+    coeffIndex.resize(count);
+
+    // Coeff index set to SIZE_T_MAX initially so that we can detect initalization
+    std::fill(coeffIndex.begin(), coeffIndex.end(), SIZE_T_MAX);
+    
     // Make space for random numbers
     randomNumbers.resize(count*k_);
 
     // Make space for Lorentzian history
     lorentzianHistory.upsize(2, count*k_);
+
+    // Generated values
+    history.upsize(rollbackDepth+1, count);
 
     // Make space for auxiliary data
     a.resize(k);

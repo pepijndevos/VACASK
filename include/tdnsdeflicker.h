@@ -52,6 +52,9 @@ public:
     // Need to override because we must also advance lorentzianHistory
     virtual bool advance(double time, double h, URBG& gen) override;
 
+    // Set shape parameters for i-th generator (for now p is the exponent of flicker noise)
+    virtual ShapeSetStatus setShapeParameters(size_t i, double p) override;
+
 private:
     // Generate new sample
     void generate(URBG& gen) override;  
@@ -62,6 +65,12 @@ private:
 
     int k;
     double fmax_;
+
+    // Exponent value for each generator
+    std::vector<double> exponent;
+
+    // Coefficients index for each generator
+    Vector<size_t> coeffIndex;
 
     // Auxiliary data for constructing a sample
     RealVector a;
