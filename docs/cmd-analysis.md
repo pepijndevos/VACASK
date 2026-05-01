@@ -34,4 +34,6 @@ endc
 
 ## Output
 
-Each analysis writes a SPICE raw file named `name.raw` in the current working directory. What is written depends on the active save directives; see [Saving Results](cmd-save.md) and the individual analysis documentation. Some analyses produce multiple files on request, e.g. the AC small-signal analysis stores the operating point results in file `name.op.raw` if this is requested by setting the `writeop` parameter to `1`. 
+Each analysis writes a SPICE raw file named `name.raw` in the current working directory. What is written depends on the active save directives; see [Saving Results](cmd-save.md) and the individual analysis documentation. Some analyses produce multiple files on request, e.g. the AC small-signal analysis stores the operating point results in file `name.op.raw` if this is requested by setting the `writeop` parameter to `1`.
+
+See [Analysis Overview](cmd-analysis-overview.md) for a list of all available analysis types.

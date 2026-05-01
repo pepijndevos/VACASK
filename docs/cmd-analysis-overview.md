@@ -1,6 +1,6 @@
 # Circuit Analyses
 
-VACASK supports a range of circuit analyses, from DC operating point to frequency-domain small-signal and time-domain transient simulation. Each analysis is requested by an `analysis` statement in the control block and writes its results to a SPICE raw file.
+VACASK supports a range of circuit analyses, from DC operating point to frequency-domain small-signal, time-domain transient simulation, and harmonic balance analysis. Each analysis is requested by an `analysis` statement in the control block and writes its results to a SPICE raw file.
 
 ## Circuit equation formulation
 
@@ -34,4 +34,5 @@ where $x_0$ is the operating point. $J_r$ captures resistive behavior (conductan
 | [AC Small-Signal S-Parameter](cmd-analysis-acsp.md) | `acsp` | Computes small-signal S-parameters of a multi-port circuit as a function of frequency. |
 | [Small-Signal Noise](cmd-analysis-noise.md) | `noise` | Computes small-signal noise spectral densities referred to a chosen output or input. |
 | [Transient](cmd-analysis-tran.md) | `tran` | Integrates the circuit equations over time. |
+| [Transient noise](cmd-analysis-trannoise.md) | `tran` | Integrates the circuit equations over time, takes device noise into account. |
 | [Harmonic Balance](cmd-analysis-hb.md) | `hb` | Computes the periodic steady-state response in the frequency domain. |

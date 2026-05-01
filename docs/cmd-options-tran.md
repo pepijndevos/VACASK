@@ -41,6 +41,15 @@
 | `tran_redofactor` | real | 2.5 | ≥0 | Reject a timepoint if the ratio of the actual timestep to the LTE-derived optimal timestep exceeds this value. 0 disables LTE-based rejection. |
 | `tran_lteratio` | real | 3.5 | >1 | LTE overestimation factor. Larger values produce a looser (more permissive) LTE tolerance. |
 
+## Transient noise
+
+| Name | Type | Default | Allowed | Description |
+|------|------|---------|---------|-------------|
+| `tran_laggednoise` | boolean | 1 | 0, 1 | 1 = collect noise scaling once at the start of each NR solve (lagged by one accepted timepoint), treating noise as a fixed forcing term. 0 = fully couple noise in every NR iteration. Lagged coupling improves convergence and is the recommended setting. |
+| `tran_extraoct` | int | 8 | ≥0 | Extra rows (ZOH) or Lorentzians (SDE) added below those needed to cover the `noisefmin`-to-`noisefmax` range. More rows improve low-frequency accuracy at the cost of memory and runtime. |
+| `tran_noiselte` | real | 1 | ≥0 | LTE tolerance floor expressed as a multiplier of the noise contribution to the solution at each unknown. The floor prevents the noise from driving the timestep down. Lower values allow a tighter LTE floor; 0 disables the floor. |
+| `tran_noisedebug` | int | 0 | ≥0 | Noise debug verbosity. 0 disables. ≥1 prints noise generator setup. |
+
 ## Debugging
 
 | Name | Type | Default | Allowed | Description |

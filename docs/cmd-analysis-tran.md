@@ -121,6 +121,10 @@ plt.show()
 >>>FILE
 ```
 
+## See also
+
+- [Transient Noise Analysis](cmd-analysis-trannoise.md) — transient analysis with device noise sources enabled.
+
 ## Options
 
 - [Transient Analysis Options](cmd-options-tran.md)
