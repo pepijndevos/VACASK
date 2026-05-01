@@ -132,10 +132,6 @@ template <std::uniform_random_bit_generator URBG> void TimeDomainSdeFlickerNoise
         } else {
             arg2 = 1-a[i]*a[i];
         }
-        // TODO: remove
-        if (arg2<0) {
-            int a=1;
-        }
         b[i] = std::sqrt(arg2*omega[i])/2;
     }
 
