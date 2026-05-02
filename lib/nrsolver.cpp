@@ -69,6 +69,22 @@ const Forces& NRSolver::forces(Int ndx) const {
     return forcesList.at(ndx);
 } 
 
+bool NRSolver::postConvergenceCheck(bool continuePrevious) { 
+    // Print debug information on convergence
+    if (settings.debug) {
+        std::stringstream ss;
+        ss << std::scientific << std::setprecision(2);
+        Simulator::dbg() << "Iteration " << std::to_string(iteration);
+        auto s = formatConvergence();
+        if (s.length()>0) {
+            Simulator::dbg() << ", " << s;
+        }
+        Simulator::dbg() << "\n";
+    }
+    // Post convergence check OK
+    return true; 
+}
+
 bool NRSolver::run(bool continuePrevious) {
     auto t0 = Accounting::wclk();
     acct.acctNew.nrcall++;
@@ -427,10 +443,15 @@ bool NRSolver::formatError(Status& s, NameResolver* resolver) const {
             s.extend("Solution component is not finite."); 
             s.extend("Leaving core NR loop in iteration "+std::to_string(errorIteration)+"."); 
             return false;
-        case Error::Convergence:
+        case Error::Convergence: {
             s.set(Status::NonlinearSolver, "NR solver failed to converge.");
+            auto str = formatConvergence();
+            if (str.length()>0) {
+                s.extend(str);
+            }
             s.extend("Leaving core NR loop in iteration "+std::to_string(errorIteration)+"."); 
             return false;
+        }
         case Error::BadSolReference: 
             s.set(Status::NonlinearSolver, "Unsupported relrefsol value.");
             break;

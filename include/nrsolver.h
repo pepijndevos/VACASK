@@ -143,7 +143,7 @@ public:
     // of its outcome. 
     // Convergence means that sufficient consecutive iterations converge. 
     // Must set lastError on failure
-    virtual bool postConvergenceCheck(bool continuePrevious) { return true; };
+    virtual bool postConvergenceCheck(bool continuePrevious);
 
     // Post-iteration tasks, called at the end of iteration. 
     // At this point the solution has been rotated and the current solution
@@ -206,6 +206,9 @@ public:
 
     // Dump solution
     virtual void dumpSolution(std::ostream& os, double* solution, const char* prefix="") {};
+
+    // Format convergence state
+    virtual std::string formatConvergence() const { return ""; };
     
 protected:
     // High precision requested

@@ -111,6 +111,7 @@ protected:
     bool buildTransformMatrix(DenseMatrix<double>& XF, Status& s=Status::ignore);
 
     HBError lastHbError;
+    Int homotopySteps; 
 
     // Block-sparse matrix with rectangular blocks for 
     // storing Jacobian values at colocation timepoints

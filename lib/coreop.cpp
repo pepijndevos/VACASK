@@ -441,6 +441,7 @@ CoreCoroutine OperatingPointCore::coroutine(bool continuePrevious) {
     }
 
     // Try homotopy
+    homotopySteps = 0;
     if (!converged_ && !leave && options.op_homotopy.size()>0) {
         Homotopy* homotopy;
         for(auto it : options.op_homotopy) {
@@ -481,6 +482,7 @@ CoreCoroutine OperatingPointCore::coroutine(bool continuePrevious) {
             // Run
             tried = true;
             std::tie(converged_, leave) = homotopy->run();
+            homotopySteps += homotopy->stepCount();
             if (debug>0) {
                 if (converged_) {
                     Simulator::dbg() << "Homotopy converged in " << std::to_string(homotopy->stepCount()) << " step(s).\n";
@@ -557,7 +559,7 @@ bool OperatingPointCore::formatError(Status& s) const {
             s.extend("Initial OP analysis failed.");
             return false;
         case OperatingPointError::Homotopy:
-            s.set(Status::Analysis, "Homotopy failed.");
+            s.set(Status::Analysis, "Homotopy failed, "+std::to_string(homotopySteps)+" step(s) tried.");
             return false;
         case OperatingPointError::NoAlgorithm:
             s.set(Status::Analysis, "No operating point algorithm tried."); 

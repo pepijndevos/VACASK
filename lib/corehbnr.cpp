@@ -363,37 +363,7 @@ bool HBNRSolver::postSolve(bool continuePrevious) {
 }
 
 bool HBNRSolver::postConvergenceCheck(bool continuePrevious) {
-    // Print debug information on convergence
-    if (settings.debug) {
-        std::stringstream ss;
-        ss << std::scientific << std::setprecision(2);
-        Simulator::dbg() << "Iteration " << std::to_string(iteration) << (preventedConvergence ? ", convergence not allowed" : "");
-        if (!preventedConvergence) {
-            Simulator::dbg() << (iterationConverged ? ", converged" : "");
-            if (settings.residualCheck) {
-                ss.str(""); 
-                ss << maxResidual;
-                Simulator::dbg() << ", worst residual=" << ss.str();
-                if (!residualWithinTol) {
-                    Simulator::dbg() << " >TOL";
-                }
-                Simulator::dbg() << " @ " << (maxResidualNode ? maxResidualNode->name() : "(unknown)")
-                                 << "~t" << maxResidualTimepointIndex << "=" << timepoints[maxResidualTimepointIndex];
-            }
-            if (iteration>1) {
-                ss.str(""); ss << maxDelta;
-                Simulator::dbg() << ", worst delta=" << ss.str(); 
-                if (!deltaWithinTol) {
-                    Simulator::dbg() << " >TOL";
-                }
-                Simulator::dbg() << " @ " << (maxDeltaNode ? maxDeltaNode->name() : "(unknown)")
-                                 << "~t" << maxDeltaTimepointIndex << "=" << timepoints[maxDeltaTimepointIndex];
-                
-            }
-        }
-        Simulator::dbg() << "\n";
-    }
-    return true;
+    return NRSolver::postConvergenceCheck(continuePrevious);
 }
 
 bool HBNRSolver::postIteration(bool continuePrevious) {
@@ -882,6 +852,52 @@ std::tuple<bool, bool> HBNRSolver::checkDelta() {
     }
     
     return std::make_tuple(true, deltaWithinTol);
+}
+
+std::string HBNRSolver::formatConvergence() const {
+    std::stringstream ss;
+    ss << std::scientific << std::setprecision(2);
+    std::string s = (preventedConvergence ? "convergence not allowed" : "");
+    if (!preventedConvergence) {
+        s += (iterationConverged ? "converged" : "");
+        if (settings.residualCheck) {
+            ss.str(""); 
+            ss << maxResidual;
+            if (s.length()>0) {
+                s +=", ";
+            }
+            s += "worst residual=";
+            s += ss.str();
+            if (!residualWithinTol) {
+                s += " >TOL";
+            }
+            s += " @ ";
+            s += (maxResidualNode ? std::string(maxResidualNode->name()) : "(unknown)");
+            s += "~t";
+            s += std::to_string(maxResidualTimepointIndex);
+            s += "=";
+            s += std::to_string(timepoints[maxResidualTimepointIndex]);
+        }
+        if (iteration>1) {
+            ss.str(""); ss << maxDelta;
+            if (s.length()>0) {
+                s +=", ";
+            }
+            s += "worst delta=";
+            s += ss.str(); 
+            if (!deltaWithinTol) {
+                s += " >TOL";
+            }
+            s += " @ ";
+            s += (maxDeltaNode ? std::string(maxDeltaNode->name()) : "(unknown)");
+            s += "~t";
+            s += std::to_string(maxDeltaTimepointIndex);
+            s += "=";
+            s += std::to_string(timepoints[maxDeltaTimepointIndex]);
+        }
+    }
+
+    return s;
 }
 
 bool HBNRSolver::formatError(Status& s, NameResolver* resolver) const {

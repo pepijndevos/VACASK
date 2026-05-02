@@ -105,6 +105,7 @@ protected:
     
     OperatingPointError lastOpError;
     Int errorForce;
+    Int homotopySteps;
 
     KluRealMatrix& jac; // Resistive Jacobian
     VectorRepository<double>& solution; // Solution history

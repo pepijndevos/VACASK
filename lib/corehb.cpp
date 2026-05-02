@@ -506,6 +506,7 @@ CoreCoroutine HBCore::coroutine(bool continuePrevious) {
     }
 
     // Try homotopy
+    homotopySteps = 0;
     if (!converged_ && !leave && options.hb_homotopy.size()>0) {
         Homotopy* homotopy;
         for(auto it : options.hb_homotopy) {
@@ -526,6 +527,7 @@ CoreCoroutine HBCore::coroutine(bool continuePrevious) {
             // Run
             tried = true;
             std::tie(converged_, leave) = homotopy->run();
+            homotopySteps += homotopy->stepCount();
             if (debug>0) {
                 if (converged_) {
                     Simulator::dbg() << "Homotopy converged in " << std::to_string(homotopy->stepCount()) << " step(s).\n";
@@ -622,6 +624,9 @@ bool HBCore::formatError(Status& s) const {
     std::stringstream ss;
     ss << std::scientific << std::setprecision(4);
 
+    // Delegate to NRSolver (which in turn delegates to KluMatrix)
+    auto solverError = nrSolver.formatError(s, &nr);
+    
     // First, handle AnalysisCore errors
     if (lastError!=Error::OK) {
         AnalysisCore::formatError(s);
@@ -634,7 +639,7 @@ bool HBCore::formatError(Status& s) const {
             s.extend("Initial HB analysis failed.");
             return false;
         case HBError::Homotopy:
-            s.set(Status::Analysis, "Homotopy failed.");
+            s.set(Status::Analysis, "Homotopy failed, "+std::to_string(homotopySteps)+" step(s) tried.");
             return false;
         case HBError::NoAlgorithm:
             s.set(Status::Analysis, "No HB algorithm tried."); 

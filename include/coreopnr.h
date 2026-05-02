@@ -69,6 +69,9 @@ public:
         LoadForces, 
     };
 
+    // Format convergence
+    virtual std::string formatConvergence() const override;
+
     // Clear error
     void clearError() { NRSolver::clearError(); lastOpNRError = OpNRSolverError::OK; }; 
 

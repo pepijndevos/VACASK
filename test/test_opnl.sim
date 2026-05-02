@@ -33,7 +33,7 @@ control
   print device("__hierarchical__", "resistor", "vsource")
   
   options temp=40 nr_bypass=1 reltol=1e-12 // abstol=1e-18 vntol=1e-18
-  options rawfile="binary" reltol=1e-14 vntol=1e-12 op_debug=0
+  options rawfile="binary" reltol=1e-14 vntol=1e-12 op_debug=0 nr_debug=0 homotopy_debug=0
   save default p(d1, gd) p(d2, gd)
   analysis op1 op
   

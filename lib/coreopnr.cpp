@@ -573,33 +573,7 @@ bool OpNRSolver::postConvergenceCheck(bool continuePrevious) {
     // beacuse we must prepare for next iteration. 
     states.rotate();
 
-    // Print debug information on convergence
-    if (settings.debug) {
-        std::stringstream ss;
-        ss << std::scientific << std::setprecision(2);
-        Simulator::dbg() << "Iteration " << std::to_string(iteration) << (preventedConvergence ? ", convergence not allowed" : "");
-        if (!preventedConvergence) {
-            Simulator::dbg() << (iterationConverged ? ", converged" : "");
-            if (settings.residualCheck) {
-                ss.str(""); ss << maxResidual;
-                Simulator::dbg() << ", worst residual=" << ss.str(); 
-                if (!residualWithinTol) {
-                    Simulator::dbg() << " >TOL";
-                }
-                Simulator::dbg() << " @ " << (maxResidualNode ? maxResidualNode->name() : "(unknown)");
-            }
-            if (iteration>1) {
-                ss.str(""); ss << maxDelta;
-                Simulator::dbg() << ", worst delta=" << ss.str(); 
-                if (!deltaWithinTol) {
-                    Simulator::dbg() << " >TOL";
-                }
-                Simulator::dbg() << " @ " << (maxDeltaNode ? maxDeltaNode->name() : "(unknown)");
-            }
-        }
-        Simulator::dbg() << "\n";
-    }
-    return true;
+    return NRSolver::postConvergenceCheck(continuePrevious);
 }
 
 bool OpNRSolver::postIteration(bool continuePrevious) {
@@ -1099,6 +1073,43 @@ void OpNRSolver::updateMaxima() {
             globalMaxResidualContribution_[ndx] = c;
         }
     }
+}
+
+std::string OpNRSolver::formatConvergence() const {
+    std::stringstream ss;
+    ss << std::scientific << std::setprecision(2);
+    std::string s = (preventedConvergence ? "convergence not allowed" : "");
+    if (!preventedConvergence) {
+        s += (iterationConverged ? "converged" : "");
+        if (settings.residualCheck) {
+            ss.str(""); ss << maxResidual;
+            if (s.length()>0) {
+                s +=", ";
+            }
+            s += "worst residual=";
+            s += ss.str(); 
+            if (!residualWithinTol) {
+                s += " >TOL";
+            }
+            s += " @ ";
+            s += (maxResidualNode ? std::string(maxResidualNode->name()) : "(unknown)");
+        }
+        if (iteration>1) {
+            ss.str(""); ss << maxDelta;
+            if (s.length()>0) {
+                s +=", ";
+            }
+            s += "worst delta=";
+            s += ss.str(); 
+            if (!deltaWithinTol) {
+                s += " >TOL";
+            }
+            s += " @ ";
+            s += (maxDeltaNode ? std::string(maxDeltaNode->name()) : "(unknown)");
+        }
+    }
+
+    return s;
 }
 
 bool OpNRSolver::formatError(Status& s, NameResolver* resolver) const {
