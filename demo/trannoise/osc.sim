@@ -121,55 +121,66 @@ print("fosc=", fosc)
 
 def psd(x, y, fmintarget, fosc):
   # Integer number of periods
-  nper = np.floor(x[-1]*fosc)
-  xend = nper/fosc
-
+  nper = int(np.floor(x[-1]*fosc))
+  
   # Original sampling time
   dxorig = x[-1]/x.shape[0]
 
-  # Number of points in period, round up to power of 2
-  nptsper = 1/(fosc*dxorig)
-  nptsper = 2**np.ceil(np.log(nptsper)/np.log(2))
+  # Number of points in period, round up to even number
+  nptsper = int(np.ceil(1/(fosc*dxorig)))
+  if nptsper%2!=0:
+    nptsper += 1
 
   # New sampling frequency, greater than original
   dx = 1/(fosc*nptsper)
   fmax = 1/dx
 
-  # Number of periods per segment so that we reach fmin
+  # Number of periods per segment so that the lower end of spectum is below fmin
   fmintarget = 10
-  nperinseg = np.ceil(fosc/fmintarget)
+  nperinseg = int(np.ceil(fosc/fmintarget))
 
   # Number of points per segment
-  nperseg = nperinseg*nptsper
-  fmin = 1/dx/nperseg
+  nptsseg = nperinseg*nptsper
+  segtime = dx*nptsseg
+  fmin = 1/segtime
 
+  # Recording end time
+  xend = np.floor(x[-1]/segtime)*segtime
+
+  # Number of interpolated points
+  N = int(np.round(xend/dx))
+  
   # Interpolate
-  xs = np.arange(x[0], xend, dx)
+  xs = x[0]+np.arange(N)*dx
   ys = np.interp(xs, x, y)
 
   # Remove mean
   ys = ys - np.mean(ys)
 
-  # Number of points and number of points per segment
-  N = xs.shape[0]
-
   print("PSD estimation (Welch)")
-  print("Frequency:       ", fosc)
-  print("Original points: ", x.shape[0])
-  print("Recorded periods:", nper)
-  print("fmin:            ", fmin)
-  print("fmax:            ", fmax)
-  print("fosc/fmin:       ", fosc/fmin)
-  print("Interpolated pts:", N)
-  print("Segment length:  ", nperseg)
-  print("Segments:        ", int(np.floor(N/(nperseg/2)-1)))
-
+  print("  Frequency:       ", fosc)
+  print("  Original points: ", x.shape[0])
+  print("  Original end:    ", x[-1])
+  print("  Recorded periods:", nper)
+  print("  Interpolated pts:", N)
+  print("  Interpolated end:", xs[-1])
+  print("  fmin:            ", fmin)
+  print("  fmax:            ", fmax)
+  print("  Segment length:  ", nptsseg)
+  print("  Period length:   ", nptsper)
+  # Sanity checks (must be integer within roundoff error)
+  print("  Periods/segment: ", nptsseg/nptsper)
+  print("  Segments:        ", N/(nptsseg/2)-1)
+  print("  fosc/fmin:       ", fosc/fmin)
+  print("  fmax/fmin:       ", fmax/fmin)
+  print("  tend/tseg:       ", (xs[-1]+dx)/segtime)
+  
   f, Pxx = welch(
       ys,
       fs=1/dx,
       window='hann',
-      nperseg=nperseg,      
-      noverlap=nperseg/2,      
+      nperseg=nptsseg,      
+      noverlap=nptsseg/2,      
       return_onesided=True,
       scaling='density', 
       average='mean'
@@ -235,6 +246,7 @@ ax_dict["C"].set_xlabel('t [s]')
 # Bandwidth around oscillation frequency
 B = 25e3
 
+print()
 print("Noisy signal")
 raw = rawread('tran3.raw')
 plot = raw.get()
@@ -252,6 +264,7 @@ xjn, pjn = phaseJitter(xn, yn, fosc, B)
 ax_dict["C"].plot(xjn, pjn, 'b', label="noisy")
 
 
+print()
 print("Noiseless signal")
 raw = rawread('tran4.raw')
 plot = raw.get()
@@ -273,6 +286,7 @@ ax_dict["A"].legend(loc='upper right')
 ax_dict["C"].legend(loc='lower right')
 
 
+print()
 print("Noisy-noiseless signal")
 ydif = np.interp(x, xn, yn)-y
 f, Pxx = psd(x, ydif, 10, fosc)
