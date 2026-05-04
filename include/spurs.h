@@ -65,7 +65,7 @@ public:
     const DenseMatrix<Int>& mixingStencil() const { return mixingStencil_; };
 
     // Returns the index of the small-signal frequency corresponding to f
-    std::tuple<size_t, bool> smsigFreqIndex(double f, double tol=1e-14) const;
+    std::tuple<bool, size_t> smsigFreqIndex(double f, double tol=1e-14) const;
     
     // Decodes a spur into the corresponding small-signal frequency index
     std::tuple<bool, size_t> smsigFreqIndex(const Value& v) const;
@@ -140,6 +140,8 @@ private:
     // Spectral frequencies, signed, sorted by absolute value - used by HB at APFT construction
     Vector<Real> signedSpectrum_;
 
+    // Index of DC component is smsigFreq_
+    size_t dcIndex;
     // Small-signal frequencies, sorted - used by (quasi)periodic small signal analyses
     // These are absolute spectral frequencies and their negatives, 0 is always included
     Vector<Real> smsigFreq_;

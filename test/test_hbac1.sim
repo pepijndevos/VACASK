@@ -1,50 +1,57 @@
-Single tone HB of a resistive circuit
+Single tone HBAC
 
 ground 0 
 
-load "nl3.va"
+load "nl.va"
 
 model vsource vsource
-model nl3 nl3
+model nl nl
 
-v1 (1 0) vsource dc=0 type="sine" sinedc=0.0 ampl=1 freq=1k
-nl1 (1 0) nl3
+// 1kHz large signal
+v1 (1 0) vsource dc=0 type="sine" sinedc=0.0 ampl=1 freq=1k sinephase=90 spur={0.0} smag=[1]
+nl1 (1 0) nl a=3 c=5
 
-// Excitation 
-//   x = sin(t)
-// Nonlinearity 
-//   0.5+x^3
-// Response
-//   0.5 + sin(t)**3 = 0.5 + 3/4 sin(t) - 1/4 sin(3t)
-// Spectrum of response
-//   mag   0.5 0.75 0 0.25
-//   phase 0   -90  0 +90
+// (A x)^2 + ddt (B x)^3
+// 
+// Periodic large signal x(t) = A cos(w0 t)
+// 
+// Resistive Jacobian
+//   2 a^2 x(t) = 2 a^2 cos(w0 t)
+//   
+// Reactive Jacobian
+//   3 c^3 x(t)^2 = 3 c^3 / 2 (1 + cos(2 w0 t))
+// 
+// Spectrum
+//     0       w0     2 w0   3 w0    4 w0   5 w0
+// Jr  0       2a^2   0      0       0      0
+// Jc  3c^3/2  0      3c^3/2 0       0      0
 
 control
   abort always
   
-  alter instance("v1") type="dc"
-  sweep v1 instance="v1" parameter="dc" from=-1 to=1  mode="lin" points=50
-    analysis dc1 op 
-  
+  analysis op1 op
+  print unknowns
+  print sparsity
   options homotopy_debug=1 hb_debug=5 nr_debug=1
-  alter instance("v1") type="sine"
-  analysis hb1 hb freq=[1k] nharm=12
+  analysis hbac1 hbac freq=[1k] nharm=2 outspur=0.0 from=1 to=10k mode="dec" points=10
   
-  postprocess(PYTHON, "runme.py")
+  // postprocess(PYTHON, "runme.py")
 endc
 
-embed "nl3.va" <<<FILE
+embed "nl.va" <<<FILE
 `include "constants.vams"
 `include "disciplines.vams"
 
-module nl3(A,B);
+module nl(n1,n2);
     // Terminals and internal nodes
-    inout A, B;
-    electrical A,B;
+    inout n1, n2;
+    electrical n1,n2;
     
+    (* desc = "Resistive a", type = "instance" *) parameter real a = 1;
+    (* desc = "Reactive c", type = "instance" *) parameter real c = 1;
+
     analog begin
-        I(A,B) <+ 0.5 + pow(V(A,B), 3);
+        I(n1,n2) <+ pow(a*V(n1,n2), 2) + ddt(pow(c*V(n1,n2), 3));
     end
 endmodule
 >>>FILE

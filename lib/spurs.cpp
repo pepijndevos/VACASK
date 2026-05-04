@@ -42,6 +42,7 @@ bool Spurs::build(const std::vector<double>& fundamentals, const std::vector<Int
     }
     
     // Build spurs
+    spurs_.clear();
     spurWeights_.resize(0, n); // Empty table
     std::vector<Int> cnt(n);
     std::vector<Int> end(n);
@@ -234,54 +235,9 @@ bool Spurs::build(const std::vector<double>& fundamentals, const std::vector<Int
         return false;
     }
 
-    if (debug>0) {
-        Simulator::out() << "Spectrum, " << spurs_.size() << " frequencies\n";
-        auto nn = spurWeights_.nRows();
-        for(auto& fd : spurs_) {
-            std::cout << "  #" << fd.index << " [";
-            auto row = spurWeights_.row(fd.index);
-            auto nel = row.n();
-            for(decltype(nel) j=0; j<nel; j++) {
-                std::cout << row.at(j) << " ";
-            }
-            std::cout << "]";
-            
-            std::cout << " f=" << fd.f;
-            std::cout << " order=" << fd.order;
-            if (fd.isHarmonic) {
-                std::cout << " harmonic";
-            }
-            std::cout << "\n";
-        }
-    }
-
-    return buildMixingMap(debug, s);
-
-    return true;
-}
-
-// For 1-tone, harmonic indices
-// spurs:     0 1 2 ... n -1 -2 ... -n
-// weights:   0 1 2 ... n -1 -2 ... -n
-// spectrum:  0 1 2 ... n
-//
-// smsigFreq:               -n ... -1  0 1 2 ... n
-// smsigFreqWeightIndices_: 2n ... n+1 0 1 2 ... n
-// Jacobian components:     n* ...  1* 0 1 2 ... n   
-// Stencil:                 -n      -1 1 2 3 ... n+1
-//
-// smsigFreqMap: weights -> smsigFreq index
-
-bool Spurs::buildMixingMap(Int debug, Status& s) {
-    auto n = spurWeights_.nCols();
-    auto nf = spurWeights_.nRows();
+    // Index of first negative frequency in spurWeights_
     auto firstNegative = nf;
-
-    if (conflict) {
-        s.set(Status::CreationFailed, "Cannot create mixing stencil due to spur conflict.");
-        return false;
-    }
-
+    
     // Add weights for negatives af spectrum_ ((quasi)periodic AC, XF, SP, STB, NOISE)
     // Add them to spurWeights_ and smsigFreq_, and spurs_ array
     // Skip DC
@@ -309,7 +265,7 @@ bool Spurs::buildMixingMap(Int debug, Status& s) {
     }
 
     // Index of DC
-    auto dcIndex = smsigFreq_.size();
+    dcIndex = smsigFreq_.size();
 
     // Append positive frequencies
     for(decltype(nf) i=0; i<nf; i++) {
@@ -317,10 +273,53 @@ bool Spurs::buildMixingMap(Int debug, Status& s) {
         smsigFreqWeightIndices_.push_back(i);
     }
 
+    if (debug>0) {
+        Simulator::out() << "Spectrum, " << spurs_.size() << " frequencies\n";
+        auto nn = spurWeights_.nRows();
+        for(auto& fd : spurs_) {
+            std::cout << "  #" << fd.index << " [";
+            auto row = spurWeights_.row(fd.index);
+            auto nel = row.n();
+            for(decltype(nel) j=0; j<nel; j++) {
+                std::cout << row.at(j) << " ";
+            }
+            std::cout << "]";
+            
+            std::cout << " f=" << fd.f;
+            std::cout << " order=" << fd.order;
+            if (fd.isHarmonic) {
+                std::cout << " harmonic";
+            }
+            std::cout << "\n";
+        }
+    }
+
+    return true;
+}
+
+// For 1-tone, harmonic indices
+// spurs:     0 1 2 ... n -1 -2 ... -n
+// weights:   0 1 2 ... n -1 -2 ... -n
+// spectrum:  0 1 2 ... n
+//
+// smsigFreq:               -n ... -1  0 1 2 ... n
+// smsigFreqWeightIndices_: 2n ... n+1 0 1 2 ... n
+// Jacobian components:     n* ...  1* 0 1 2 ... n   
+// Stencil:                 -n      -1 1 2 3 ... n+1
+//
+// smsigFreqMap: weights -> smsigFreq index
+
+bool Spurs::buildMixingMap(Int debug, Status& s) {
+    auto n = spurWeights_.nCols();
+    auto nf = smsigFreq_.size();
+    
+    if (conflict) {
+        s.set(Status::CreationFailed, "Cannot create mixing stencil due to spur conflict.");
+        return false;
+    }
+    
     // smsigFreq_ is sorted by increasing frequency
     // smsigFreqWeightIndices_ holds the corresponding weights indices
-    // Update nf
-    nf = spurWeights_.nRows();
     
     // From this point on the set of frequencies and spurs_ no longer changes
     // Build a map from spur weights (key is VectorView<Int>) to indices in 
@@ -345,9 +344,14 @@ bool Spurs::buildMixingMap(Int debug, Status& s) {
     // - -1 = not valid
     // - -2 = negative of smallest nonzero positive frequency
     // - ...
+
+    // Temporary storage
     DenseMatrix<Int> mat(1, n, DenseMatrix<Int>::Major::Row);
     auto outW = mat.row(0);
-    mixingStencil_.resize(nf, nf);
+
+    // Mixing stencil must be column-major because that is the way we traverse sparse matrices
+    mixingStencil_.resize(nf, nf, DenseMatrix<Int>::Major::Column);
+    
     // Default is no Jacobian index for (out, in)
     mixingStencil_.fill(noJacIndex);
     for(decltype(nf) inF=0; inF<nf; inF++) {
@@ -420,7 +424,7 @@ bool Spurs::buildMixingMap(Int debug, Status& s) {
     return true;
 }
 
-std::tuple<size_t, bool> Spurs::smsigFreqIndex(double f, double tol) const {
+std::tuple<bool, size_t> Spurs::smsigFreqIndex(double f, double tol) const {
     // smsigFreq_ is sorted by value; find the first element >= f
     auto it = std::lower_bound(smsigFreq_.begin(), smsigFreq_.end(), f);
     // Check the candidate and the element just before it
@@ -429,10 +433,10 @@ std::tuple<size_t, bool> Spurs::smsigFreqIndex(double f, double tol) const {
         auto ref = std::max(std::abs(f), std::abs(*jt));
         if (std::abs(f - *jt) <= ref * tol) {
             auto smsigIndex = static_cast<size_t>(jt - smsigFreq_.begin());
-            return {smsigIndex, true};
+            return {true, smsigIndex};
         }
     }
-    return {0, false};
+    return {false, 0};
 }
 
 // Resolve a Value specifying a spur into smsigFreq_ index.

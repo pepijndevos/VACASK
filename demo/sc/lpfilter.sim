@@ -95,6 +95,24 @@ fig1.axes[1].set_ylabel('Vout [V]')
 fig1.tight_layout()
 
 
+raw = rawread('hbac1.raw')
+plot = raw.get()
+f = np.real(plot["frequency"])
+vout = plot['out;0']
+
+
+fig1, ax1 = plt.subplots(2, 1, figsize=(6,6), dpi=100)
+fig1.suptitle('S-C filter frequency response')
+
+# fig1.axes[0].set_title('Magnitude')
+# fig1.axes[0].plot(t, vin)
+# fig1.axes[0].set_xlabel('time [s]')
+# fig1.axes[0].set_ylabel('Vin [V]')
+
+fig1.axes[0].semilogx(f, 20*np.log10(np.abs(vout)))
+
+fig1.tight_layout()
+
 plt.show()
 >>>FILE
 

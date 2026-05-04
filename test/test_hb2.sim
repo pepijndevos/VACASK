@@ -49,8 +49,6 @@ embed "nl2.va" <<<FILE
 `include "disciplines.vams"
 
 module nl2(A,B);
-    // Simplified SPICE diode, used for validation purposes
-    
     // Terminals and internal nodes
     inout A, B;
     electrical A,B;

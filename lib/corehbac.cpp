@@ -167,7 +167,7 @@ bool HBACCore::deleteOutputs(Id name, Status& s) {
 void HBACCore::constructSuffixes() {
     auto& spurs = hbCore_.spurs();
     auto nf = spurs.smsigFreq().size();
-    suffixes.resize(nf);
+    suffixes.clear();
     for (auto i : spurIndices) {
         auto w = spurs.smsigFreqWeights(i);
         std::string s;
@@ -175,7 +175,7 @@ void HBACCore::constructSuffixes() {
             if (k > 0) s += ',';
             s += std::to_string(w[k]);
         }
-        suffixes[i] = std::move(s);
+        suffixes.push_back(std::move(s));
     }
 }
 
@@ -220,26 +220,27 @@ void HBACCore::fillDenseBlock(
     auto nf = stencil.nRows();
 
     // Outer loop over columns (assume column major matrix)
-    auto* p = &block.at(0, 0);
-    auto* jacIndex = &stencil.at(0, 0);
+    auto* o = &omega.at(0);
     for (size_t m = 0; m < nf; m++) {
         // Omega is common for the whole row
-        auto* om = &omega.at(0);
         auto [start, end] = spurs.rowRange(m);
-        auto p1 = p + start;
+        auto om = o + start;
+        auto p1 = &block.at(start, m);
+        auto jacIndex = &stencil.at(start, m);;
         for(size_t n = start; n < end; n++) {
+            // std::cout << "col " << m << " row " << n << " ji=" << *jacIndex << "\n";
             if (*jacIndex != Spurs::noJacIndex) {
                 bool conjugated = (*jacIndex < 0);
                 auto k = (conjugated ? (-*jacIndex) : *jacIndex) - 1;
                 Complex g = conjugated ? std::conj(G[k]) : G[k];
                 Complex c = conjugated ? std::conj(C[k]) : C[k];
+                // std::cout << "  " << g << " " << c << "\n";
                 *p1 = g + Complex(0.0, *om) * c;
-                p1++;
-                jacIndex++;
-                om++;
             }
+            p1++;
+            jacIndex++;
+            om++;
         }
-        p += nf;
     }
 }
 
@@ -256,6 +257,9 @@ void HBACCore::fillMatrix() {
         
         // Fill block
         fillDenseBlock(G, C, omega, block);
+
+        // std::cout << pos.first-1 << " " << pos.second-1 << "\n";
+        // block.dump(std::cout);
     }
 }
 
@@ -505,7 +509,7 @@ CoreCoroutine HBACCore::coroutine(bool continuePrevious) {
             break;
         }
         frequency = v.val<Real>();
-        double omega = 2*std::numbers::pi*frequency;
+        computeOmega(frequency);
 
         if (debug>0) {
             ss.str(""); ss << frequency;
@@ -513,7 +517,6 @@ CoreCoroutine HBACCore::coroutine(bool continuePrevious) {
         }
 
         // Construct matrix
-        computeOmega(frequency);
         fillMatrix();
 
         // Fill RHS

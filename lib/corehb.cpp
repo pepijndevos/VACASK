@@ -339,7 +339,7 @@ bool HBCore::evaluateAtNodeset() {
 bool HBCore::getFrequencyDomainJacobians(KluBlockSparseComplexMatrix& jacSpec) {
     // Assumes evaluation was performed, writes frequency domin jacobians to jacSpec
     auto nt = timepoints.size();
-
+    
     // Go through all dense blocks
     for(auto& pos : circuit.sparsityMap().positions()) {
         // Get block position (for debugging), make position 0-based
@@ -374,6 +374,15 @@ bool HBCore::getFrequencyDomainJacobians(KluBlockSparseComplexMatrix& jacSpec) {
         // Move DC from imag to real part, set imag part to 0
         GCol.at(0) = GCol.at(0).imag();
         CCol.at(0) = CCol.at(0).imag();
+        
+        // auto nf = spurs_.spectrum().size();
+        // std::cout << i << " " << j << "\n";
+        // for(int i=0; i<nf; i++) {
+        //     std::cout << "  G FD i=" << i << " " << GCol.at(i) << "\n";
+        // }
+        // for(int i=0; i<nf; i++) {
+        //     std::cout << "  C FD i=" << i << " " << CCol.at(i) << "\n";
+        // }
     }
 
     return true;
