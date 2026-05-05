@@ -83,8 +83,8 @@ void TimeDomainZohFlickerNoise<URBG>::reset(double t0, double timeStep, size_t c
     exponent.resize(count);
     // Coefficints index in coefficients repository
     coeffIndex.resize(count);
-    // Coeff index set to SIZE_T_MAX initially so that we can detect initalization
-    std::fill(coeffIndex.begin(), coeffIndex.end(), SIZE_T_MAX);
+    // Coeff index set to SIM_SIZE_T_MAX initially so that we can detect initalization
+    std::fill(coeffIndex.begin(), coeffIndex.end(), SIM_SIZE_T_MAX);
     // Generated values
     history.upsize(rollbackDepth+1, count);
     // Zero all exponents
@@ -155,7 +155,7 @@ ShapeSetStatus TimeDomainZohFlickerNoise<URBG>::setShapeParameters(size_t i, dou
     if (e<0.1 || e>1.9) {
         return ShapeSetStatus::OutOfRange;
     }
-    bool init = coeffIndex[i]==SIZE_T_MAX;
+    bool init = coeffIndex[i]==SIM_SIZE_T_MAX;
     bool changed = false;
     bool compute = init || changed;
     if (compute) {

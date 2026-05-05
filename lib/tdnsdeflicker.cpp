@@ -73,7 +73,7 @@ ShapeSetStatus TimeDomainSdeFlickerNoise<URBG>::setShapeParameters(size_t i, dou
     if (e<0.1 || e>1.9) {
         return ShapeSetStatus::OutOfRange;
     }
-    bool init = coeffIndex[i]==SIZE_T_MAX;
+    bool init = coeffIndex[i]==SIM_SIZE_T_MAX;
     bool changed = false;
     bool compute = init || changed;
     if (compute) {
@@ -174,8 +174,8 @@ void TimeDomainSdeFlickerNoise<URBG>::reset(double t0, size_t count, int rollbac
     // Coefficints index in coefficients repository
     coeffIndex.resize(count);
 
-    // Coeff index set to SIZE_T_MAX initially so that we can detect initalization
-    std::fill(coeffIndex.begin(), coeffIndex.end(), SIZE_T_MAX);
+    // Coeff index set to SIM_SIZE_T_MAX initially so that we can detect initalization
+    std::fill(coeffIndex.begin(), coeffIndex.end(), SIM_SIZE_T_MAX);
     
     // Make space for random numbers
     randomNumbers.resize(count*k_);
