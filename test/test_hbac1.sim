@@ -8,7 +8,7 @@ model vsource vsource
 model nl nl
 
 // 1kHz large signal
-v1 (1 0) vsource dc=0 type="sine" sinedc=0.0 ampl=1 freq=1k sinephase=90 spur={0.0} smag=[1]
+v1 (1 0) vsource dc=0 type="sine" sinedc=0.0 ampl=1 freq=1k tdphase=90 spur={0.0} smag=[1]
 nl1 (1 0) nl a=3 c=5
 
 // (A x)^2 + ddt (B x)^3
@@ -29,13 +29,13 @@ nl1 (1 0) nl a=3 c=5
 control
   abort always
   
-  analysis op1 op
+  // analysis op1 op
   print unknowns
   print sparsity
   options homotopy_debug=1 hb_debug=5 nr_debug=1
-  analysis hbac1 hbac freq=[1k] nharm=2 outspur=0.0 from=1 to=10k mode="dec" points=10
+  analysis hbac1 hbac freq=[1k] nharm=3 outspur={[-3], [-2], [-1], [0], [1], [2], [3]} values=[10.0] // from=1 to=10k mode="dec" points=10
   
-  // postprocess(PYTHON, "runme.py")
+  postprocess(PYTHON, "runme.py")
 endc
 
 embed "nl.va" <<<FILE
@@ -51,7 +51,7 @@ module nl(n1,n2);
     (* desc = "Reactive c", type = "instance" *) parameter real c = 1;
 
     analog begin
-        I(n1,n2) <+ pow(a*V(n1,n2), 2) + ddt(pow(c*V(n1,n2), 3));
+        I(n1,n2) <+ pow(a*V(n1,n2), 2); // + ddt(pow(c*V(n1,n2), 3));
     end
 endmodule
 >>>FILE
@@ -64,7 +64,11 @@ import sys
 
 tests = []
 
-dc1 = rawread('dc1.raw').get()
+plot1 = rawread('hbac1.raw').get()
+for name in plot1.names:
+    print(name, plot1[name])
+
+sys.exit(0)
 
 v1 = dc1['1']
 i1 = -dc1["v1:flow(br)"]

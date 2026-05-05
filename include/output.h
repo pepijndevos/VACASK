@@ -292,7 +292,7 @@ public:
     using DescriptorList = std::vector<OutputDescriptor>;
     using SourcesList = std::vector<OutputSource>;
     
-    Output(const std::string& baseName, DescriptorList& descriptors, SourcesList& sources);
+    Output(const std::string& baseName, SourcesList& sources);
     
     void setTitle(std::string title) { title_= title; };
     void setPlotname(std::string name) { plotname_= name; };
@@ -314,7 +314,6 @@ protected:
     std::ofstream outStream;
     std::string title_;
     std::string plotname_;
-    DescriptorList& descrs;
     SourcesList& srcs;
 };
 

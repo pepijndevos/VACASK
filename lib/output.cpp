@@ -80,8 +80,8 @@ void OutputSweepvar::dump(std::ostream& os) {
 }
 */
 
-Output::Output(const std::string& baseName, DescriptorList& descriptors, SourcesList& sources)
-    : baseName_(baseName), descrs(descriptors), srcs(sources), 
+Output::Output(const std::string& baseName, SourcesList& sources)
+    : baseName_(baseName), srcs(sources), 
     title_("Output file"), plotname_("analysis") {
 }
 

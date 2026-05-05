@@ -25,7 +25,7 @@ DEFINE_FLAG_OPERATORS(RawfileFlags);
 
 class OutputRawfile : public Output, public FlagBase<RawfileFlags> {
 public:
-    OutputRawfile(const std::string& baseName, Output::DescriptorList& descriptors, Output::SourcesList& sources, Flags f=Flags::Binary|Flags::Padded);
+    OutputRawfile(const std::string& baseName, Output::SourcesList& sources, Flags f=Flags::Binary|Flags::Padded);
     ~OutputRawfile();
 
     virtual bool prologue(Status& s=Status::ignore);

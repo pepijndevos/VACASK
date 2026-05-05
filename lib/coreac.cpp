@@ -110,7 +110,7 @@ bool ACCore::initializeOutputs(const std::string& name, Status& s) {
     // Create output file if not created yet
     if (!outfile) {
         outfile = new OutputRawfile(
-            name, outputDescriptors, outputSources,
+            name, outputSources,
             (circuit.simulatorOptions().core().rawfile==SimulatorOptions::rawfileBinary ? OutputRawfile::Flags::Binary : OutputRawfile::Flags::None) |
                 OutputRawfile::Flags::Padded | OutputRawfile::Flags::Complex);
         outfile->setTitle(circuit.title());
