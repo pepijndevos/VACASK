@@ -29,6 +29,7 @@ typedef struct HBParameters {
                            // diamond .. diamond truncation (default)
                            //   sum abs(kj) <= immax, first nonzero kj must be >0
     Real samplefac {5};    // Sampling factor in time domain (>=1). 
+    Real tstart {0};       // Starting time for colocation point selection
     Real nper {1};         // Number of lowest frequency periods across which colocation points are selected
     Id sample {Id()};      // Sampling mode (uniform, random, mixed), default is uniform. 
     Real shift {0.2};      // Sample shift in consecutive sample distance for uniform and mixed sampling

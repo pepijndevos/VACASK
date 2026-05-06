@@ -3,12 +3,14 @@ Switched capacitor low-pass filter
 load "psp103v4.osdi"
 load "opamp.osdi"
 load "capacitor.osdi"
+load "resistor.osdi"
 
 include "models.inc"
 
 model v vsource
 model c capacitor
 model oa opamp
+model r resistor
 
 parameters trf=1u
 
@@ -40,8 +42,10 @@ xs22 (2 out clkn vdd vss) switch
 
 cf (n out) c c=cf
 
-vclk (clk 0)   v type="pulse" val0=-0.6 val1= 0.6 delay=tclk rise=trf fall=trf width=tclk/2 period=tclk
-vclkn (clkn 0) v type="pulse" val0= 0.6 val1=-0.6 delay=tclk rise=trf fall=trf width=tclk/2 period=tclk
+rx (in out1) r r=1k
+
+vclk (clk 0)   v type="pulse" val0=-0.6 val1= 0.6 delay=tclk rise=trf fall=trf width=tclk/2-trf period=tclk
+vclkn (clkn 0) v type="pulse" val0= 0.6 val1=-0.6 delay=tclk rise=trf fall=trf width=tclk/2-trf period=tclk
 
 vdd (vdd 0) v dc=0.6
 vss (vss 0) v dc=-0.6
@@ -49,17 +53,29 @@ vss (vss 0) v dc=-0.6
 control
   var fclk=100k
 
-  options tolmode="mixed" tolscale=1
+  // options tolmode="mixed" tolscale=1
   // print instance("cf")
   // print device("capacitor")  // print device_files
   // print device_file("capa")
   print counts
   // print device_file("Debug")
   // print tolerances
+  print unknowns
+
+  // print device("psp103va")
+  print instance("c1", "c2")
 
   analysis tran1 tran step=0.1u stop=3m
+  
+  save default p('xs11:m1:m',gm) p('xs11:m1:m',gds)
+  alter instance("v1") type="dc" dc=0
+  analysis tran2 tran step=0.1u stop=3m
+  clear saves
 
-  analysis hbac1 hbac freq=[fclk] nharm=10 outspur=0.0 from=1 to=10k mode="dec" points=10
+  // No excitation signal for HB, just clock
+  alter instance("v1") type="dc" dc=0
+  // save dv(in) dv(out) dv(out1)
+  analysis hbac1 hbac freq=[fclk] tstart=2/fclk nharm=10 from=1 to=20k mode="dec" points=10
 
   postprocess(PYTHON, "runme.py")
 endc
@@ -104,14 +120,18 @@ vout = plot['out;0']
 fig1, ax1 = plt.subplots(2, 1, figsize=(6,6), dpi=100)
 fig1.suptitle('S-C filter frequency response')
 
-# fig1.axes[0].set_title('Magnitude')
-# fig1.axes[0].plot(t, vin)
-# fig1.axes[0].set_xlabel('time [s]')
-# fig1.axes[0].set_ylabel('Vin [V]')
-
+fig1.axes[0].set_title('Magnitude')
 fig1.axes[0].semilogx(f, 20*np.log10(np.abs(vout)))
+fig1.axes[0].set_xlabel('f [Hz]')
+fig1.axes[0].set_ylabel('H [dB]')
+
+
+raw = rawread('tran2.raw')
+plot = raw.get()
+fig1.axes[1].plot(plot["time"], plot["xs11:m1:m.gds"], marker=".")
 
 fig1.tight_layout()
+
 
 plt.show()
 >>>FILE

@@ -445,7 +445,7 @@ std::tuple<bool, size_t> Spurs::smsigFreqIndex(double f, double tol) const {
 //   Real         - spur frequency; resolved via smsigFreqIndex()
 //   IntVector    - tone weights; looked up in smsigFreqMap
 //
-// Returns {true, index, 0} on success, {false, 0, errorIndex} if not found.
+// Returns {true, index} on success, {false, 0} if not found.
 std::tuple<bool, size_t> Spurs::smsigFreqIndex(const Value& v) const {
     switch (v.type()) {
         case Value::Type::Real: {

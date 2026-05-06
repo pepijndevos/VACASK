@@ -11,9 +11,9 @@ model nl nl
 v1 (1 0) vsource dc=0 type="sine" sinedc=0.0 ampl=1 freq=1k tdphase=90 spur={0.0} smag=[1]
 nl1 (1 0) nl a=3 c=5
 
-// (A x)^2 + ddt (B x)^3
+// (a x)^2 + ddt (c x)^3
 // 
-// Periodic large signal x(t) = A cos(w0 t)
+// Periodic large signal x(t) = a cos(w0 t)
 // 
 // Resistive Jacobian
 //   2 a^2 x(t) = 2 a^2 cos(w0 t)
@@ -25,6 +25,18 @@ nl1 (1 0) nl a=3 c=5
 //     0       w0     2 w0   3 w0    4 w0   5 w0
 // Jr  0       2a^2   0      0       0      0
 // Jc  3c^3/2  0      3c^3/2 0       0      0
+//
+// Small signal excitation: b cos(w t)
+//   (a (cos(w0 t) + b cos(w t)))^2 -> a^2 b cos((-w0 + w) t) + a^2 b cos((w0 + w) t)
+//   ddt((c (cos(w0 t) + b cos(w t)))^3) ->  
+//     b c^3 / 2 w cos(w t + pi/2) +
+//     3 b c^3 / 4 w cos((-2 w0 + w) t + pi/2) + 3 b c^3 / 4 w cos((2 w0 + w) t + pi/2)
+//   a=3, b=1, c=5 -> a^2 b = 9
+//                    3 b c^3 / 4 * 2 pi (-2000 + 10) = -1172206.76
+//                    3 b c^3 / 4 * 2 pi (2000 + 10)  = 1183987.73
+// 
+//   (a (cos(w0 t) + b cos((w0 + w) t)))^2 -> a^2 b cos(w t) + a^2 b cos((2 w0 + w) t)
+//   a=3, b=1 -> a^2 b = 9
 
 control
   abort always
@@ -51,7 +63,7 @@ module nl(n1,n2);
     (* desc = "Reactive c", type = "instance" *) parameter real c = 1;
 
     analog begin
-        I(n1,n2) <+ pow(a*V(n1,n2), 2); // + ddt(pow(c*V(n1,n2), 3));
+        I(n1,n2) <+ pow(a*V(n1,n2), 2) + ddt(pow(c*V(n1,n2), 3));
     end
 endmodule
 >>>FILE

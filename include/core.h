@@ -170,7 +170,7 @@ public:
     // Always return true if strict=false, return false on error when struct=true
     bool addRealVarOutputSource(bool strict, Id name, const Vector<double>& solution, Id asName, Status& s);
     bool addRealVarOutputSource(bool strict, Id name, const VectorRepository<double>& solution, Id asName, Status& s);
-    // Index of variable i -> index in solution (i-1)*stride+1+offset
+    // Index of variable i -> index in solution i*stride+offset
     // In classical analyses, like AC, stride=1, offset=0
     bool addComplexVarOutputSource(bool strict, Id name, const Vector<Complex>& solution, size_t stride, size_t offset, Id asName, Status& s);
     bool addComplexVarOutputSource(bool strict, Id name, const VectorRepository<Complex>& solution, size_t stride, size_t offset, Id asName, Status& s);

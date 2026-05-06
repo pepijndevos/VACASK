@@ -10,6 +10,7 @@ namespace NAMESPACE {
 // Default parameters
 HBACParameters::HBACParameters() {
     hbParams.write = 0;
+    outspur = ValueVector();
 }
 
 template<> int Introspection<HBACParameters>::setup() {
@@ -27,6 +28,7 @@ template<> int Introspection<HBACParameters>::setup() {
     registerNamedMember(hbParams.immax, "immax");
     registerNamedMember(hbParams.truncate, "truncate");
     registerNamedMember(hbParams.samplefac, "samplefac");
+    registerNamedMember(hbParams.tstart, "tstart");
     registerNamedMember(hbParams.nper, "nper");
     registerNamedMember(hbParams.sample, "sample");
     registerNamedMember(hbParams.shift, "shift");
@@ -218,7 +220,9 @@ void HBACCore::fillDenseBlock(
     auto& spurs = hbCore_.spurs();
     auto& stencil = spurs.mixingStencil();
     auto nf = stencil.nRows();
-
+    if (std::abs(C.at(0).real()-1e-12)<1e-15) {
+        auto a=1;
+    }
     // Outer loop over columns (assume column major matrix)
     auto* o = &omega.at(0);
     for (size_t m = 0; m < nf; m++) {
@@ -227,11 +231,13 @@ void HBACCore::fillDenseBlock(
         auto om = o + start;
         auto p1 = &block.at(start, m);
         auto jacIndex = &stencil.at(start, m);;
+        
         for(size_t n = start; n < end; n++) {
             // std::cout << "col " << m << " row " << n << " ji=" << *jacIndex << "\n";
             if (*jacIndex != Spurs::noJacIndex) {
                 bool conjugated = (*jacIndex < 0);
                 auto k = (conjugated ? (-*jacIndex) : *jacIndex) - 1;
+                
                 Complex g = conjugated ? std::conj(G[k]) : G[k];
                 Complex c = conjugated ? std::conj(C[k]) : C[k];
                 // std::cout << "  " << g << " " << c << "\n";
@@ -258,7 +264,11 @@ void HBACCore::fillMatrix() {
         // Fill block
         fillDenseBlock(G, C, omega, block);
 
-        // std::cout << pos.first-1 << " " << pos.second-1 << "\n";
+        // std::cout << pos.first << " " << pos.second << "\n";
+        // std::cout << "Jg: ";
+        // G.dump(std::cout);
+        // std::cout << "Jc: ";
+        // C.dump(std::cout);
         // block.dump(std::cout);
     }
 }
@@ -279,15 +289,24 @@ bool HBACCore::rebuild(Status& s) {
     std::vector<int> newSpurIndices;
     if (params.outspur.type() == Value::Type::ValueVec) {
         // List of spurs: each element is a real frequency or integer weight vector
-        size_t cnt=0;
-        for (const auto& v : params.outspur.val<ValueVector>()) {
-            auto [ok, ndx] = spurs.smsigFreqIndex(v);
-            if (!ok) {
-                s.set(Status::BadArguments, "Output spur #"+std::to_string(ndx)+" not found.");
-                return false;
+        // Empty list means all spurs
+        if (params.outspur.size()==0) {
+            // Empty list means all spurs
+            auto nf = spurs.smsigFreq().size();
+            for(decltype(nf) i=0; i<nf; i++) {
+                newSpurIndices.push_back(static_cast<int>(i));
             }
-            newSpurIndices.push_back(static_cast<int>(ndx));
-            cnt++;
+        } else {
+            size_t cnt=0;
+            for (const auto& v : params.outspur.val<ValueVector>()) {
+                auto [ok, ndx] = spurs.smsigFreqIndex(v);
+                if (!ok) {
+                    s.set(Status::BadArguments, "Output spur #"+std::to_string(cnt)+" not found.");
+                    return false;
+                }
+                newSpurIndices.push_back(static_cast<int>(ndx));
+                cnt++;
+            }
         }
     } else {
         // Single spur: scalar real frequency or integer weight vector
@@ -520,6 +539,7 @@ CoreCoroutine HBACCore::coroutine(bool continuePrevious) {
         fillMatrix();
 
         // Fill RHS
+        zero(acSolution);
         // Go through sources, go through spurs
         for (auto& exc : excitations) {
             // Collect source excitation unknowns
@@ -597,7 +617,7 @@ CoreCoroutine HBACCore::coroutine(bool continuePrevious) {
             }
         }
 
-        // Solve, set bucket to 0.0
+        // Solve
         if (!acMatrix.solve(dataWithoutBucket(acSolution, nf))) {
             setError(HBACError::MatrixError);
             if (debug>2) {
@@ -606,7 +626,15 @@ CoreCoroutine HBACCore::coroutine(bool continuePrevious) {
             error = true;
             break;
         }
-        acSolution[0] = 0.0;
+        // Set bucket to 0
+        for(decltype(nf) i=0; i<nf; i++) {
+            acSolution[i] = 0.0;
+        }
+
+        // for(decltype(n) i=nf; i<=n*nf; i++) {
+        //     auto rn = circuit.reprNode(i/nf);
+        //     std::cout << rn->name() << " @ " << (i%nf) << " : " << acSolution[i] << "\n";
+        // }
 
         if (options.solutioncheck && !acMatrix.isFinite(dataWithoutBucket(acSolution, nf), true, true)) {
             setError(HBACError::SolutionError);

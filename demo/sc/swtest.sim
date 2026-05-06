@@ -1,0 +1,184 @@
+Switch test
+
+load "vsw.va"
+load "resistor.osdi"
+load "capacitor.osdi"
+
+model c capacitor
+model r resistor
+model v vsource
+model i isource
+model sw vsw
+
+parameters tclk=1/fclk
+parameters trf=0.1u
+parameters f3db=1k
+parameters cs=5p
+parameters c1=1/(2*M_PI*f3db*1/(cs*fclk))
+
+// Two clocks, non-overlapping
+ictl (0 ctl) i type="pulse" val0=0 val1=1 delay=trf rise=trf fall=trf width=tclk/2-4*trf period=tclk
+rctl (ctl 0) r r=1
+
+ictln (0 ctln) i type="pulse" val0=0 val1=1 delay=tclk/2+trf rise=trf fall=trf width=tclk/2-4*trf period=tclk
+rctln (ctln 0) r r=1
+
+subckt test1()
+  vin (in 0) v type="dc" dc=10
+  r1 (in out) r r=1k
+  sw (out 0 ctl) sw vlo=0.1 vhi=0.9 rlo=1M rhi=0.1
+ends
+
+subckt test2()
+  vin (in 0) v type="sine" sinedc=0 ampl=0.1 freq=1k spur={0.0} smag=[1]
+  sw1 (in int ctl) sw vlo=0.1 vhi=0.9 rlo=1T rhi=1
+  cs (int 0) c c=cs
+  sw2 (int out ctln) sw vlo=0.1 vhi=0.9 rlo=1T rhi=1
+  c1 (out 0) c c=c1
+  // r1 (out 0) r r=1m
+ends
+
+control
+  var fclk=100k
+
+  elaborate circuit("test1")
+  analysis tran1 tran step=0.1u stop=40u icmode="uic"
+  
+
+  elaborate circuit("test2")
+  analysis tran2 tran step=0.1u stop=2m icmode="uic"
+  print instance("cs", "c1")
+  print unknowns
+  // options smsig_debug=100
+  alter instance("vin") type="dc" dc=0
+  // Skip first period because of delay=tclk in ictl
+  analysis hbac1 hbac freq=[fclk] nharm=10 tstart=1/fclk from=1 to=10k mode="dec" points=10
+
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "vsw.va" <<<FILE
+`include "constants.vams"
+`include "disciplines.vams"
+
+module vsw(p, n, ctrl);
+    inout p, n, ctrl;
+    electrical p, n, ctrl;
+
+    (*desc= "Resistance at low voltage", type="instance", units = "Ohm"*) parameter real rlo = 1.0    from (0:inf);
+    (*desc= "Resistance at high voltage", type="instance", units = "Ohm"*) parameter real rhi = 1.0e12 from (0:inf);
+    (*desc= "Logarithmic transition instead of linear", type="instance", units = "Ohm"*) parameter integer logarithmic = 1;
+
+    // Transition region for control voltage
+    (*desc= "Low control voltage", type="instance", units = "V"*) parameter real vlo = 0.0;
+    (*desc= "High control voltage", type="instance", units = "V"*) parameter real vhi = 1.0;
+
+    // Larger smooth makes the transition softer.
+    // A useful default is around 0.05.
+    (*desc= "Transition smoothing", type="instance", units = ""*) parameter real smooth = 0.05 from (0:inf);
+
+    real vc;
+    real vmid;
+    real alpha;
+    real r;
+    real g;
+
+    analog begin
+        vc = V(ctrl);
+
+        vmid = 0.5 * (vlo + vhi);
+
+        /*
+         * Smooth alpha:
+         * alpha ~ 0 for vc << vmid
+         * alpha ~ 1 for vc >> vmid
+         *
+         * The transition width is controlled by smooth.
+         */
+        alpha = 0.5 * (1.0 + tanh((vc - vmid) / (smooth * (vhi - vlo))));
+
+        /*
+         * Resistance goes smoothly from rlo to rhi
+         * as ctrl goes from low to high.
+         */
+        if (logarithmic) begin
+            r = rlo * exp(alpha * ln(rhi/rlo));
+        end else begin
+            r = rlo + alpha * (rhi - rlo);
+        end
+        g = 1.0 / r;
+
+        I(p, n) <+ g * V(p, n);
+    end
+endmodule
+>>>FILE
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+import numpy as np
+import matplotlib.pyplot as plt
+
+fig1, ax1 = plt.subplots(2, 1, figsize=(6,6), dpi=100)
+fig1.suptitle('Simple sC filter')
+
+raw = rawread('tran1.raw')
+plot = raw.get()
+t = plot['time']
+
+fig1.axes[0].plot(t*1e6, plot['ctl'])
+fig1.axes[1].plot(t*1e6, plot['out'])
+
+
+fig1, ax1 = plt.subplots(5, 1, figsize=(6,10), dpi=100)
+fig1.suptitle('Simple sC filter')
+
+raw = rawread('tran2.raw')
+plot = raw.get()
+
+t = plot['time']
+vctl = plot['ctl']
+vout = plot['out']
+vin = plot['in']
+
+fig1.axes[0].set_title('Clock')
+fig1.axes[0].plot(t*1e6, plot['ctl'])
+fig1.axes[0].plot(t*1e6, plot['ctln'])
+fig1.axes[0].set_xlabel('time [us]')
+fig1.axes[0].set_xlim(0, 20)
+
+fig1.axes[1].set_title('Response at 1kHz')
+fig1.axes[1].plot(t*1e3, vout) # , marker=".")
+fig1.axes[1].plot(t*1e3, vin)
+fig1.axes[1].set_xlabel('time [ms]')
+fig1.axes[1].set_ylabel('Vout [V]')
+
+
+raw = rawread('hbac1.raw')
+plot = raw.get()
+# print(plot.names)
+
+f = np.real(plot['frequency'])
+vin = plot['in;0']
+vout = plot['out;0']
+current = -plot['vin:flow(br);0']
+req = (vin-vout)/current
+h = vout/vin
+
+fig1.axes[2].set_title('sC resistance (should be 100MOhm)')
+fig1.axes[2].semilogx(f, req/1e6)
+fig1.axes[2].set_ylabel('Req [MOhm]')
+
+
+fig1.axes[3].set_title('Magnitude')
+fig1.axes[3].semilogx(f, 20*np.log10(np.abs(h)))
+fig1.axes[3].set_ylabel('Gain [dB]')
+
+fig1.axes[4].set_title('Phase')
+fig1.axes[4].semilogx(f, np.unwrap(np.angle(h))*180/np.pi)
+fig1.axes[4].set_ylabel('Phase [deg]')
+fig1.axes[4].set_xlabel('frequency [Hz]')
+
+fig1.tight_layout()
+
+plt.show()
+>>>FILE

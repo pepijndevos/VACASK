@@ -54,6 +54,7 @@ Sources with no `spur` entries contribute no small-signal excitation.
 | `immax` | integer | `0` | Maximum intermodulation order. If <= 0, defaults to the largest component of `nharm`. |
 | `truncate` | string | `"hybrid"` | Spectrum truncation: `"hybrid"`, `"diamond"`, `"box"`, or `"raw"`. |
 | `samplefac` | real | `5` | Oversampling factor for colocation timepoints. |
+| `tstart` | real | `0` | Starting time for the colocation point pool. Shifts the entire pool by this offset. |
 | `nper` | real | `1` | Number of lowest-frequency periods spanned by colocation timepoints. |
 | `sample` | string | `"uniform"` | Colocation sampling mode: `"uniform"`, `"random"`, or `"mixed"`. |
 | `shift` | real | `0.2` | Fractional shift between consecutive colocation points. |

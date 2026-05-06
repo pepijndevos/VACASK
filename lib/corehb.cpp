@@ -28,6 +28,7 @@ template<> int Introspection<HBParameters>::setup() {
     registerMember(immax);
     registerMember(truncate);
     registerMember(samplefac);
+    registerMember(tstart);
     registerMember(nper);
     registerMember(sample);
     registerMember(shift);
@@ -352,6 +353,12 @@ bool HBCore::getFrequencyDomainJacobians(KluBlockSparseComplexMatrix& jacSpec) {
         auto gCol = colocBlock.column(0);
         auto cCol = colocBlock.column(1);
 
+        // std::cout << pos.first << " " << pos.second << "\n";
+        // std::cout << "Jgt: ";
+        // gCol.dump(std::cout);
+        // std::cout << "Jct: ";
+        // cCol.dump(std::cout);
+
         // Get FD Jacobian dense block
         auto [fdBlock, found2] = jacSpec.block(pos);
         auto GCol = fdBlock.column(0);
@@ -374,6 +381,15 @@ bool HBCore::getFrequencyDomainJacobians(KluBlockSparseComplexMatrix& jacSpec) {
         // Move DC from imag to real part, set imag part to 0
         GCol.at(0) = GCol.at(0).imag();
         CCol.at(0) = CCol.at(0).imag();
+
+        // Divide by 2 all components, except DC
+        // Spectrum is two-sided, we return only the positive side
+        // but HB computes a one-sided spectrum
+        auto nf = GCol.n();
+        for(decltype(nf) k=1; k<nf; k++) {
+            GCol.at(k) /= 2;
+            CCol.at(k) /= 2;
+        }
         
         // auto nf = spurs_.spectrum().size();
         // std::cout << i << " " << j << "\n";

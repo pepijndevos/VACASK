@@ -51,6 +51,7 @@ Here $T = \text{nper}/f_\text{min}$ is the time range and $N_\mathrm{sam} = \lce
 | `immax` | integer | `0` | Maximum intermodulation order for `"diamond"` and `"hybrid"` truncation. If ≤ 0, defaults to the largest component of `nharm`. |
 | `truncate` | string | `"hybrid"` | Spectrum truncation scheme: `"hybrid"`, `"diamond"`, `"box"`, or `"raw"`. |
 | `samplefac` | real | `5` | Oversampling factor for colocation timepoints (≥ 1). Only the best $2n$ points are used where $n$ is the spectrum size. |
+| `tstart` | real | `0` | Starting time for the colocation point pool. Shifts the entire pool by this offset. |
 | `nper` | real | `1` | Number of lowest frequency periods over which colocation timepoints are distributed. |
 | `sample` | string | `"uniform"` | Colocation sampling mode: `"uniform"`, `"random"`, or `"mixed"`. |
 | `shift` | real | `0.2` | Fractional shift applied between consecutive colocation points in `"uniform"` and `"mixed"` sampling. |

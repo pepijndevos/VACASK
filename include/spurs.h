@@ -38,9 +38,6 @@ public:
     Spurs& operator=(const Spurs&)  = delete;
     Spurs& operator=(      Spurs&&) = default;
 
-    // Truncated grid points and their negatives if mixing map is created
-    const std::vector<Spur>& spurs() const { return spurs_; };
-    
     // Truncated grid point weights + weights of their negatives if mixing map is built
     const auto spurWeights(size_t i) { return spurWeights_.row(spurs_[i].index); };
     
