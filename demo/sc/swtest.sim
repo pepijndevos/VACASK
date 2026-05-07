@@ -35,7 +35,7 @@ subckt test2()
   cs (int 0) c c=cs
   sw2 (int out ctln) sw vlo=0.1 vhi=0.9 rlo=1T rhi=1
   c1 (out 0) c c=c1
-  // r1 (out 0) r r=1m
+  // r1 (out 0) r r=2m
 ends
 
 control
@@ -44,15 +44,17 @@ control
   elaborate circuit("test1")
   analysis tran1 tran step=0.1u stop=40u icmode="uic"
   
-
+  options tran_method="euler"
   elaborate circuit("test2")
   analysis tran2 tran step=0.1u stop=2m icmode="uic"
-  print instance("cs", "c1")
+  // print instance("cs", "c1")
   print unknowns
-  // options smsig_debug=100
+
+   options smsig_debug=100
+  // Input signal should be 0 for HB analysis
   alter instance("vin") type="dc" dc=0
   // Skip first period because of delay=tclk in ictl
-  analysis hbac1 hbac freq=[fclk] nharm=10 tstart=1/fclk from=1 to=10k mode="dec" points=10
+  analysis hbac1 hbac freq=[fclk] nharm=2 tstart=0/fclk values=[1] // from=1 to=10k mode="dec" points=10
 
   postprocess(PYTHON, "runme.py")
 endc
@@ -147,8 +149,9 @@ fig1.axes[0].set_xlabel('time [us]')
 fig1.axes[0].set_xlim(0, 20)
 
 fig1.axes[1].set_title('Response at 1kHz')
-fig1.axes[1].plot(t*1e3, vout) # , marker=".")
+#fig1.axes[1].plot(t*1e3, vout) # , marker=".")
 fig1.axes[1].plot(t*1e3, vin)
+fig1.axes[1].plot(t*1e3, plot['out'])
 fig1.axes[1].set_xlabel('time [ms]')
 fig1.axes[1].set_ylabel('Vout [V]')
 
@@ -164,7 +167,7 @@ current = -plot['vin:flow(br);0']
 req = (vin-vout)/current
 h = vout/vin
 
-fig1.axes[2].set_title('sC resistance (should be 100MOhm)')
+fig1.axes[2].set_title('sC resistance (should be 2MOhm)')
 fig1.axes[2].semilogx(f, req/1e6)
 fig1.axes[2].set_ylabel('Req [MOhm]')
 

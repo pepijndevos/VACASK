@@ -340,7 +340,9 @@ bool HBCore::evaluateAtNodeset() {
 bool HBCore::getFrequencyDomainJacobians(KluBlockSparseComplexMatrix& jacSpec) {
     // Assumes evaluation was performed, writes frequency domin jacobians to jacSpec
     auto nt = timepoints.size();
-    
+    auto nf = spurs_.smsigFreq().size();
+    auto dcIndex = (nf-1)/2;
+
     // Go through all dense blocks
     for(auto& pos : circuit.sparsityMap().positions()) {
         // Get block position (for debugging), make position 0-based
@@ -366,29 +368,34 @@ bool HBCore::getFrequencyDomainJacobians(KluBlockSparseComplexMatrix& jacSpec) {
 
         // APFT on stored time-domain values
         // Start APFT result at imag part of first component
+        // First component (DC) is stored in complex vector at dcIndex
         // APFT produces dc, f1real, f1imag, f2real, f2imag, ...
         // but we need   dc, 0, f1real, f1imag, f2real, f2imag, ...
-        // We store APFT starting from imagiunary part of first component (after x): 
+        // We store APFT starting from imaginary part of dc component (after x): 
         //   x, dc, f1real, f1imag, f2real, f2imag, ...
         // them move dc: dc, 0, f1real, f1imag, f2real, f2imag, ...
-        auto gDest = VectorView(reinterpret_cast<double*>(&GCol.at(0))+1, nt, 1);
-        auto cDest = VectorView(reinterpret_cast<double*>(&CCol.at(0))+1, nt, 1);
+        auto gDest = VectorView(reinterpret_cast<double*>(&GCol.at(dcIndex))+1, nt, 1);
+        auto cDest = VectorView(reinterpret_cast<double*>(&CCol.at(dcIndex))+1, nt, 1);
 
         // Transform
         APFT.multiply(gCol, gDest);
         APFT.multiply(cCol, cDest);
 
         // Move DC from imag to real part, set imag part to 0
-        GCol.at(0) = GCol.at(0).imag();
-        CCol.at(0) = CCol.at(0).imag();
+        GCol.at(dcIndex) = GCol.at(dcIndex).imag();
+        CCol.at(dcIndex) = CCol.at(dcIndex).imag();
 
-        // Divide by 2 all components, except DC
-        // Spectrum is two-sided, we return only the positive side
-        // but HB computes a one-sided spectrum
-        auto nf = GCol.n();
-        for(decltype(nf) k=1; k<nf; k++) {
+        // Divide by 2 all positive frequency components, except DC
+        // Spectrum is two-sided, but HB computes a one-sided spectrum
+        for(decltype(nf) k=dcIndex+1; k<nf; k++) {
             GCol.at(k) /= 2;
             CCol.at(k) /= 2;
+        }
+        
+        // Conjugates for negative frequencies
+        for(decltype(dcIndex) k=1; k<=dcIndex; k++) {
+            GCol.at(dcIndex-k) = std::conj(GCol.at(dcIndex+k));
+            CCol.at(dcIndex-k) = std::conj(CCol.at(dcIndex+k));
         }
         
         // auto nf = spurs_.spectrum().size();

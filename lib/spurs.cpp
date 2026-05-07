@@ -297,18 +297,6 @@ bool Spurs::build(const std::vector<double>& fundamentals, const std::vector<Int
     return true;
 }
 
-// For 1-tone, harmonic indices
-// spurs:     0 1 2 ... n -1 -2 ... -n
-// weights:   0 1 2 ... n -1 -2 ... -n
-// spectrum:  0 1 2 ... n
-//
-// smsigFreq:               -n ... -1  0 1 2 ... n
-// smsigFreqWeightIndices_: 2n ... n+1 0 1 2 ... n
-// Jacobian components:     n* ...  1* 0 1 2 ... n   
-// Stencil:                 -n      -1 1 2 3 ... n+1
-//
-// smsigFreqMap: weights -> smsigFreq index
-
 bool Spurs::buildMixingMap(Int debug, Status& s) {
     auto n = spurWeights_.nCols();
     auto nf = smsigFreq_.size();
@@ -319,9 +307,8 @@ bool Spurs::buildMixingMap(Int debug, Status& s) {
     }
     
     // smsigFreq_ is sorted by increasing frequency
-    // smsigFreqWeightIndices_ holds the corresponding weights indices
+    // smsigFreqWeightIndices_ holds the corresponding weights indices (also indices in spurs_ vector)
     
-    // From this point on the set of frequencies and spurs_ no longer changes
     // Build a map from spur weights (key is VectorView<Int>) to indices in 
     // smsigFreq_
     smsigFreqMap.clear();
@@ -337,14 +324,13 @@ bool Spurs::buildMixingMap(Int debug, Status& s) {
     // Compute output spur weights
     // Fill map (output freq index, input freq index) -> Jacobian freq index
     // Encoding of Jacoibian component index
-    // - 0 = no entry (noJacIndex)
-    // - 1 = DC
-    // - 2 = smallest nonzero positive frequency
+    // - <0 = no entry (noJacIndex)
+    // - 0 = absolute largest negative frequency
     // - ...
-    // - -1 = not valid
-    // - -2 = negative of smallest nonzero positive frequency
+    // - dcIndex = DC
     // - ...
-
+    // - nf-1 = abslute largest positive frequency
+    
     // Temporary storage
     DenseMatrix<Int> mat(1, n, DenseMatrix<Int>::Major::Row);
     auto outW = mat.row(0);
@@ -357,29 +343,18 @@ bool Spurs::buildMixingMap(Int debug, Status& s) {
     for(decltype(nf) inF=0; inF<nf; inF++) {
         auto inW = spurWeights_.row(smsigFreqWeightIndices_[inF]);
         for(decltype(nf) jacF=0; jacF<nf; jacF++) {
-            auto jacW = spurWeights_.row(smsigFreqWeightIndices_[jacF]);
             // Compute output weigths
+            auto jacW = spurWeights_.row(smsigFreqWeightIndices_[jacF]);
             for(decltype(n) k=0; k<n; k++) {
                 outW[k] = inW[k] + jacW[k];
             }
             // Look up output spur index (index of frequency in smsigFreq_)
             auto it = smsigFreqMap.find(outW);
             if (it!=smsigFreqMap.end()) {
-                // In map, get spur index of Jacobian freq
+                // In map, get spur index
                 auto outF = it->second;
-                // Is it negative
-                Int jacIndex;
-                if (jacF<dcIndex) {
-                    // Negative of a spur
-                    // Offset from DC index of the corresponding positive spur
-                    auto posNdx = static_cast<int>(dcIndex-jacF);
-                    jacIndex = -posNdx-1;
-                } else {
-                    // Original spur
-                    auto posNdx = static_cast<int>(jacF-dcIndex);
-                    jacIndex = posNdx+1;
-                }
-                mixingStencil_.at(outF, inF) = jacIndex;
+                // Write mixing stencil
+                mixingStencil_.at(outF, inF) = jacF;
             }
         }
     }
@@ -393,7 +368,7 @@ bool Spurs::buildMixingMap(Int debug, Status& s) {
         bool haveFirst = false;
         bool haveNonzero = false;
         for(decltype(nf) row=0; row<nf; row++) {
-            if (mixingStencil_.at(row, col)!=noJacIndex) {
+            if (mixingStencil_.at(row, col)>=0) {
                 if (!haveFirst) {
                     first = row;
                     haveFirst = true;
@@ -411,10 +386,10 @@ bool Spurs::buildMixingMap(Int debug, Status& s) {
         for(decltype(nf) iout=0; iout<nf; iout++) {
             for(decltype(nf) iin=0; iin<nf; iin++) {
                 auto ijac = mixingStencil_.at(iout, iin);
-                if (ijac!=noJacIndex) {
+                if (ijac>=0) {
                     auto fin = smsigFreq_[iin]; 
                     auto fout = smsigFreq_[iout];
-                    auto fjac = ijac<0 ? spurs_[-ijac+1].f : spurs_[ijac-1].f;
+                    auto fjac = smsigFreq_[ijac];
                     Simulator::out() << "  (" << fout << ", " << fin << ") : " << fjac << (ijac<0 ? " (conjugated)" : "") << "\n";
                 }
             }

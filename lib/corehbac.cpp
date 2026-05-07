@@ -221,8 +221,10 @@ void HBACCore::fillDenseBlock(
     auto& stencil = spurs.mixingStencil();
     auto nf = stencil.nRows();
     if (std::abs(C.at(0).real()-1e-12)<1e-15) {
+        // TODO: remove
         auto a=1;
     }
+
     // Outer loop over columns (assume column major matrix)
     auto* o = &omega.at(0);
     for (size_t m = 0; m < nf; m++) {
@@ -234,14 +236,10 @@ void HBACCore::fillDenseBlock(
         
         for(size_t n = start; n < end; n++) {
             // std::cout << "col " << m << " row " << n << " ji=" << *jacIndex << "\n";
-            if (*jacIndex != Spurs::noJacIndex) {
-                bool conjugated = (*jacIndex < 0);
-                auto k = (conjugated ? (-*jacIndex) : *jacIndex) - 1;
-                
-                Complex g = conjugated ? std::conj(G[k]) : G[k];
-                Complex c = conjugated ? std::conj(C[k]) : C[k];
+            if (*jacIndex>=0) {
+                auto k = *jacIndex;
+                *p1 = G[k] + Complex(0.0, *om) * C[k];
                 // std::cout << "  " << g << " " << c << "\n";
-                *p1 = g + Complex(0.0, *om) * c;
             }
             p1++;
             jacIndex++;

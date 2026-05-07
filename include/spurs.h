@@ -77,7 +77,7 @@ public:
     std::tuple<size_t, size_t> rowRange(size_t i) const { return std::make_tuple(rowStartNonzero[i], rowEndNonzero[i]); };
 
     // This value in mixingMap indicated no entry at that position
-    static constexpr Int noJacIndex = 0;
+    static constexpr Int noJacIndex = -1;
 
 private:
     // Compue spur properties
