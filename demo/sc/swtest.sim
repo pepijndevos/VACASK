@@ -15,13 +15,14 @@ parameters trf=0.1u
 parameters f3db=1k
 parameters cs=5p
 parameters c1=1/(2*M_PI*f3db*1/(cs*fclk))
+parameters tx=0.2u
 
 // Two clocks, non-overlapping
-ictl (0 ctl) i type="pulse" val0=0 val1=1 delay=trf rise=trf fall=trf width=tclk/2-4*trf period=tclk
+ictl (0 ctl) i type="pulse" val0=0 val1=1 delay=tx rise=trf fall=trf width=tclk/2-2*trf-2*tx period=tclk
 rctl (ctl 0) r r=1
 
-ictln (0 ctln) i type="pulse" val0=0 val1=1 delay=tclk/2+trf rise=trf fall=trf width=tclk/2-4*trf period=tclk
-rctln (ctln 0) r r=1
+// ictln (0 ctln) i type="pulse" val0=0 val1=1 delay=tclk/2+tx rise=trf fall=trf width=tclk/2-2*trf-2*tx period=tclk
+// rctln (ctln 0) r r=1
 
 subckt test1()
   vin (in 0) v type="dc" dc=10
@@ -31,11 +32,25 @@ ends
 
 subckt test2()
   vin (in 0) v type="sine" sinedc=0 ampl=0.1 freq=1k spur={0.0} smag=[1]
-  sw1 (in int ctl) sw vlo=0.1 vhi=0.9 rlo=1T rhi=1
-  cs (int 0) c c=cs
-  sw2 (int out ctln) sw vlo=0.1 vhi=0.9 rlo=1T rhi=1
-  c1 (out 0) c c=c1
+  sw1 (in out ctl) sw vlo=0.1 vhi=0.9 rlo=1T rhi=1
+  // rsw1 (in out) r r=1m
+  cs (out 0) c c=1u // cs
+  // sw2 (int out ctln) sw vlo=0.1 vhi=0.9 rlo=1T rhi=1
+  // c1 (out 0) c c=c1
   // r1 (out 0) r r=2m
+  // rx (in out) r r=2M
+  // cx (out 0) c c=c1
+ends
+
+subckt test3()
+  iin (0 out) i type="sine" sinedc=0 ampl=0.1 freq=1k spur={0.0} smag=[1]
+  sw1 (out 0 ctl) sw vlo=0.1 vhi=0.9 rlo=1T rhi=1
+  cs (out 0) c c=cs
+  // sw2 (int out ctln) sw vlo=0.1 vhi=0.9 rlo=1T rhi=1
+  // c1 (out 0) c c=c1
+  // r1 (out 0) r r=2m
+  // rx (in out) r r=2M
+  // cx (out 0) c c=c1
 ends
 
 control
@@ -50,11 +65,11 @@ control
   // print instance("cs", "c1")
   print unknowns
 
-   options smsig_debug=100
+  // options smsig_debug=100
   // Input signal should be 0 for HB analysis
   alter instance("vin") type="dc" dc=0
   // Skip first period because of delay=tclk in ictl
-  analysis hbac1 hbac freq=[fclk] nharm=2 tstart=0/fclk values=[1] // from=1 to=10k mode="dec" points=10
+  analysis hbac1 hbac freq=[fclk] nharm=40 tstart=0/fclk from=1 to=100k mode="dec" points=40 // values=[1k] 
 
   postprocess(PYTHON, "runme.py")
 endc
@@ -140,17 +155,17 @@ plot = raw.get()
 t = plot['time']
 vctl = plot['ctl']
 vout = plot['out']
-vin = plot['in']
+# vin = plot['in']
 
 fig1.axes[0].set_title('Clock')
 fig1.axes[0].plot(t*1e6, plot['ctl'])
-fig1.axes[0].plot(t*1e6, plot['ctln'])
+#fig1.axes[0].plot(t*1e6, plot['ctln'])
 fig1.axes[0].set_xlabel('time [us]')
 fig1.axes[0].set_xlim(0, 20)
 
 fig1.axes[1].set_title('Response at 1kHz')
 #fig1.axes[1].plot(t*1e3, vout) # , marker=".")
-fig1.axes[1].plot(t*1e3, vin)
+#fig1.axes[1].plot(t*1e3, vin)
 fig1.axes[1].plot(t*1e3, plot['out'])
 fig1.axes[1].set_xlabel('time [ms]')
 fig1.axes[1].set_ylabel('Vout [V]')
@@ -165,7 +180,7 @@ vin = plot['in;0']
 vout = plot['out;0']
 current = -plot['vin:flow(br);0']
 req = (vin-vout)/current
-h = vout/vin
+h = vout
 
 fig1.axes[2].set_title('sC resistance (should be 2MOhm)')
 fig1.axes[2].semilogx(f, req/1e6)
@@ -174,7 +189,9 @@ fig1.axes[2].set_ylabel('Req [MOhm]')
 
 fig1.axes[3].set_title('Magnitude')
 fig1.axes[3].semilogx(f, 20*np.log10(np.abs(h)))
+# fig1.axes[3].semilogx(f, np.abs(h))
 fig1.axes[3].set_ylabel('Gain [dB]')
+# print(h)
 
 fig1.axes[4].set_title('Phase')
 fig1.axes[4].semilogx(f, np.unwrap(np.angle(h))*180/np.pi)

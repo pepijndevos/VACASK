@@ -220,10 +220,10 @@ void HBACCore::fillDenseBlock(
     auto& spurs = hbCore_.spurs();
     auto& stencil = spurs.mixingStencil();
     auto nf = stencil.nRows();
-    if (std::abs(C.at(0).real()-1e-12)<1e-15) {
-        // TODO: remove
-        auto a=1;
-    }
+    
+    // G.dump(std::cout);
+    // C.dump(std::cout);
+    // std::cout << "\n";
 
     // Outer loop over columns (assume column major matrix)
     auto* o = &omega.at(0);
@@ -234,6 +234,10 @@ void HBACCore::fillDenseBlock(
         auto p1 = &block.at(start, m);
         auto jacIndex = &stencil.at(start, m);;
         
+        // TODO: remove
+        // start=0;
+        // end=nf;
+
         for(size_t n = start; n < end; n++) {
             // std::cout << "col " << m << " row " << n << " ji=" << *jacIndex << "\n";
             if (*jacIndex>=0) {
@@ -245,6 +249,9 @@ void HBACCore::fillDenseBlock(
             jacIndex++;
             om++;
         }
+
+        // block.dump(std::cout);
+        // std::cout << "\n";
     }
 }
 
@@ -255,6 +262,11 @@ void HBACCore::fillMatrix() {
         auto [jacSpecBlock, found1] = jacSpec.block(pos);
         auto G = jacSpecBlock.column(0);
         auto C = jacSpecBlock.column(1);
+
+        // TODO: remove
+        // if (pos.first==3 && pos.second==3) {
+        //     int a=1;
+        // }
 
         // Get AC matrix block
         auto [block, found2] = acMatrix.block(pos);
@@ -356,7 +368,7 @@ bool HBACCore::rebuild(Status& s) {
     constructSuffixes();
 
     // Jacobian spectral components
-    if (!jacSpec.rebuild(circuit.sparsityMap(), circuit.unknownCount(), nf, nf, true)) {
+    if (!jacSpec.rebuild(circuit.sparsityMap(), circuit.unknownCount(), nf, 2, true)) {
         setError(HBACError::MatrixError);
         return false;
     }
@@ -550,9 +562,8 @@ CoreCoroutine HBACCore::coroutine(bool continuePrevious) {
                 // Get spur complex magnitude
                 auto spurIndex = exc.spur[i];
                 auto mag = unity*exc.value[i];
-                // Must load negated excitation, like in AC where the loaded AC residual is negated
-                acSolution[pe*nf+spurIndex] -= mag;
-                acSolution[ne*nf+spurIndex] += mag;
+                acSolution[pe*nf+spurIndex] += mag;
+                acSolution[ne*nf+spurIndex] -= mag;
             }
         }
 
@@ -629,9 +640,12 @@ CoreCoroutine HBACCore::coroutine(bool continuePrevious) {
             acSolution[i] = 0.0;
         }
 
-        // for(decltype(n) i=nf; i<=n*nf; i++) {
-        //     auto rn = circuit.reprNode(i/nf);
-        //     std::cout << rn->name() << " @ " << (i%nf) << " : " << acSolution[i] << "\n";
+        // Print solution
+        // for(decltype(n) i=1; i<=n; i++) {
+        //     auto rn = circuit.reprNode(i);
+        //     for(decltype(nf) j=0; j<nf; j++) {
+        //         std::cout << rn->name() << ";" << (j) << " : " << acSolution[i*nf+j] << "\n";
+        //     }
         // }
 
         if (options.solutioncheck && !acMatrix.isFinite(dataWithoutBucket(acSolution, nf), true, true)) {
