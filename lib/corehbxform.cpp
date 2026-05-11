@@ -42,7 +42,7 @@ bool HBCore::buildTransformMatrix(DenseMatrix<double>& XF, Status& s) {
     XF.resize(n, ncoef);
     
     // Storage of (2 pi f t) factors for base frequencies
-    auto nBase = params.freq.size();
+    auto nBase = spurs_.fundamentals().size();
     double baseFac[nBase];
     
     // Loop through timepoints
@@ -53,7 +53,7 @@ bool HBCore::buildTransformMatrix(DenseMatrix<double>& XF, Status& s) {
         // For base frequencies compute phase at t (2 pi f t)
         // Subtract integer multiple of 2 pi to keep phase small
         for(decltype(nBase) k=0; k<nBase; k++) {
-            auto prod = params.freq[k]*t; 
+            auto prod = spurs_.fundamentals()[k]*t; 
             auto frac = prod - std::trunc(prod);
             baseFac[k] = 2 * std::numbers::pi * frac;
         }
@@ -91,7 +91,7 @@ bool HBCore::buildAPFT(Status& s) {
     if (!buildTransformMatrix(IAPFT, s)) {
         return false;
     }
-    
+
     // Make a copy that will be destroyed during matrix inversion
     DenseMatrix<double> coeffs = IAPFT;
     

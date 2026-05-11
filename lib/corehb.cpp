@@ -307,16 +307,17 @@ bool HBCore::evaluateAtNodeset() {
         .matrixCheck = bool(options.matrixcheck), 
     };
 
-    // Copy from forces slot 2 to solution vector
-    solution.vector() = nrSolver.forces(2).unknownValue_;
+    // Copy from forces slot 1 to solution vector
+    auto n = circuit.unknownCount();
+    auto nt = timepoints.size();
+    solution.upsize(2, n*nt);
+    solution.vector() = nrSolver.forces(1).unknownValue_;
 
     // Disable forces
     nrSolver.enableForces(0, false);
     nrSolver.enableForces(1, false);
     
     // Rebuild NR solver structures
-    auto n = circuit.unknownCount();
-    auto nt = timepoints.size();
     if (!nrSolver.rebuild(n*nt)) {
         setError(HBError::SolverBuild);
         return false;
@@ -356,29 +357,29 @@ bool HBCore::getFrequencyDomainJacobians(KluBlockSparseComplexMatrix& jacSpec) {
         auto cCol = colocBlock.column(1);
 
         // Dump collocation points and time-domain Jacobian columns in numpy format
-        {
-            std::cout << std::scientific << std::setprecision(15);
-            std::cout << "# Block (" << pos.first << ", " << pos.second << ")\n";
-            std::cout << "t = np.array([";
-            for (size_t k = 0; k < nt; k++) {
-                if (k > 0) std::cout << ", ";
-                std::cout << timepoints[k];
-            }
-            std::cout << "])\n";
-            std::cout << "gCol = np.array([";
-            for (size_t k = 0; k < nt; k++) {
-                if (k > 0) std::cout << ", ";
-                std::cout << gCol.at(k);
-            }
-            std::cout << "])\n";
-            std::cout << "cCol = np.array([";
-            for (size_t k = 0; k < nt; k++) {
-                if (k > 0) std::cout << ", ";
-                std::cout << cCol.at(k);
-            }
-            std::cout << "])\n";
-        }
-
+        // {
+        //     std::cout << std::scientific << std::setprecision(15);
+        //     std::cout << "# Block (" << pos.first << ", " << pos.second << ")\n";
+        //     std::cout << "t = np.array([";
+        //     for (size_t k = 0; k < nt; k++) {
+        //         if (k > 0) std::cout << ", ";
+        //         std::cout << timepoints[k];
+        //     }
+        //     std::cout << "])\n";
+        //     std::cout << "gCol = np.array([";
+        //     for (size_t k = 0; k < nt; k++) {
+        //         if (k > 0) std::cout << ", ";
+        //         std::cout << gCol.at(k);
+        //     }
+        //     std::cout << "])\n";
+        //     std::cout << "cCol = np.array([";
+        //     for (size_t k = 0; k < nt; k++) {
+        //         if (k > 0) std::cout << ", ";
+        //         std::cout << cCol.at(k);
+        //     }
+        //     std::cout << "])\n";
+        // }
+// 
         // Get FD Jacobian dense block
         auto [fdBlock, found2] = jacSpec.block(pos);
         auto GCol = fdBlock.column(0);
@@ -417,29 +418,29 @@ bool HBCore::getFrequencyDomainJacobians(KluBlockSparseComplexMatrix& jacSpec) {
         }
         
         // Dump FD Jacobian columns in numpy format
-        {
-            auto& freqs = spurs_.smsigFreq();
-            std::cout << std::scientific << std::setprecision(15);
-            std::cout << "# Block (" << pos.first << ", " << pos.second << ") FD jacobians\n";
-            std::cout << "f = np.array([";
-            for (size_t k = 0; k < nf; k++) {
-                if (k > 0) std::cout << ", ";
-                std::cout << freqs[k];
-            }
-            std::cout << "])\n";
-            std::cout << "GCol = np.array([";
-            for (size_t k = 0; k < nf; k++) {
-                if (k > 0) std::cout << ", ";
-                std::cout << GCol.at(k).real() << "+" << GCol.at(k).imag() << "j";
-            }
-            std::cout << "])\n";
-            std::cout << "CCol = np.array([";
-            for (size_t k = 0; k < nf; k++) {
-                if (k > 0) std::cout << ", ";
-                std::cout << CCol.at(k).real() << "+" << CCol.at(k).imag() << "j";
-            }
-            std::cout << "])\n";
-        }
+        // {
+        //     auto& freqs = spurs_.smsigFreq();
+        //     std::cout << std::scientific << std::setprecision(15);
+        //     std::cout << "# Block (" << pos.first << ", " << pos.second << ") FD jacobians\n";
+        //     std::cout << "f = np.array([";
+        //     for (size_t k = 0; k < nf; k++) {
+        //         if (k > 0) std::cout << ", ";
+        //         std::cout << freqs[k];
+        //     }
+        //     std::cout << "])\n";
+        //     std::cout << "GCol = np.array([";
+        //     for (size_t k = 0; k < nf; k++) {
+        //         if (k > 0) std::cout << ", ";
+        //         std::cout << GCol.at(k).real() << "+" << GCol.at(k).imag() << "j";
+        //     }
+        //     std::cout << "])\n";
+        //     std::cout << "CCol = np.array([";
+        //     for (size_t k = 0; k < nf; k++) {
+        //         if (k > 0) std::cout << ", ";
+        //         std::cout << CCol.at(k).real() << "+" << CCol.at(k).imag() << "j";
+        //     }
+        //     std::cout << "])\n";
+        // }
 
     }
 

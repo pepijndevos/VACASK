@@ -129,7 +129,7 @@ DEFINE_FLAG_OPERATORS(Component);
 
 
 // Matrix binding interface for accessing element indices and pointers
-// Because Circuit::bind() should by matrix type agnostic we need this interface. 
+// Because Circuit::bind() should be matrix type agnostic we need this interface. 
 // Analyses can use different types of matrices, but instances must be able to 
 // handle them all in the same way via this interface. 
 // Assumes the underlying type of element is either double or std::complex<double> (Complex)
@@ -197,6 +197,8 @@ public:
     KluMatrixCore& operator=(      KluMatrixCore&&) = delete;
 
     virtual ~KluMatrixCore();
+
+    bool isBuilt() const { return smap!=nullptr; };
 
     void deleteKluObjects();
 

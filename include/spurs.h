@@ -38,6 +38,9 @@ public:
     Spurs& operator=(const Spurs&)  = delete;
     Spurs& operator=(      Spurs&&) = default;
 
+    // Fundamental freqeuncies vector
+    const Vector<Real>& fundamentals() const { return fundamentals_; };
+
     // Truncated grid point weights + weights of their negatives if mixing map is built
     const auto spurWeights(size_t i) { return spurWeights_.row(spurs_[i].index); };
     

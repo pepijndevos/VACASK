@@ -1,4 +1,4 @@
-Single tone HBAC
+Single tone HBAC, synthetic example
 
 ground 0 
 
@@ -7,45 +7,32 @@ load "nl.va"
 model vsource vsource
 model nl nl
 
-// 1kHz large signal
+// 1kHz large signal (magnitude=1 at 0Hz spur, cosine, i.e. tdphase=90)
 v1 (1 0) vsource dc=0 type="sine" sinedc=0.0 ampl=1 freq=1k tdphase=90 spur={0.0} smag=[1]
 nl1 (1 0) nl a=3 c=5
-
-// (a x)^2 + ddt (c x)^3
-// 
-// Periodic large signal x(t) = a cos(w0 t)
-// 
-// Resistive Jacobian
-//   2 a^2 x(t) = 2 a^2 cos(w0 t)
-//   
-// Reactive Jacobian
-//   3 c^3 x(t)^2 = 3 c^3 / 2 (1 + cos(2 w0 t))
-// 
-// Spectrum
-//     0       w0     2 w0   3 w0    4 w0   5 w0
-// Jr  0       2a^2   0      0       0      0
-// Jc  3c^3/2  0      3c^3/2 0       0      0
-//
-// Small signal excitation: b cos(w t)
-//   (a (cos(w0 t) + b cos(w t)))^2 -> a^2 b cos((-w0 + w) t) + a^2 b cos((w0 + w) t)
-//   ddt((c (cos(w0 t) + b cos(w t)))^3) ->  
-//     b c^3 / 2 w cos(w t + pi/2) +
-//     3 b c^3 / 4 w cos((-2 w0 + w) t + pi/2) + 3 b c^3 / 4 w cos((2 w0 + w) t + pi/2)
-//   a=3, b=1, c=5 -> a^2 b = 9
-//                    3 b c^3 / 4 * 2 pi (-2000 + 10) = -1172206.76
-//                    3 b c^3 / 4 * 2 pi (2000 + 10)  = 1183987.73
-// 
-//   (a (cos(w0 t) + b cos((w0 + w) t)))^2 -> a^2 b cos(w t) + a^2 b cos((2 w0 + w) t)
-//   a=3, b=1 -> a^2 b = 9
 
 control
   abort always
   
-  // analysis op1 op
   print unknowns
   print sparsity
-  options homotopy_debug=1 hb_debug=5 nr_debug=1
-  analysis hbac1 hbac freq=[1k] nharm=3 outspur={[-3], [-2], [-1], [0], [1], [2], [3]} values=[10.0] // from=1 to=10k mode="dec" points=10
+  // options homotopy_debug=1 hb_debug=5 
+  options reltol=1e-12
+
+  // HBAC with preceding HB
+  analysis hbac1 hbac freq=[1k] nharm=3 outspur={} values=[10.0]
+  
+  analysis hb1 hb freq=[1k] nharm=3 store="hbsol"
+  // HBAC using the solution of a past HB
+  analysis hbac2 hbac nodeset="hbsol" opsolve=0 outspur={} values=[10.0]
+  // Small differences between hbac1 and hbac2 are because the TD solution at colocation points 
+  // is in case of hbac2 computed from the FD solution of hb1. 
+  // Effectively the TD solution is in hbac2 computed as 
+  //   TD solution -> APFT -> FD solution (stored) -> IAPTF -> TD solution with numerical errors
+  // hbac1 uses the TD solution without APFT -> IAPFT roundtrip.  
+  // When HB will use the FD formulation the two results should be identical because 
+  // both hbs will compute the TD solution from the FD solution as 
+  //   FD solution -> IAPFT -> TD solution
   
   postprocess(PYTHON, "runme.py")
 endc
@@ -76,56 +63,75 @@ import sys
 
 tests = []
 
-plot1 = rawread('hbac1.raw').get()
-for name in plot1.names:
-    print(name, plot1[name])
+# (a x)^2 + ddt( (c x)^3 )
+# 
+# Periodic large signal x(t) = cos(w0 t)
+# 
+# Resistive Jacobian
+#   2 a^2 x(t) = 2 a^2 cos(w0 t)
+#   
+# Reactive Jacobian
+#   3 c^3 x(t)^2 = 3 c^3 / 2 (1 + cos(2 w0 t))
+# 
+# Spectrum
+#     0       w0     2 w0   3 w0    4 w0   5 w0
+# Jr  0       2a^2   0      0       0      0
+# Jc  3c^3/2  0      3c^3/2 0       0      0
+#
+# Small signal excitation: b cos(w t)
+#   (a (cos(w0 t) + b cos(w t)))^2 -> a^2 b cos((-w0 + w) t) + a^2 b cos((w0 + w) t)
+#   ddt((c (cos(w0 t) + b cos(w t)))^3) ->  
+#     b c^3 / 2 w cos(w t + pi/2) +
+#     3 b c^3 / 4 (-2 w0 + w) cos((-2 w0 + w) t + pi/2) + 3 b c^3 / 4 (2 w0 + w) cos((2 w0 + w) t + pi/2)
+#   a=3, b=1, c=5 -> a^2 b = 9
+#                    3 b c^3 / 4 * 2 pi (-2000 + 10) = -1172206.76
+#                    3 b c^3 / 4 * 2 pi (2000 + 10)  = 1183987.73
+# 
+#   (a (cos(w0 t) + b cos((w0 + w) t)))^2 -> a^2 b cos(w t) + a^2 b cos((2 w0 + w) t)
+#   a=3, b=1 -> a^2 b = 9
+a = 3.0 
+b = 1.0 
+c = 5.0
+f0 = 1e3 
+f = 10.0
+exact = np.array([
+    # -3
+    0,
+    # -2
+    3*c**3*b/4*2*np.pi*(-2*f0+f)*1j, 
+    # -1
+    a**2*b, 
+    # 0
+    3*c**3*b/2*2*np.pi*f*1j, 
+    # 1
+    a**2*b, 
+    # 2
+    3*c**3*b/4*2*np.pi*(2*f0+f)*1j, 
+    # 3
+    0
+])
+# print(exact)
 
-sys.exit(0)
+hbac1 = rawread('hbac1.raw').get()
+# print(hbac1.names)
+response = np.array([
+    -hbac1['v1:flow(br);'+str(spur)].item() for spur in range(-3, 4)
+])
+# print(response)
+ref = np.abs(response).max()
+delta = relDiff(response, exact, ref)
+print("Delta (with hb)", delta)
+tests.append(delta.max()<1e-14)
 
-v1 = dc1['1']
-i1 = -dc1["v1:flow(br)"]
+hbac2 = rawread('hbac2.raw').get()
+response = np.array([
+    -hbac2['v1:flow(br);'+str(spur)].item() for spur in range(-3, 4)
+])
+ref = np.abs(response).max()
+delta = relDiff(response, exact, ref)
+print("Delta (stored hb)", delta)
+tests.append(delta.max()<1e-14)
 
-hb1 = rawread('hb1.raw').get()
-f = np.real(hb1['frequency'])
-i1s = -hb1['v1:flow(br)']
-i1mag = np.abs(i1s)
-i1ph = np.angle(i1s)*180/np.pi
 
-print(f)
-exactmag = np.zeros(f.size)
-exactph = np.zeros(f.size)
-exactmag[0] = 0.5
-exactmag[1] = 0.75
-exactmag[3] = 0.25
-exactph[1] = -90
-exactph[3] = 90
-
-exact = exactmag*(np.cos(exactph*np.pi/180)+1j*np.sin(exactph*np.pi/180))
-delta = np.abs(i1s-exact).max()
-print("spectrum max delta:", delta)
-tests.append(delta<1e-12)
-
-if isTest():
-    sys.exit(not all(tests))
-else:
-    import matplotlib.pyplot as plt
-
-    fig1, ax1 = plt.subplots(3, 1, figsize=(5,8), dpi=100, constrained_layout=True)
-    fig1.suptitle('HB of pow(v,3) excited by 1kHz sine, mag=1V')
-    fig1.axes[0].set_title('DC response')
-    fig1.axes[0].set_ylabel('I [A]')
-    fig1.axes[0].set_xlabel('V [V]')
-    fig1.axes[0].plot(v1, 0.5+v1**3)
-    fig1.axes[0].plot(v1, i1, marker=".", color="red", linestyle="none")
-
-    fig1.axes[1].set_title('I(v1) spectrum')
-    fig1.axes[1].set_ylabel('Magnitude [A]')
-    fig1.axes[1].stem(f/1e3, i1mag, markerfmt='.')
-    
-    fig1.axes[2].set_ylabel('Phase [deg]')
-    fig1.axes[2].set_xlabel('f [kHz]')
-    fig1.axes[2].stem(f/1e3, i1ph, markerfmt='.')
-    
-    plt.show()
+sys.exit(not all(tests))
 >>>FILE
-

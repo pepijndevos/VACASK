@@ -226,17 +226,23 @@ bool HBNRSolver::rebuild(size_t nSolComp) {
     // Analysis asks cores if they request a rebuild. 
     // HB core replies that it does if the set of frequencies changes. 
 
-    // Get diagonal pointers for forces
-    auto n = circuit.unknownCount();
-    auto nt = timepoints.size();
-    diagPtrs.resize(n*nt);
-    
-    // Bind diagonal matrix elements, block indices are 1-based, 0 is the bucket
-    // Needed for forcing unknown values
-    for(decltype(n) i=0; i<n; i++) {
-        for(decltype(nt) j=0; j<nt; j++) {
-            // We know the matrix type so we can use the elementPtr() non-virtual function
-            diagPtrs[i*nt+j] = bsjac.elementPtr(MatrixEntryPosition(i+1, i+1), Component::Real, MatrixEntryPosition(j, j));
+    // Do this only if sparse matrix is built
+    // If we are using the nrSolver just for evaluation, 
+    // matrix is not built and we will never load forces
+    // so we do not need diagonal pointers. 
+    if (bsjac.isBuilt()) {
+        // Get diagonal pointers for forces
+        auto n = circuit.unknownCount();
+        auto nt = timepoints.size();
+        diagPtrs.resize(n*nt);
+        
+        // Bind diagonal matrix elements, block indices are 1-based, 0 is the bucket
+        // Needed for forcing unknown values
+        for(decltype(n) i=0; i<n; i++) {
+            for(decltype(nt) j=0; j<nt; j++) {
+                // We know the matrix type so we can use the elementPtr() non-virtual function
+                diagPtrs[i*nt+j] = bsjac.elementPtr(MatrixEntryPosition(i+1, i+1), Component::Real, MatrixEntryPosition(j, j));
+            }
         }
     }
 
@@ -443,9 +449,9 @@ bool HBNRSolver::evaluate(bool continuePrevious) {
     // i.e. (k, 0) with resistive and (k, 1) with reactive Jacobian values 
     // at times coresponding to timepoints tk, k=0..nb-1 because KLU matrices are 
     // stored in column major order. 
-    auto n = bsjac.nBlockRows();
-    auto nb = bsjac.nBlockElementRows();
-
+    auto n = circuit.unknownCount();
+    auto nb = timepoints.size();
+    
     // Old solution is in time domain. Get it. 
     auto solTD = solution.data();
 
