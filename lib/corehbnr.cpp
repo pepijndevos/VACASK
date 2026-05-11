@@ -262,7 +262,7 @@ bool HBNRSolver::initialize(bool continuePrevious) {
     auto n = circuit.unknownCount();
 
     // Number of block rows
-    auto nb = bsjac.nBlockElementRows();
+    auto nb = circuit.unknownCount();
 
     // Old solution and derivative wrt time at all timepoints
     resistiveResidual.resize(n*nt);
@@ -525,8 +525,8 @@ std::tuple<bool, bool> HBNRSolver::buildSystem(bool continuePrevious) {
     // iterates over values of k. In this way good cache locality is achieved. 
     
     // Get sizes
-    auto n = bsjac.nBlockRows();
-    auto nb = bsjac.nBlockElementRows();
+    auto n = circuit.unknownCount();
+    auto nb = timepoints.size();
 
     // Remove forces originating from nodesets after nsiter iterations
     auto nsiter = circuit.simulatorOptions().core().op_nsiter;

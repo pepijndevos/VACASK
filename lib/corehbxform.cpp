@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <random>
 #include <numbers>
+#include <cmath>
 #include "corehb.h"
 #include "simulator.h"
 #include "common.h"
@@ -44,18 +45,34 @@ bool HBCore::buildTransformMatrix(DenseMatrix<double>& XF, Status& s) {
     // Storage of (2 pi f t) factors for base frequencies
     auto nBase = spurs_.fundamentals().size();
     double baseFac[nBase];
-    
+
+    // Precompute reduced phase at tstart for each base frequency.
+    // Use two-product via fma to get frac(f*tstart) with full precision,
+    // avoiding catastrophic cancellation when f*tstart is large.
+    double basePhaseAtTstart[nBase];
+    for(decltype(nBase) k=0; k<nBase; k++) {
+        auto f = spurs_.fundamentals()[k];
+        auto prod = f * params.tstart;
+        auto lo = std::fma(f, params.tstart, -prod);
+        auto intpart = std::trunc(prod);
+        auto frac = (prod - intpart) + lo;
+        if (frac<0) frac += 1.0;
+        if (frac>=1.0) frac -= 1.0;
+        basePhaseAtTstart[k] = 2 * std::numbers::pi * frac;
+    }
+
     // Loop through timepoints
     for(decltype(n) i=0; i<n; i++) {
         auto row = XF.row(i);
         auto t = timepoints[i];
-        
+
         // For base frequencies compute phase at t (2 pi f t)
-        // Subtract integer multiple of 2 pi to keep phase small
+        // Split as: 2*pi*frac(f*tstart) + 2*pi*f*(t-tstart)
+        // The first term is precomputed with extended precision.
+        // The second term is small (t-tstart spans a few periods) so it is precise.
         for(decltype(nBase) k=0; k<nBase; k++) {
-            auto prod = spurs_.fundamentals()[k]*t; 
-            auto frac = prod - std::trunc(prod);
-            baseFac[k] = 2 * std::numbers::pi * frac;
+            baseFac[k] = basePhaseAtTstart[k]
+                       + 2 * std::numbers::pi * spurs_.fundamentals()[k] * (t - params.tstart);
         }
 
         // DC

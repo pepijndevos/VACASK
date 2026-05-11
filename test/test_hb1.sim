@@ -29,7 +29,7 @@ control
   
   options homotopy_debug=1 hb_debug=5 nr_debug=1
   alter instance("v1") type="sine"
-  analysis hb1 hb freq=[1k] nharm=12
+  analysis hb1 hb freq=[1k] nharm=12 // tstart=2.0
   
   postprocess(PYTHON, "runme.py")
 endc

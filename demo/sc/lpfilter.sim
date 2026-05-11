@@ -11,8 +11,9 @@ model v vsource
 model c capacitor
 model oa opamp
 model r resistor
+model vcvs vcvs
 
-parameters trf=1u
+parameters trf=0.1u
 
 parameters fin=1k
 parameters inmag=0.02
@@ -25,27 +26,29 @@ parameters c1=c2*gain
 
 v1 (in 0) v type="sine" sinedc=0 ampl=inmag freq=fin spur={0.0} smag=[1]
 
-subckt switch(s1 s2 clk vdd vss)
+subckt switch(s1 s2 clk clkn vdd vss)
   parameters w=2u l=0.2u
   m1 (s1 clk s2 vss) nmos w=w l=l
+  m2 (s1 vdd s2 vdd) pmos w=w l=l
 ends
 
 x1 (0 n out) oa gain=10000 rin=100k rout=0.1 va=0.5 vb=-0.5
 
-xs11 (in in1 clk vdd vss) switch
+xs11 (in in1 clk clkn vdd vss) switch
 c1 (in1 0) c c=c1
-xs12 (in1 n clkn vdd vss) switch
+xs12 (in1 n clkn clk vdd vss) switch
 
-xs21 (n 2 clk vdd vss) switch
+xs21 (n 2 clk clkn vdd vss) switch
 c2 (2 0) c c=c2
-xs22 (2 out clkn vdd vss) switch
+xs22 (2 out clkn clk vdd vss) switch
 
 cf (n out) c c=cf
 
 rx (in out1) r r=1k
 
-vclk (clk 0)   v type="pulse" val0=-0.6 val1= 0.6 delay=tclk rise=trf fall=trf width=tclk/2-trf period=tclk
-vclkn (clkn 0) v type="pulse" val0= 0.6 val1=-0.6 delay=tclk rise=trf fall=trf width=tclk/2-trf period=tclk
+vclk (clk 0)   v type="pulse" val0=-0.6 val1=0.6 delay=0 rise=trf fall=trf width=tclk/2-2*trf period=tclk
+// vclkn (clkn 0) v type="pulse" val0=-0.6 val1=0.6 delay=tclk/2 rise=trf fall=trf width=tclk/2-2*trf period=tclk
+vclkn (clkn 0 clk 0) vcvs gain=-1
 
 vdd (vdd 0) v dc=0.6
 vss (vss 0) v dc=-0.6
@@ -75,7 +78,8 @@ control
   // No excitation signal for HB, just clock
   alter instance("v1") type="dc" dc=0
   // save dv(in) dv(out) dv(out1)
-  analysis hbac1 hbac freq=[fclk] tstart=2/fclk nharm=10 from=1 to=20k mode="dec" points=10
+  options reltol=1e-6
+  analysis hbac1 hbac freq=[fclk] tstart=0/fclk nharm=20 from=1 to=20k mode="dec" points=10
 
   postprocess(PYTHON, "runme.py")
 endc
@@ -128,7 +132,9 @@ fig1.axes[0].set_ylabel('H [dB]')
 
 raw = rawread('tran2.raw')
 plot = raw.get()
-fig1.axes[1].plot(plot["time"], plot["xs11:m1:m.gds"], marker=".")
+#fig1.axes[1].plot(plot["time"], plot["xs11:m1:m.gds"], marker=".")
+fig1.axes[1].plot(plot["time"], plot["clk"])
+fig1.axes[1].plot(plot["time"], plot["clkn"])
 
 fig1.tight_layout()
 
