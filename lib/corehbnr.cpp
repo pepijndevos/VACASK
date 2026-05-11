@@ -283,11 +283,11 @@ bool HBNRSolver::initialize(bool continuePrevious) {
 
     // Maximum across all equations at given timepoint for each nature
     // Computed in checkResidual()
-    pointMaxResidualContribution_.resize(commons.natures.count(), nb);
+    pointMaxResidualContribution_.resize(commons.natures.count(), nt);
 
     // Maximum across all timepoints for each nature
     // Computed in checkDelta()
-    pointMaxSolution_.resize(commons.natures.count(), nb);
+    pointMaxSolution_.resize(commons.natures.count(), nt);
 
     // Set up loading
     // Resistive residual

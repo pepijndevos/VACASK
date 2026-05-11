@@ -11,11 +11,11 @@ model i isource
 model sw vsw
 
 parameters tclk=1/fclk
-parameters trf=0.1u
+parameters trf=0.01u
 parameters f3db=1k
 parameters cs=5p
 parameters c1=1/(2*M_PI*f3db*1/(cs*fclk))
-parameters tx=0.2u
+parameters tx=0.02u
 
 // Two clocks, non-overlapping
 ictl (0 ctl) i type="pulse" val0=0 val1=1 delay=tx rise=trf fall=trf width=tclk/2-2*trf-2*tx period=tclk
@@ -32,10 +32,10 @@ ends
 
 subckt test2()
   vin (in 0) v type="sine" sinedc=0 ampl=0.1 freq=1k spur={0.0} smag=[1]
-  sw1 (in out ctl) sw vlo=0.1 vhi=0.9 rlo=1T rhi=1
+  sw1 (in out ctl) sw vlo=0.4 vhi=0.6 rlo=1T rhi=1
   // rsw1 (in out) r r=1m
   cs (out 0) c c=1u // cs
-  // sw2 (int out ctln) sw vlo=0.1 vhi=0.9 rlo=1T rhi=1
+  // sw2 (int out ctln) sw vlo=0.3 vhi=0.7 rlo=1T rhi=1
   // c1 (out 0) c c=c1
   // r1 (out 0) r r=2m
   // rx (in out) r r=2M
@@ -54,17 +54,18 @@ subckt test3()
 ends
 
 control
-  var fclk=100k
+  var fclk=1M
 
   elaborate circuit("test1")
   analysis tran1 tran step=0.1u stop=40u icmode="uic"
   
   options tran_method="euler"
   elaborate circuit("test2")
-  analysis tran2 tran step=0.1u stop=2m icmode="uic"
+  analysis tran2 tran step=0.01u stop=2m icmode="uic"
   // print instance("cs", "c1")
   print unknowns
 
+  options reltol=1e-6
   // options smsig_debug=100
   // Input signal should be 0 for HB analysis
   alter instance("vin") type="dc" dc=0
@@ -84,7 +85,7 @@ module vsw(p, n, ctrl);
 
     (*desc= "Resistance at low voltage", type="instance", units = "Ohm"*) parameter real rlo = 1.0    from (0:inf);
     (*desc= "Resistance at high voltage", type="instance", units = "Ohm"*) parameter real rhi = 1.0e12 from (0:inf);
-    (*desc= "Logarithmic transition instead of linear", type="instance", units = "Ohm"*) parameter integer logarithmic = 1;
+    (*desc= "Logarithmic transition instead of linear", type="instance", units = "Ohm"*) parameter integer logarithmic = 0;
 
     // Transition region for control voltage
     (*desc= "Low control voltage", type="instance", units = "V"*) parameter real vlo = 0.0;
@@ -92,7 +93,7 @@ module vsw(p, n, ctrl);
 
     // Larger smooth makes the transition softer.
     // A useful default is around 0.05.
-    (*desc= "Transition smoothing", type="instance", units = ""*) parameter real smooth = 0.05 from (0:inf);
+    (*desc= "Transition smoothing", type="instance", units = ""*) parameter real smooth = 0.01 from (0:inf);
 
     real vc;
     real vmid;
@@ -121,7 +122,7 @@ module vsw(p, n, ctrl);
         if (logarithmic) begin
             r = rlo * exp(alpha * ln(rhi/rlo));
         end else begin
-            r = rlo + alpha * (rhi - rlo);
+            r = rlo * (1-alpha) + rhi * alpha;
         end
         g = 1.0 / r;
 

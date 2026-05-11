@@ -79,7 +79,7 @@ control
   alter instance("v1") type="dc" dc=0
   // save dv(in) dv(out) dv(out1)
   options reltol=1e-6
-  analysis hbac1 hbac freq=[fclk] tstart=0/fclk nharm=20 from=1 to=20k mode="dec" points=10
+  analysis hbac1 hbac freq=[fclk] tstart=4/fclk nharm=55 from=100 to=20k mode="dec" points=10
 
   postprocess(PYTHON, "runme.py")
 endc
