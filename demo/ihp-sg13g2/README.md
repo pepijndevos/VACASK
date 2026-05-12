@@ -22,6 +22,10 @@ and look for "Python path addition". Suppose the python path addition is `/usr/l
 ```
 PYTHONPATH=/usr/local/lib/vacask/python python3 -m sg13g2tovc
 ```
+Additional options can be passed to the OpenVAF Verilog-A compiler with `--openvaf-options`. All arguments that follow this flag are forwarded to OpenVAF. For example, to build generic models that run on any x86-64 CPU
+```
+PYTHONPATH=/usr/local/lib/vacask/python python3 -m sg13g2tovc --openvaf-options --target_cpu generic
+```
 
 The converter will process the Ngspice models and 
 * create directory `ihp-sg13g2/libs.tech/vacask/models` with the converted models

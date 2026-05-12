@@ -216,6 +216,22 @@ included_va_files = [
 ]
 
 if __name__=="__main__":
+    # Collect options
+    # --openvaf-options .. all options that follow are passed to OpenVAF
+    # Print a usage note if unknown option is given
+    openvaf_cmdline_options = []
+    args = sys.argv[1:]
+    ii = 0
+    while ii < len(args):
+        if args[ii] == "--openvaf-options":
+            openvaf_cmdline_options = args[ii + 1:]
+            break
+        else:
+            print(f"Unknown option: {args[ii]}")
+            print(f"Usage: {sys.argv[0]} [--openvaf-options <opt1> <opt2> ...]")
+            sys.exit(1)
+        ii += 1
+
     # Get PDK_ROOT environmental variable
     pdkroot = os.getenv("PDK_ROOT")
     if pdkroot is None:
@@ -413,7 +429,8 @@ module_path_prefix = [ "$(PDK_ROOT)/$(PDK)/libs.tech/vacask/osdi" ]
         osdi_files.add(fo_r)
         
         print("Compiling", f)
-        cmdline = [ openvaf ] + extra_opts + [ "-o", fo, f ]
+        cmdline = [ openvaf ] + extra_opts + openvaf_cmdline_options + [ "-o", fo, f ]
+        print(cmdline)
         retval = subprocess.run(cmdline)
         if retval.returncode != 0:
             print("Verilog-A compiler error.")
