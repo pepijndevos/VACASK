@@ -18,13 +18,15 @@ analysis name hbac [parameters]
    See [Harmonic Balance Analysis](cmd-analysis-hb.md) for details.
 2. It assembles the frequency-domain (spectral) Jacobians $G_k$ and $C_k$ — the Fourier
    coefficients of the resistive and reactive Jacobians evaluated at the HB operating point.
-3. At each small-signal input frequency $f$ it forms the conversion matrix
+3. At each small-signal input frequency $f$ it forms the conversion matrix. Each
+   subblock $(n,m)$ couples unknown $m$ to circuit equation $n$ across all spurs:
 
-   $$H_{nm}(f) = G_k + j\,\omega_n\,C_k, \qquad \omega_n = 2\pi(f + f_n)$$
+   $$H^{(nm)}_{kl}(f) = [G_{p(k,l)}]_{nm} + j\,\omega_k\,[C_{p(k,l)}]_{nm}, \qquad \omega_k = 2\pi(f + f_k)$$
 
-   where $f_n$ is the $n$-th spur frequency of the HB spectrum and $k$ is the Jacobian
-   harmonic index coupling output row $n$ to input column $m$ (determined by the mixing
-   stencil).
+   where $n$, $m$ are node indices, $k$, $l$ are spur (harmonic) indices,
+   $f_k$ is the $k$-th spur frequency of the HB spectrum, and $G_{p(k,l)}$, $C_{p(k,l)}$
+   are the $p(k,l)$-th Fourier coefficients of the resistive and reactive Jacobians. $p(k,l)$ is the index of the Jacobian Fourier coefficient that converts input frequency $f_l$ to output frequency $f_k$. If no such index exists $G_{p(k,l)}$ and $C_{p(k,l)}$ are considered to be 0. 
+   
 4. It solves $H(f)\,X = U$, where $U$ is assembled from the `spur`, `smag`, and `sphase`
    parameters of independent sources.
 5. The selected output-spur rows of $X$ are written to the output file.
@@ -37,7 +39,7 @@ via the following instance parameters:
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `spur` | value list | `[]` | List of excitation spurs. Each entry is either a real spur frequency (Hz) or an integer vector of tone weights $[k_1, k_2, \ldots]$. |
+| `spur` | value list | `{}` | List of excitation spurs. Each entry is either a real spur frequency (Hz) or an integer vector of tone weights $[k_1, k_2, \ldots]$. |
 | `smag` | real vector | `[]` | Excitation magnitudes, one per entry in `spur`. Missing entries default to `0`. |
 | `sphase` | real vector | `[]` | Excitation phases in degrees, one per entry in `spur`. Missing entries default to `0`. |
 
@@ -61,7 +63,7 @@ Sources with no `spur` entries contribute no small-signal excitation.
 | `nodeset` | string | `""` | Name of a saved HB solution to use as the initial guess. |
 | `store` | string | `""` | Save the computed HB solution under the given name. |
 | `opsolve` | boolean | `1` | Solve the HB operating point. Set to `0` to linearize at the nodeset without solving. |
-| `outspur` | real, integer vector, or list | `0.0` | Output spur(s) to observe. Each entry is a real frequency (Hz) or integer tone-weight vector. Default `0.0` selects the DC spur. |
+| `outspur` | real, integer vector, or list | `{}` | Output spur(s) to observe. Each list entry is a real frequency (Hz) or an integer tone-weight vector. Default `{}` selects all spurs. |
 | `from` | real | `0` | Start frequency (Hz). |
 | `to` | real | `0` | Stop frequency (Hz). |
 | `step` | real | `0` | Frequency step size (Hz) for a stepped linear sweep. |
@@ -114,7 +116,9 @@ spur with weights $[k_1, k_2, \ldots]$ is $f + k_1 f_1 + k_2 f_2 + \cdots$.
 **Single-tone, observe at fundamental output spur:**
 
 ```text
+// Excitation at spur index 1
 v1 (in 0) vsource dc=0 spur={[1]} smag=[1.0]
+// Output spur with integer index 1
 analysis hbac1 hbac freq=[1k] nharm=8 outspur=[1] from=1 to=10k mode="dec" points=10
 ```
 
@@ -124,14 +128,25 @@ analysis hbac1 hbac freq=[1k] nharm=8 outspur=[1] from=1 to=10k mode="dec" point
 // LO at index [1,0], RF at index [0,1]
 vlo (lo 0) vsource dc=0 spur={[1,0]} smag=[1.0]
 vrf (rf 0) vsource dc=0 spur={[0,1]} smag=[1.0]
-analysis hbac1 hbac freq=[1G, 900M] nharm=3 immax=3 outspur=[0,0] from=1 to=100M mode="dec" points=10
+// Output spur at 0GHz
+analysis hbac1 hbac freq=[1G, 900M] nharm=3 immax=3 outspur=0G from=1 to=100M mode="dec" points=10
+```
+
+**Reuse a stored HB operating point:**
+
+```text
+v1 (in 0) vsource dc=0 spur={[1]} smag=[1.0]
+analysis hb1 hb freq=[1k] nharm=8 store="op1"
+// Output spurs with indices 1 and 2
+analysis hbac1 hbac outspur={[1],[2]} from=1 to=10k mode="dec" points=10 opsolve=0 nodeset="op1"
 ```
 
 **Save specific nodes only:**
 
 ```text
 save dv(out)
-analysis hbac1 hbac freq=[1k] nharm=8 outspur=[1] from=1 to=100k mode="dec" points=20
+// All output spurs
+analysis hbac1 hbac freq=[1k] nharm=8 outspur={} from=1 to=100k mode="dec" points=20
 ```
 
 ## Options
