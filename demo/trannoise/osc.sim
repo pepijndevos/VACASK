@@ -34,14 +34,18 @@ control
 
   var fmin=10.0
   var fmax=4e5
-  var ptsper=50
+  var ptsper=200
   var periods=10
 
+  // Avoid trapezoidal ringing by using Gear manifested as stray peaks around 
+  // oscillation frequency harmonics. 
+  // Need small timestep (200 pts per period) so damping does not prevent oscillations. 
+  options tran_method="gear"
   options reltol=1e-6 vntol=1e-9 abstol=1e-12
   // Transient, store final state
-  analysis tran1 tran step=1u stop=60m maxstep=0.1u store="ss"
+  analysis tran1 tran step=1u stop=60m maxstep=0.02u store="ss"
   // Steady state, noiseless
-  analysis tran2 tran step=1u stop=10u maxstep=0.01u ic="ss" icmode="uic"
+  analysis tran2 tran step=1u stop=10u maxstep=0.02u ic="ss" icmode="uic"
   
   // Output files are huge, store only what is absolutely necessary
   save v(c)
@@ -50,7 +54,7 @@ control
 
   // Steady state, noisy
   // We don't care about 1/f noise fidelity at high frequencies, so oversample=1
-  options tran_debug=0 nr_debug=0 tran_noiselte=1
+  // options tran_debug=0 nr_debug=0 tran_noiselte=1
   analysis tran3 tran (
     stop=periods/fmin maxstep=1.0/(fmax*ptsper) ic="ss" icmode="uic" noisemode="zoh"
     noisefmax=fmax noisefmin=fmin oversample=1
@@ -60,7 +64,6 @@ control
   analysis tran4 tran (
     stop=periods/fmin maxstep=1.0/(fmax*ptsper) ic="ss" icmode="uic" 
   )
-  
   postprocess(PYTHON, "runme.py")
 endc
 
@@ -188,15 +191,20 @@ def psd(x, y, fmintarget, fosc):
 
   return f, Pxx
 
-def phaseJitter(x, y, fosc, B, taps=2001, trim=True):
+def phaseJitter(x, y, fosc, B, trim=True):
     n = 2**np.ceil(np.log(x.shape[0])/np.log(2))
     dx = x[-1]/n
-    
+
     xs = np.arange(x[0], x[-1] + dx, dx)
     ys = np.interp(xs, x, y)
-    
+
+    # Scale taps with sampling rate to maintain frequency resolution
+    taps = int(np.ceil(4.0 / (B * dx)))
+    if taps % 2 == 0:
+        taps += 1
+
     bp = firwin(
-        2001, # numtaps
+        taps,
         [fosc-B, fosc+B],
         fs=1/dx,
         pass_zero=False,
@@ -253,6 +261,7 @@ plot = raw.get()
 xn = plot['time']
 yn = plot['c']
 fn, Pxxn = psd(xn, yn, 10, fosc)
+
 
 mask = (fn>=242e3) & (fn<250e3)
 fn = fn[mask]
