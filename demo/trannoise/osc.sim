@@ -16,7 +16,7 @@ model q2n2222 sp_bjt ( type=1
   ise=8.2p ne=2 br=4 nr=1 var=20 ikr=0.225
   re=0.373 rb=1.49 rc=0.149 xtb=1.5
   cje=35.5p cjc=12.2p tf=500p tr=85n
-  kf=1e-12 af=1
+  kf=1e-9 af=1
 )
 
 r1 (vdd b) r r=47k
@@ -34,35 +34,40 @@ control
 
   var fmin=10.0
   var fmax=4e5
-  var ptsper=200
-  var periods=10
+  var ptsper=100
+  var periods=20
+  var maxstep=1.0/(fmax*ptsper)
 
-  // Avoid trapezoidal ringing by using Gear manifested as stray peaks around 
-  // oscillation frequency harmonics. 
-  // Need small timestep (200 pts per period) so damping does not prevent oscillations. 
-  options tran_method="gear"
-  options reltol=1e-6 vntol=1e-9 abstol=1e-12
+  // This transient uses trapezoidal integration. The goal is to find the steady-state. 
+  // We don't care about small ringing artifacts. 
+  options reltol=1e-6 // vntol=1e-9 // abstol=1e-12
   // Transient, store final state
-  analysis tran1 tran step=1u stop=60m maxstep=0.02u store="ss"
+  analysis tran1 tran stop=60m step=maxstep maxstep=maxstep store="ss"
   // Steady state, noiseless
-  analysis tran2 tran step=1u stop=10u maxstep=0.02u ic="ss" icmode="uic"
+  analysis tran2 tran stop=10u step=maxstep maxstep=maxstep ic="ss" icmode="uic"
   
   // Output files are huge, store only what is absolutely necessary
   save v(c)
 
+  // Avoid trapezoidal ringing that manifests itself as stray peaks around 
+  // oscillation frequency harmonics by using Gear integration. 
+  // For oscillator startup with Gear we need a small timestep to reduce Gear's damping. 
+  // For steady-state the step can be larger. 
+  options tran_method="gear"
+  
   // Each of these analyses takes a few minutes
 
   // Steady state, noisy
   // We don't care about 1/f noise fidelity at high frequencies, so oversample=1
-  // options tran_debug=0 nr_debug=0 tran_noiselte=1
+  // options tran_debug=0 nr_debug=0
   analysis tran3 tran (
-    stop=periods/fmin maxstep=1.0/(fmax*ptsper) ic="ss" icmode="uic" noisemode="zoh"
+    stop=periods/fmin step=maxstep maxstep=maxstep ic="ss" icmode="uic" noisemode="zoh"
     noisefmax=fmax noisefmin=fmin oversample=1
   )
 
   // Steady state, no noise (reference)
   analysis tran4 tran (
-    stop=periods/fmin maxstep=1.0/(fmax*ptsper) ic="ss" icmode="uic" 
+    stop=periods/fmin step=maxstep maxstep=maxstep ic="ss" icmode="uic" 
   )
   postprocess(PYTHON, "runme.py")
 endc
@@ -71,35 +76,42 @@ embed "runme.py" <<<FILE
 from rawfile import rawread
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.signal import welch
-from scipy.signal import firwin, fftconvolve, filtfilt, hilbert
+from scipy.signal import welch, firwin, oaconvolve, fftconvolve, freqz, hilbert
+from scipy.interpolate import CubicSpline
 
+# import scipy.fft as fft
+# fft.set_workers(48)
+
+# Oscillator transient
 fig1 = plt.figure(figsize=(8,8), dpi=100)
 fig1.suptitle('LC oscillator')
-ax_dict = fig1.subplot_mosaic("""
+ax_dict1 = fig1.subplot_mosaic("""
 A
 B
+C
 """)
 
 raw = rawread('tran1.raw')
 plot = raw.get()
 
-ax_dict["A"].set_title('Oscillator response')
-ax_dict["A"].set_ylabel('Vc [V]')
-ax_dict["A"].set_xlabel('time [s]')
-ax_dict["A"].plot(plot['time'], plot['c'])
+ax_dict1["A"].set_title('Oscillator response')
+ax_dict1["A"].set_ylabel('Vc [V]')
+ax_dict1["A"].set_xlabel('time [s]')
+ax_dict1["A"].plot(plot['time'], plot['c'])
 
 
+# Oscillator steady-state
 raw = rawread('tran2.raw')
 plot = raw.get()
 x = plot['time']
 y = plot['c']
 
-ax_dict["B"].set_title('Oscillator steady state')
-ax_dict["B"].set_ylabel('Vc [V]')
-ax_dict["B"].set_xlabel('time [s]')
-ax_dict["B"].plot(x, y)
+ax_dict1["B"].set_title('Oscillator steady state')
+ax_dict1["B"].set_ylabel('Vc [V]')
+ax_dict1["B"].set_xlabel('time [s]')
+ax_dict1["B"].plot(x, y)
 
+# plt.show()
 
 # Determine period from steady state
 y_mean = (y.max()+y.min())/2
@@ -122,6 +134,8 @@ fosc = 1/T
 print("fosc=", fosc)
 
 
+# Computes PSD, aligns bins to fosc, 
+# makes sure the lowest nonzero frequency bin is below fmintarget
 def psd(x, y, fmintarget, fosc):
   # Integer number of periods
   nper = int(np.floor(x[-1]*fosc))
@@ -139,7 +153,6 @@ def psd(x, y, fmintarget, fosc):
   fmax = 1/dx
 
   # Number of periods per segment so that the lower end of spectum is below fmin
-  fmintarget = 10
   nperinseg = int(np.ceil(fosc/fmintarget))
 
   # Number of points per segment
@@ -153,9 +166,9 @@ def psd(x, y, fmintarget, fosc):
   # Number of interpolated points
   N = int(np.round(xend/dx))
   
-  # Interpolate
+  # Interpolate (cubic spline to avoid spurious tones from linear interpolation)
   xs = x[0]+np.arange(N)*dx
-  ys = np.interp(xs, x, y)
+  ys = CubicSpline(x, y)(xs)
 
   # Remove mean
   ys = ys - np.mean(ys)
@@ -191,17 +204,50 @@ def psd(x, y, fmintarget, fosc):
 
   return f, Pxx
 
-def phaseJitter(x, y, fosc, B, trim=True):
+# Oscillator noise
+# a(t)   ... amplitude noise
+# phi(t) ... phase noise
+# x(t) = (A + a(t)) cos(w0 t + phi(t))
+#      = Re((A + a(t)) exp(j(w0 t + phi(t))))
+#      = Re((A + a(t)) exp(j phi(t))) exp(j w0 t) 
+#      = Re(V(t) exp(j w0 t))
+# V(t) = (A + a(t)) exp(j phi(t))
+#      for phi(t) < 1rad
+#      = (A + a(t)) (1 + j phi(t))
+#      = (A + a(t)) + (A + a(t)) j phi(t)
+#      because phi(t)*a(t) is a product of two small signals, approximately
+#      = (A + a(t)) + j A phi(t)
+#
+# Because a(t) and phi(t) vary slowly compared to w0 the Hilbert transform treats them as constants
+# By considering H(cos(t)) = sin(t) we get
+#   y(t) = H(x(t)) = (A + a(t)) sin(w0 t + phi(t))
+#
+# The analytical signal xa(t) = x(t) + j y(t) is then 
+#   xa(t) = (A + a(t)) cos(w0 t + phi(t)) + j (A + a(t)) sin(w0 t + phi(t))
+#         = (A + a(t)) exp(j(w0 t + phi(t)))
+#         = (A + a(t)) exp(j phi(t)) exp(j w0 t)
+#         = V(t) exp(j w0 t)
+#
+# |xa(t)| = A + a(t)
+# arg(xa(t)) = phi(t) + w0 t
+#
+# By removing linear phase from arg(xa(t)) we get phi(t). 
+
+# Extracts phase noise
+def phaseNoise(x, y, fosc, B, trim=True):
+    # Interpolate to next power of 2 points
     n = 2**np.ceil(np.log(x.shape[0])/np.log(2))
     dx = x[-1]/n
 
     xs = np.arange(x[0], x[-1] + dx, dx)
-    ys = np.interp(xs, x, y)
+    ys = CubicSpline(x, y)(xs)
 
+    # Filter signal around fosc with bandwidth 2B
     # Scale taps with sampling rate to maintain frequency resolution
     taps = int(np.ceil(4.0 / (B * dx)))
     if taps % 2 == 0:
         taps += 1
+    print(f"  Taps: {taps}")
 
     bp = firwin(
         taps,
@@ -210,6 +256,14 @@ def phaseJitter(x, y, fosc, B, trim=True):
         pass_zero=False,
         window="blackmanharris"
     )
+
+    # Print filter gain at key frequencies
+    fs_filt = 1/dx
+    for fname, freq in [("fosc", fosc), ("fosc+B", fosc+B), ("2*fosc", 2*fosc)]:
+        w = 2 * np.pi * freq / fs_filt
+        _, h = freqz(bp, worN=[w])
+        print(f"  Filter gain at {fname}={freq:.1f} Hz: {np.abs(h[0]):.6f} ({20*np.log10(np.abs(h[0])):.2f} dB)")
+
     ysbp = fftconvolve(ys, bp, mode="same")
 
     # Hilbert transform
@@ -231,6 +285,7 @@ def phaseJitter(x, y, fosc, B, trim=True):
     return xs, phi
 
 
+# PSD and phase noise
 fig2 = plt.figure(figsize=(8,10), dpi=100)
 fig2.suptitle('LC oscillator noise')
 ax_dict = fig2.subplot_mosaic("""
@@ -243,16 +298,22 @@ ax_dict["A"].set_title('PSD')
 ax_dict["A"].set_ylabel('PSD [V^2/Hz]')
 ax_dict["A"].set_xlabel('f [Hz]')
 
-ax_dict["B"].set_title('PSD, noisy-noiseless')
-ax_dict["B"].set_ylabel('PSD [V^2/Hz]')
-ax_dict["B"].set_xlabel('f [Hz]')
+ax_dict["B"].set_title('Phase noise SSB PSD')
+ax_dict["B"].set_ylabel('PSD [dBc/Hz]')
+ax_dict["B"].set_xlabel('offset f [Hz]')
 
 ax_dict["C"].set_title('Phase jitter')
 ax_dict["C"].set_ylabel('Phase jitter [rad]')
 ax_dict["C"].set_xlabel('t [s]')
 
-# Bandwidth around oscillation frequency
-B = 25e3
+# Bandwidth around oscillation frequency for computing SSB phase noise
+Bssb = 150e3
+
+# Bandwidth around oscillation frequency for computing phase jitter
+Bjitter = 25e3
+
+# Fmin target
+fmin_desired = 10
 
 print()
 print("Noisy signal")
@@ -260,17 +321,30 @@ raw = rawread('tran3.raw')
 plot = raw.get()
 xn = plot['time']
 yn = plot['c']
-fn, Pxxn = psd(xn, yn, 10, fosc)
-
-
-mask = (fn>=242e3) & (fn<250e3)
+fn, Pxxn = psd(xn, yn, fmin_desired, fosc)
+mask = (fn>=240e3) & (fn<250e3)
 fn = fn[mask]
 Pxxn = Pxxn[mask]
-ax_dict["A"].semilogy(fn, Pxxn, label="noisy")
+ax_dict["A"].semilogy(fn, Pxxn, 'b', label="noisy")
 
-print("Phase jitter of noisy signal")
-xjn, pjn = phaseJitter(xn, yn, fosc, B)
+print(f"SSB phase noise of noisy signal, B={Bssb}")
+xjn, pjn = phaseNoise(xn, yn, fosc, Bssb)
+fn, Sphi = psd(xjn, pjn, fmin_desired, fosc)
+L = 10 * np.log10(0.5 * Sphi)
+# Remove DC, keep bins up to Bssb
+mask = (fn>0) & (fn<=Bssb)
+fn = fn[mask]
+L = L[mask]
+ax_dict["B"].semilogx(fn, L, 'b', label="noisy")
+
+print(f"Phase jitter of noisy signal, B={Bjitter}")
+xjn, pjn = phaseNoise(xn, yn, fosc, Bjitter)
 ax_dict["C"].plot(xjn, pjn, 'b', label="noisy")
+
+ax_dict1["C"].set_title('Oscillator with noise')
+ax_dict1["C"].set_ylabel('Vc [V]')
+ax_dict1["C"].set_xlabel('time [s]')
+ax_dict1["C"].plot(xn, yn)
 
 
 print()
@@ -279,31 +353,30 @@ raw = rawread('tran4.raw')
 plot = raw.get()
 x = plot['time']
 y = plot['c']
-f, Pxx = psd(x, y, 10, fosc)
-
-mask = (f>=242e3) & (f<250e3)
+f, Pxx = psd(x, y, fmin_desired, fosc)
+mask = (f>=240e3) & (f<250e3)
 f = f[mask]
 Pxx = Pxx[mask]
 ax_dict["A"].semilogy(f, Pxx, 'r', label="noiseless")
 
-print("Phase jitter of noiseless signal")
-xj, pj = phaseJitter(x, y, fosc, B)
+print(f"SSB phase noise of noiseless signal, B={Bssb}")
+xjn, pjn = phaseNoise(x, y, fosc, Bssb)
+fn, Sphi = psd(xjn, pjn, fmin_desired, fosc)
+L = 10 * np.log10(0.5 * Sphi)
+# Remove DC, keep bins up to Bssb
+mask = (fn>0) & (fn<=Bssb)
+fn = fn[mask]
+L = L[mask]
+ax_dict["B"].semilogx(fn, L, 'r', label="noiseless")
+
+print(f"Phase jitter of noiseless signal, B={Bjitter}")
+xj, pj = phaseNoise(x, y, fosc, Bjitter)
 ax_dict["C"].plot(xj, pj, 'r', label="noiseless")
 
 
 ax_dict["A"].legend(loc='upper right')
+ax_dict["B"].legend(loc='upper right')
 ax_dict["C"].legend(loc='lower right')
-
-
-print()
-print("Noisy-noiseless signal")
-ydif = np.interp(x, xn, yn)-y
-f, Pxx = psd(x, ydif, 10, fosc)
-mask = (f>=242e3) & (f<250e3)
-f = f[mask]
-Pxx = Pxx[mask]
-ax_dict["B"].semilogy(f, Pxx, label="noise only")
-
 
 fig1.tight_layout()
 fig2.tight_layout()

@@ -56,7 +56,7 @@ typedef struct TranParameters {
     Real noisefmin {0};       // minimum frequency for transient noise
                               // If noisefmin=0 uses noisefmax/1e3. 
                               // If noisefmax!=0 should be <noisefmax.
-    Id noisemode {};          // Noise mode (SDE by default)
+    Id noisemode {};          // Noise mode (ZOH by default)
     Int oversample {6};       // oversampling factor, 6 by default
                               // The timestep is limited to 0.5/(oversample*noisefmax). 
     String store {""};        // name of stored solution slot to write transient solution to
