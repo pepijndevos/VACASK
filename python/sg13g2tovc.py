@@ -430,7 +430,7 @@ module_path_prefix = [ "$(PDK_ROOT)/$(PDK)/libs.tech/vacask/osdi" ]
         
         print("Compiling", f)
         cmdline = [ openvaf ] + extra_opts + openvaf_cmdline_options + [ "-o", fo, f ]
-        print(cmdline)
+        # print(cmdline)
         retval = subprocess.run(cmdline)
         if retval.returncode != 0:
             print("Verilog-A compiler error.")
