@@ -196,13 +196,24 @@ bool Spurs::build(const std::vector<double>& fundamentals, const std::vector<Int
     spurs_.resize(dest);
     nf = spurs_.size();
 
-    // Sort spurs_ and spurWeights_ together by absolute frequency
+    // Negate weights of negative frequencies, negate negative frequencies
+    for(decltype(nf) i=0; i<nf; i++) {
+        if (spurs_[i]<0) {
+            spurs_[i] = -spurs_[i];
+            for(decltype(n) j=0; j<n; j++) {
+                spurWeights_.at(i, j) = -spurWeights_.at(i, j);
+            }
+        }
+    }
+
+    // Sort spurs_ and spurWeights_ 
+    // Note that frequencies are all positive now
     {
         // Build permutation sorted by frequency
         std::vector<size_t> perm(nf);
         std::iota(perm.begin(), perm.end(), 0);
         std::sort(perm.begin(), perm.end(), [&](size_t a, size_t b) {
-            return std::abs(spurs_[a]) < std::abs(spurs_[b]);
+            return spurs_[a] < spurs_[b];
         });
 
         // Apply permutation to spurs_ and spurWeights_
@@ -219,12 +230,10 @@ bool Spurs::build(const std::vector<double>& fundamentals, const std::vector<Int
         spurWeights_ = std::move(weightsSorted);
     }
     
-    // Build frequencies vector for the solver
+    // Build spectrum for the hb solver
     spectrum_.resize(dest);
-    signedSpectrum_.resize(dest);
     for(decltype(dest) i=0; i<nf; i++) {
-        spectrum_[i] = std::abs(spurs_[i]);
-        signedSpectrum_[i] = spurs_[i];
+        spectrum_[i] = spurs_[i];
     }
 
     // Make sure DC is index 0
@@ -249,8 +258,8 @@ bool Spurs::build(const std::vector<double>& fundamentals, const std::vector<Int
         spurs_.push_back(f);
     }
 
-    // spectrum_, absoluteSpectrum_, and spurs_ are sorted by absolute frequency
-    // The lower part of the small signal spectrum (negatives of absolute frequency)
+    // spectrum_, and smsigFreq_ are sorted by frequency
+    // The lower part of smsigFreq_ (negatives of spectrum_)
     // can be constructed immediately.
     // Skip DC 
     smsigFreq_.clear();
@@ -258,7 +267,7 @@ bool Spurs::build(const std::vector<double>& fundamentals, const std::vector<Int
     for(decltype(nf) posIndex=nf-1; posIndex>0; posIndex--) {
         smsigFreq_.push_back(-spectrum_[posIndex]);
         // Weight indices at firstNegative correspond to the 
-        // negative of lowest absolute frequency that is >0
+        // negative of lowest spectrum_ frequency that is >0
         smsigFreqWeightIndices_.push_back(firstNegative+posIndex-1);
     }
 
@@ -272,10 +281,11 @@ bool Spurs::build(const std::vector<double>& fundamentals, const std::vector<Int
     }
 
     if (debug>0) {
-        Simulator::out() << "Spectrum, " << spurs_.size() << " frequencies\n";
+        Simulator::out() << "Spurs, " << spurs_.size() << " frequencies\n";
         auto nn = spurWeights_.nRows();
         auto cnt = 0;
-        for(auto& fd : spurs_) {
+        for(decltype(nn) cnt=0; cnt<nn; cnt++) {
+            auto fd = spurs_[cnt];
             std::cout << "  #" << cnt << " [";
             auto row = spurWeights_.row(cnt);
             auto nel = row.n();
