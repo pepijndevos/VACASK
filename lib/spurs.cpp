@@ -6,27 +6,24 @@
 
 namespace NAMESPACE {
 
-Spurs::Spur Spurs::toSpurStruct(size_t index, VectorView<int> weights) const {
+std::tuple<double, int, int> Spurs::spurStats(VectorView<Int>& weights) const {
     double f = 0;
-    Int order = 0;
-    Int nnz = 0;
-    for(size_t i=0; i<weights.n(); i++) {
+    int ord = 0, nz = 0;
+    for(size_t i=0; i<fundamentals_.size(); i++) {
         f += weights[i] * fundamentals_[i];
-        order += std::abs(weights[i]);
+        ord += std::abs(weights[i]);
         if (weights[i]!=0) {
-            nnz++;
+            nz++;
         }
     }
-    return Spur {
-        .index = index, 
-        .f = f, 
-        .order = order, 
-        .isHarmonic = nnz<=1
-    };
+    return std::make_tuple(f, ord, nz);
 }
 
 bool Spurs::build(const std::vector<double>& fundamentals, const std::vector<Int>& nHarmonics, int maxImOrder, bool hybrid, int debug, Status& s) {
     fundamentals_ = fundamentals;
+
+    Vector<int> orderVec;
+    Vector<int> nnzVec;
     
     auto n = fundamentals_.size();
 
@@ -52,7 +49,7 @@ bool Spurs::build(const std::vector<double>& fundamentals, const std::vector<Int
 
     // Compute immax
     auto immax = std::max(maxImOrder, nHarmMax);
-    
+
     while (true) {
         // Do we need to build ranges
         if (lastChanged<n-1) {
@@ -74,9 +71,11 @@ bool Spurs::build(const std::vector<double>& fundamentals, const std::vector<Int
                 end[i] = nHarmonics[i]+1;
             }
         }
-
-        auto spurStruct = toSpurStruct(spurWeights_.nRows()-1, cnt);
-
+        
+        // Compute spur properties
+        auto vv = VectorView<int>(cnt);
+        auto [f, order, nnz] = spurStats(vv);
+        
         // Keep only those spurs that survive truncation
         // Check immax
         // Not optimal for diamond truncation because we traverse the whole box and 
@@ -84,15 +83,17 @@ bool Spurs::build(const std::vector<double>& fundamentals, const std::vector<Int
         // But then again, HB spends a lot more time solving the problem. 
         if (
             (maxImOrder==0) || // Box truncation, accept all
-            (spurStruct.order<=immax) ||  // Diamond truncation (maxImOrder>0)
-            (hybrid && spurStruct.isHarmonic) // Hybrid: Diamond + single tone harmonics from whole box
+            (order<=immax) ||  // Diamond truncation (maxImOrder>0)
+            (hybrid && nnz<=1) // Hybrid: Diamond + single tone harmonics from whole box
         ) {
             // Construct component
             auto row = spurWeights_.addRow();
             for(decltype(n) i=0; i<n; i++) {
                 row.at(i) = cnt[i];
             }
-            spurs_.push_back(spurStruct);
+            spurs_.push_back(f);
+            orderVec.push_back(order);
+            nnzVec.push_back(nnz);
         }
 
         // Advance, count up because size_t is unsigned
@@ -131,18 +132,18 @@ bool Spurs::build(const std::vector<double>& fundamentals, const std::vector<Int
                 // Go to next j
                 continue;
             }
-            auto df = std::abs(std::abs(spurs_[i].f) - std::abs(spurs_[j].f));
-            auto tolref = std::max(std::abs(spurs_[i].f), std::abs(spurs_[j].f));
+            auto df = std::abs(std::abs(spurs_[i]) - std::abs(spurs_[j]));
+            auto tolref = std::max(std::abs(spurs_[i]), std::abs(spurs_[j]));
             if (df <= tolref*freqtol) {
                 // Frequencies match, compare order
-                if (spurs_[i].order < spurs_[j].order) {
+                if (orderVec[i] < orderVec[j]) {
                     // j has higher order, keep i, mark j as removed, continue
                     removed[j] = true;
                     conflict = true;
                     if (debug>0) {
                         Simulator::out() << "Removing #" << j << " (higher order)\n";
                     }
-                 } else if (spurs_[i].order > spurs_[j].order) {
+                 } else if (orderVec[i] > orderVec[j]) {
                     // i has higher order, keep j, mark i as removed, exit inner loop
                     removed[i] = true;
                     conflict = true;
@@ -153,14 +154,14 @@ bool Spurs::build(const std::vector<double>& fundamentals, const std::vector<Int
                 } else {
                     // Same order
                     // Check harmonic
-                    if (spurs_[i].isHarmonic && !spurs_[j].isHarmonic) {
+                    if (nnzVec[i]<=1 && !nnzVec[j]<=1) {
                         // i is harmonic, j is not, keep i, mark j as removed, continue
                         removed[j] = true;
                         conflict = true;
                         if (debug>0) {
                             Simulator::out() << "Removing #" << j << " (not harmonic)\n";
                         }
-                    } else if (!spurs_[i].isHarmonic && spurs_[j].isHarmonic) {
+                    } else if (!nnzVec[i]<=1 && nnzVec[j]<=1) {
                         // j is harmonic, i is not, keep j, mark i as removed, exit inner loop
                         removed[i] = true;
                         conflict = true;
@@ -187,7 +188,6 @@ bool Spurs::build(const std::vector<double>& fundamentals, const std::vector<Int
         if (!removed[i]) {
             if (i!=dest) {
                 spurs_[dest] = spurs_[i];
-                spurs_[dest].index = dest;
                 spurWeights_.row(dest) = spurWeights_.row(i);
             }
             dest++;
@@ -197,24 +197,22 @@ bool Spurs::build(const std::vector<double>& fundamentals, const std::vector<Int
     nf = spurs_.size();
 
     // Sort spurs_ and spurWeights_ together by absolute frequency
-    // After compaction spur[i].index == i
     {
         // Build permutation sorted by frequency
         std::vector<size_t> perm(nf);
         std::iota(perm.begin(), perm.end(), 0);
         std::sort(perm.begin(), perm.end(), [&](size_t a, size_t b) {
-            return std::abs(spurs_[a].f) < std::abs(spurs_[b].f);
+            return std::abs(spurs_[a]) < std::abs(spurs_[b]);
         });
 
         // Apply permutation to spurs_ and spurWeights_
         DenseMatrix<Int> weightsSorted;
         weightsSorted.resize(0, n);
-        std::vector<Spur> spursSorted;
+        std::vector<double> spursSorted;
         spursSorted.reserve(nf);
         for(decltype(nf) i=0; i<nf; i++) {
             weightsSorted.addRow() = spurWeights_.row(perm[i]);
             auto sf = spurs_[perm[i]];
-            sf.index = i;
             spursSorted.push_back(sf);
         }
         spurs_ = std::move(spursSorted);
@@ -225,12 +223,12 @@ bool Spurs::build(const std::vector<double>& fundamentals, const std::vector<Int
     spectrum_.resize(dest);
     signedSpectrum_.resize(dest);
     for(decltype(dest) i=0; i<nf; i++) {
-        spectrum_[i] = std::abs(spurs_[i].f);
-        signedSpectrum_[i] = spurs_[i].f;
+        spectrum_[i] = std::abs(spurs_[i]);
+        signedSpectrum_[i] = spurs_[i];
     }
 
     // Make sure DC is index 0
-    if (spurs_[0].f!=0) {
+    if (spurs_[0]!=0) {
         s.set(Status::CreationFailed, "Failed to create spectrum, component 0 must be DC.");
         return false;
     }
@@ -247,8 +245,8 @@ bool Spurs::build(const std::vector<double>& fundamentals, const std::vector<Int
         for(decltype(nf) j=0; j<n; j++) {
             row[j] = -fromRow[j];
         }
-        auto spurStruct = toSpurStruct(spurWeights_.nRows()-1, row);
-        spurs_.push_back(spurStruct);
+        auto [f, order, nnz] = spurStats(row);
+        spurs_.push_back(f);
     }
 
     // spectrum_, absoluteSpectrum_, and spurs_ are sorted by absolute frequency
@@ -276,18 +274,19 @@ bool Spurs::build(const std::vector<double>& fundamentals, const std::vector<Int
     if (debug>0) {
         Simulator::out() << "Spectrum, " << spurs_.size() << " frequencies\n";
         auto nn = spurWeights_.nRows();
+        auto cnt = 0;
         for(auto& fd : spurs_) {
-            std::cout << "  #" << fd.index << " [";
-            auto row = spurWeights_.row(fd.index);
+            std::cout << "  #" << cnt << " [";
+            auto row = spurWeights_.row(cnt);
             auto nel = row.n();
+            auto [f, order, nnz] = spurStats(row);
             for(decltype(nel) j=0; j<nel; j++) {
                 std::cout << row.at(j) << " ";
             }
             std::cout << "]";
-            
-            std::cout << " f=" << fd.f;
-            std::cout << " order=" << fd.order;
-            if (fd.isHarmonic) {
+            std::cout << " f=" << fd;
+            std::cout << " order=" << order;
+            if (nnz<=1) {
                 std::cout << " harmonic";
             }
             std::cout << "\n";

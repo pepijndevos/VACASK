@@ -2,6 +2,7 @@
 #define __FREQGRID_DEFINED
 
 #include <vector>
+#include <tuple>
 #include "densematrix.h"
 #include "ansupport.h"
 #include "status.h"
@@ -18,19 +19,6 @@ namespace NAMESPACE {
 
 class Spurs {
 public:
-    struct Spur {
-        // Row index in spur weights matrix
-        size_t index;
-        // Signed frequency
-        double f;
-        // Intermodulation product order of this spur (L1 norm)
-        // For harmonics this is the order of the harmonic. 
-        int order;
-        // Flag indicating that this spur is a harmonic 
-        // (i.e. at most one weight is nonzero)
-        bool isHarmonic;
-    };
-    
     Spurs() = default;
     
     explicit Spurs  (const Spurs&)  = default; // Allow explicit copy constructor
@@ -42,7 +30,7 @@ public:
     const Vector<Real>& fundamentals() const { return fundamentals_; };
 
     // Truncated grid point weights + weights of their negatives if mixing map is built
-    const auto spurWeights(size_t i) { return spurWeights_.row(spurs_[i].index); };
+    const auto spurWeights(size_t i) { return spurWeights_.row(i); };
     
     // Absolute values of frequencies corresponding to truncated grid points
     const std::vector<double>& spectrum() const { return spectrum_; };
@@ -83,8 +71,8 @@ public:
     static constexpr Int noJacIndex = -1;
 
 private:
-    // Compue spur properties
-    Spur toSpurStruct(size_t index, VectorView<int> weights) const;
+    // Spur properties
+    std::tuple<double, int, int> spurStats(VectorView<Int>& weights) const;
 
     // Custom hasher based on a pointer to integer array
     struct ArrayHasher {
@@ -112,38 +100,49 @@ private:
     Vector<Real> fundamentals_;
 
     // Spurs that are mapped to the spectrum, and their negatives if mixing map is created
-    std::vector<Spur> spurs_;
+    // This vector holds the signed frequencies of spurs. Spurs are sorted by absolute frequency. 
+    // If mixing map is created the negatives of sorted spurs are added at the end in the same order
+    // as they appear in the first half. 
+    std::vector<double> spurs_;
 
-    // Spur weights corresponding to the spectrum and their negatives if mixing map is created
+    // Spur weights corresponding to spurs_. 
     // Rows are spurs_, columns are weights
     DenseMatrix<int> spurWeights_;
 
-    // Map from spur weights to small-signal frequency
+    // Map from spur weights to small-signal frequency value
     std::unordered_map<VectorView<int>, size_t, ArrayHasher, ArrayEqual> smsigFreqMap;
 
     // Index stencil - column-major matrix of Jacobian component indices
-    // s=0 .. no contribution
-    // s>0 .. cotnribution from component s-1
-    // s<0 .. contribution from component abs(s), conjugated
+    // s<0  .. no contribution
+    // s>=0 .. contribution from Jacobian spectral component with index s
+    // Jacobian spectral components are in the same order as frequencies in smsigFreq_
     DenseMatrix<Int> mixingStencil_;
 
-    // First and last nonzero row for each stencil column
+    // First nonzero row for each stencil column
     // Helps cut down the number of dense matrix loads for Toeplitz matrices with bandwidth<2n-1
     Vector<size_t> rowStartNonzero;
 
     // Last nonzero row for each stencil column
+    // Helps cut down the number of dense matrix loads for Toeplitz matrices with bandwidth<2n-1
     Vector<size_t> rowEndNonzero;
     
     // Absolute spectral frequencies, sorted - used as scale for HB
+    // These are the absolute values of the spur frequencies
+    // They appear in the same order as those in spur_
+    // The negatives added when mixingStencil is created are not listed here
     Vector<Real> spectrum_;
 
     // Spectral frequencies, signed, sorted by absolute value - used by HB at APFT construction
+    // They appear in the same order as those in spur_
+    // The negatives added when mixingStencil is created are not listed here
     Vector<Real> signedSpectrum_;
 
     // Index of DC component is smsigFreq_
     size_t dcIndex;
+    
     // Small-signal frequencies, sorted - used by (quasi)periodic small signal analyses
-    // These are absolute spectral frequencies and their negatives, 0 is always included
+    // These are absolute frequencies from spectrun_ and their negatives, 0 is always included
+    // First come the negatives, followed by spectrum_
     Vector<Real> smsigFreq_;
 
     // Weight indices of sorted small signal frequencies
