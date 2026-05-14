@@ -31,23 +31,24 @@ namespace NAMESPACE {
 typedef struct HBACParameters {
     HBParameters hbParams;
 
-    Real from {0};     // Start frequency for step and dec/oct/lin sweep
-    Real to {0};       // Stop frequency for step and dec/oct/lin sweep
-    Real step {0};     // Step size for step sweep
-    Id mode {Id()};    // Mode for dec/oct/lin sweep
-    Int points {0};    // Number of points for dec/oct/lin sweep
-    Value values {0};  // Vector of values for values sweep
-    Value outspur;     // specifies spurs where small signal response is observed
-                       // - scalar real spur frequency
-                       // - integer vector with tone weights defining a spur
-                       // - list holding reals (frequency), integer vectors (tone weights)
-                       // Default is empty list {} (all spurs). 
-    Value maxsideband; // Maximal absolute tone weight for spectrum truncation. 
-                       // Integer or integer vector, scalar applies to all tones. 
-    Int write {1};     // Write the results to a file
-                       // writehb is the write parameter of hb core
-                       // nodeset and store parameters of the hb core are also exposed. 
-                       // solve parameter of hb core is exposed as hbsolve
+    Real from {0};      // Start frequency for step and dec/oct/lin sweep
+    Real to {0};        // Stop frequency for step and dec/oct/lin sweep
+    Real step {0};      // Step size for step sweep
+    Id mode {Id()};     // Mode for dec/oct/lin sweep
+    Int points {0};     // Number of points for dec/oct/lin sweep
+    Value values {0};   // Vector of values for values sweep
+    Value outspur;      // specifies spurs where small signal response is observed
+                        // - scalar real spur frequency
+                        // - integer vector with tone weights defining a spur
+                        // - list holding reals (frequency), integer vectors (tone weights)
+                        // Default is empty list {} (all spurs). 
+    Value maxharm {-1}; // Maximal absolute tone weight for spectrum truncation. 
+                        // Integer or integer vector, scalar applies to all tones. 
+                        // -1 keeps all tones computed by hb. 
+    Int write {1};      // Write the results to a file
+                        // writehb is the write parameter of hb core
+                        // nodeset and store parameters of the hb core are also exposed. 
+                        // solve parameter of hb core is exposed as hbsolve
 
     HBACParameters();
 } HBACParameters;
