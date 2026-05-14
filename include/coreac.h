@@ -63,11 +63,9 @@ typedef struct ACParameters {
     Id mode {Id()};   // Mode for dec/oct/lin sweep
     Int points {0};   // Number of points for dec/oct/lin sweep
     Value values {0}; // Vector of values for values sweep
-    Int writeop {0};  // 1 = dump operating point to <analysisname>.op.raw;
-    // Nodeset and store parameters of the operating point core 
-    // are also exposed. 
-
     Int write {1};    // Write the results to a file
+                      // writeop is the write parameter of op core
+                      // nodeset and store parameters of the op core are also exposed. 
 
     ACParameters();
 } ACParameters;

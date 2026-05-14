@@ -20,9 +20,9 @@ template<> int Introspection<HBACParameters>::setup() {
     registerMember(mode);
     registerMember(points);
     registerMember(values);
-    registerMember(writehb);
     registerMember(outspur);
     registerMember(write);
+    registerNamedMember(hbParams.write, "writehb");
     registerNamedMember(hbParams.freq, "freq");
     registerNamedMember(hbParams.nharm, "nharm");
     registerNamedMember(hbParams.immax, "immax");
@@ -34,7 +34,7 @@ template<> int Introspection<HBACParameters>::setup() {
     registerNamedMember(hbParams.shift, "shift");
     registerNamedMember(hbParams.nodeset, "nodeset");
     registerNamedMember(hbParams.store, "store");
-    registerNamedMember(hbParams.solve, "opsolve");
+    registerNamedMember(hbParams.solve, "hbsolve");
     
     return 0;
 }

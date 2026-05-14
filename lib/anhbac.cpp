@@ -100,7 +100,6 @@ bool HBAC::addDefaultOutputDescriptors(Status& s) {
 }
 
 void HBAC::clearOutputDescriptors() {
-    params.core().hbParams.write = params.core().writehb;
     hbCore.clearOutputDescriptors();
     hbacCore.clearOutputDescriptors();
 }

@@ -13,8 +13,8 @@ DCIncrementalParameters::DCIncrementalParameters() {
 }
 
 template<> int Introspection<DCIncrementalParameters>::setup() {
-    registerMember(writeop);
     registerMember(write);
+    registerNamedMember(opParams.write, "writeop");
     registerNamedMember(opParams.nodeset, "nodeset");
     registerNamedMember(opParams.store, "store");
 

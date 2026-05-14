@@ -139,9 +139,6 @@ bool SmallSignal<CoreClass, DataMixin>::addDefaultOutputDescriptors(Status& s) {
 template<typename CoreClass, typename DataMixin> 
 void SmallSignal<CoreClass, DataMixin>::clearOutputDescriptors() {
     // Must be invoked on all cores regardless of return value
-    // Copy writeop parameter to write parameter of op core
-    params.core().opParams.write = params.core().writeop;
-    
     opCore.clearOutputDescriptors();
     smsigCore.clearOutputDescriptors();
 }

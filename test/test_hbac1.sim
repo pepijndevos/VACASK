@@ -24,7 +24,7 @@ control
   
   analysis hb1 hb freq=[1k] nharm=3 store="hbsol"
   // HBAC using the solution of a past HB
-  analysis hbac2 hbac nodeset="hbsol" opsolve=0 outspur={} values=[10.0]
+  analysis hbac2 hbac nodeset="hbsol" hbsolve=0 outspur={} values=[10.0]
   // Small differences between hbac1 and hbac2 are because the TD solution at colocation points 
   // is in case of hbac2 computed from the FD solution of hb1. 
   // Effectively the TD solution is in hbac2 computed as 

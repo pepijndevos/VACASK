@@ -22,8 +22,8 @@ template<> int Introspection<ACParameters>::setup() {
     registerMember(mode);
     registerMember(points);
     registerMember(values);
-    registerMember(writeop);
     registerMember(write);
+    registerNamedMember(opParams.write, "writeop");
     registerNamedMember(opParams.nodeset, "nodeset");
     registerNamedMember(opParams.store, "store");
     

@@ -14,8 +14,8 @@ DCXFParameters::DCXFParameters() {
 
 template<> int Introspection<DCXFParameters>::setup() {
     registerMember(out);
-    registerMember(writeop);
     registerMember(write);
+    registerNamedMember(opParams.write, "writeop");
     registerNamedMember(opParams.nodeset, "nodeset");
     registerNamedMember(opParams.store, "store");
     

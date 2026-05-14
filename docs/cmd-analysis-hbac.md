@@ -62,7 +62,7 @@ Sources with no `spur` entries contribute no small-signal excitation.
 | `shift` | real | `0.2` | Fractional shift between consecutive colocation points. |
 | `nodeset` | string | `""` | Name of a saved HB solution to use as the initial guess. |
 | `store` | string | `""` | Save the computed HB solution under the given name. |
-| `opsolve` | boolean | `1` | Solve the HB operating point. Set to `0` to linearize at the nodeset without solving. |
+| `hbsolve` | boolean | `1` | Solve the HB operating point. Set to `0` to linearize at the nodeset without solving. |
 | `outspur` | real, integer vector, or list | `{}` | Output spur(s) to observe. Each list entry is a real frequency (Hz) or an integer tone-weight vector. Default `{}` selects all spurs. |
 | `from` | real | `0` | Start frequency (Hz). |
 | `to` | real | `0` | Stop frequency (Hz). |
@@ -138,7 +138,7 @@ analysis hbac1 hbac freq=[1G, 900M] nharm=3 immax=3 outspur=0G from=1 to=100M mo
 v1 (in 0) vsource dc=0 spur={[1]} smag=[1.0]
 analysis hb1 hb freq=[1k] nharm=8 store="op1"
 // Output spurs with indices 1 and 2
-analysis hbac1 hbac outspur={[1],[2]} from=1 to=10k mode="dec" points=10 opsolve=0 nodeset="op1"
+analysis hbac1 hbac outspur={[1],[2]} from=1 to=10k mode="dec" points=10 hbsolve=0 nodeset="op1"
 ```
 
 **Save specific nodes only:**
