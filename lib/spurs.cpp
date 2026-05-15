@@ -19,6 +19,40 @@ std::tuple<double, int, int> Spurs::spurStats(VectorView<Int>& weights) const {
     return std::make_tuple(f, ord, nz);
 }
 
+void Spurs::buildSmsig() {
+    auto nf = spectrum_.size();
+    auto firstNegative = nf;
+
+    // spectrum_, and smsigFreq_ are sorted by frequency
+    // The lower part of smsigFreq_ (negatives of spectrum_)
+    // can be constructed immediately.
+    // Skip DC 
+    smsigFreq_.clear();
+    smsigFreqWeightIndices_.clear();
+    for(decltype(nf) posIndex=nf-1; posIndex>0; posIndex--) {
+        smsigFreq_.push_back(-spectrum_[posIndex]);
+        // Weight indices at firstNegative correspond to the 
+        // negative of lowest spectrum_ frequency that is >0
+        smsigFreqWeightIndices_.push_back(firstNegative+posIndex-1);
+    }
+
+    // Index of DC
+    dcIndex = smsigFreq_.size();
+
+    // Append positive frequencies
+    for(decltype(nf) i=0; i<nf; i++) {
+        smsigFreq_.push_back(spectrum_[i]);
+        smsigFreqWeightIndices_.push_back(i);
+    }
+
+    // Indices in unpruned smsigFreq_ vector
+    fullSmsigFreqIndex_.resize(2*nf-1);
+    for(decltype(nf) i=0; i<2*nf-1; i++) {
+        fullSmsigFreqIndex_[i] = i;
+    }
+
+}
+
 bool Spurs::build(const std::vector<double>& fundamentals, const std::vector<Int>& nHarmonics, int maxImOrder, bool hybrid, int debug, Status& s) {
     fundamentals_ = fundamentals;
 
@@ -238,13 +272,18 @@ bool Spurs::build(const std::vector<double>& fundamentals, const std::vector<Int
 
     // Make sure DC is index 0
     if (spurs_[0]!=0) {
-        s.set(Status::CreationFailed, "Failed to create spectrum, component 0 must be DC.");
+        s.set(Status::CreationFailed, "Failed to create spectrum, hb spectrum component 0 must be DC.");
         return false;
     }
-
-    // Index of first negative frequency in spurWeights_
-    auto firstNegative = nf;
     
+    // Make sure DC weights are all 0
+    for(decltype(n) i=0; i<n; i++) {
+        if (spurWeights_.at(0, i)!=0) {
+            s.set(Status::CreationFailed, "Failed to create spectrum, DC weights are nonzero.");
+            return false;
+        }
+    }
+
     // Add weights for negatives af spectrum_ ((quasi)periodic AC, XF, SP, STB, NOISE)
     // Add them to spurWeights_ and smsigFreq_, and spurs_ array
     // Skip DC
@@ -258,27 +297,8 @@ bool Spurs::build(const std::vector<double>& fundamentals, const std::vector<Int
         spurs_.push_back(f);
     }
 
-    // spectrum_, and smsigFreq_ are sorted by frequency
-    // The lower part of smsigFreq_ (negatives of spectrum_)
-    // can be constructed immediately.
-    // Skip DC 
-    smsigFreq_.clear();
-    smsigFreqWeightIndices_.clear();
-    for(decltype(nf) posIndex=nf-1; posIndex>0; posIndex--) {
-        smsigFreq_.push_back(-spectrum_[posIndex]);
-        // Weight indices at firstNegative correspond to the 
-        // negative of lowest spectrum_ frequency that is >0
-        smsigFreqWeightIndices_.push_back(firstNegative+posIndex-1);
-    }
-
-    // Index of DC
-    dcIndex = smsigFreq_.size();
-
-    // Append positive frequencies
-    for(decltype(nf) i=0; i<nf; i++) {
-        smsigFreq_.push_back(spectrum_[i]);
-        smsigFreqWeightIndices_.push_back(i);
-    }
+    // Build unpruned small signal analysis spectrum (symmetric)
+    buildSmsig();
 
     if (debug>0) {
         Simulator::out() << "Spurs, " << spurs_.size() << " frequencies\n";
@@ -304,6 +324,58 @@ bool Spurs::build(const std::vector<double>& fundamentals, const std::vector<Int
     }
 
     return true;
+}
+
+// Go through nonnegative small-signal frequencies, prune frequencies 
+// - exceeding maximal harmonic weight
+// - exceeding maximal frequency
+// Prunes smsigFreq_, smsigFreqWeightIndices_, and fullSmsigFreqIndex_. 
+// Updates dcIndex. 
+// buildMixingMap() takes into account only frequencies that were not pruned. 
+void Spurs::prune(const Vector<Int>& maxHarm, double maxFreq) {
+    auto n = fundamentals_.size();
+    auto nf = smsigFreq_.size();
+    std::vector<bool> pruneFlag(nf, false);
+    // Positive frequencies only
+    for(decltype(nf) i=dcIndex; i<nf; i++) {
+        bool prune = false;
+        auto wi = smsigFreqWeightIndices_[i];
+        for(decltype(n) j=0; j<n; j++) {
+            if (maxHarm[j]>=0 && std::abs(spurWeights_.at(wi, j)>maxHarm[j])) {
+                prune = true;
+                break;
+            }
+        }
+        if (!prune && maxFreq>=0) {
+            if (std::abs(smsigFreq_[i])>maxFreq) {
+                prune = true;
+            }
+        }
+        // Store prune flag, prune positive and negative frequency
+        if (prune) {
+            pruneFlag[i] = prune;
+            pruneFlag[dcIndex-(i-dcIndex)] = prune;
+        }
+    }
+
+    // Prune
+    auto dest = 0;
+    decltype(dcIndex) newDcIndex;
+    for(decltype(nf) i=0; i<nf; i++) {
+        if (!pruneFlag[i]) {
+            // Copy
+            smsigFreq_[dest] = smsigFreq_[i];
+            smsigFreqWeightIndices_[dest] = smsigFreqWeightIndices_[i];
+            fullSmsigFreqIndex_[dest] = fullSmsigFreqIndex_[i];
+            if (i==dcIndex) {
+                newDcIndex = dest;
+            }
+            dest++;
+        }
+        
+    }
+    // Fix dc Index
+    dcIndex = newDcIndex;
 }
 
 bool Spurs::buildMixingMap(Int debug, Status& s) {

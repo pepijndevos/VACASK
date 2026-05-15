@@ -55,6 +55,11 @@ public:
     
     // Build grid and spectrum (for HB)
     bool build(const std::vector<double>& fundamentals, const std::vector<int>& nHarmonics, int maxImOrder=0, bool hybrid=false, Int debug=0, Status& s=Status::ignore);
+
+    // Prune spurs with tone weights above maxHarm or absolute frequency above maxFreq. 
+    // Negative maxHarm component disables pruning by that tone weight. 
+    // Negative maxFreq disables pruning by frequency. 
+    void prune(const Vector<Int>& maxHarm, double maxFreq=-1);
    
     // Build mixing map for (quasi)perodic small-signal analyses
     bool buildMixingMap(int debug=0, Status& s=Status::ignore);
@@ -68,6 +73,9 @@ public:
 private:
     // Spur properties
     std::tuple<double, int, int> spurStats(VectorView<Int>& weights) const;
+
+    // Build unpruned small signal analysis spectrum and associated data
+    void buildSmsig();
 
     // Custom hasher based on a pointer to integer array
     struct ArrayHasher {
@@ -102,23 +110,6 @@ private:
     // Spur weights corresponding to spurs_. Rows are spurs_, columns are weights
     DenseMatrix<int> spurWeights_;
 
-    // Map from spur weights to small-signal frequency value
-    std::unordered_map<VectorView<int>, size_t, ArrayHasher, ArrayEqual> smsigFreqMap;
-
-    // Index stencil - column-major matrix of Jacobian component indices
-    // s<0  .. no contribution
-    // s>=0 .. contribution from Jacobian spectral component with index s
-    // Jacobian spectral components are in the same order as frequencies in smsigFreq_
-    DenseMatrix<Int> mixingStencil_;
-
-    // First nonzero row for each stencil column
-    // Helps cut down the number of dense matrix loads for Toeplitz matrices with bandwidth<2n-1
-    Vector<size_t> rowStartNonzero;
-
-    // Last nonzero row for each stencil column
-    // Helps cut down the number of dense matrix loads for Toeplitz matrices with bandwidth<2n-1
-    Vector<size_t> rowEndNonzero;
-    
     // Spectral frequencies, sorted - used as scale for HB
     // These are the frequencies of nonnegative spurs. 
     // They appear in the same order as those in spur_
@@ -137,9 +128,29 @@ private:
     // Weight indices of sorted small signal frequencies
     Vector<size_t> smsigFreqWeightIndices_;
 
+    // Full small-signal spectrum index (used for transcribing full spectrum to pruned spectrum)
+    Vector<size_t> fullSmsigFreqIndex_;
+
     // Flag that indicates two components in signedSpectrum_ were in conflict 
     // (resulted in same absolute frequency). One of them was removed. 
     bool conflict;
+
+    // Map from spur weights to pruned small-signal frequency index
+    std::unordered_map<VectorView<int>, size_t, ArrayHasher, ArrayEqual> smsigFreqMap;
+
+    // Index stencil - column-major matrix of Jacobian component indices
+    // s<0  .. no contribution
+    // s>=0 .. contribution from Jacobian spectral component with pruned small-signal index s
+    // Jacobian spectral components are in the same order as frequencies in smsigFreq_
+    DenseMatrix<Int> mixingStencil_;
+
+    // First nonzero row for each stencil column
+    // Helps cut down the number of dense matrix loads for Toeplitz matrices with bandwidth<2n-1
+    Vector<size_t> rowStartNonzero;
+
+    // Last nonzero row for each stencil column
+    // Helps cut down the number of dense matrix loads for Toeplitz matrices with bandwidth<2n-1
+    Vector<size_t> rowEndNonzero;
 };
 
 }
