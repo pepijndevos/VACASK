@@ -26,6 +26,10 @@ char helpText[] =
     "  -se, --skip-embed   do not dump embedded files\n"
     "  -sp, --skip-postprocess\n"
     "                      do not run postprocessing steps\n"
+    "       --extratomlfile <file>\n"
+    "                      addittionally load specified toml file as last\n"  
+    "       --tomlfile <file>\n"
+    "                      skip loading all toml files, except this one\n"  
     // "  -qw, --quiet-warnings\n"
     // "                      turn off warning messages\n"
     "  -qp, --quiet-progress\n"
@@ -46,6 +50,8 @@ int main(int argc, char**argv) {
     bool runPostprocess = true;
     bool progress = true;
     bool noOutput = false;
+    std::string extraTomlFile;
+    std::string tomlFile;
 
     // Simulator information
     Simulator::out() << 
@@ -100,6 +106,20 @@ int main(int argc, char**argv) {
             progress = false;
         } else if (arg=="--no-output") {
             noOutput = true;
+        } else if (arg=="--extra-tomlfile") {
+            if (i+1>=argc) {
+                Simulator::err() << "Missing extra TOML file name.\n";
+                return 1;
+            }
+            i++;
+            extraTomlFile = argv[i];
+        } else if (arg=="--tomlfile") {
+            if (i+1>=argc) {
+                Simulator::err() << "Missing TOML file name.\n";
+                return 1;
+            }
+            i++;
+            tomlFile = argv[i];
         } else {
             Simulator::err() << "Unrecognized argument '"+arg+"'.\n";
             return 1;
@@ -152,6 +172,17 @@ int main(int argc, char**argv) {
         Platform::localConfig()
     };
 
+    // Extra TOML file
+    if (extraTomlFile.size()>0) {
+        configFiles.push_back(std::move(extraTomlFile));
+    }
+
+    // Override all TOML files
+    if (tomlFile.size()>0) {
+        configFiles.clear();
+        configFiles.push_back(std::move(tomlFile));
+    }
+    
     // Add input file to file stack
     FileStackFileIndex stackPosition;
     if (fileArg) {
