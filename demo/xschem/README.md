@@ -77,4 +77,6 @@ The `verbatim.sym` component adds a verbatim text to the control block. The `pos
 An example of how to use the components in the analyses library can be found in file `analyses.sch`. 
 
 
+# Using Xschem with IHP PDK
 
+Instructions can be found in [demo/ihp-sg13g2/README.md](../ihp-sg13g2/README.md). 
