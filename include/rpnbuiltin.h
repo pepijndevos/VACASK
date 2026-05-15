@@ -501,6 +501,65 @@ bool listMerge(RpnStack& stack, Rpn::Arity argc, Status& s);
 bool minWrapper(RpnStack& stack, Rpn::Arity argc, Status& s);
 bool maxWrapper(RpnStack& stack, Rpn::Arity argc, Status& s);
 
+// Monte-Carlo
+template<typename F, int narg>
+bool mcGenerator(RpnStack& stack, Rpn::Arity argc, Status& s) { 
+    Value* v1p = stack.get(2); 
+    DBGCHECK(!v1p, "Internal error. Attempt to get value from empty stack."); 
+    Value* v2p = stack.get(1); 
+    DBGCHECK(!v2p, "Internal error. Attempt to get value from empty stack."); 
+    Value* v3p = stack.get(); 
+    DBGCHECK(!v3p, "Internal error. Attempt to get value from empty stack."); 
+
+    // Nominal value
+    if (v1p->isVector()) {
+        s.set(Status::BadArguments, "Nominal value must be scalar."); 
+        return false; 
+    }
+
+    if (!v1p->convertInPlace(Value::Type::Real)) {
+        s.set(Status::BadArguments, "Nominal value must be real."); 
+        return false; 
+    }
+
+    // Variation
+    if (v2p->isVector()) {
+        s.set(Status::BadArguments, "Absolute variation must be scalar."); 
+        return false; 
+    }
+
+    if (!v2p->convertInPlace(Value::Type::Real)) {
+        s.set(Status::BadArguments, "Absolute variation must be real."); 
+        return false; 
+    }
+
+    // Sigma
+    if (v3p->isVector()) {
+        s.set(Status::BadArguments, "Sigma must be scalar."); 
+        return false; 
+    }
+
+    if (!v2p->convertInPlace(Value::Type::Real)) {
+        s.set(Status::BadArguments, "Sigma must be real."); 
+        return false; 
+    }
+
+    auto nom = v1p->val<Real>();
+    auto delta = v2p->val<Real>();
+    auto sigma = v3p->val<Real>();
+
+    // TODO: Apply functor to get result
+    auto result = nom;
+
+    // Return result, pop all but the first argument
+    stack.pop(narg-1);
+    
+    // Write result to first argument
+    *v1p = result;
+
+    return true;
+}
+
 }
 
 #endif

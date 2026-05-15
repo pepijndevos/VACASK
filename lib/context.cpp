@@ -108,6 +108,13 @@ ContextStack::Builtins ContextStack::builtins = {
     // Vector construction
     { Id::createStatic("vector"),   { 1, 2, true, vectorBuild } }, // length[, value]    type = type(value)
     { Id::createStatic("range"),    { 1, 3, true, vectorRange } }, // to | from, to | from, to, step,   type=maxtype(from, to, step)
+
+    // Monte-Carlo, these functions are not pure
+    // Provide some dummy functor
+    { Id::createStatic("agauss"),   { 3, 3, false, mcGenerator<FwSum, 3> } },
+    { Id::createStatic("sgauss"),   { 3, 3, false, mcGenerator<FwSum, 3> } },
+    { Id::createStatic("unif"),     { 2, 2, false, mcGenerator<FwSum, 2> } },
+    { Id::createStatic("aunif"),    { 2, 2, false, mcGenerator<FwSum, 2> } },
     
     // String
     /*
