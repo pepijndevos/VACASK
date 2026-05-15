@@ -18,7 +18,13 @@ bool RpnEvaluator::isConstant(const Rpn& expr) const {
         } else if (e->type()==Rpn::TFunctionCall) {
             // Is it a pure function, OK, otherwise not
             auto& fcall = e->get<Rpn::FunctionCall>();
-            if (!ContextStack::getBuiltin(fcall.name)->pure) {
+            auto fun = ContextStack::getBuiltin(fcall.name);
+            if (!fun) {
+                // Not found
+                return false;
+            }
+            if (!fun->pure) {
+                // Not pure
                 return false;
             }
         }
