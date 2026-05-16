@@ -499,3 +499,91 @@ In the `__main__` block, `convert` is called with `cvt=None`, overriding the def
 
 - [ ] **90. Existing `spectre_format=` line is never updated** ([python/xschem2vc.py:67](python/xschem2vc.py#L67))
 When `format_spectre_line is not None` (the line already exists), the `pass` block discards `fstxt` — the freshly computed corrected value — and the file is still rewritten from `orig_lines` (lines 74-76) without any change. A stale or incorrect `spectre_format=` value is silently preserved on re-conversion.
+
+---
+
+## lib/dfllexer.l
+
+- [x] **91. Hex integer pattern rejects `a-f` / `A-F` digits** ([lib/dfllexer.l:501](lib/dfllexer.l#L501))
+The pattern `<BODY>0[xX][0-9]*` only accepts decimal digits after the `0x` prefix. `input-numbers.md:13` documents hexadecimal integers with examples `0xFF` and `0x1a3` — both contain letter digits. With the current regex, `0xFF` lexes as HEXINTEGER(`0x` → 0) followed by IDENTIFIER(`FF`). The pattern should be `0[xX][0-9a-fA-F]+` (the `+` also disallows the empty `0x`).
+
+- [ ] **92. Curly braces `{}` documented as grouping delimiters but not handled by lexer** *(to be handled in hbac branch)* (entire file)
+`input-overview.md:24` states that newlines within `()`, `[]`, and `{}` are ignored. The lexer has `inParen` and `inBracket` counters and explicit rules for `(`, `)`, `[`, `]`, but no rule for `{` or `}` and no `inBrace` counter. Any `{` or `}` falls into the default `.` rule and is rejected with "Syntax error, unexpected string".
+
+- [ ] **93. Backslash-newline silently consumed inside double-quoted strings** ([lib/dfllexer.l:246](lib/dfllexer.l#L246))
+`<QUOTED>\\\n` updates the line counter and adds nothing to `sbuf`, treating `\<newline>` as a line continuation. `input-strings.md:46-48` explicitly states "Literal newlines are not allowed in double-quoted strings. To include a newline, use the `\n` escape sequence." The documented escape table (lines 23-33) has no line-continuation entry; by the documented fallback rule "any other character `x` yields `x`", `\<newline>` should yield a literal newline character, not be silently dropped.
+
+- [ ] **94. Heredoc end marker `>>>MARKER` matched mid-line** ([lib/dfllexer.l:180](lib/dfllexer.l#L180))
+`<LONGQUOTED>\>\>\>[a-zA-Z0-9_]+` matches `>>>MARKER` anywhere in the heredoc body, with no leading-line anchoring and no trailing-newline requirement. `input-strings.md:53` says the marker must be on a line by itself. The opening rule (line 566) correctly requires `<<<MARKER` to be followed by `[\r\t ]*\n`; the closing rule does not. Mid-line `>>>MARKER` will prematurely terminate the embed.
+
+- [x] **95. Typo "incldued" in user-visible error message** ([lib/dfllexer.l:466](lib/dfllexer.l#L466))
+`"...You probably incldued a library file."` should read "included".
+
+- [x] **96. Typo "consruction-" in YY_USER_INIT comment** ([lib/dfllexer.l:33](lib/dfllexer.l#L33))
+`/* This is called at lexer consruction- */` — should be "construction.".
+
+- [x] **97. Stale comment "Do not switch to BODY yet" contradicts next line** ([lib/dfllexer.l:675](lib/dfllexer.l#L675))
+The `<LINESTART>global` rule's comment says `// Do not switch to BODY yet.` but the very next statement is `BEGIN(BODY);`. Parallel rules (`model`, `ground`, etc.) confirm `BEGIN(BODY)` is correct; the comment is stale.
+
+---
+
+## lib/dflparser.y
+
+- [ ] **98. `$$.isToplevel` checked on default-constructed value; subckt scope restriction is bypassed** ([lib/dflparser.y:330](lib/dflparser.y#L330))
+Four productions — `subckt_build global` (line 328), `subckt_build ground` (340), `subckt_build load` (352), and `subckt_build embed` (362) — guard with `if (!$$.isToplevel)`. With Bison variant value types, `$$` is a freshly default-constructed `struct subckt` whose member `isToplevel` is initialized to `true` (in-class initializer on line 75). The guard is therefore always false and the error is never raised. `cir-nodes.md:20,31`, `cir-loading.md:12`, and `cir-subckt.md:121-126` document these statements as toplevel-only. The very next production (line 374, `subckt_build control_block`) correctly reads `$1.isToplevel` — the four buggy productions should match that pattern.
+
+- [ ] **99. Wrong location stored for duplicate sweep name** ([lib/dflparser.y:948](lib/dflparser.y#L948))
+In `sweeps SWEEP IDENTIFIER opt_broken_parameter_list`, SWEEP is at position 2, IDENTIFIER at position 3. The insertion `$$.locations.insert({id, @1})` stores the position-1 (`sweeps` aggregate) location instead of the new SWEEP keyword's location. The first-sweep production on line 940 correctly uses `@1` because SWEEP is at position 1 there. The redefinition production should use `@2`. The "first defined here" pointer becomes wrong if a third sweep collides with the same name.
+
+- [x] **100. BLKENDIF display string is `"@endif"` but the actual keyword is `@end`** ([lib/dflparser.y:188](lib/dflparser.y#L188))
+`%token BLKENDIF "@endif"` declares the Bison display string as `"@endif"`. The lexer ([lib/dfllexer.l:666](lib/dfllexer.l#L666)) emits BLKENDIF for `@end`, and `input-reserved.md:28`, `cir-conditional.md`, `cir-binning.md:31`, and `cir-subckt.md:119` all document the terminator as `@end`. With `parse.error verbose` enabled (line 13), verbose syntax errors involving the conditional terminator will report `@endif`, which does not exist as a keyword.
+
+- [x] **101. `OPTIONS` token declared but never used** ([lib/dflparser.y:126](lib/dflparser.y#L126))
+`%token OPTIONS "options"` is declared but does not appear in any production rule and is never emitted by the lexer. The `options` keyword is handled as a plain identifier through the generic `command` rule.
+
+- [x] **102. `RIGHTARROW` token declared and emitted but never consumed** *(intentional: reserved for future use)* ([lib/dflparser.y:175](lib/dflparser.y#L175))
+`%token RIGHTARROW "->"` is declared and the lexer returns it for `->` ([lib/dfllexer.l:642](lib/dfllexer.l#L642)), but no production references it. Any source containing `->` will tokenize cleanly but yield a generic syntax error. No documented language feature uses `->`.
+
+- [x] **103. Unused local `tailLen`** ([lib/dflparser.y:560](lib/dflparser.y#L560))
+`auto tailLen = $3.size();` is declared in the `expr AND expr` action (line 560) and again in `expr OR expr` (line 580). Neither use of `tailLen` is read.
+
+- [x] **104. Comment typo "RPM" should be "RPN"** ([lib/dflparser.y:592](lib/dflparser.y#L592))
+`// Ternary operator a?b:c, translation to RPM` — the project's stack format is RPN (Reverse Polish Notation), not RPM.
+
+- [x] **105. Comment typo "upacked"** ([lib/dflparser.y:676](lib/dflparser.y#L676))
+`// List with single element upacked` — should be "unpacked" (the parallel comment on line 682 spells it correctly).
+
+---
+
+## lib/dfllexer.l (action code)
+
+- [ ] **106. `inParen` / `inBracket` are `size_t` and underflow on stray `)` or `]`** ([include/dflscanner.h:86-87](include/dflscanner.h#L86), [lib/dfllexer.l:476](lib/dfllexer.l#L476), [lib/dfllexer.l:485](lib/dfllexer.l#L485), [lib/dfllexer.l:768](lib/dfllexer.l#L768))
+Both counters are unsigned. On a stray `)` or `]` without a matching `(`/`[`, the decrement at line 476/485 wraps the counter to `SIZE_MAX`. The guard `if (inParen<=0 && inBracket<=0)` at line 768 then evaluates to false for the rest of the file, so every subsequent newline in `BODY` is silently swallowed and no `NEWLINE` token is ever produced again. The parser sees one continuous line and yields a cascade of confusing errors. Either the counters should be signed, or the decrement should clamp at zero and report an error.
+
+- [ ] **107. `<QUOTED>\n` error path leaves QUOTED on the start-condition stack** ([lib/dfllexer.l:217](lib/dfllexer.l#L217))
+When an unterminated string ends at a newline, the action emits YYerror but does not call `yy_pop_state()` and does not reset `sbuf`. After the parser's error recovery, the next `yylex` call resumes in QUOTED state with stale `sbuf` content, treating subsequent input as continuation of the broken string.
+
+- [ ] **108. `<QUOTED>\\[0-9]+` and `<QUOTED>.` error paths leak `sbuf` (and one of them leaks state too)** ([lib/dfllexer.l:230](lib/dfllexer.l#L230), [lib/dfllexer.l:249](lib/dfllexer.l#L249))
+The bad-escape rule at line 230 calls `yy_pop_state()` but does not clear `sbuf`, so the next string literal opened from the popped-to state begins with the previous string's tail. The generic catch-all error at line 249 calls neither `yy_pop_state()` nor clears `sbuf` — same problem as bug 107.
+
+- [ ] **109. `HEXINTEGER` value silently narrows from `unsigned long` to `int32_t`** ([lib/dfllexer.l:502](lib/dfllexer.l#L502))
+`yylval->build<Int>(std::stoul(yytext, nullptr, 16))` reads an `unsigned long` and stores into `Int` (= `int32_t`, per `include/common.h:38`). Once the hex regex (bug 91) is fixed, values like `0xFFFFFFFF` become `-1` via implementation-defined narrowing, and `0xFFFFFFFFFFFFFFFF` raises `std::out_of_range` from `stoul`, which is not caught.
+
+- [ ] **110. `std::stoi` / `std::stoul` / `std::stod` overflow exceptions are not caught** ([lib/dfllexer.l:497](lib/dfllexer.l#L497), [lib/dfllexer.l:510](lib/dfllexer.l#L510), [lib/dfllexer.l:516](lib/dfllexer.l#L516), [lib/dfllexer.l:559](lib/dfllexer.l#L559), [lib/dfllexer.l:563](lib/dfllexer.l#L563))
+None of the numeric conversion calls are wrapped in `try/catch`. A literal like `99999999999999999999` or `1e9999` throws `std::out_of_range`, which propagates out of `yylex` and terminates the process instead of producing a clean syntax error.
+
+- [ ] **111. `pushStream` failure leaves the lexer stuck in `INCEND` / `LIBEND`** ([lib/dfllexer.l:317](lib/dfllexer.l#L317), [lib/dfllexer.l:383](lib/dfllexer.l#L383))
+The `<INCEND>\n` failure branch (file not found) at lines 317-321 and the analogous `<LIBEND>\n` failure at lines 383-387 return YYerror without `BEGIN(LINESTART)` or any state reset. After the parser's error recovery the next `yylex` resumes in `INCEND`/`LIBEND` and will fall into the catch-all `<INCEND>.` / `<LIBEND>.` error rule on the very first non-whitespace character, producing spurious follow-on errors.
+
+- [ ] **112. `std::string(yytext, 0, i)` copies the whole token buffer** ([lib/dfllexer.l:559](lib/dfllexer.l#L559))
+This call resolves to `std::string(std::string(yytext), 0, i)` via the implicit `const char*` → `std::string` conversion required by the matching 3-arg constructor `basic_string(const basic_string&, size_type pos, size_type count)`. The intermediate `std::string(yytext)` copies the entire `yytext` C-string just to extract the first `i` characters. The intended efficient form is `std::string(yytext, i)` (the 2-arg `(const char*, size_type)` constructor).
+
+---
+
+## lib/dflparser.y (action code)
+
+- [ ] **113. `ends <name>` does not verify the trailing name matches the open `subckt`** ([lib/dflparser.y:395](lib/dflparser.y#L395))
+The production `subckt : subckt_build ENDS IDENTIFIER NEWLINE` accepts a trailing identifier (the documented convention for self-documenting closes), but the action ignores `$3`. The user can write `ends WRONG_NAME` to close any subcircuit and no diagnostic is emitted. Either the identifier should be checked against the opening name stored in `$1.def` or the trailing-identifier form should be removed.
+
+- [ ] **114. Missing `std::move` on STRING semantic values** ([lib/dflparser.y:464](lib/dflparser.y#L464), [lib/dflparser.y:925](lib/dflparser.y#L925))
+`value : STRING { $$ = Value($1); }` (line 464) and `load : LOAD STRING NEWLINE { $$ = std::move(PTLoad($2, @1.loc())); }` (line 925) copy the `std::string` semantic value. The neighbouring `embed` production at line 933 correctly uses `std::move($2)`, confirming the missing moves are a copy-paste regression.

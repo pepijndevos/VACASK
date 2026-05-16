@@ -123,7 +123,6 @@ typedef struct subckt {
 %token               MODEL        "model"
 %token               GLOBAL       "global"
 %token               GROUND       "ground"
-%token               OPTIONS      "options"
 %token               LOAD         "load"
 %token               SUBCKT       "subckt"
 %token               ENDS         "ends"
@@ -172,7 +171,7 @@ typedef struct subckt {
 
 %token               COLON        ":"
 %token               SEMICOLON    ";"
-%token               RIGHTARROW   "->"
+%token               RIGHTARROW   "->"  // reserved for future use
 // Not allowed due to conflict with <-5 (could be <- 5 or < -5)
 // %token               LEFTARROW    "<-" 
 
@@ -185,7 +184,7 @@ typedef struct subckt {
 %token               BLKIF        "@if"
 %token               BLKELSEIF    "@elseif"
 %token               BLKELSE      "@else"
-%token               BLKENDIF     "@endif"
+%token               BLKENDIF     "@end"
 
 
 // Operator associativity and precedence, lowest first
@@ -557,9 +556,8 @@ expr
     //         makeboolean
     //         op(and) // does nothing during execution, needed by formatting
     //   end:
-    auto tailLen = $3.size();
     auto needsConversion = !$3.endsWithMakeBoolean();
-    $$.extend(std::move($1)); 
+    $$.extend(std::move($1));
     $$.extend(Rpn::MakeBoolean(), @2.loc());
     $$.extend(Rpn::Branch($3.size()+(needsConversion?1:0)+2, Rpn::BrFalse|Rpn::BrKeepOnBranch|Rpn::BrHidden), @2.loc());
     $$.extend(std::move($3)); 
@@ -577,9 +575,8 @@ expr
     //         makeboolean
     //         op(or) // does nothing during execution, needed by formatting
     //   end:
-    auto tailLen = $3.size();
     auto needsConversion = !$3.endsWithMakeBoolean();
-    $$.extend(std::move($1)); 
+    $$.extend(std::move($1));
     $$.extend(Rpn::MakeBoolean(), @2.loc());
     $$.extend(Rpn::Branch($3.size()+(needsConversion?1:0)+2, Rpn::BrKeepOnBranch|Rpn::BrHidden), @2.loc());
     $$.extend(std::move($3)); 
@@ -589,7 +586,7 @@ expr
     $$.extend(Rpn::Op(Rpn::OpOr), @2.loc());
   }
   | expr QUESTION expr COLON expr %prec QUESTION {
-    // Ternary operator a?b:c, translation to RPM
+    // Ternary operator a?b:c, translation to RPN
     //        a ($1)
     //        branchiffalse false 
     //        b ($3)
@@ -673,7 +670,7 @@ expr
     $$.extend(Rpn::PackList(0), @1.loc()); 
   }
   | LBRACKET expr COLON RBRACKET {
-    // List with single element upacked
+    // List with single element unpacked
     // Merge scalars and lists in one list
     $$.extend(std::move($2)); 
     $$.extend(Rpn::MergeList(1), @1.loc()); 

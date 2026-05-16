@@ -30,7 +30,7 @@ using token = NAMESPACE::dflparse::Parser::token;
 /* This is called before every user action. It updates location. */
 #define YY_USER_ACTION loc->step(); loc->columns(yyleng); 
 
-/* This is called at lexer consruction- */
+/* This is called at lexer construction. */
 #define YY_USER_INIT loc->begin.setFileStack(tables.fileStack(), fileStackPosition);
 %}
 
@@ -463,7 +463,7 @@ after INCEND we have
             }
 <LINESTART>section[ \t]* {
                 // Found section, skipped trailing spaces
-                error(*loc, "Syntax error, unexpected section directive. You probably incldued a library file.");
+                error(*loc, "Syntax error, unexpected section directive. You probably included a library file.");
                 return(token::YYerror);
             }
 
@@ -498,7 +498,7 @@ after INCEND we have
                 return(token::INTEGER);
             }
 
-<BODY>0[xX][0-9]* {
+<BODY>0[xX][0-9a-fA-F]+ {
                 yylval->build<Int>(std::stoul(yytext, nullptr, 16));
                 return(token::HEXINTEGER);
             }
@@ -672,7 +672,6 @@ after INCEND we have
                 return (token::MODEL);
             }
 <LINESTART>global {
-                // Do not switch to BODY yet. 
                 BEGIN(BODY);
                 return (token::GLOBAL);
             }
