@@ -513,11 +513,11 @@ after INCEND we have
             }
 
 <BODY>\{    {
-                inBracket++;
+                inBrace++;
                 return(token::LCURLY);
             }
 <BODY>\}    {
-                inBracket--;
+                inBrace--;
                 return(token::RCURLY);
             }
 
@@ -850,7 +850,7 @@ after INCEND we have
 <LINESTART,BODY>\n { // Newline, return token
                 // Update line number
                 loc->lines();
-                if (inParen<=0 && inBracket<=0) {
+                if (inParen<=0 && inBracket<=0 && inBrace<=0) {
                     BEGIN(LINESTART);
                     return( token::NEWLINE );
                 }

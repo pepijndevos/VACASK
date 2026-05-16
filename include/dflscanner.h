@@ -23,7 +23,7 @@ public:
 
     Scanner(std::istream* in, ParserTables& tab, InputType inputType, FileStackFileIndex fileIndex, Status& s=Status::ignore) 
         : yyFlexLexer(in), tables(tab), inputType(inputType), atBeginning(true), fileStackPosition (fileIndex), status_(s), 
-          inParen(0), inBracket(0), inControl(false) {};
+          inParen(0), inBracket(0), inBrace(0), inControl(false) {};
     virtual ~Scanner() { cleanup(); };
 
     Scanner           (const Scanner&)  = delete;
@@ -83,8 +83,9 @@ private:
     std::vector<Location> locationStack;
     Status& status_;
     std::string section;
-    size_t inParen;
-    size_t inBracket;
+    int inParen;
+    int inBracket;
+    int inBrace;
     bool inControl;
     InputType inputType;
     bool atBeginning;
