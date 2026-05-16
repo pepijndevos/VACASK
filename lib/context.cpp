@@ -356,12 +356,11 @@ void ContextStack::dump(int indent, std::ostream& os) const {
     std::string pfx = std::string(indent, ' ');
     for(int i=0; i<stack.size(); i++) {
         os << pfx << "Context level " << i << "\n";
-        for(auto& it : stack) {
-            if (std::holds_alternative<Context>(it)) {
-                std::get<Context>(it).dump(indent+2, os);
-            } else {
-                std::get<Context*>(it)->dump(indent+2, os);
-            }
+        auto& it = stack[i];
+        if (std::holds_alternative<Context>(it)) {
+            std::get<Context>(it).dump(indent+2, os);
+        } else {
+            std::get<Context*>(it)->dump(indent+2, os);
         }
     }
 }

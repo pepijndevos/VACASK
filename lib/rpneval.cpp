@@ -140,7 +140,7 @@ bool RpnEvaluator::evaluate(const Rpn& rpn, Value& result, Status& s) {
                 if (f.arity>builtinPtr->maxArity) {
                     s.set(
                         Status::BadArguments,
-                        std::string("Function '")+std::string(f.name)+"' accepts at most "+std::to_string(builtinPtr->maxArity)+" argument(s))."
+                        std::string("Function '")+std::string(f.name)+"' accepts at most "+std::to_string(builtinPtr->maxArity)+" argument(s)."
                     );
                     appendLocation(s, loc);
                     return false;
@@ -148,7 +148,7 @@ bool RpnEvaluator::evaluate(const Rpn& rpn, Value& result, Status& s) {
                 if (f.arity<builtinPtr->minArity) {
                     s.set(
                         Status::BadArguments,
-                        std::string("Function '")+std::string(f.name)+"' requires at lest "+std::to_string(builtinPtr->maxArity)+" argument(s))."
+                        std::string("Function '")+std::string(f.name)+"' requires at least "+std::to_string(builtinPtr->minArity)+" argument(s))."
                     );
                     appendLocation(s, loc);
                     return false;
@@ -222,7 +222,7 @@ bool RpnEvaluator::evaluate(const Rpn& rpn, Value& result, Status& s) {
                 
                 // Do not check destination, jump
                 auto branch = cond^negate;
-                if (cond^negate) {
+                if (branch) {
                     e += offs;
                     isJump = true;
                 }
@@ -261,7 +261,7 @@ bool RpnEvaluator::evaluate(const Rpn& rpn, Value& result, Status& s) {
     if (stack_.size()==1) {
         stack_.pop(result);
     } else {
-        DBGCHECK(true, std::string("Internal error. Final RPN stack contains ")+std::to_string(stack_.size())+" values insted of 1.");
+        DBGCHECK(true, std::string("Internal error. Final RPN stack contains ")+std::to_string(stack_.size())+" values instead of 1.");
         return false;
     }
     return true;

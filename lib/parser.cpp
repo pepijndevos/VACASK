@@ -113,7 +113,7 @@ Rpn Parser::parseExpression(const std::string& input, Status& s) {
     if (!st) {
         s.set(tmps);
         Simulator::err() << tmps.message();
-        std::runtime_error(std::string("Failed to parse expression '")+stream.str()+"'"); 
+        throw std::runtime_error(std::string("Failed to parse expression '")+stream.str()+"'");
     }
 
     return std::move(parsedExpression);
@@ -179,7 +179,7 @@ PTParameters Parser::parseParameters(const std::string& input, Status& s) {
     if (!st) {
         s.set(tmps);
         Simulator::err() << tmps.message();
-        std::runtime_error(std::string("Failed to parse parameters '")+stream.str()+"'"); 
+        throw std::runtime_error(std::string("Failed to parse parameters '")+stream.str()+"'");
     }
 
     return std::move(parsedParameters);
@@ -204,7 +204,7 @@ PTParameters Parser::parseParameters(const std::string&& input, Status& s) {
     if (!st) {
         s.set(tmps);
         Simulator::err() << tmps.message();
-        throw std::runtime_error(std::string("Failed to parse expression '")+stream.str()+"'"); 
+        throw std::runtime_error(std::string("Failed to parse parameters '")+stream.str()+"'");
     }
 
     return std::move(parsedParameters);

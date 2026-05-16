@@ -282,6 +282,7 @@ bool vectorPack(RpnStack& stack, Rpn::Arity argc, Status& s) {
         Value* vp = stack.get(argc-i);
         if (!vectorPackPreprocess(*vp, st, n, first, s)) {
             s.extend("  component "+std::to_string(i)+".");
+            return false;
         }
     }
 

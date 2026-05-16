@@ -182,7 +182,7 @@ bool OperatingPointCore::populateStructures(Status& s) {
     // Go through node pairs and add entries to sparsity map
     for(auto& pair : preprocessedNodeset.nodePairs) {
         auto [node1, node2] = pair;
-        if (!node1 | !node2) {
+        if (!node1 || !node2) {
             // One of the two nodes was not found, ignore pair
             continue;
         }

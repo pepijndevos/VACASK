@@ -49,8 +49,9 @@ const std::string& pathSeparator() {
 
 static std::vector<std::string> initSystemPath() {
     std::vector<std::string> pathStrings;
-    auto sysPath = std::getenv("PATH"); 
-    static auto dummy = splitString(pathSeparator(), sysPath, pathStrings);
+    auto sysPath = std::getenv("PATH");
+    if (sysPath)
+        splitString(pathSeparator(), sysPath, pathStrings);
     return pathStrings;
 }
 
