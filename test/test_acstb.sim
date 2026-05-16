@@ -99,7 +99,7 @@ else:
     fig1.set_dpi(100)
     fig1.axes[0].set_ylabel('W')
     fig1.axes[0].set_xlabel('f [Hz]')
-    fig1.axes[0].semilogx(stb1["frequency"], 20*np.log10(np.abs(stb1["w"])))
+    fig1.axes[0].semilogx(stb1["frequency"], 20*np.log10(np.abs(stb1["wf"])))
     fig1.axes[0].semilogx(stb1["frequency"], 20*np.log10(np.abs(wexact)), marker=".", linestyle="")
     fig1.axes[0].axvline(1e3, linestyle="--")
     fig1.axes[0].axvline(100e3, linestyle="--")

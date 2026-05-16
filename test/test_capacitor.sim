@@ -68,7 +68,7 @@ else:
     fig1.axes[0].set_ylabel('V(2) [V]')
     fig1.axes[0].set_xlabel('time [ms]')
 
-    fig1.axes[0].plot(plot['time']*1000, plot['2'], marker='.', label="I(L1)")
+    fig1.axes[0].plot(plot['time']*1000, plot['2'], marker='.', label="V(2)")
     fig1.axes[0].plot(plot['time']*1000, exact, label="exact")
     
     fig1.axes[0].legend(loc='lower right')

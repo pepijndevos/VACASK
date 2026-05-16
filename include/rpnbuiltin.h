@@ -539,9 +539,9 @@ bool mcGenerator(RpnStack& stack, Rpn::Arity argc, Status& s) {
         return false; 
     }
 
-    if (!v2p->convertInPlace(Value::Type::Real)) {
-        s.set(Status::BadArguments, "Sigma must be real."); 
-        return false; 
+    if (!v3p->convertInPlace(Value::Type::Real)) {
+        s.set(Status::BadArguments, "Sigma must be real.");
+        return false;
     }
 
     auto nom = v1p->val<Real>();

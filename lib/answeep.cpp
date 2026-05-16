@@ -244,7 +244,7 @@ bool ParameterSweeper::setup(Status& s) {
 
         // Vector component sweeps not supported yet
         if (comp.component>=0) {
-            s.set(Status::Unsupported, "Sweep '"+std::string(comp.name)+"': vector component sweeps are not suppported yet.");
+            s.set(Status::Unsupported, "Sweep '"+std::string(comp.name)+"': vector component sweeps are not supported yet.");
             s.extend(comp.location);
             return false;
         }

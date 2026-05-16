@@ -93,7 +93,7 @@ tests.append(status)
 v = op1["vcvs1.v"]
 exact = 2*2
 status = (relDiff(v, exact, 1e-6) < 1e-3).all()
-print("vcvs1.v=", i, "exact=", exact, status)
+print("vcvs1.v=", v, "exact=", exact, status)
 tests.append(status)
 
 i = op1["vcvs1.i"]

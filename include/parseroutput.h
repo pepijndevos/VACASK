@@ -765,7 +765,7 @@ public:
         return *this;
     };
     ParserTables& add(PTEmbed&& e) & { embed_.push_back(std::move(e)); return *this; };
-    ParserTables&& setTitle(const std::string t) && { return std::move(this->add(t)); };
+    ParserTables&& setTitle(const std::string t) && { return std::move(this->setTitle(std::move(t))); };
     ParserTables&& setDefaultSubDef(PTSubcircuitDefinition&& def) && { return std::move(this->setDefaultSubDef(std::move(def))); };
     ParserTables&& add(PTLoad&& ld) && { return std::move(this->add(std::move(ld)));; };
     ParserTables&& addGround(PTParsedIdentifier parsedId) && { return std::move(this->addGround(parsedId)); };

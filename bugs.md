@@ -150,7 +150,7 @@ The guard condition checks `loadSetup.reactiveResidual` (reactive), but the body
 
 ## answeep.cpp
 
-- [ ] **29. Typo "suppported" in user-visible error message** ([lib/answeep.cpp:247](lib/answeep.cpp#L247))
+- [x] **29. Typo "suppported" in user-visible error message** ([lib/answeep.cpp:247](lib/answeep.cpp#L247))
 `"vector component sweeps are not suppported yet."` has three consecutive `p`s. Should be "supported".
 
 ---
@@ -174,28 +174,28 @@ The non-const overload `void apply(T (*func)(T), DenseMatrixView<T>& result)` ac
 
 ## include/rpnbuiltin.h
 
-- [ ] **33. Sigma converted via wrong pointer** ([include/rpnbuiltin.h:542](include/rpnbuiltin.h#L542))
+- [x] **33. Sigma converted via wrong pointer** ([include/rpnbuiltin.h:542](include/rpnbuiltin.h#L542))
 In `mcGenerator`, the sigma validation calls `v2p->convertInPlace(Value::Type::Real)` (the variation pointer) instead of `v3p->convertInPlace(Value::Type::Real)`. The sigma argument is never converted; the variation argument is converted twice and sigma is read from `v3p` unconverted at line 549.
 
 ---
 
 ## include/parseroutput.h
 
-- [ ] **34. `setTitle` rvalue overload calls `add` instead of `setTitle`** ([include/parseroutput.h:768](include/parseroutput.h#L768))
+- [x] **34. `setTitle` rvalue overload calls `add` instead of `setTitle`** ([include/parseroutput.h:768](include/parseroutput.h#L768))
 `ParserTables&& setTitle(const std::string t) &&` returns `std::move(this->add(t))`. There is no `add(std::string)` overload; `add` accepts `PTLoad&&` or `PTEmbed&&`. The line should call `this->setTitle(t)` to delegate to the lvalue overload, matching the pattern of every other rvalue overload in that block.
 
 ---
 
 ## include/introspection.h
 
-- [ ] **35. `Id` member read and written as `String`** ([include/introspection.h:178](include/introspection.h#L178))
+- [x] **35. `Id` member read and written as `String`** *(not a bug: Value does not distinguish Id from String)* ([include/introspection.h:178](include/introspection.h#L178))
 In the `StructMember::Type::Id` branch, both the change check and the assignment use `vwrite->val<const String>()` instead of `vwrite->val<const Id>()`. Every other branch reads the value through its own type. If `Id` stores more than a plain string (e.g. an interned index), this reads and writes the wrong representation and the `changed` comparison is unreliable.
 
 ---
 
 ## CMakeLists.txt
 
-- [ ] **36. Unclosed brace in `set(ENV{...})` call** ([CMakeLists.txt:71](CMakeLists.txt#L71))
+- [x] **36. Unclosed brace in `set(ENV{...})` call** ([CMakeLists.txt:71](CMakeLists.txt#L71))
 `set(ENV{LLVM_SYS_181_PREFIX "${LLVM_PREFIX}")` is missing the closing `}` on the variable name. The correct form is `set(ENV{LLVM_SYS_181_PREFIX} "${LLVM_PREFIX}")`. As written this is a CMake syntax error that breaks configuration on macOS/Homebrew builds.
 
 ---
@@ -209,114 +209,114 @@ In the `StructMember::Type::Id` branch, both the change check and the assignment
 
 ## devices/CMakeLists.txt
 
-- [ ] **38. Numeric `EQUAL` used for string comparison** ([devices/CMakeLists.txt:96](devices/CMakeLists.txt#L96))
+- [x] **38. Numeric `EQUAL` used for string comparison** ([devices/CMakeLists.txt:96](devices/CMakeLists.txt#L96))
 `if (NOT "${tmpdirectory}" EQUAL "." ...)` uses the numeric comparison operator `EQUAL` to compare a directory-path string against `"."`. String comparison requires `STREQUAL`. On the very next check inside the same file (line 88) `STREQUAL` is used correctly. With `EQUAL`, CMake attempts a numeric comparison; both operands are non-numeric strings, so the result is implementation-defined and typically evaluates to false, meaning the guard never fires and the subdirectory bookkeeping is skipped for every path including top-level ones.
 
-- [ ] **39. Typo in variable name creates unused dead variable** ([devices/CMakeLists.txt:68](devices/CMakeLists.txt#L68))
+- [x] **39. Typo in variable name creates unused dead variable** ([devices/CMakeLists.txt:68](devices/CMakeLists.txt#L68))
 `set(osdi_solurce_files "")` defines a variable that is never referenced again. The list that is actually built and consumed by `add_custom_target` is `osdi_source_files` (correctly spelled), which is never explicitly initialised to empty before the loop's `list(APPEND ...)` calls. The typo'd variable is dead code.
 
 ---
 
 ## test/CMakeLists.txt
 
-- [ ] **40. Duplicate `file(COPY ...)` to the same destination** ([test/CMakeLists.txt:39](test/CMakeLists.txt#L39))
+- [x] **40. Duplicate `file(COPY ...)` to the same destination** ([test/CMakeLists.txt:39](test/CMakeLists.txt#L39))
 Inside the `foreach` loop, line 38 and line 39 both copy each dependency file to `${CMAKE_CURRENT_BINARY_DIR}/manual_run`. The second copy is redundant and indicates a copy-paste error (the intended destinations were probably `${CMAKE_CURRENT_BINARY_DIR}` and `${CMAKE_CURRENT_BINARY_DIR}/manual_run`, but line 37 already covers the former).
 
 ---
 
 ## lib/CMakeLists.txt
 
-- [ ] **41. Flex `-d` debug flag active in all build types** ([lib/CMakeLists.txt:3](lib/CMakeLists.txt#L3))
+- [x] **41. Flex `-d` debug flag active in all build types** *(intentional)* ([lib/CMakeLists.txt:3](lib/CMakeLists.txt#L3))
 `COMPILE_FLAGS "-d"` is passed unconditionally to the Flex lexer. The `-d` flag enables Flex's built-in scanner debug output, which prints a trace of every token matched to `stderr` at runtime. This is present in Release builds and will produce unwanted noise in production.
 
 ---
 
 ## test/test_diode.sim
 
-- [ ] **42. Mixed tab/space indentation in embedded Python `else` block** ([test/test_diode.sim:64](test/test_diode.sim#L64))
+- [x] **42. Mixed tab/space indentation in embedded Python `else` block** ([test/test_diode.sim:64](test/test_diode.sim#L64))
 The `if isTest():` branch (lines 61-62) uses 4-space indentation. The `else:` branch starting at line 64 uses tab characters throughout. Python 3 raises `TabError: inconsistent use of tabs and spaces in indentation` when this file is executed in a non-test context.
 
 ---
 
 ## demo/spice/mes1.sim
 
-- [ ] **43. Typo "MESFETT" in P-MESFET figure title** ([demo/spice/mes1.sim:93](demo/spice/mes1.sim#L93))
+- [x] **43. Typo "MESFETT" in P-MESFET figure title** ([demo/spice/mes1.sim:93](demo/spice/mes1.sim#L93))
 `fig2.suptitle('P-MESFETT level 1 test')` has an extra `T`. Should be `'P-MESFET level 1 test'`.
 
 ---
 
 ## demo/spice/mes1inv.sim
 
-- [ ] **44. Figure titles say "JFET" instead of "MESFET"** ([demo/spice/mes1inv.sim:49](demo/spice/mes1inv.sim#L49))
+- [x] **44. Figure titles say "JFET" instead of "MESFET"** ([demo/spice/mes1inv.sim:49](demo/spice/mes1inv.sim#L49))
 `fig1.suptitle('N-JFET level 1 inverter')` (line 49) and `fig2.suptitle('P-JFET level 1 inverter')` (line 73) both use the wrong device type. The circuit uses `sp_mes1` MESFET models; both titles should read `'N-MESFET level 1 inverter'` and `'P-MESFET level 1 inverter'` respectively.
 
 ---
 
 ## demo/spice/jfet2amp.sim
 
-- [ ] **45. Wrong frequency axis divisor in P-JFET noise plot** ([demo/spice/jfet2amp.sim:190](demo/spice/jfet2amp.sim#L190))
+- [x] **45. Wrong frequency axis divisor in P-JFET noise plot** ([demo/spice/jfet2amp.sim:190](demo/spice/jfet2amp.sim#L190))
 Lines 190-194 plot the P-JFET noise results using `plot['frequency']/163` as the x-axis, giving a nonsensical unit. The corresponding N-JFET section (lines 133-137) correctly uses `/1e6` to convert Hz to MHz. All five `loglog` calls in the P-JFET noise block should divide by `1e6`.
 
 ---
 
 ## demo/spice/bsim4v8inv.sim
 
-- [ ] **46. Title says "BSIM3" instead of "BSIM4"** ([demo/spice/bsim4v8inv.sim:1](demo/spice/bsim4v8inv.sim#L1))
+- [x] **46. Title says "BSIM3" instead of "BSIM4"** ([demo/spice/bsim4v8inv.sim:1](demo/spice/bsim4v8inv.sim#L1))
 The title line reads `BSIM3 4.8.2 MOSFET inverter` but the file loads `spice/bsim4v8.osdi` and includes `bsim4v82.inc`. It should read `BSIM4 4.8.2 MOSFET inverter`.
 
 ---
 
 ## demo/spice/bsim4v8amp.sim
 
-- [ ] **47. Noise traces for Rbps/Rbpd/Rbpb all read `n(m1,rbsb)`** ([demo/spice/bsim4v8amp.sim:116](demo/spice/bsim4v8amp.sim#L116))
+- [x] **47. Noise traces for Rbps/Rbpd/Rbpb all read `n(m1,rbsb)`** ([demo/spice/bsim4v8amp.sim:116](demo/spice/bsim4v8amp.sim#L116))
 Lines 116-118 (NMOS section) and 184-186 (PMOS section) each label three noise contributions as `"M1,Rbps"`, `"M1,Rbpd"`, and `"M1,Rbpb"`, but all three access `plot['n(m1,rbsb)']`. The distinct keys `n(m1,rbps)`, `n(m1,rbpd)`, and `n(m1,rbpb)` are never read; every "Rbps"/"Rbpd"/"Rbpb" trace is in fact a duplicate of the `rbsb` trace.
 
-- [ ] **48. Noise traces for Igs and Igd both read `n(m1,igb)`** ([demo/spice/bsim4v8amp.sim:120](demo/spice/bsim4v8amp.sim#L120))
+- [x] **48. Noise traces for Igs and Igd both read `n(m1,igb)`** ([demo/spice/bsim4v8amp.sim:120](demo/spice/bsim4v8amp.sim#L120))
 Lines 120-121 (NMOS section) and 188-189 (PMOS section) label two traces `"M1,Igs"` and `"M1,Igd"`, but both access `plot['n(m1,igb)']`. The distinct keys `n(m1,igs)` and `n(m1,igd)` are never read; both traces are duplicates of the `igb` trace.
 
 ---
 
 ## demo/spice/vdmossh.sim
 
-- [ ] **49. Legend labels say "delta Tj"/"delta Tc" but values are absolute temperature** ([demo/spice/vdmossh.sim:87](demo/spice/vdmossh.sim#L87))
+- [x] **49. Legend labels say "delta Tj"/"delta Tc" but values are absolute temperature** ([demo/spice/vdmossh.sim:87](demo/spice/vdmossh.sim#L87))
 Lines 87-88 plot `tj` and `tc` with legends `"delta Tj"` and `"delta Tc"`, and line 91 plots `27+plot['m1.p']*(0.4+4)` labeled `"delta Tj target"`. The inline comment on line 40 reads `"Initial junction temperature is 27 deg C"`, and the transient initial condition `ic=["tj"; 27]` confirms `tj` is absolute temperature in degrees C. The labels should be `"Tj"`, `"Tc"`, and `"Tj target"` (not "delta").
 
 ---
 
 ## demo/bsim3-ptm/amp.sim
 
-- [ ] **50. `set_xlabel` called twice; y-axis label never set** ([demo/bsim3-ptm/amp.sim:59](demo/bsim3-ptm/amp.sim#L59))
+- [x] **50. `set_xlabel` called twice; y-axis label never set** ([demo/bsim3-ptm/amp.sim:59](demo/bsim3-ptm/amp.sim#L59))
 Lines 58-59 call `set_xlabel('Vin [V]')` then immediately `set_xlabel('Vout [V]')` on the same axes. The second call overwrites the first and should be `set_ylabel('Vout [V]')`. The y-axis label is never set for either the NMOS figure (line 59) or the PMOS figure (line 66).
 
 ---
 
 ## demo/bsim3-ptm/diffpair.sim
 
-- [ ] **51. `set_xlabel` called twice; y-axis label never set** ([demo/bsim3-ptm/diffpair.sim:51](demo/bsim3-ptm/diffpair.sim#L51))
+- [x] **51. `set_xlabel` called twice; y-axis label never set** ([demo/bsim3-ptm/diffpair.sim:51](demo/bsim3-ptm/diffpair.sim#L51))
 Same issue: line 50 calls `set_xlabel('Vin [V]')` and line 51 calls `set_xlabel('Vout [V]')` on the same axes. Line 51 should be `set_ylabel('Vout [V]')`. The y-axis label is never set.
 
 ---
 
 ## demo/bsim3-ptm/mirror.sim
 
-- [ ] **52. Wrong x-axis label on PMOS mirror input plot** ([demo/bsim3-ptm/mirror.sim:115](demo/bsim3-ptm/mirror.sim#L115))
+- [x] **52. Wrong x-axis label on PMOS mirror input plot** ([demo/bsim3-ptm/mirror.sim:115](demo/bsim3-ptm/mirror.sim#L115))
 `set_xlabel('Vds [V]')` is used for the `dc4` plot, but `dc4` sweeps `ibias` (the current-source `dc` parameter). The x-axis label should be `'Iin [uA]'`, matching the analogous NMOS plot for `dc2` at line 100.
 
 ---
 
 ## demo/multiplier/adders.sim
 
-- [ ] **53. `plot_signals` uses global `tm` instead of `plot` parameter** ([demo/multiplier/adders.sim:64](demo/multiplier/adders.sim#L64))
+- [x] **53. `plot_signals` uses global `tm` instead of `plot` parameter** ([demo/multiplier/adders.sim:64](demo/multiplier/adders.sim#L64))
 Inside `def plot_signals(axes, plot, signals, scaling):`, the function body references `tm['time']` and `tm[name]` instead of `plot['time']` and `plot[name]`. The `plot` parameter is never used; the function always plots data from whichever dataset is currently in the global `tm`.
 
-- [ ] **54. Figure title typo "Half added"** ([demo/multiplier/adders.sim:67](demo/multiplier/adders.sim#L67))
+- [x] **54. Figure title typo "Half added"** ([demo/multiplier/adders.sim:67](demo/multiplier/adders.sim#L67))
 `fig1.axes[0].set_title('Half added')` should be `'Half adder'`.
 
 ---
 
 ## demo/control/uncondfatal.sim
 
-- [ ] **55. Title copy-pasted from `initfatal.sim`** ([demo/control/uncondfatal.sim:1](demo/control/uncondfatal.sim#L1))
+- [x] **55. Title copy-pasted from `initfatal.sim`** ([demo/control/uncondfatal.sim:1](demo/control/uncondfatal.sim#L1))
 The title reads `Test $fatal() in initialization`. The embedded Verilog-A module calls `$fatal(0, "Unconditional abort.")` unconditionally (no `if` or init-phase guard), so the title should describe an unconditional fatal, not an initialization-time one.
 
 ---
@@ -333,35 +333,35 @@ In the Cockcroft-Walton voltage multiplier, `c1 (1 2)` and `c3 (1 2)` both conne
 
 ## test/test_acstb.sim
 
-- [ ] **58. Interactive plot accesses nonexistent key `stb1["w"]`** ([test/test_acstb.sim:102](test/test_acstb.sim#L102))
+- [x] **58. Interactive plot accesses nonexistent key `stb1["w"]`** ([test/test_acstb.sim:102](test/test_acstb.sim#L102))
 In the `else` (interactive) branch, line 102 accesses `stb1["w"]`, but the STB analysis only outputs `"wf"` (forward return ratio) and `"wr"` (reverse return ratio), as used on lines 64 and 69. The interactive plot should use `stb1["wf"]`.
 
 ---
 
 ## test/test_capacitor.sim
 
-- [ ] **59. Legend label `"I(L1)"` in an RC test with no inductor** ([test/test_capacitor.sim:71](test/test_capacitor.sim#L71))
+- [x] **59. Legend label `"I(L1)"` in an RC test with no inductor** ([test/test_capacitor.sim:71](test/test_capacitor.sim#L71))
 `plot(['time']*1000, plot['2'], ..., label="I(L1)")` labels the simulated node-2 voltage trace as inductor current. The circuit is a resistor-capacitor network with no inductor; the label should be `"V(2)"`.
 
 ---
 
 ## test/test_ctlsrc.sim
 
-- [ ] **60. Diagnostic print uses `i` instead of `v` for `vcvs1.v`** ([test/test_ctlsrc.sim:96](test/test_ctlsrc.sim#L96))
+- [x] **60. Diagnostic print uses `i` instead of `v` for `vcvs1.v`** ([test/test_ctlsrc.sim:96](test/test_ctlsrc.sim#L96))
 Line 93 assigns `v = op1["vcvs1.v"]`; line 95 correctly passes `v` to `relDiff`; but line 96 prints `print("vcvs1.v=", i, ...)`, silently reporting the stale value of `i` (last assigned to `vccs1.i`) instead of `v`.
 
 ---
 
 ## test/test_visrc.sim
 
-- [ ] **61. Diagnostic print uses `v` instead of `i` for `i(v1)`** ([test/test_visrc.sim:72](test/test_visrc.sim#L72))
+- [x] **61. Diagnostic print uses `v` instead of `i` for `i(v1)`** ([test/test_visrc.sim:72](test/test_visrc.sim#L72))
 Line 69 assigns `i = op1["v1:flow(br)"]`; line 71 correctly passes `i` to `relDiff`; but line 72 prints `print("i(v1)=", v, ...)`, reporting the stale value of `v` (node-1 voltage) instead of the branch current `i`.
 
 ---
 
 ## test/test_hb2.sim
 
-- [ ] **62. Comment states wrong modulation frequency** ([test/test_hb2.sim:14](test/test_hb2.sim#L14))
+- [x] **62. Comment states wrong modulation frequency** ([test/test_hb2.sim:14](test/test_hb2.sim#L14))
 Line 14 reads `// x = 4*sin(2*pi*50k*t)*(1+0.5*sin(2*pi*1k*t))` but the actual instance on line 10 has `modfreq=5k`. The subsequent comments in that block correctly use `5k` throughout; only the formula on line 14 has `1k`.
 
 ---

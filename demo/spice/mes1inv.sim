@@ -46,7 +46,7 @@ raw = rawread('tran1.raw')
 plot = raw.get()
 
 fig1 = plt.figure(figsize=(6,8), dpi=100)
-fig1.suptitle('N-JFET level 1 inverter')
+fig1.suptitle('N-MESFET level 1 inverter')
 ax_dict = fig1.subplot_mosaic("""
 A
 B
@@ -69,7 +69,7 @@ raw = rawread('tran2.raw')
 plot = raw.get()
 
 fig2 = plt.figure(figsize=(6,8), dpi=100)
-fig2.suptitle('P-JFET level 1 inverter')
+fig2.suptitle('P-MESFET level 1 inverter')
 ax_dict = fig2.subplot_mosaic("""
 A
 B

@@ -90,7 +90,7 @@ raw = rawread('op2.raw')
 plot = raw.get(sweeps=1)
 
 fig2 = plt.figure(figsize=(8,8), dpi=100)
-fig2.suptitle('P-MESFETT level 1 test')
+fig2.suptitle('P-MESFET level 1 test')
 ax_dict = fig2.subplot_mosaic("""
 AC
 BD

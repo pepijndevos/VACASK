@@ -1,4 +1,4 @@
-Test $fatal() in initialization
+Test unconditional $fatal()
 
 load "initfatal.va"
 load "capacitor.osdi"

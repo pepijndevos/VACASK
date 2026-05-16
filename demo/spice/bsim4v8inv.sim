@@ -1,4 +1,4 @@
-BSIM3 4.8.2 MOSFET inverter
+BSIM4 4.8.2 MOSFET inverter
 
 load "spice/bsim4v8.osdi"
 include "bsim4v82.inc"

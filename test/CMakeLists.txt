@@ -36,7 +36,6 @@ set(TEST_DEPENDENCIES
 foreach(item IN ITEMS ${TEST_DEPENDENCIES})
     file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/${item} DESTINATION "${CMAKE_CURRENT_BINARY_DIR}")
     file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/${item} DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/manual_run")
-    file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/${item} DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/manual_run")
 endforeach()
 
 prepare_netlist_test(test_op.sim)

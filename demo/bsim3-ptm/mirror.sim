@@ -112,7 +112,7 @@ plot = rawread('dc4.raw').get()
 fig1, ax1 = plt.subplots(1, 1)
 fig1.axes[0].set_title('DC response of BSIM3 PMOS current mirror input')
 fig1.axes[0].set_ylabel('Id [uA]')
-fig1.axes[0].set_xlabel('Vds [V]')
+fig1.axes[0].set_xlabel('Iin [uA]')
 fig1.axes[0].plot(plot["bias"]*1e6, plot["vdd"] - plot["d"])
 
 fig1, ax1 = plt.subplots(1, 1)

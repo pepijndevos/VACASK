@@ -61,34 +61,34 @@ print("number of points test", status)
 if isTest():
     sys.exit(not all(tests))
 else:
-	import matplotlib.pyplot as plt
+    import matplotlib.pyplot as plt
 
-	fig1, ax1 = plt.subplots(2, 1)
-	fig1.suptitle('Diode characteristic')
-	fig1.axes[0].set_title('DC response')
-	fig1.axes[0].set_ylabel('Id [A]')
-	fig1.axes[1].set_ylabel('gd [A/V]')
-	fig1.axes[1].set_xlabel('Ud [V]')
+    fig1, ax1 = plt.subplots(2, 1)
+    fig1.suptitle('Diode characteristic')
+    fig1.axes[0].set_title('DC response')
+    fig1.axes[0].set_ylabel('Id [A]')
+    fig1.axes[1].set_ylabel('gd [A/V]')
+    fig1.axes[1].set_xlabel('Ud [V]')
 
-	fig2, ax2 = plt.subplots(1, 1)
-	fig2.suptitle('Diode characteristic')
-	fig2.axes[0].set_title('Differential capacitance')
-	fig2.axes[0].set_ylabel('Cd [F]')
-	fig2.axes[0].set_xlabel('Ud [V]')
+    fig2, ax2 = plt.subplots(1, 1)
+    fig2.suptitle('Diode characteristic')
+    fig2.axes[0].set_title('Differential capacitance')
+    fig2.axes[0].set_ylabel('Cd [F]')
+    fig2.axes[0].set_xlabel('Ud [V]')
 
-	for ii in range(plot.sweepGroups):
-		sdata = plot.sweepData(ii)
-		traceName = 'is=%.2e' % sdata['is']
-		fig1.axes[0].plot(plot[ii, '2'], -plot[ii, 'v1:flow(br)'], label=traceName)
-		fig1.axes[1].semilogy(plot[ii, '2'], plot[ii, 'd1.gd'], label=traceName)
-		ax2.semilogy(plot[ii, '2'], plot[ii, 'd1.cd'], label=traceName)
+    for ii in range(plot.sweepGroups):
+        sdata = plot.sweepData(ii)
+        traceName = 'is=%.2e' % sdata['is']
+        fig1.axes[0].plot(plot[ii, '2'], -plot[ii, 'v1:flow(br)'], label=traceName)
+        fig1.axes[1].semilogy(plot[ii, '2'], plot[ii, 'd1.gd'], label=traceName)
+        ax2.semilogy(plot[ii, '2'], plot[ii, 'd1.cd'], label=traceName)
 
-	fig1.axes[0].legend(loc='upper left')
-	fig1.axes[0].set_xlim(-1,2)
-	fig1.axes[1].set_xlim(-1,2)
-	fig1.axes[1].set_ylim(1e-12,1e3)
-	fig1.axes[1].legend(loc='lower right')
-	ax2.legend(loc='upper left')
+    fig1.axes[0].legend(loc='upper left')
+    fig1.axes[0].set_xlim(-1,2)
+    fig1.axes[1].set_xlim(-1,2)
+    fig1.axes[1].set_ylim(1e-12,1e3)
+    fig1.axes[1].legend(loc='lower right')
+    ax2.legend(loc='upper left')
 
-	plt.show()
+    plt.show()
 >>>FILE

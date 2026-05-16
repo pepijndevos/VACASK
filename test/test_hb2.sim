@@ -11,7 +11,7 @@ v1 (1 0) vsource dc=0 type="am" sinedc=0.0 ampl=4 freq=50k modfreq=5k modindex=0
 nl1 (1 0) nl2
 
 // Excitation 
-//   x = 4*sin(2*pi*50k*t)*(1+0.5*sin(2*pi*1k*t))
+//   x = 4*sin(2*pi*50k*t)*(1+0.5*sin(2*pi*5k*t))
 // Nonlinearity
 //   x^2
 // Response

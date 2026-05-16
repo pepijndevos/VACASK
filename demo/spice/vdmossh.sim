@@ -84,11 +84,11 @@ ax_dict["C"].plot(plot['time']*1e3, plot['m1.p'])
 ax_dict["D"].set_title('Temperature')
 ax_dict["D"].set_ylabel('T [oC]')
 ax_dict["D"].set_xlabel('time [ms]')
-ax_dict["D"].plot(plot['time']*1e3, plot['tj'], label="delta Tj")
-ax_dict["D"].plot(plot['time']*1e3, plot['tc'], label="delta Tc")
+ax_dict["D"].plot(plot['time']*1e3, plot['tj'], label="Tj")
+ax_dict["D"].plot(plot['time']*1e3, plot['tc'], label="Tc")
 # Power refers to a single parallel instance - so we multiply with rthjc+rthca
 # to obtain the target junction temperature increase
-ax_dict["D"].plot(plot['time']*1e3, 27+plot['m1.p']*(0.4+4), label="delta Tj target")
+ax_dict["D"].plot(plot['time']*1e3, 27+plot['m1.p']*(0.4+4), label="Tj target")
 ax_dict["D"].legend(loc='lower right')
 
 fig1.tight_layout()
