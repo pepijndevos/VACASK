@@ -95,6 +95,29 @@ void PssTranCore::clearTrajectory() {
 
     cHistData_.clear();
     prevCValid_ = false;
+
+    // Get C_0 by evaluating the reactive jacobian at this point
+    jacobian.zero();
+    EvalSetup es = getNrSolver().evalSetup();
+    es.evaluateResistiveJacobian = false;
+    es.evaluateReactiveJacobian  = true;
+    es.evaluateResistiveResidual = false;
+    es.evaluateReactiveResidual  = false;
+    es.evaluateOutvars           = false;
+    es.allowBypass               = false;
+
+    LoadSetup ls;
+    ls.loadReactiveJacobian   = true;
+    ls.reactiveJacobianFactor = 1.0;
+
+    if (!circuit.evalAndLoad(commons, &es, &ls, nullptr)) {
+        Simulator::err() << "PssTranCore: evalAndLoad(C) failed for C(x_0) \n";
+        /// TODO: This function should return false so VACASK can abort
+        return;
+    }
+    // Snapshot C_0 and add it to history
+    Vector<double> cSnap(jacobian.data(), jacobian.data() + jacobian.nnz());
+    cHistData_.push_front(std::move(cSnap));
 }
 
 
@@ -143,12 +166,7 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
     // Snapshot current C_k
     Vector<double> cSnap(jacobian.data(), jacobian.data() + jacobian.nnz());
 
-    // If history is empty add C_k to history so the first iteration can run
-    if (cHistData_.empty()) {
-        cHistData_.push_front(cSnap);
-    }
-
-    // gamma = a_i + alpha * b_i
+    // gamma = alpha *a_i + b_i/b_-1
     Vector<double> gamma(order, 0.0);
     double alpha = integCoeffs.leadingCoeff();
     Vector<double> a = integCoeffs.a();
