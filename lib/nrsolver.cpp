@@ -104,7 +104,6 @@ bool NRSolver::run(bool continuePrevious) {
 
     // Main loop setup
     bool deltaOk;
-    bool residualOk;
     iteration = 0;
     Int convIter = 0;
     converged = false;

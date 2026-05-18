@@ -451,7 +451,7 @@ std::tuple<bool, bool> HBCore::runSolver(bool continuePrevious) {
 
     auto converged = nrSolver.run(runInContinueMode);
     auto abort = nrSolver.checkFlags(HBNRSolver::Flags::Abort);
-    if (!converged_ || abort) {
+    if (!converged || abort) {
         setError(HBError::SolverError);
     }
 

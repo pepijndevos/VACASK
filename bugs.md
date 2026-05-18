@@ -115,14 +115,14 @@ In `ContextStack::dump`, the outer loop iterates indices `i` but the inner loop 
 
 ## corehb.cpp
 
-- [ ] **24. Wrong variable in convergence error check** ([lib/corehb.cpp:454](lib/corehb.cpp#L454))
+- [x] **24. Wrong variable in convergence error check** ([lib/corehb.cpp:454](lib/corehb.cpp#L454))
 `runSolver` calls `nrSolver.run()` and stores the result in a local `converged`. The very next line checks `if (!converged_ || abort)` using the member variable `converged_` instead. Because `converged_` is always `false` at this point (set to `false` in `coroutine()` before `runSolver` is called), the condition is always true and `setError(HBError::SolverError)` fires on every invocation -- including successful ones. The check should use the local `converged`.
 
 ---
 
 ## devctlsrc.cpp
 
-- [ ] **25. Reactive residual values loaded into resistive array** ([lib/devctlsrc.cpp:1089-1091](lib/devctlsrc.cpp#L1089))
+- [x] **25. Reactive residual values loaded into resistive array** ([lib/devctlsrc.cpp:1089-1091](lib/devctlsrc.cpp#L1089))
 The guard condition checks `loadSetup.reactiveResidual` (reactive), but the body writes to `loadSetup.resistiveResidual[d.uFlow1]` and `loadSetup.resistiveResidual[d.uFlow2]`. The reactive residual contributions are silently dropped and the resistive array receives garbage additions. Both lines should write to `loadSetup.reactiveResidual`.
 
 ---
@@ -143,7 +143,7 @@ The guard condition checks `loadSetup.reactiveResidual` (reactive), but the body
 
 ## nrsolver.cpp
 
-- [ ] **28. Outer `residualOk` declared but never used** ([lib/nrsolver.cpp:107](lib/nrsolver.cpp#L107))
+- [x] **28. Outer `residualOk` declared but never used** ([lib/nrsolver.cpp:107](lib/nrsolver.cpp#L107))
 `bool residualOk;` is declared at function scope but is immediately shadowed by `bool residualOk = true;` inside the do-while loop body (line 209). The outer declaration is dead code and is uninitialized; only the inner one participates in the convergence logic.
 
 ---

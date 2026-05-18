@@ -1087,8 +1087,8 @@ template<> bool BuiltinMutualInstance::loadCore(Circuit& circuit, CommonData& co
 
     // Load reactive residual
     if (loadSetup.reactiveResidual) {
-        loadSetup.resistiveResidual[d.uFlow1] += d.reacRes1;
-        loadSetup.resistiveResidual[d.uFlow2] += d.reacRes2;
+        loadSetup.reactiveResidual[d.uFlow1] += d.reacRes1;
+        loadSetup.reactiveResidual[d.uFlow2] += d.reacRes2;
     }
 
     // No limiting, so nothing to load for limited residual
