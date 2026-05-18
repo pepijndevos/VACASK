@@ -110,7 +110,7 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
     while (phiHist_.size() < order) {
         DenseMatrix<double> id(n, n, DenseMatrix<double>::Major::Column);
         id.identity();
-        phiHist_.push_back(std::move(id));
+        phiHist_.push_front(std::move(id));
     }
 
     // Get Alr = G_k + alpha_k * C_k from the factored NR jacobian
@@ -143,9 +143,10 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
     // Snapshot current C_k
     Vector<double> cSnap(jacobian.data(), jacobian.data() + jacobian.nnz());
 
-    // Add C_k to history
-    /// TODO: Does jacobian sparsity change? It shouldn't
-    cHistData_.push_front((std::move(cSnap)));
+    // If history is empty add C_k to history so the first iteration can run
+    if (cHistData_.empty()) {
+        cHistData_.push_front(cSnap);
+    }
 
     // gamma = a_i + alpha * b_i
     Vector<double> gamma(order, 0.0);
@@ -155,12 +156,12 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
 
     if (!a.empty()) {
         for (int p=0; p<std::min(order, (Int)a.size()); p++) {
-            gamma[p] += a[p];
+            gamma[p] += alpha * a[p];
         }
     }
     if (!b.empty()) {
         for (int p=0; p<std::min(order, (Int)b.size()); p++) {
-            gamma[p] += alpha * b[p];
+            gamma[p] += b[p] / integCoeffs.b1();  
         }
     }
 
@@ -171,7 +172,8 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
     DenseMatrix<double> rhs(n, n, DenseMatrix<double>::Major::Column);
     Vector<double> C_kmi;
     DenseMatrix<double> Phi_kmi;
-    Vector<double> colBuf(n); 
+    Vector<double> phi_colbuf(n); 
+    Vector<double> rhs_colbuf(n); 
     for (int p=0; p < order; p++) {
         C_kmi   = cHistData_[p];
         Phi_kmi = phiHist_[p];
@@ -181,15 +183,15 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
         // Multiply column by column
         for (decltype(n) j = 0; j < n; j++) {
             auto phi_col = Phi_kmi.column(j);
-            for (decltype(n) i = 0; i < n; i++) colBuf[i] = phi_col[i];
+            for (decltype(n) i = 0; i < n; i++) phi_colbuf[i] = phi_col[i];
             double* rhs_col = rhs.data().data() + static_cast<size_t>(j) * n;
-            if (!scratchC_.product(colBuf.data(), rhs_col)) {
+            if (!scratchC_.product(phi_colbuf.data(), rhs_colbuf.data())) {
                 Simulator::err() << "PssTranCore: C_{k-1}*v product failed at t="
                                  << tSolve << ", column " << j << "\n";
                 return false;
             }
             // Multiply by gamma_i
-            for (decltype(n) i = 0; i < n; i++) rhs_col[i] *= gamma[p];
+            for (decltype(n) i = 0; i < n; i++) rhs_col[i] += gamma[p] * rhs_colbuf[i];
         }
     }
     
@@ -206,10 +208,14 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
     DenseMatrix<double> phiSnap(phiCurrent_);
     phiHist_.push_front(std::move(phiSnap));
 
+    // Add C_k to history
+    /// TODO: Does jacobian sparsity change? It shouldn't
+    cHistData_.push_front(std::move(cSnap));
+
     // Trim Phi history
-    while (phiHist_.size() > order) phiHist_.pop_back();
+    while (phiHist_.size() > order + 1) phiHist_.pop_back();
     // Trim C history
-    while (cHistData_.size() > order) cHistData_.pop_back();
+    while (cHistData_.size() > order + 1) cHistData_.pop_back();
 
     phiValid_ = true;
     return true;
