@@ -46,7 +46,7 @@ class RawFile:
 		else:
 			self.allbegins = np.array([0], dtype='int64')
 			self.allends = np.array([ndata], dtype='int64')
-			sweepGroups = 1
+			self.sweepGroups = 1
     
 	def __getitem__(self, key):
 		if type(key) is tuple:
@@ -97,56 +97,55 @@ def rawread(fname):
 	#         1       v(out)  voltage
 	#         2       v(in)   voltage
 	# Binary:
-	fp = open(fname, 'rb')
-	plot = {}
-	count = 0
-	arrs = []
-	while (True):
-		try:
-			splitLine = fp.readline(BSIZE_SP).split(b':', maxsplit=1)
-		except:
-			raise RuntimeError("Failed to read a line from file.")
-		if len(splitLine) == 2:
-			# Ordinary header entries
-			if splitLine[0].lower() in headerEntryNames:
-				plot[splitLine[0].lower().decode('ascii')] = splitLine[1].strip()
-			# Variable list
-			if splitLine[0].lower() == b'variables':
-				nvars = int(plot['no. variables'])
-				npoints = int(plot['no. points'])
-				plot['no. variables'] = nvars
-				plot['no. points'] = npoints
-				plot['varnames'] = []
-				plot['varunits'] = []
-				for ii in range(nvars):
-					# Get variable description, split it at spaces
-					txt = fp.readline(BSIZE_SP).strip().decode('ascii')
-					varDesc = txt.split(maxsplit=3)
-					if (len(varDesc)>3 and 'dims' in varDesc[3]):
-						raise NotImplementedError("Raw files with different length vectors are not supported.")
-					# Check variable numbering
-					assert(ii == int(varDesc[0]))
-					# Get name and units
-					plot['varnames'].append(varDesc[1])
-					plot['varunits'].append(varDesc[2])
-					# TODO: get extra data like dims
-			# Binary data start
-			if splitLine[0].lower() == b'binary':
-				# Check for unpadded
-				if b'unpadded' in plot['flags']:
-					raise NotImplementedError("Unpadded raw files are not supported.")
-				arr = np.fromfile(
-					fp, 
-					dtype=np.complex128 if b'complex' in plot['flags'] else np.float64, 
-					count=npoints*nvars
-				).reshape((npoints, nvars))
-				arrs.append((plot, arr))
-				fp.readline() # Read to the end of line
-			if splitLine[0].lower() == b'ascii':
-				raise NotImplementedError("ASCII files are not supported.")
-		else:
-			# Header line does not have two parts, we reached the end
-			break
+	with open(fname, 'rb') as fp:
+		plot = {}
+		count = 0
+		arrs = []
+		while (True):
+			try:
+				splitLine = fp.readline(BSIZE_SP).split(b':', maxsplit=1)
+			except OSError as e:
+				raise RuntimeError("Failed to read a line from file.") from e
+			if len(splitLine) == 2:
+				# Ordinary header entries
+				if splitLine[0].lower() in headerEntryNames:
+					plot[splitLine[0].lower().decode('ascii')] = splitLine[1].strip()
+				# Variable list
+				if splitLine[0].lower() == b'variables':
+					nvars = int(plot['no. variables'])
+					npoints = int(plot['no. points'])
+					plot['no. variables'] = nvars
+					plot['no. points'] = npoints
+					plot['varnames'] = []
+					plot['varunits'] = []
+					for ii in range(nvars):
+						# Get variable description, split it at spaces
+						txt = fp.readline(BSIZE_SP).strip().decode('ascii')
+						varDesc = txt.split(maxsplit=3)
+						if (len(varDesc)>3 and 'dims' in varDesc[3]):
+							raise NotImplementedError("Raw files with different length vectors are not supported.")
+						# Check variable numbering
+						assert(ii == int(varDesc[0]))
+						# Get name and units
+						plot['varnames'].append(varDesc[1])
+						plot['varunits'].append(varDesc[2])
+						# TODO: get extra data like dims
+				# Binary data start
+				if splitLine[0].lower() == b'binary':
+					# Check for unpadded
+					if b'unpadded' in plot['flags']:
+						raise NotImplementedError("Unpadded raw files are not supported.")
+					arr = np.fromfile(
+						fp,
+						dtype=np.complex128 if b'complex' in plot['flags'] else np.float64,
+						count=npoints*nvars
+					).reshape((npoints, nvars))
+					arrs.append((plot, arr))
+				if splitLine[0].lower() == b'ascii':
+					raise NotImplementedError("ASCII files are not supported.")
+			else:
+				# Header line does not have two parts, we reached the end
+				break
 	return RawData(arrs)
 
 if __name__ == '__main__':

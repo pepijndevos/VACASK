@@ -10,7 +10,7 @@ from ng2vclib.converter import Converter
 from ng2vclib import dfl
 
 if __name__ == "__main__":
-    help="""Ngspice to VACASK netlist converter.")
+    help="""Ngspice to VACASK netlist converter.
 Usage: python3 -m ng2vc [<args>] <input file> [<output file>]
 
 If no output file is provided, the converted netlist is printed to 
@@ -28,7 +28,7 @@ Arguments:
   -dp --process-depth maximal depth to which sources are processed
                       (infinite by default)
   -do --output-depth  maximal depth to which sources are output
-                      (infinite ba default)
+                      (infinite by default)
   -sp --sourcepath    add a directory to the sourcepath where
                       .include and .lib files are found. By default 
                       sourcepath already contains the current directory. 
@@ -82,28 +82,28 @@ Arguments:
                 sys.exit(1)
         else:
             # Need 1 or 2 more args
-            if ndx+1>len(sys.argv):
-                print("Need input file.")
-                print(help)
-                sys.exit(1)
-            
             fromFile = arg
 
             if ndx+2<len(sys.argv):
                 print("Too many arguments.")
                 print(help)
                 sys.exit(1)
-            
+
             if ndx+2==len(sys.argv):
                 toFile = sys.argv[ndx+1]
             else:
                 toFile = None
             break
-        
+
         ndx += 1
-    
+
+    if fromFile is None:
+        print("Need input file.")
+        print(help)
+        sys.exit(1)
+
     cfg = dfl.default_config()
-    cfg["sourcepath"] = [ ".", "/home/arpadb/sim/IHP-Open-PDK/ihp-sg13g2/libs.tech/ngspice/models" ]
+    cfg["sourcepath"] = sourcepath
     cfg["read_depth"] = read_depth
     cfg["process_depth"] = process_depth
     cfg["output_depth"] = output_depth

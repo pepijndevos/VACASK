@@ -368,32 +368,32 @@ Line 14 reads `// x = 4*sin(2*pi*50k*t)*(1+0.5*sin(2*pi*1k*t))` but the actual i
 
 ## python/rawfile.py
 
-- [ ] **63. `sweepGroups` assigned as local variable instead of `self.sweepGroups`** ([python/rawfile.py:49](python/rawfile.py#L49))
+- [x] **63. `sweepGroups` assigned as local variable instead of `self.sweepGroups`** ([python/rawfile.py:49](python/rawfile.py#L49))
 In the `else` branch (no sweeps), line 49 writes `sweepGroups = 1` as a plain local. The `if sweeps>0` branch correctly writes `self.sweepGroups = self.allbegins.size` (line 45). The attribute is therefore never set on zero-sweep objects; any access to `self.sweepGroups` raises `AttributeError`.
 
-- [ ] **64. File handle leaked — no context manager around `open`** ([python/rawfile.py:100](python/rawfile.py#L100))
+- [x] **64. File handle leaked — no context manager around `open`** ([python/rawfile.py:100](python/rawfile.py#L100))
 `fp = open(fname, 'rb')` is never closed and has no `with` block. If any exception is raised during parsing (e.g., the `NotImplementedError` calls or assertion failures), the file handle leaks.
 
-- [ ] **65. Bare `except:` swallows `KeyboardInterrupt` and `SystemExit`** ([python/rawfile.py:107](python/rawfile.py#L107))
+- [x] **65. Bare `except:` swallows `KeyboardInterrupt` and `SystemExit`** ([python/rawfile.py:107](python/rawfile.py#L107))
 `except:` catches `BaseException`. The re-raised `RuntimeError` discards the original exception with no chaining, losing the root cause.
 
-- [ ] **66. Spurious `fp.readline()` after binary block may skip next header** ([python/rawfile.py:144](python/rawfile.py#L144))
+- [x] **66. Spurious `fp.readline()` after binary block may skip next header** ([python/rawfile.py:144](python/rawfile.py#L144))
 `np.fromfile` leaves the file pointer immediately after the last byte of binary data. If there is no trailing newline in the raw format between the binary block and the next `Title:` line, `fp.readline()` consumes the title of the next plot, causing the second and later plots to be parsed incorrectly.
 
 ---
 
 ## python/ng2vc.py
 
-- [ ] **67. Stray `.")` embedded in the help string** ([python/ng2vc.py:13](python/ng2vc.py#L13))
+- [x] **67. Stray `.")` embedded in the help string** ([python/ng2vc.py:13](python/ng2vc.py#L13))
 The first line of the triple-quoted help string reads `"""Ngspice to VACASK netlist converter.")` — the closing `.")` is part of the string content and is printed to the user verbatim.
 
-- [ ] **68. Typo "ba" in help text** ([python/ng2vc.py:31](python/ng2vc.py#L31))
+- [x] **68. Typo "ba" in help text** ([python/ng2vc.py:31](python/ng2vc.py#L31))
 `(infinite ba default)` should be `(infinite by default)`.
 
-- [ ] **69. "Need input file." check is dead code; missing `fromFile is None` guard** ([python/ng2vc.py:85](python/ng2vc.py#L85))
+- [x] **69. "Need input file." check is dead code; missing `fromFile is None` guard** ([python/ng2vc.py:85](python/ng2vc.py#L85))
 The condition `ndx+1 > len(sys.argv)` is always false when the `else` branch is reached (because `sys.argv[ndx]` was just successfully read). The "Need input file." error is unreachable. Meanwhile there is no check after the loop for `fromFile is None`, so passing only flag arguments and no filename causes `converter.convert(None, toFile)` to crash.
 
-- [ ] **70. Hardcoded `sourcepath` overwrites all user-supplied `-sp` arguments** ([python/ng2vc.py:106](python/ng2vc.py#L106))
+- [x] **70. Hardcoded `sourcepath` overwrites all user-supplied `-sp` arguments** ([python/ng2vc.py:106](python/ng2vc.py#L106))
 `cfg["sourcepath"] = [ ".", "/home/arpadb/sim/IHP-Open-PDK/..." ]` unconditionally replaces the list built from `-sp` arguments (line 44/76). Every user-supplied sourcepath is silently discarded, and the hardcoded developer-machine path is used instead.
 
 ---
