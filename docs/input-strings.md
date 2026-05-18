@@ -49,9 +49,10 @@ newline, use the `\n` escape sequence.
 
 ## Long strings
 
-Long (heredoc-style) strings begin with `<<<MARKER` on a line by itself and
-extend to a line containing only `>>>MARKER`. They are useful for embedding
-multi-line content such as scripts or data:
+Long (heredoc-style) strings begin with `<<<MARKER` followed by a newline.
+The end marker `>>>MARKER` can appear anywhere and does not require a
+trailing newline. They are useful for embedding multi-line content such as
+scripts or data:
 
 ```text
 embed "script.py" <<<PYEOF

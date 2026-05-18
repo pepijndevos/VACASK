@@ -173,10 +173,10 @@ std::string Rpn::str() const {
                 break;
             }
             case TPackList: {
-                // [;]
-                // [x1;]
-                // [x1; x2; ...; xn]
-                auto n = e->get<PackVec>().arity;
+                // {;}
+                // {x1;}
+                // {x1; x2; ...; xn}
+                auto n = e->get<PackList>().arity;
                 std::string txt = "[";
                 auto j = sstack.size()-n;
                 for(decltype(n) i=0; i<n; i++, j++) {

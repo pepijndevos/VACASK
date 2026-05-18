@@ -24,14 +24,14 @@ The string ends with `"argument(s))."` -- there is one surplus `)` before the pe
 - [x] **6. Missing `return false` after vectorPack preprocessing error** ([lib/rpnbuiltin.cpp:281-285](lib/rpnbuiltin.cpp#L281))
 In `vectorPack`, when `vectorPackPreprocess` returns false the error message is extended but there is no `return false`. The loop continues as if nothing went wrong, and then the code tries to build a vector from potentially wrong type/count information.
 
-- [ ] **7. Unconditional extra push in listMerge** ([lib/rpnbuiltin.cpp:368](lib/rpnbuiltin.cpp#L368))
+- [x] **7. Unconditional extra push in listMerge** *(fixed in `analysis/hbac` branch)* ([lib/rpnbuiltin.cpp:368](lib/rpnbuiltin.cpp#L368))
 `vVec.push_back(std::move(*vp))` at line 368 is outside the `if/else` block and executes on every iteration regardless of which branch was taken. In the `else` branch `*vp` was already moved on line 365, so a moved-from value is pushed again. In the `if` branch an empty `ValueVec` shell is pushed after its contents were already moved item by item.
 
 ---
 
 ## rpnexpr.cpp
 
-- [ ] **8. Wrong variant type accessed in TPackList case** ([lib/rpnexpr.cpp:179](lib/rpnexpr.cpp#L179))
+- [x] **8. Wrong variant type accessed in TPackList case** ([lib/rpnexpr.cpp:179](lib/rpnexpr.cpp#L179))
 `auto n = e->get<PackVec>().arity;` is inside the `TPackList` handler and should read `e->get<PackList>().arity`. Accessing the wrong variant member is undefined behavior if the active alternative is different.
 
 ---
@@ -129,7 +129,7 @@ The guard condition checks `loadSetup.reactiveResidual` (reactive), but the body
 
 ## densematrix.cpp
 
-- [ ] **26. Loop variable initialized to itself (UB)** ([lib/densematrix.cpp:79](lib/densematrix.cpp#L79))
+- [x] **26. Loop variable initialized to itself (UB)** ([lib/densematrix.cpp:79](lib/densematrix.cpp#L79))
 `for(size_t i=i; i<n; i++)` declares `i` and initializes it to itself -- an indeterminate value. Reading an uninitialized object is undefined behavior. The same mistake occurs on line 93. Both loops should start with `i=0`.
 
 ---
@@ -157,17 +157,17 @@ The guard condition checks `loadSetup.reactiveResidual` (reactive), but the body
 
 ## include/densematrix.h
 
-- [ ] **30. Non-const `apply` takes unused `result` parameter** ([include/densematrix.h:416](include/densematrix.h#L416))
+- [x] **30. Non-const `apply` takes unused `result` parameter** ([include/densematrix.h:416](include/densematrix.h#L416))
 The non-const overload `void apply(T (*func)(T), DenseMatrixView<T>& result)` accepts a `result` matrix it never writes to; the body calls `row(i).apply(func)` which modifies the matrix in place and ignores `result`. The parameter is a silent no-op. The const version on line 408 uses `result` correctly; the non-const version appears to be a defective copy of it.
 
 ---
 
 ## include/rpnfunctor.h
 
-- [ ] **31. `FwMaxAggregate` initialises result to 1 instead of first element** ([include/rpnfunctor.h:475](include/rpnfunctor.h#L475))
+- [x] **31. `FwMaxAggregate` initialises result to 1 instead of first element** ([include/rpnfunctor.h:475](include/rpnfunctor.h#L475))
 `Value::ScalarType<Tin> res = 1;` seeds the running maximum with the literal `1`. For any vector whose maximum value is less than `1` (e.g. all negative numbers, or all fractions) the function returns `1` instead of the true maximum. The symmetric `FwMinAggregate` correctly seeds with `x[0]`; `FwMaxAggregate` should do the same.
 
-- [ ] **32. `FwMinAggregate::ok` reads `x[0]` before empty check** ([include/rpnfunctor.h:461](include/rpnfunctor.h#L461))
+- [x] **32. `FwMinAggregate::ok` reads `x[0]` before empty check** ([include/rpnfunctor.h:461](include/rpnfunctor.h#L461))
 `Value::ScalarType<Tin> res = x[0];` is executed before `if (x.size()==0)`. On an empty vector this is an out-of-bounds access. The size check must come first, or the `x[0]` line should be removed (it has no effect in `ok`, which only validates the argument).
 
 ---
@@ -507,13 +507,13 @@ When `format_spectre_line is not None` (the line already exists), the `pass` blo
 - [x] **91. Hex integer pattern rejects `a-f` / `A-F` digits** ([lib/dfllexer.l:501](lib/dfllexer.l#L501))
 The pattern `<BODY>0[xX][0-9]*` only accepts decimal digits after the `0x` prefix. `input-numbers.md:13` documents hexadecimal integers with examples `0xFF` and `0x1a3` — both contain letter digits. With the current regex, `0xFF` lexes as HEXINTEGER(`0x` → 0) followed by IDENTIFIER(`FF`). The pattern should be `0[xX][0-9a-fA-F]+` (the `+` also disallows the empty `0x`).
 
-- [ ] **92. Curly braces `{}` documented as grouping delimiters but not handled by lexer** *(to be handled in hbac branch)* (entire file)
+- [x] **92. Curly braces `{}` documented as grouping delimiters but not handled by lexer** *(fixed in `analysis/hbac` branch)* (entire file)
 `input-overview.md:24` states that newlines within `()`, `[]`, and `{}` are ignored. The lexer has `inParen` and `inBracket` counters and explicit rules for `(`, `)`, `[`, `]`, but no rule for `{` or `}` and no `inBrace` counter. Any `{` or `}` falls into the default `.` rule and is rejected with "Syntax error, unexpected string".
 
-- [ ] **93. Backslash-newline silently consumed inside double-quoted strings** ([lib/dfllexer.l:246](lib/dfllexer.l#L246))
+- [x] **93. Backslash-newline silently consumed inside double-quoted strings** ([lib/dfllexer.l:246](lib/dfllexer.l#L246))
 `<QUOTED>\\\n` updates the line counter and adds nothing to `sbuf`, treating `\<newline>` as a line continuation. `input-strings.md:46-48` explicitly states "Literal newlines are not allowed in double-quoted strings. To include a newline, use the `\n` escape sequence." The documented escape table (lines 23-33) has no line-continuation entry; by the documented fallback rule "any other character `x` yields `x`", `\<newline>` should yield a literal newline character, not be silently dropped.
 
-- [ ] **94. Heredoc end marker `>>>MARKER` matched mid-line** ([lib/dfllexer.l:180](lib/dfllexer.l#L180))
+- [x] **94. Heredoc end marker `>>>MARKER` matched mid-line** ([lib/dfllexer.l:180](lib/dfllexer.l#L180))
 `<LONGQUOTED>\>\>\>[a-zA-Z0-9_]+` matches `>>>MARKER` anywhere in the heredoc body, with no leading-line anchoring and no trailing-newline requirement. `input-strings.md:53` says the marker must be on a line by itself. The opening rule (line 566) correctly requires `<<<MARKER` to be followed by `[\r\t ]*\n`; the closing rule does not. Mid-line `>>>MARKER` will prematurely terminate the embed.
 
 - [x] **95. Typo "incldued" in user-visible error message** ([lib/dfllexer.l:466](lib/dfllexer.l#L466))
@@ -529,10 +529,10 @@ The `<LINESTART>global` rule's comment says `// Do not switch to BODY yet.` but 
 
 ## lib/dflparser.y
 
-- [ ] **98. `$$.isToplevel` checked on default-constructed value; subckt scope restriction is bypassed** ([lib/dflparser.y:330](lib/dflparser.y#L330))
+- [x] **98. `$$.isToplevel` checked on default-constructed value; subckt scope restriction is bypassed** ([lib/dflparser.y:330](lib/dflparser.y#L330))
 Four productions — `subckt_build global` (line 328), `subckt_build ground` (340), `subckt_build load` (352), and `subckt_build embed` (362) — guard with `if (!$$.isToplevel)`. With Bison variant value types, `$$` is a freshly default-constructed `struct subckt` whose member `isToplevel` is initialized to `true` (in-class initializer on line 75). The guard is therefore always false and the error is never raised. `cir-nodes.md:20,31`, `cir-loading.md:12`, and `cir-subckt.md:121-126` document these statements as toplevel-only. The very next production (line 374, `subckt_build control_block`) correctly reads `$1.isToplevel` — the four buggy productions should match that pattern.
 
-- [ ] **99. Wrong location stored for duplicate sweep name** ([lib/dflparser.y:948](lib/dflparser.y#L948))
+- [x] **99. Wrong location stored for duplicate sweep name** ([lib/dflparser.y:948](lib/dflparser.y#L948))
 In `sweeps SWEEP IDENTIFIER opt_broken_parameter_list`, SWEEP is at position 2, IDENTIFIER at position 3. The insertion `$$.locations.insert({id, @1})` stores the position-1 (`sweeps` aggregate) location instead of the new SWEEP keyword's location. The first-sweep production on line 940 correctly uses `@1` because SWEEP is at position 1 there. The redefinition production should use `@2`. The "first defined here" pointer becomes wrong if a third sweep collides with the same name.
 
 - [x] **100. BLKENDIF display string is `"@endif"` but the actual keyword is `@end`** ([lib/dflparser.y:188](lib/dflparser.y#L188))
@@ -557,33 +557,33 @@ In `sweeps SWEEP IDENTIFIER opt_broken_parameter_list`, SWEEP is at position 2, 
 
 ## lib/dfllexer.l (action code)
 
-- [ ] **106. `inParen` / `inBracket` are `size_t` and underflow on stray `)` or `]`** ([include/dflscanner.h:86-87](include/dflscanner.h#L86), [lib/dfllexer.l:476](lib/dfllexer.l#L476), [lib/dfllexer.l:485](lib/dfllexer.l#L485), [lib/dfllexer.l:768](lib/dfllexer.l#L768))
+- [x] **106. `inParen` / `inBracket` are `size_t` and underflow on stray `)` or `]`** *(fixed in `analysis/hbac` branch)* ([include/dflscanner.h:86-87](include/dflscanner.h#L86), [lib/dfllexer.l:476](lib/dfllexer.l#L476), [lib/dfllexer.l:485](lib/dfllexer.l#L485), [lib/dfllexer.l:768](lib/dfllexer.l#L768))
 Both counters are unsigned. On a stray `)` or `]` without a matching `(`/`[`, the decrement at line 476/485 wraps the counter to `SIZE_MAX`. The guard `if (inParen<=0 && inBracket<=0)` at line 768 then evaluates to false for the rest of the file, so every subsequent newline in `BODY` is silently swallowed and no `NEWLINE` token is ever produced again. The parser sees one continuous line and yields a cascade of confusing errors. Either the counters should be signed, or the decrement should clamp at zero and report an error.
 
-- [ ] **107. `<QUOTED>\n` error path leaves QUOTED on the start-condition stack** ([lib/dfllexer.l:217](lib/dfllexer.l#L217))
+- [x] **107. `<QUOTED>\n` error path leaves QUOTED on the start-condition stack** ([lib/dfllexer.l:217](lib/dfllexer.l#L217))
 When an unterminated string ends at a newline, the action emits YYerror but does not call `yy_pop_state()` and does not reset `sbuf`. After the parser's error recovery, the next `yylex` call resumes in QUOTED state with stale `sbuf` content, treating subsequent input as continuation of the broken string.
 
-- [ ] **108. `<QUOTED>\\[0-9]+` and `<QUOTED>.` error paths leak `sbuf` (and one of them leaks state too)** ([lib/dfllexer.l:230](lib/dfllexer.l#L230), [lib/dfllexer.l:249](lib/dfllexer.l#L249))
+- [x] **108. `<QUOTED>\\[0-9]+` and `<QUOTED>.` error paths leak `sbuf` (and one of them leaks state too)** ([lib/dfllexer.l:230](lib/dfllexer.l#L230), [lib/dfllexer.l:249](lib/dfllexer.l#L249))
 The bad-escape rule at line 230 calls `yy_pop_state()` but does not clear `sbuf`, so the next string literal opened from the popped-to state begins with the previous string's tail. The generic catch-all error at line 249 calls neither `yy_pop_state()` nor clears `sbuf` — same problem as bug 107.
 
-- [ ] **109. `HEXINTEGER` value silently narrows from `unsigned long` to `int32_t`** ([lib/dfllexer.l:502](lib/dfllexer.l#L502))
+- [x] **109. `HEXINTEGER` value silently narrows from `unsigned long` to `int32_t`** ([lib/dfllexer.l:502](lib/dfllexer.l#L502))
 `yylval->build<Int>(std::stoul(yytext, nullptr, 16))` reads an `unsigned long` and stores into `Int` (= `int32_t`, per `include/common.h:38`). Once the hex regex (bug 91) is fixed, values like `0xFFFFFFFF` become `-1` via implementation-defined narrowing, and `0xFFFFFFFFFFFFFFFF` raises `std::out_of_range` from `stoul`, which is not caught.
 
-- [ ] **110. `std::stoi` / `std::stoul` / `std::stod` overflow exceptions are not caught** ([lib/dfllexer.l:497](lib/dfllexer.l#L497), [lib/dfllexer.l:510](lib/dfllexer.l#L510), [lib/dfllexer.l:516](lib/dfllexer.l#L516), [lib/dfllexer.l:559](lib/dfllexer.l#L559), [lib/dfllexer.l:563](lib/dfllexer.l#L563))
+- [x] **110. `std::stoi` / `std::stoul` / `std::stod` overflow exceptions are not caught** ([lib/dfllexer.l:497](lib/dfllexer.l#L497), [lib/dfllexer.l:510](lib/dfllexer.l#L510), [lib/dfllexer.l:516](lib/dfllexer.l#L516), [lib/dfllexer.l:559](lib/dfllexer.l#L559), [lib/dfllexer.l:563](lib/dfllexer.l#L563))
 None of the numeric conversion calls are wrapped in `try/catch`. A literal like `99999999999999999999` or `1e9999` throws `std::out_of_range`, which propagates out of `yylex` and terminates the process instead of producing a clean syntax error.
 
-- [ ] **111. `pushStream` failure leaves the lexer stuck in `INCEND` / `LIBEND`** ([lib/dfllexer.l:317](lib/dfllexer.l#L317), [lib/dfllexer.l:383](lib/dfllexer.l#L383))
+- [x] **111. `pushStream` failure leaves the lexer stuck in `INCEND` / `LIBEND`** ([lib/dfllexer.l:317](lib/dfllexer.l#L317), [lib/dfllexer.l:383](lib/dfllexer.l#L383))
 The `<INCEND>\n` failure branch (file not found) at lines 317-321 and the analogous `<LIBEND>\n` failure at lines 383-387 return YYerror without `BEGIN(LINESTART)` or any state reset. After the parser's error recovery the next `yylex` resumes in `INCEND`/`LIBEND` and will fall into the catch-all `<INCEND>.` / `<LIBEND>.` error rule on the very first non-whitespace character, producing spurious follow-on errors.
 
-- [ ] **112. `std::string(yytext, 0, i)` copies the whole token buffer** ([lib/dfllexer.l:559](lib/dfllexer.l#L559))
+- [x] **112. `std::string(yytext, 0, i)` copies the whole token buffer** ([lib/dfllexer.l:559](lib/dfllexer.l#L559))
 This call resolves to `std::string(std::string(yytext), 0, i)` via the implicit `const char*` → `std::string` conversion required by the matching 3-arg constructor `basic_string(const basic_string&, size_type pos, size_type count)`. The intermediate `std::string(yytext)` copies the entire `yytext` C-string just to extract the first `i` characters. The intended efficient form is `std::string(yytext, i)` (the 2-arg `(const char*, size_type)` constructor).
 
 ---
 
 ## lib/dflparser.y (action code)
 
-- [ ] **113. `ends <name>` does not verify the trailing name matches the open `subckt`** ([lib/dflparser.y:395](lib/dflparser.y#L395))
+- [x] **113. `ends <name>` does not verify the trailing name matches the open `subckt`** ([lib/dflparser.y:395](lib/dflparser.y#L395))
 The production `subckt : subckt_build ENDS IDENTIFIER NEWLINE` accepts a trailing identifier (the documented convention for self-documenting closes), but the action ignores `$3`. The user can write `ends WRONG_NAME` to close any subcircuit and no diagnostic is emitted. Either the identifier should be checked against the opening name stored in `$1.def` or the trailing-identifier form should be removed.
 
-- [ ] **114. Missing `std::move` on STRING semantic values** ([lib/dflparser.y:464](lib/dflparser.y#L464), [lib/dflparser.y:925](lib/dflparser.y#L925))
+- [x] **114. Missing `std::move` on STRING semantic values** ([lib/dflparser.y:464](lib/dflparser.y#L464), [lib/dflparser.y:925](lib/dflparser.y#L925))
 `value : STRING { $$ = Value($1); }` (line 464) and `load : LOAD STRING NEWLINE { $$ = std::move(PTLoad($2, @1.loc())); }` (line 925) copy the `std::string` semantic value. The neighbouring `embed` production at line 933 correctly uses `std::move($2)`, confirming the missing moves are a copy-paste regression.

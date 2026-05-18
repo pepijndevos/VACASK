@@ -326,7 +326,7 @@ subckt_build
   }
   | subckt_build global {
     // global nodes, not allowed in subcircuit definition
-    if (!$$.isToplevel) {
+    if (!$1.isToplevel) {
         status.set(Status::Syntax, "Global nodes allowed only in toplevel circuit.");
         status.extend(@2.loc());
         YYERROR;
@@ -338,7 +338,7 @@ subckt_build
   }
   | subckt_build ground {
     // ground nodes, not allowed in subcircuit definition
-    if (!$$.isToplevel) {
+    if (!$1.isToplevel) {
         status.set(Status::Syntax, "Ground nodes allowed only in toplevel circuit.");
         status.extend(@2.loc());
         YYERROR;
@@ -350,7 +350,7 @@ subckt_build
   }
   | subckt_build load {
     // load, not allowed in subcircuit definition
-    if (!$$.isToplevel) {
+    if (!$1.isToplevel) {
         status.set(Status::Syntax, "Load allowed only in toplevel circuit.");
         status.extend(@2.loc());
         YYERROR;
@@ -360,7 +360,7 @@ subckt_build
   }
   | subckt_build embed {
     // embed, not allowed in subcircuit definition
-    if (!$$.isToplevel) {
+    if (!$1.isToplevel) {
         status.set(Status::Syntax, "Embed allowed only in toplevel circuit.");
         status.extend(@2.loc());
         YYERROR;
@@ -392,8 +392,13 @@ subckt
     $$ = std::move($1.def);
   }
   | subckt_build ENDS IDENTIFIER NEWLINE {
-    $1.def.add(std::move($1.parameters)); 
-    $$ = std::move($1.def); 
+    if ($3 != $1.def.name()) {
+      status.set(Status::Syntax, "ends name '"+std::string($3)+"' does not match subckt name '"+std::string($1.def.name())+"'.");
+      status.extend(@3.loc());
+      YYERROR;
+    }
+    $1.def.add(std::move($1.parameters));
+    $$ = std::move($1.def);
   }
 
 // Conditional block building
@@ -460,7 +465,7 @@ intnum
 value
   : intnum { $$ = Int($1); }
   | FLOAT { $$ = Real($1); }
-  | STRING { $$ = Value($1); }
+  | STRING { $$ = Value(std::move($1)); }
 
 expr
   : value { $$.extend(std::move($1), @1.loc()); }
@@ -919,7 +924,7 @@ ground
 
 load
   : LOAD STRING NEWLINE {
-    $$ = std::move(PTLoad($2, @1.loc()));
+    $$ = std::move(PTLoad(std::move($2), @1.loc()));
   }
   | LOAD STRING opt_broken_parameter_list NEWLINE {
     if ($3.params.expressionCount()>0) {
@@ -942,7 +947,7 @@ sweeps
   | sweeps SWEEP IDENTIFIER opt_broken_parameter_list {
     $$ = std::move($1);
     Id id = $3;
-    auto [it, inserted] = $$.locations.insert({id, @1});
+    auto [it, inserted] = $$.locations.insert({id, @2});
     if (!inserted) {
         status.set(Status::Redefinition, "Sweep does not have a unique name.");
         status.extend(@2.loc());

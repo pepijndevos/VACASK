@@ -413,7 +413,7 @@ public:
     };
 
     // Apply function to each element in place
-    void apply(T (*func)(T), DenseMatrixView<T>& result) {
+    void apply(T (*func)(T)) {
         for(size_t i=0; i<nRow_; i++) {
             row(i).apply(func);
         }

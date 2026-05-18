@@ -76,7 +76,7 @@ template<typename T> bool DenseMatrix<T>::test() {
     std::cout << "Inverted diagonal matrix\n";
     ID.dump(std::cout);
     std::cout << "\n";
-    for(size_t i=i; i<n; i++) {
+    for(size_t i=0; i<n; i++) {
         if (std::abs(ID.at(i, i)-1.0/(i+1))>1e-12) {
             ok = false;
             std::cout << "Inverted diagonal matrix failed\n";
@@ -90,7 +90,7 @@ template<typename T> bool DenseMatrix<T>::test() {
     std::cout << "Diagonal matrix right-multiplied by inverse\n";
     PR.dump(std::cout);
     std::cout << "\n";
-    for(size_t i=i; i<n; i++) {
+    for(size_t i=0; i<n; i++) {
         if (std::abs(PR.at(i, i)-1.0)>1e-12) {
             ok = false;
             std::cout << "Diagonal matrix right-multiplied by inverse failed\n";

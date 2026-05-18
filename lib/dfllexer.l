@@ -12,6 +12,8 @@
 /* Header files */
 #include <string>
 #include <cmath>
+#include <limits>
+#include <stdexcept>
 
 /* Implementation of yyFlexScanner. Specify the prototype of lexer call. */ 
 #include "dflscanner.h"
@@ -179,6 +181,7 @@ after INCEND we have
             }
 <LONGQUOTED>\>\>\>[a-zA-Z0-9_]+ {
                 // Possible string end
+                // End marker can appear anywhere (long quoted strings don't require newline after end marker)
                 if (marker == yytext+3) {
                     yy_pop_state();
                     loc->begin = stringStart;
@@ -215,6 +218,8 @@ after INCEND we have
                 }
             }
 <QUOTED>\n  {   // Newline in quoted string
+                yy_pop_state();
+                sbuf.clear();
                 error(*loc, "Syntax error, unexpected newline in string literal.");
                 return(token::YYerror);
             }
@@ -222,6 +227,7 @@ after INCEND we have
                 int result = std::stoul(yytext+1, nullptr, 8);
                 if (result > 0xff) {
                     yy_pop_state();
+                    sbuf.clear();
                     error(*loc, "Syntax error, bad octal sequence in string literal.");
                     return(token::YYerror);
                 }
@@ -229,6 +235,7 @@ after INCEND we have
             }
 <QUOTED>\\[0-9]+ { // Octal sequence in quoted string (everything else)
                 yy_pop_state();
+                sbuf.clear();
                 error(*loc, "Syntax error, bad escape sequence in string literal.");
                 return(token::YYerror);
             }
@@ -245,8 +252,14 @@ after INCEND we have
             }
 <QUOTED>\\\n { // Escaped newline in quoted string
                 loc->lines();
+                yy_pop_state();
+                sbuf.clear();
+                error(*loc, "Syntax error, unexpected newline in string literal.");
+                return(token::YYerror);
             }
 <QUOTED>.   { // Everything else in double quotes
+                yy_pop_state();
+                sbuf.clear();
                 error(*loc, "Syntax error, unexpected string in string literal.");
                 return(token::YYerror);
             }
@@ -321,7 +334,9 @@ after INCEND we have
                 }
             }
 <INCEND>.   {
-                // Unexpected input in include end mode 
+                // Unexpected input in include end mode
+                yy_pop_state(); // Back to INC
+                yy_pop_state(); // Back to LINESTART
                 error(*loc, "Syntax error, unexpected string in include directive, filename must be quoted.");
                 return(token::YYerror);
             }
@@ -366,11 +381,13 @@ after INCEND we have
                     auto& fname = tables.fileStack().canonicalName(fileStackPosition);
                     auto streamPtr = pushStream(fname, *loc);
                     if (!streamPtr) {
+                        yy_pop_state(); // Back to LIB
+                        yy_pop_state(); // Back to LINESTART
                         error(*loc, std::string("Failed to open library file '")+fname+"'.");
                         return(token::YYerror);
                     }
                     yypush_buffer_state(yy_create_buffer(
-                            *streamPtr, 
+                            *streamPtr,
                             YY_BUF_SIZE
                         )
                     );
@@ -381,13 +398,17 @@ after INCEND we have
                     // Go to SECLOOK state
                     BEGIN(SECLOOK);
                 } else {
+                    yy_pop_state(); // Back to LIB
+                    yy_pop_state(); // Back to LINESTART
                     loc->begin = stringStart;
                     error(*loc, "File not found.");
                     return(token::YYerror);
                 }
             }
-<LIBEND>.   { 
-                // Unexpected input in include end mode 
+<LIBEND>.   {
+                // Unexpected input in library end mode
+                yy_pop_state(); // Back to LIB
+                yy_pop_state(); // Back to LINESTART
                 error(*loc, "Syntax error, unexpected string in library directive.");
                 return(token::YYerror);
             }
@@ -494,12 +515,24 @@ after INCEND we have
             }
 
 <BODY>0|([1-9][0-9]*) {
-                yylval->build<Int>(std::stoi(yytext, nullptr, 10));
+                try {
+                    yylval->build<Int>(std::stoi(yytext, nullptr, 10));
+                } catch (const std::out_of_range&) {
+                    error(*loc, "Integer literal out of range.");
+                    return(token::YYerror);
+                }
                 return(token::INTEGER);
             }
 
 <BODY>0[xX][0-9a-fA-F]+ {
-                yylval->build<Int>(std::stoul(yytext, nullptr, 16));
+                // Narrowing from unsigned long to Int keeps the low-order bits.
+                // The user is responsible for hex literal size.
+                try {
+                    yylval->build<Int>(static_cast<Int>(std::stoul(yytext, nullptr, 16)));
+                } catch (const std::out_of_range&) {
+                    error(*loc, "Hexadecimal integer literal out of range.");
+                    return(token::YYerror);
+                }
                 return(token::HEXINTEGER);
             }
 
@@ -507,13 +540,23 @@ after INCEND we have
                 // xxx.xxx  (integer with dot and optional fraction)
                 // xxx.     (integer with dot)
                 // .xxx     (dot with fraction, at least one digit required)
-                yylval->build<double>(std::stod(yytext));
+                try {
+                    yylval->build<double>(std::stod(yytext));
+                } catch (const std::out_of_range&) {
+                    error(*loc, "Floating point literal out of range.");
+                    return(token::YYerror);
+                }
                 return(token::FLOAT);
             }
 <BODY>(((0|([1-9][0-9]*))(\.[0-9]*)?)|(\.[0-9]+))([eE][+-]?[0-9]+) {
                 // [.xxx | xxx[.[xxx]] | xxx] e [+|-] xxx
                 // Requires at least one digit in the mantissa
-                yylval->build<double>(std::stod(yytext));
+                try {
+                    yylval->build<double>(std::stod(yytext));
+                } catch (const std::out_of_range&) {
+                    error(*loc, "Floating point literal out of range.");
+                    return(token::YYerror);
+                }
                 return(token::FLOAT);
             }
 <BODY>((\.[0-9]+)|((0|([1-9][0-9]*))(\.([0-9]*)?)?))(([munpfakKMGTxX]|meg|mil)[a-zA-Z_]*) {
@@ -556,7 +599,12 @@ after INCEND we have
                         error(*loc, "Syntax error, incorrectly formed floating point number.");
                         return(token::YYerror);
                 }
-                yylval->build<double>(std::stod(std::string(yytext, 0, i))*s);
+                try {
+                    yylval->build<double>(std::stod(std::string(yytext, i))*s);
+                } catch (const std::out_of_range&) {
+                    error(*loc, "Floating point literal out of range.");
+                    return(token::YYerror);
+                }
                 return(token::FLOAT);
             }
 <BODY>(?i:inf)|(?i:nan) {

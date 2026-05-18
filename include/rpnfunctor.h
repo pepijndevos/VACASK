@@ -458,7 +458,6 @@ struct FwMinAggregate {
     template<typename T> bool ok(T x, Status& s) { 
         using Tin = typename std::remove_reference<T>::type;
         if constexpr(Value::IsVectorType<Tin>::value) {
-            Value::ScalarType<Tin> res = x[0];
             if (x.size()==0) {
                 s.set(Status::BadArguments, "Cannot compute minimum of empty vector's components.");
                 return false;
@@ -472,8 +471,8 @@ struct FwMaxAggregate {
     template<typename T> auto operator()(T&& x) -> Value::ScalarType<typename std::remove_reference<T>::type> { 
         using Tin = typename std::remove_reference<T>::type;
         if constexpr(Value::IsVectorType<Tin>::value) {
-            Value::ScalarType<Tin> res = 1;
-            for(auto it=x.begin(); it!=x.end(); ++it) {
+            Value::ScalarType<Tin> res = x[0];
+            for(auto it=x.begin()+1; it!=x.end(); ++it) {
                 if (*it > res) {
                     res = *it;
                 }
