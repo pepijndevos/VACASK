@@ -7,13 +7,13 @@ Diode cascade
 vs a 0 dc=0 sin 0 50 100k
 r1 a 1 r=0.01
 c1 1 2 c={c}
-d1 0 1 d1n4007
+d1 0 2 d1n4007
 c2 0 10 c={c}
-d2 1 10 d1n4007
-c3 1 2  c={c}
-d3 10 2 d1n4007
+d2 2 10 d1n4007
+c3 2 3  c={c}
+d3 10 3 d1n4007
 c4 10 20 c={c}
-d4 2 20 d1n4007
+d4 3 20 d1n4007
 
 .options klu method=gear maxord=2
 

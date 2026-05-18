@@ -202,7 +202,7 @@ In the `StructMember::Type::Id` branch, both the change check and the assignment
 
 ## packaging.cmake
 
-- [ ] **37. Typo in permissions variable name renders file permissions empty** ([packaging.cmake:18](packaging.cmake#L18))
+- [x] **37. Typo in permissions variable name renders file permissions empty** ([packaging.cmake:18](packaging.cmake#L18))
 `set(install_permisssions_file ...)` has three `s` characters. Every subsequent `install()` call that supplies `PERMISSIONS ${install_permissions_file}` (correctly spelled, two `s`) expands an undefined variable, which CMake silently treats as an empty string. The `PERMISSIONS` keyword receives no values, so all installed files (license, docs, demo, test, config, Python scripts, inc files) are installed with CMake's default permissions rather than the intended read-only set.
 
 ---
@@ -323,10 +323,10 @@ The title reads `Test $fatal() in initialization`. The embedded Verilog-A module
 
 ## benchmark/mul/vacask/runme.sim
 
-- [ ] **56. `c3` connects the same node pair as `c1` — wrong circuit topology** ([benchmark/mul/vacask/runme.sim:20](benchmark/mul/vacask/runme.sim#L20))
+- [x] **56. `c3` connects the same node pair as `c1` — wrong circuit topology** ([benchmark/mul/vacask/runme.sim:20](benchmark/mul/vacask/runme.sim#L20))
 In the Cockcroft-Walton voltage multiplier, `c1 (1 2)` and `c3 (1 2)` both connect nodes 1 and 2, so `c3` is in parallel with `c1` rather than forming the second-stage pump. Given that `d3 (10 2)` rectifies from node 10 to node 2, the second-stage pump capacitor should be `c3 (10 2)`. The same topology error exists in `benchmark/vadistiller/mul/vacask/runme.sim:20`.
 
-- [ ] **57. Plot label `"v(1) exact"` should reference node 20** ([benchmark/mul/vacask/runme.sim:56](benchmark/mul/vacask/runme.sim#L56))
+- [x] **57. Plot label `"v(1) exact"` should reference node 20** ([benchmark/mul/vacask/runme.sim:56](benchmark/mul/vacask/runme.sim#L56))
 `fig1.axes[0].plot(t*1000, v20, ..., label="v(1) exact")` plots variable `v20` (node 20 voltage) but labels it `"v(1) exact"`. The label should be `"v(20)"`. The same stale label exists in `benchmark/vadistiller/mul/vacask/runme.sim:54`.
 
 ---

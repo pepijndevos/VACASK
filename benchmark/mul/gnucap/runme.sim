@@ -8,13 +8,13 @@ spice
 vs 1 0 sin offset=0 amplitude=50 frequency=100k
 r1 a 1 0.01
 c1 1 2 100n
-d1 0 1 d1n4007
+d1 0 2 d1n4007
 c2 0 10 100n
-d2 1 10 d1n4007
-c3 1 2  100n
-d3 10 2 d1n4007
+d2 2 10 d1n4007
+c3 2 3  100n
+d3 10 3 d1n4007
 c4 10 20 100n
-d4 2 20 d1n4007
+d4 3 20 d1n4007
 
 .options method=gear
 

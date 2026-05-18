@@ -15,7 +15,7 @@ set(install_permissions_executable
 	WORLD_READ WORLD_EXECUTE
 )
 
-set(install_permisssions_file
+set(install_permissions_file
 	OWNER_READ OWNER_WRITE
 	GROUP_READ
 	WORLD_READ

@@ -14,13 +14,13 @@ parameters c=100n
 vs (a 0) vsource dc=0 type="sine" sinedc=0.0 ampl=50 freq=100k
 r1 (a 1) r r=0.01
 c1 (1 2) c c=c
-d1 (0 1) d1n4007
+d1 (0 2) d1n4007
 c2 (0 10) c c=c
-d2 (1 10) d1n4007
-c3 (1 2) c c=c
-d3 (10 2) d1n4007
+d2 (2 10) d1n4007
+c3 (2 3) c c=c
+d3 (10 3) d1n4007
 c4 (10 20) c c=c
-d4 (2 20) d1n4007
+d4 (3 20) d1n4007
 
 control
   options tran_method="gear2" 
@@ -53,7 +53,7 @@ fig1, ax1 = plt.subplots(1, 1)
 fig1.axes[0].set_title('Diode cascade voltage multiplier')
 fig1.axes[0].set_ylabel('V [V]')
 fig1.axes[0].set_xlabel('time [ms]')
-fig1.axes[0].plot(t*1000, v20, color="red", label="v(1) exact")
+fig1.axes[0].plot(t*1000, v20, color="red", label="v(20) exact")
 plt.show()
 
 >>>FILE
