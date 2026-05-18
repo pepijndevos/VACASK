@@ -201,8 +201,8 @@ public:
         return *this;
     };
 
-    // Extract scalar from vector
-    bool getScalar(Value& v, size_t ndx, Status& s=Status::ignore) const;
+    // Extract scalar from vector, Use Int as index because that is the only integer Value type
+    bool getScalar(Value& v, Int ndx, Status& s=Status::ignore) const;
 
     // Compare
     friend bool operator==(const Value &, const Value &);

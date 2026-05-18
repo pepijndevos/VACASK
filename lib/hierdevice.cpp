@@ -83,6 +83,15 @@ bool HierarchicalModel::buildParameterMap(Status& s) {
     for(decltype(n) i=0; i<n; i++) {
         auto id = parameters[i].name();
         auto [itPrev, inserted] = parameterMap.insert({id, i});
+        if (!inserted) {
+            s.set(Status::Conflicting, "Parameter '"+std::string(id)+"' is not unique.");
+            s.extend(parameters[i].location());
+            if (parameters[itPrev->second].location()) {
+                s.extend("Parameter was first defined here");
+                s.extend(parameters[itPrev->second].location());
+            }
+            return false;
+        }
     }
     return true;
 }
@@ -500,11 +509,12 @@ std::tuple<bool, bool> HierarchicalInstance::recomputeBlockConditionsWorker(Circ
             // Process block entries in a subsequence
             bool exit = false;
             for(auto& subEntry : subSeq.entries()) {
-                auto [ok, subCond] = recomputeBlockConditionsWorker(circuit, subEntry, evaluator, newBlocks, s);
+                auto [subOk, subCond] = recomputeBlockConditionsWorker(circuit, subEntry, evaluator, newBlocks, s);
                 // Exit
                 // - on error
                 // - on reaching a block with true condition
-                exit = !ok || subCond;
+                ok = ok && subOk;
+                exit = !subOk || subCond;
                 if (exit) {
                     break;
                 }
@@ -528,11 +538,12 @@ bool HierarchicalInstance::recomputeBlockConditions(Circuit& circuit, RpnEvaluat
             bool exit = false;
             for(auto& subEntry : subSeq.entries()) {
                 // Call worker
-                auto [ok, subCond] = recomputeBlockConditionsWorker(circuit, subEntry, evaluator, newBlocks, s);
+                auto [subOk, subCond] = recomputeBlockConditionsWorker(circuit, subEntry, evaluator, newBlocks, s);
                 // Exit
                 // - on error
                 // - on reaching a block with true condition
-                exit = !ok || subCond;
+                ok = ok && subOk;
+                exit = !subOk || subCond;
                 if (exit) {
                     break;
                 }

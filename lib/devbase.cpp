@@ -49,7 +49,7 @@ bool InstantiationData::removeAncestor(Instance* inst) {
     // Remove ancestor from set, return true if the ancestor was found and removed
     if (inst) {
         auto numRemoved = ancestorModels_.erase(inst->model());
-        if (numRemoved=0) {
+        if (numRemoved==0) {
             return false;
         }
     }
@@ -153,7 +153,7 @@ std::tuple<Value::Type,bool> Instance::outvarType(Id name, Status& s) const {
 bool Instance::getOutvar(Id name, Value& v, Status& s) const {
     auto [ndx, found] = outvarIndex(name);
     if (!found) {
-        s.set(Status::NotFound, std::string("Oputput variable '")+std::string(name)+"' not found.");
+        s.set(Status::NotFound, std::string("Output variable '")+std::string(name)+"' not found.");
         return false;
     }
     return getOutvar(ndx, v, s);

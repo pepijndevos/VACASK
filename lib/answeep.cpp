@@ -117,10 +117,10 @@ bool ScalarSweep::setupLinearSweep(Real from_, Real to_, Int points, Status& s) 
     return true;
 }
 
-bool ScalarSweep::setupLogSweep(Real from_, Real to_, Real factor, Int pointsPerFactor, Status& s) {
+bool ScalarSweep::setupLogSweep(Real from_, Real to_, Real factor_, Int pointsPerFactor, Status& s) {
     from = from_;
     to = to_;
-    factor = factor;
+    factor = factor_;
     if (pointsPerFactor<=0) {
         s.set(Status::Range, "Number of sweep points must be greater than zero.");
         return false;
@@ -420,8 +420,9 @@ bool ParameterSweeper::bind(Circuit& circuit, IStruct<SimulatorOptions>& opt, St
                 }
                 paramNdx = ndx;
             }
-            if (!instPtr->parameterIsFree(it->parameter)) {
-                s.set(Status::NotFound, "Sweep '"+std::string(it->name)+"': parameter '"+std::string(it->parameter)+"' of instance '"+std::string(it->instance)+"' is bound to an expression.");
+            auto paramName = instPtr->parameterName(paramNdx);
+            if (!instPtr->parameterIsFree(paramName)) {
+                s.set(Status::NotFound, "Sweep '"+std::string(it->name)+"': parameter '"+std::string(paramName)+"' of instance '"+std::string(it->instance)+"' is bound to an expression.");
                 s.extend(it->location);
                 return false;
             }

@@ -38,20 +38,20 @@ In `vectorPack`, when `vectorPackPreprocess` returns false the error message is 
 
 ## value.cpp
 
-- [ ] **9. Dead comparison against unsigned zero** ([lib/value.cpp:194](lib/value.cpp#L194))
+- [x] **9. Dead comparison against unsigned zero** ([lib/value.cpp:194](lib/value.cpp#L194))
 In `Value::getScalar`, `ndx` has type `size_t` (unsigned). The condition `ndx<0` is always false and the corresponding check is dead code; out-of-range negative indices passed as large unsigned values are not caught by this branch.
 
-- [ ] **10. ValueVec items printed with surrounding quotes** ([lib/value.cpp:262](lib/value.cpp#L262))
+- [x] **10. ValueVec items printed with surrounding quotes** ([lib/value.cpp:262](lib/value.cpp#L262))
 In `operator<<`, the `Value::Type::ValueVec` branch writes `"\""` before and after each element (`os << "\"" << *it << "\""`). `ValueVec` contains `Value` objects, not strings; the surrounding quotes are wrong and produce malformed output.
 
 ---
 
 ## devbase.cpp
 
-- [ ] **11. Assignment instead of comparison in removeAncestor** ([lib/devbase.cpp:52](lib/devbase.cpp#L52))
+- [x] **11. Assignment instead of comparison in removeAncestor** ([lib/devbase.cpp:52](lib/devbase.cpp#L52))
 `if (numRemoved=0)` assigns zero to `numRemoved` and then tests the result, which is always zero (false). The early-return branch is therefore never taken and `removeAncestor` always returns `true` even when nothing was erased.
 
-- [ ] **12. Typo "Oputput" in getOutvar error message** ([lib/devbase.cpp:156](lib/devbase.cpp#L156))
+- [x] **12. Typo "Oputput" in getOutvar error message** ([lib/devbase.cpp:156](lib/devbase.cpp#L156))
 "Oputput" should be "Output".
 
 ---
@@ -71,30 +71,30 @@ The message says `"Failed to parse expression '"` but should say `"Failed to par
 
 ## hierdevice.cpp
 
-- [ ] **16. Duplicate parameter map insertions not detected** ([lib/hierdevice.cpp:85](lib/hierdevice.cpp#L85))
+- [x] **16. Duplicate parameter map insertions not detected** ([lib/hierdevice.cpp:85](lib/hierdevice.cpp#L85))
 In `buildParameterMap`, `parameterMap.insert({id, i})` is called but the returned `inserted` boolean is never checked. Duplicate parameter names are silently ignored, unlike `buildTerminalMap` which checks and reports them.
 
-- [ ] **17. Structured binding shadows outer `ok` in recomputeBlockConditionsWorker** ([lib/hierdevice.cpp:503](lib/hierdevice.cpp#L503))
+- [x] **17. Structured binding shadows outer `ok` in recomputeBlockConditionsWorker** ([lib/hierdevice.cpp:503](lib/hierdevice.cpp#L503))
 `auto [ok, subCond] = recomputeBlockConditionsWorker(...)` introduces a new local `ok` that hides the outer `bool ok = true` declared at line 496. The outer `ok` is never updated, so error results from recursive calls are not propagated; the function returns `std::make_tuple(ok, cond)` where `ok` is always `true`.
 
-- [ ] **18. Same shadowing bug in recomputeBlockConditions** ([lib/hierdevice.cpp:531](lib/hierdevice.cpp#L531))
+- [x] **18. Same shadowing bug in recomputeBlockConditions** ([lib/hierdevice.cpp:531](lib/hierdevice.cpp#L531))
 `auto [ok, subCond] = recomputeBlockConditionsWorker(...)` shadows the outer `bool ok = true` on line 523. The function always returns `true`.
 
 ---
 
 ## answeep.cpp
 
-- [ ] **19. Self-assignment of `factor` in setupLogSweep** ([lib/answeep.cpp:123](lib/answeep.cpp#L123))
+- [x] **19. Self-assignment of `factor` in setupLogSweep** ([lib/answeep.cpp:123](lib/answeep.cpp#L123))
 The parameter `factor` has the same name as the member variable. `factor = factor` assigns the parameter to itself; the member `ScalarSweep::factor` is never updated to the caller-supplied value.
 
-- [ ] **20. parameterIsFree called with null name** ([lib/answeep.cpp:423](lib/answeep.cpp#L423))
+- [x] **20. parameterIsFree called with null name** ([lib/answeep.cpp:423](lib/answeep.cpp#L423))
 When no parameter name is given (the principal parameter branch was taken, `!it->parameter` was true), `instPtr->parameterIsFree(it->parameter)` is still called with the null `it->parameter`. The parameter name used for the freedom check does not correspond to the parameter that will actually be swept.
 
 ---
 
 ## osdicallback.cpp
 
-- [ ] **21. Unconditional free of a non-heap pointer** ([lib/osdicallback.cpp:50-55](lib/osdicallback.cpp#L50))
+- [x] **21. Unconditional free of a non-heap pointer** ([lib/osdicallback.cpp:50-55](lib/osdicallback.cpp#L50))
 The comment inside the `LOG_FMT_ERR` branch states "Not allowed to free msg because it is a constant string", but `free(msg)` on line 55 is outside the `if/else` and executes unconditionally. In the format-error case `msg` points to a string literal; freeing it is undefined behavior.
 
 ---

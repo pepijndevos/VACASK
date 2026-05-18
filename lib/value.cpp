@@ -186,7 +186,7 @@ bool Value::convertInPlace(Type to, Status &s) {
     return false;
 }
 
-bool Value::getScalar(Value& v, size_t ndx, Status& s) const {
+bool Value::getScalar(Value& v, Int ndx, Status& s) const {
     if (!isVector()) {
         s.set(Status::BadConversion, "Cannot extract components from a scalar.");
         return false;
@@ -253,13 +253,13 @@ std::ostream& operator<<(std::ostream& os, const Value& obj) {
             }
             os << "]";
             break;
-        case Value::Type::ValueVec: 
+        case Value::Type::ValueVec:
             os << "[";
-            for(auto it=obj.vVec->cbegin(); it!=obj.vVec->cend(); ++it) { 
+            for(auto it=obj.vVec->cbegin(); it!=obj.vVec->cend(); ++it) {
                 if (it!=obj.vVec->cbegin()) {
                     os << ", ";
                 }
-                os << "\"" << *it << "\""; 
+                os << *it;
             }
             os << "]";
             break;

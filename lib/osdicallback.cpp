@@ -49,10 +49,10 @@ void osdiLogMessage(void *handle, char *msg, uint32_t level) {
         *dst << "failed to format \"" << msg << "\"\n";
         // Not allowed to free msg because it is a constant string
     } else {
-        *dst << msg; 
+        *dst << msg;
+        // Free msg because we own it now, use libc free
+        free(msg);
     }
-    // Free msg because we own it now, use libc free
-    free(msg);
 }
 
 double osdiPnjlim(
