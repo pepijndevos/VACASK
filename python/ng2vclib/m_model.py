@@ -52,7 +52,7 @@ class ModelMixin:
             else:
                 vcline += " "+eol
             
-        if len(params)>=0:
+        if len(params)>0:
             # Remove parameters
             if vecnames is not None:
                 params = self.remove_params(params, vecnames)

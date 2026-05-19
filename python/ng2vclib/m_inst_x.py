@@ -22,9 +22,9 @@ class InstanceXMixin:
         # Do not use output model name from output_mod_name. 
         # Decide based on original_case_subckt value. 
         if self.cfg.get("original_case_subckt", False):
-            output_model = annot["mod_name"]
-        else:
             output_model = annot["orig_mod_name"]
+        else:
+            output_model = annot["mod_name"]
 
         txt = lws + annot["output_name"] + " (" + (" ".join(terminals))+") "+output_model+" "
 

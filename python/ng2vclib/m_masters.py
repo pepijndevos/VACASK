@@ -98,7 +98,7 @@ class MastersMixin:
         orig_name = orig_name.replace("]", "_")
 
         annot["name"] = name
-        annot["orig_name"] = name
+        annot["orig_name"] = orig_name
         annot["words"] = parts
         annot["orig_words"] = orig_parts
         annot["mod_index"] = mod_index
@@ -135,7 +135,7 @@ class MastersMixin:
                     l1 = l.strip()
                     if l1.startswith("*"):
                         l1 = l1[1:].strip()
-                        if pat_preosdi.match(ll):
+                        if pat_preosdi.match(l1):
                             # Have a pre_osdi, add to list of files
                             osdi_file = l1[8:].strip()
                             self.data["osdi_loads"].add(osdi_file)
@@ -210,7 +210,12 @@ class MastersMixin:
                                     if remove_level:
                                         continue
                                 elif pname=="version":
-                                    version = int(pval)
+                                    version = pval.strip()
+                                    if (
+                                        version.startswith("'") and version.endswith("'") or
+                                        version.startswith('"') and version.endswith('"')
+                                    ):
+                                        version = version[1:-1]
                                     if remove_version:
                                         continue
                                 else:

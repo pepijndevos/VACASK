@@ -100,7 +100,7 @@ puts $sim(spectre,0,cmd)
 set sim(spectre,default) 0
 
 # Create FET and BIP .save file
-file mkdir -p $netlist_dir
+file mkdir $netlist_dir
 write_data [save_params] $netlist_dir/[file rootname [file tail [xschem get current_name]]].save
 
 # run netlist and simulation

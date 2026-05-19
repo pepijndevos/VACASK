@@ -186,7 +186,7 @@ class ParamsMixin:
         if m_chain is not None:
             if mfact_index is not None:
                 # Exists, multiply
-                psplit[ii] = ( psplit[ii][0], "("+psplit[ii][1]+")*"+m_chain )
+                psplit[mfact_index] = ( psplit[mfact_index][0], "("+psplit[mfact_index][1]+")*"+m_chain )
             else:
                 # Does not exist, add
                 psplit.append(("$mfactor", m_chain))
@@ -204,11 +204,13 @@ class ParamsMixin:
 
         return pl
 
-    def remove_params(self, params, to_remove=set()):
+    def remove_params(self, params, to_remove=None):
         """
-        Removes all parameters listed in set *to_remove*. 
-        Can handle unsplit and split parameters. 
+        Removes all parameters listed in set *to_remove*.
+        Can handle unsplit and split parameters.
         """
+        if to_remove is None:
+            to_remove = set()
         out = []
         for part in params:
             if isinstance(part, list) or isinstance(part, tuple):
@@ -219,27 +221,33 @@ class ParamsMixin:
             out.append(part)
         return out
     
-    def merge_vectors(self, params, vecnames=set()):
+    def merge_vectors(self, params, vecnames=None):
         """
-        Merges vector parameters into one string. 
+        Merges vector parameters into one string.
 
-        Assumes *params* is a list of unsplit parameters. 
+        Assumes *params* is a list of unsplit parameters.
         """
+        if vecnames is None:
+            vecnames = set()
         out = []
-        for ndx in range(len(params)):
+        ndx = 0
+        while ndx < len(params):
             part = params[ndx]
             sp = part.split("=", 1)
             if len(sp)>1 and sp[0] in vecnames:
                 # Start merging
                 merged = ""
-                while ndx<len(params): 
+                while ndx<len(params):
                     merged += params[ndx]
                     if params[ndx].strip()[-1]!=",":
+                        ndx += 1
                         break
+                    ndx += 1
                 out.append(merged)
             else:
                 out.append(part)
-        
+                ndx += 1
+
         return out
 
     def process_expressions(self, params):

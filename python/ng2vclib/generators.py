@@ -1,7 +1,7 @@
 from .patterns import *
 
 # A generator that traverses a deck
-def traverse(deck, depth=None, input_history=[], parent_line=None, inside_control=False):
+def traverse(deck, depth=None, input_history=None, parent_line=None, inside_control=False):
     """
     A generator that traverses a *deck*. 
     
@@ -31,6 +31,8 @@ def traverse(deck, depth=None, input_history=[], parent_line=None, inside_contro
     * depth at which the line is located
     * a flag indicating this line is a part of control clock
     """
+    if input_history is None:
+        input_history = []
     filename, section, lines = deck
     history = input_history + [ (parent_line, filename, section) ]
     
@@ -73,9 +75,9 @@ def format_history(history, lineno):
         txt += "'"+fname+"'"
         if pline is not None:
             if sec is not None:
-                txt += "included as section"+sec+" on line "+str(pline+1)+" of "
+                txt += " included as section "+sec+" on line "+str(pline+1)+" of "
             else:
-                txt += "included on line "+str(pline+1)+" of "
+                txt += " included on line "+str(pline+1)+" of "
     
     return txt
     

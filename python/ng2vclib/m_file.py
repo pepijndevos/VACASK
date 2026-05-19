@@ -138,8 +138,8 @@ class FileLoaderMixin:
         try:
             with open(fp, 'r', errors='ignore') as file:
                 lines = [line.rstrip('\r\n') for line in file]
-        except:
-            raise ConverterError("Failed to open "+fp)
+        except OSError as e:
+            raise ConverterError("Failed to open "+fp) from e
         
         # Canonical path
         fp = os.path.realpath(fp)
@@ -290,6 +290,7 @@ class FileLoaderMixin:
                         # This is an error if this is not the top file
                         if depth>0:
                             raise ConverterError(filename+", line "+str(lnum+1)+": stray section marker.")
+                        raise ConverterError(filename+", line "+str(lnum+1)+": .lib directive requires both a file name and a section name.")
                     # Extract file name, strip whitespace
                     lfname = s[:sndx].strip()
                     # Unquote

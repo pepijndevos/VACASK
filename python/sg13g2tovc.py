@@ -122,10 +122,11 @@ def patch_analog(line):
         line2 = line[m.end():]
 
         # In line 2 find all occurences of <identifier>=, lowercase them
-        m1 = list(pat_identifier_assign.finditer(line))
+        m1 = list(pat_identifier_assign.finditer(line2))
         for m in reversed(m1):
             text = m.group(0).lower()
-            line = line[:m.start()] + text + line[m.end():]
+            line2 = line2[:m.start()] + text + line2[m.end():]
+        line = line1 + line2
 
     return line.replace("format=", "spectre_format=")
 
@@ -287,13 +288,13 @@ if __name__=="__main__":
             builtin, mtype, family, level, version, _ = cvt.data["models"][in_sub][mname]
             k = family, level, version
             if k in cvt.cfg["family_map"]:
-                file, _, _ = cvt.cfg["family_map"][k]
-                osdi_files.add(file)
-        
+                osdi_file, _, _ = cvt.cfg["family_map"][k]
+                osdi_files.add(osdi_file)
+
         # OSDI files based on builtin models
         for mt in cvt.data["default_models_needed"]:
-            file, module = cvt.cfg["default_models"][mt]
-            osdi_files.add(file)
+            osdi_file, module = cvt.cfg["default_models"][mt]
+            osdi_files.add(osdi_file)
             dflmods.add((mt, module))
     
     # Create .vacaskrc.toml
@@ -448,13 +449,13 @@ module_path_prefix = [ "$(PDK_ROOT)/$(PDK)/libs.tech/vacask/osdi" ]
         txt += "// Disable SOA checks\n"
         txt += "parameters swsoa=0\n"
         txt += "// OSDI files\n"
-        for f in osdi_files:
+        for f in sorted(list(osdi_files)):
             txt += "load \""+f+"\"\n"
         if len(dflmods)>0:
             txt +="\n"
     if len(dflmods)>0:
         txt += "\n// Default models\n"
-        for mt, module in dflmods:
+        for mt, module in sorted(dflmods, key=lambda p: p[0]):
             txt += "model "+cvt.cfg["default_model_prefix"]+mt+" "+module+"\n"
     
     common_include = os.path.join(tech_src, "..", "..", "vacask", "models", "sg13g2_vacask_common.lib")

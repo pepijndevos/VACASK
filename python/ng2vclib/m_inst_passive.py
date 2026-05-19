@@ -38,7 +38,7 @@ class InstancePassiveMixin:
         else:
             # Have model
             if mod_index==2:
-                # Thrrd entry, immediately after terminals, no value
+                # Third entry, immediately after terminals, no value
                 psplit = []
                 model = annot["output_mod_name"]
                 params = parts[3:]
@@ -52,7 +52,7 @@ class InstancePassiveMixin:
                 raise ConverterError("Cannot handle model at position "+str(mod_index+1)+".")
 
         # Process parameters
-        psplit = self.process_instance_params(params, "r", handle_m=True, in_sub=in_sub)
+        psplit += self.process_instance_params(params, "r", handle_m=True, in_sub=in_sub)
                 
         txt = lws + annot["output_name"] + " (" + (" ".join(terminals))+") "+model+" "
 
@@ -111,7 +111,7 @@ class InstancePassiveMixin:
                 raise ConverterError("Cannot handle model at position "+str(mod_index+1)+".")
 
         # Process parameters
-        psplit = self.process_instance_params(params, "c", handle_m=True, in_sub=in_sub)
+        psplit += self.process_instance_params(params, "c", handle_m=True, in_sub=in_sub)
                 
         txt = lws + annot["output_name"] + " (" + (" ".join(terminals))+") "+model+" "
 
@@ -170,7 +170,7 @@ class InstancePassiveMixin:
                 raise ConverterError("Cannot handle model at position "+str(mod_index+1)+".")
 
         # Process parameters
-        psplit = self.process_instance_params(params, "l", handle_m=True, in_sub=in_sub)
+        psplit += self.process_instance_params(params, "l", handle_m=True, in_sub=in_sub)
                 
         txt = lws + annot["output_name"] + " (" + (" ".join(terminals))+") "+model+" "
 

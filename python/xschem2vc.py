@@ -65,8 +65,8 @@ def convert(fname, cvt=simple_patcher):
         
     # Write format_spectre
     if format_spectre_line is not None:
-        # Nothing to do
-        pass
+        # Replace existing spectre_format= line with freshly computed value
+        orig_lines[format_spectre_line] = fstxt
     else:
         orig_lines.insert(format_line+1, fstxt)
     
@@ -88,6 +88,6 @@ if __name__=="__main__":
     path_pfx = os.path.join(pdkroot, pdk, "libs.tech", "xschem")
 
     fname = os.path.join(path_pfx, "sg13g2_pr/sg13_hv_nmos.sym")
-    convert(fname, None)
+    convert(fname)
     
     

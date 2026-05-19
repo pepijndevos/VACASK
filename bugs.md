@@ -400,104 +400,104 @@ The condition `ndx+1 > len(sys.argv)` is always false when the `else` branch is 
 
 ## python/ng2vclib/generators.py
 
-- [ ] **71. Mutable default argument `input_history=[]`** ([python/ng2vclib/generators.py:4](python/ng2vclib/generators.py#L4))
+- [x] **71. Mutable default argument `input_history=[]`** ([python/ng2vclib/generators.py:4](python/ng2vclib/generators.py#L4))
 The `traverse` generator uses `[]` as the default for `input_history`. In Python, mutable default arguments are shared across all calls; any mutation of the list in one call persists into the next call that uses the default.
 
-- [ ] **72. Missing space before section name in error message** ([python/ng2vclib/generators.py:76](python/ng2vclib/generators.py#L76))
+- [x] **72. Missing space before section name in error message** ([python/ng2vclib/generators.py:76](python/ng2vclib/generators.py#L76))
 `"included as section"+sec+" on line "` concatenates the section name directly to `"section"` with no space. The message prints as e.g. `"included as sectionmylib on line 5"`.
 
 ---
 
 ## python/ng2vclib/m_file.py
 
-- [ ] **73. Bare `except:` swallows all exceptions** ([python/ng2vclib/m_file.py:141](python/ng2vclib/m_file.py#L141))
+- [x] **73. Bare `except:` swallows all exceptions** ([python/ng2vclib/m_file.py:141](python/ng2vclib/m_file.py#L141))
 `except:` catches `BaseException` including `KeyboardInterrupt` and `SystemExit`, then raises a `ConverterError` with no exception chaining, discarding the original error. Should be `except OSError as e: raise ConverterError(...) from e`.
 
-- [ ] **74. `s[:-1]` silently produced when `.lib` line has no whitespace at depth 0** ([python/ng2vclib/m_file.py:294](python/ng2vclib/m_file.py#L294))
+- [x] **74. `s[:-1]` silently produced when `.lib` line has no whitespace at depth 0** ([python/ng2vclib/m_file.py:294](python/ng2vclib/m_file.py#L294))
 When `sndx = s.rfind(" ")` returns -1 (no space found), the error is only raised when `depth > 0`. At depth 0 the code falls through to `lfname = s[:sndx].strip()` where `sndx == -1`, so Python evaluates `s[:-1]`, silently dropping the last character of the string and producing a wrong filename.
 
 ---
 
 ## python/ng2vclib/m_masters.py
 
-- [ ] **75. `annot["orig_name"]` stores lowercased name instead of original case** ([python/ng2vclib/m_masters.py:101](python/ng2vclib/m_masters.py#L101))
+- [x] **75. `annot["orig_name"]` stores lowercased name instead of original case** ([python/ng2vclib/m_masters.py:101](python/ng2vclib/m_masters.py#L101))
 Line 86 extracts `orig_name = orig_parts[0]` (original-case name), but line 101 writes `annot["orig_name"] = name` (the lowercased name). The `orig_name` annotation always holds the lowercased version, defeating its purpose for the `original_case_instance` config option.
 
-- [ ] **76. `NameError`: undefined `ll` should be `l1`** ([python/ng2vclib/m_masters.py:138](python/ng2vclib/m_masters.py#L138))
+- [x] **76. `NameError`: undefined `ll` should be `l1`** ([python/ng2vclib/m_masters.py:138](python/ng2vclib/m_masters.py#L138))
 `pat_preosdi.match(ll)` references `ll`, which is never defined in this scope. The variable extracted on lines 135-137 is `l1`. The code raises `NameError` on every pre-OSDI comment line encountered during pass 1.
 
-- [ ] **77. Version string parsed as `int` but `family_map` uses string keys** ([python/ng2vclib/m_masters.py:213](python/ng2vclib/m_masters.py#L213))
+- [x] **77. Version string parsed as `int` but `family_map` uses string keys** ([python/ng2vclib/m_masters.py:213](python/ng2vclib/m_masters.py#L213))
 `version = int(pval)` will raise `ValueError` for any non-integer version string (e.g. `"3.3"`), and even when it succeeds the wrong type is stored — `family_map` in `dfl.py` uses string keys for version.
 
 ---
 
 ## python/ng2vclib/m_inst_passive.py
 
-- [ ] **78. Component value overwritten by `process_instance_params` in R/C/L handlers** ([python/ng2vclib/m_inst_passive.py:55](python/ng2vclib/m_inst_passive.py#L55))
+- [x] **78. Component value overwritten by `process_instance_params` in R/C/L handlers** ([python/ng2vclib/m_inst_passive.py:55](python/ng2vclib/m_inst_passive.py#L55))
 In `process_instance_r`, the value entry `[("r", self.format_value(parts[2]))]` is carefully placed in `psplit` on lines 30 or 47. Line 55 then overwrites `psplit` entirely with the return of `process_instance_params`, discarding the value entry. The same bug exists in `process_instance_c` and `process_instance_l`. Component values specified as positional arguments (not as `r=`, `c=`, `l=`) are silently dropped from the output.
 
 ---
 
 ## python/ng2vclib/m_inst_q.py
 
-- [ ] **79. Missing space between model name and parameters** ([python/ng2vclib/m_inst_q.py:41](python/ng2vclib/m_inst_q.py#L41))
+- [x] **79. Missing space between model name and parameters** ([python/ng2vclib/m_inst_q.py:41](python/ng2vclib/m_inst_q.py#L41))
 `txt += fmted` appends formatted parameters with no leading space. Every other instance handler uses `txt += " " + fmted`. The generated BJT instance line will have no space between the model name and the first parameter.
 
 ---
 
 ## python/ng2vclib/m_inst_x.py
 
-- [ ] **80. `original_case_subckt` condition is inverted** ([python/ng2vclib/m_inst_x.py:24](python/ng2vclib/m_inst_x.py#L24))
+- [x] **80. `original_case_subckt` condition is inverted** ([python/ng2vclib/m_inst_x.py:24](python/ng2vclib/m_inst_x.py#L24))
 When `original_case_subckt` is `True`, `output_model` is set to `annot["mod_name"]` (the lowercased name). When it is `False`, `output_model` is set to `annot["orig_mod_name"]` (the original-case name). The branches are swapped: `True` should use the original-case name and `False` should use the lowercased name.
 
 ---
 
 ## python/ng2vclib/m_model.py
 
-- [ ] **81. `len(params)>=0` is always `True`** ([python/ng2vclib/m_model.py:55](python/ng2vclib/m_model.py#L55))
+- [x] **81. `len(params)>=0` is always `True`** ([python/ng2vclib/m_model.py:55](python/ng2vclib/m_model.py#L55))
 List length is never negative, so the condition never suppresses the parameter block. When `params` is empty and `paren` is `False`, a spurious blank formatted line is appended. The condition should be `len(params)>0`.
 
 ---
 
 ## python/ng2vclib/m_params.py
 
-- [ ] **82. `psplit[ii]` uses last-loop index instead of `mfact_index`** ([python/ng2vclib/m_params.py:189](python/ng2vclib/m_params.py#L189))
+- [x] **82. `psplit[ii]` uses last-loop index instead of `mfact_index`** ([python/ng2vclib/m_params.py:189](python/ng2vclib/m_params.py#L189))
 After the `for ii, split in enumerate(splits):` loop, `ii` holds the index of the last element. Line 189 writes `psplit[ii] = (psplit[ii][0], "("+psplit[ii][1]+")*"+m_chain)` intending to update the `$mfactor` entry, but `mfact_index` (set on line 182) is ignored. If `$mfactor` is not the last parameter, the wrong entry is multiplied.
 
-- [ ] **83. Mutable default argument `to_remove=set()` in `remove_params`** ([python/ng2vclib/m_params.py:207](python/ng2vclib/m_params.py#L207))
+- [x] **83. Mutable default argument `to_remove=set()` in `remove_params`** ([python/ng2vclib/m_params.py:207](python/ng2vclib/m_params.py#L207))
 The shared mutable default set is reused across all calls; any mutation would persist. Should be `to_remove=None` with an `if to_remove is None: to_remove = set()` guard.
 
-- [ ] **84. Mutable default argument `vecnames=set()` in `merge_vectors`** ([python/ng2vclib/m_params.py:222](python/ng2vclib/m_params.py#L222))
+- [x] **84. Mutable default argument `vecnames=set()` in `merge_vectors`** ([python/ng2vclib/m_params.py:222](python/ng2vclib/m_params.py#L222))
 Same mutable default argument problem as bug 83.
 
-- [ ] **85. Missing `ndx += 1` in `merge_vectors` while loop causes infinite loop** ([python/ng2vclib/m_params.py:237](python/ng2vclib/m_params.py#L237))
+- [x] **85. Missing `ndx += 1` in `merge_vectors` while loop causes infinite loop** ([python/ng2vclib/m_params.py:237](python/ng2vclib/m_params.py#L237))
 Inside `while ndx < len(params):`, `ndx` is never incremented. When a vector parameter entry ends with a comma (triggering the loop), the same `params[ndx]` is read indefinitely and `merged` grows without bound.
 
 ---
 
 ## python/sg13g2tovc.py
 
-- [ ] **86. `finditer` searches full `line` instead of post-`@model` substring `line2`** ([python/sg13g2tovc.py:125](python/sg13g2tovc.py#L125))
+- [x] **86. `finditer` searches full `line` instead of post-`@model` substring `line2`** ([python/sg13g2tovc.py:125](python/sg13g2tovc.py#L125))
 Lines 121-122 split `line` into `line1` (before `@model`) and `line2` (after `@model`), but line 125 runs `pat_identifier_assign.finditer(line)` over the full original `line`. Identifiers that appear before `@model` (e.g. `spectre_format=`) are incorrectly lowercased. `line1` and `line2` are dead variables.
 
-- [ ] **87. Loop variable `file` shadowed by inner assignment** ([python/sg13g2tovc.py:291](python/sg13g2tovc.py#L291))
+- [x] **87. Loop variable `file` shadowed by inner assignment** ([python/sg13g2tovc.py:291](python/sg13g2tovc.py#L291))
 Inside the `for file, read_process_depth, output_depth, destpath in tech_files:` loop, lines 290-291 execute `file, _, _ = cvt.cfg["family_map"][k]`, rebinding `file` to a different value for the remainder of that outer-loop body.
 
 ---
 
 ## python/vacaskpp.py
 
-- [ ] **88. `NameError` when input has no NaN bins** ([python/vacaskpp.py:53](python/vacaskpp.py#L53))
+- [x] **88. `NameError` when input has no NaN bins** ([python/vacaskpp.py:53](python/vacaskpp.py#L53))
 In `logBinMean`, `fret` and `Pret` are only assigned inside `if idx.size > 0:`. When `Pb` contains no NaN values (the common case), the `if` body is skipped and `return fret, Pret` on line 53 raises `NameError` because neither name is defined.
 
 ---
 
 ## python/xschem2vc.py
 
-- [ ] **89. `convert(fname, None)` deletes `.orig` backup then raises** ([python/xschem2vc.py:91](python/xschem2vc.py#L91))
+- [x] **89. `convert(fname, None)` deletes `.orig` backup then raises** ([python/xschem2vc.py:91](python/xschem2vc.py#L91))
 In the `__main__` block, `convert` is called with `cvt=None`, overriding the default `simple_patcher`. Inside `convert`, `None` is neither a `str` nor callable, so the `else` branch (lines 62-64) runs: `os.remove(origfile)` destroys the backup, then `raise Exception(...)` is raised. The caller likely intended to use the default patcher by omitting the second argument.
 
-- [ ] **90. Existing `spectre_format=` line is never updated** ([python/xschem2vc.py:67](python/xschem2vc.py#L67))
+- [x] **90. Existing `spectre_format=` line is never updated** ([python/xschem2vc.py:67](python/xschem2vc.py#L67))
 When `format_spectre_line is not None` (the line already exists), the `pass` block discards `fstxt` — the freshly computed corrected value — and the file is still rewritten from `orig_lines` (lines 74-76) without any change. A stale or incorrect `spectre_format=` value is silently preserved on re-conversion.
 
 ---

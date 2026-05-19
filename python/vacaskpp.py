@@ -49,6 +49,10 @@ def logBinMean(f, Pxx, binsPerDecade=10):
         # Up to ifirst copy original f and Pxx
         fret = np.concatenate((f[:ilast+1], fb[ifirst:]))
         Pret = np.concatenate((Pxx[:ilast+1], Pb[ifirst:]))
-    
+    else:
+        # No nan bins, return binned arrays directly
+        fret = fb
+        Pret = Pb
+
     return fret, Pret
     
