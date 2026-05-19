@@ -92,7 +92,7 @@ public:
     // Reset the sensitivity state before a new shooting iteration.
     // Sets phiCurrent_ = I and clears phiHist_.
     // Must be called by PssCore before each run().
-    void clearTrajectory();
+    void clearTrajectory(double T0);
 
     // Populate preprocessedIc with all circuit unknowns from x0 so that
     // TranCore's UIC branch (nrSolver.setForces then solution = unknownValue_)
@@ -129,10 +129,16 @@ private:
     // Equals PhiT after the shoot completes.
     DenseMatrix<double> phiCurrent_;
 
+    // Current period sensitivity vector Psi(t)
+    Vector<double> psiCurrent_;
+
     // Circular history of past Phi matrices, depth <= p (BDF order).
     // phiHist_[0] = Phi at the previous accepted step, etc.
     // Stored column-major to match phiCurrent_.
     std::deque<DenseMatrix<double>> phiHist_;
+
+    // Circular history of past Psi matrices
+    std::deque<Vector<double>> psiHist_;
 
     // Factored Alr = G + alpha*C from the most-recent accepted step.
     // Rebuilt in onTimestepAccepted(), reused in integrateSensitivity()
@@ -146,6 +152,12 @@ private:
 
     // Circular history of past reactive Jacobians C_k.
     std::deque<Vector<double>> cHistData_;
+
+    // Circular history of past reactive residuals q_k
+    std::deque<Vector<double>> qHistData_;
+
+    // Current period guess (needed for psi integration)
+    double T0_;
 
     // Leading LMS coefficient alpha and leading quadrature weight b1
     // from the most-recent accepted step.  Together they give 1/h = alpha*b1,

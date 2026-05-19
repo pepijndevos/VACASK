@@ -237,7 +237,7 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
     // Obtain x_T^(0) by running a transient simulation for T_0 seconds
     solution.vector() = x0;
     pssTran_.setShootIC(x0);
-    pssTran_.clearTrajectory();
+    pssTran_.clearTrajectory(T0);
     if (!runShoot(T0, s)) {
         setError(PssError::ShootFailed);
         co_yield CoreState::Aborted;
@@ -313,7 +313,7 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
             //for (decltype(n) i = 0; i <= n; i++) Fp[n] += alpha[i] * x0[i];
             // Augment the Jacobian
             // Right column: PsiT
-            for (decltype(n) i = 0; i < n; i++) Jp.at(i, n) = PsiT[i + 1];
+            for (decltype(n) i = 0; i < n; i++) Jp.at(i, n) = -PsiT[i + 1];
             // Bottom row: alpha^T
             for (decltype(n) j = 0; j < n; j++) Jp.at(n, j) = alpha[j + 1];
         }
@@ -333,7 +333,7 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
         // Get new xT
         solution.vector() = x0;
         pssTran_.setShootIC(x0);
-        pssTran_.clearTrajectory();
+        pssTran_.clearTrajectory(T0);
         if (!runShoot(T0, s)) {
             setError(PssError::ShootFailed);
             co_yield CoreState::Aborted;
@@ -383,7 +383,7 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
         }
         solution.vector() = x0;
         pssTran_.setShootIC(x0);
-        pssTran_.clearTrajectory();
+        pssTran_.clearTrajectory(T0);
         if (!runShoot(T0, s)) {
             setError(PssError::ShootFailed);
             co_yield CoreState::Aborted;
@@ -400,9 +400,9 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
 // ----------------------------------------------------------------
 
 bool PssCore::runStabilisation(Status& s) {
-    params.stabilParams.step    = params.Tper / 100.0;
+    params.stabilParams.step    = params.Tper / 1000.0;
     params.stabilParams.stop    = params.Tstab;
-    params.stabilParams.maxstep = params.Tper / 10.0;
+    params.stabilParams.maxstep = params.Tper / 1000.0;
     params.stabilParams.start   = 0.0;
     params.stabilParams.write   = params.writestab;
 
@@ -442,7 +442,7 @@ bool PssCore::runStabilisation(Status& s) {
 bool PssCore::runShoot(double T0, Status& s) {
     params.shootParams.stop    = T0;
     params.shootParams.step    = T0 / 1e3;
-    params.shootParams.maxstep = T0 / 0.1e3;
+    params.shootParams.maxstep = T0 / 1e3;
     params.shootParams.start   = 0.0;
     params.shootParams.icmode  = TranCore::icmodeUic;
     // write is left as-is: 0 during Newton iterations, 1 for the final output shoot.
@@ -478,188 +478,6 @@ bool PssCore::runSensitivity(
             s.set(Status::Analysis, "PSS sensitivity integration failed.");
             return false;
         }
-    }
-
-    return true;
-}
-
-
-
-// ----------------------------------------------------------------
-// Newton step
-// ----------------------------------------------------------------
-
-bool PssCore::solveNewtonStep(
-    Vector<double>&       x0,
-    const Vector<double>& xT,
-    DenseMatrix<double>&  PhiT,
-    Status& s
-) {
-    auto n = circuit.unknownCount();
-
-    // Shooting residual.
-    Vector<double> Fp(n, 0.0);
-    for (decltype(n) i = 0; i < n; i++) {
-        Fp[i] = x0[i + 1] - xT[i + 1];
-    }
-
-    // Regular (n) x (n) Newton system:
-    //
-    //   Jp = | I - PhiT |
-
-    DenseMatrix<double> Jp(n, n);
-
-    // Jacobian: I - PhiT
-    for (decltype(n) i = 0; i < n; i++) {
-        for (decltype(n) j = 0; j < n; j++) {
-            Jp.at(i, j) = (i == j ? 1.0 : 0.0) - PhiT.at(i, j);
-        }
-    }
-    
-    {
-        std::stringstream ss;
-        ss << std::scientific << std::setprecision(4);
-        ss << "PSS: Jp=\n";
-        for (decltype(n) i = 0; i < n; i++) {
-            ss << "  [ ";
-            for (decltype(n) j = 0; j < n; j++) ss << Jp.at(i, j) << " ";
-            ss << "]  Fp=" << Fp[i] << "\n";
-        }
-        Simulator::dbg() << ss.str();
-    }
-
-    // Solve in place via dense LU factorisation.
-    VectorView<double> FpView(Fp);
-    if (!Jp.destructiveSolve(FpView)) {
-        s.set(Status::Analysis, "PSS: Newton system is singular.");
-        return false;
-    }
-    // Fp now holds dx0.
-    
-    for (decltype(n) i = 0; i < n; i++) {
-        x0[i + 1] -= FpView[i];
-    }
-
-    return true;
-}
-
-
-// ----------------------------------------------------------------
-// Augmeneted Newton step
-// ----------------------------------------------------------------
-
-bool PssCore::solveAugmentedNewtonStep(
-    Vector<double>&       x0,
-    double&               T0,
-    const Vector<double>& xT,
-    DenseMatrix<double>&  PhiT,
-    const Vector<double>& PsiT,
-    Status& s
-) {
-    auto n = circuit.unknownCount();
-
-    // Shooting residual.
-    Vector<double> Fp(n + 1, 0.0);
-    for (decltype(n) i = 1; i <= n; i++) {
-        Fp[i] = x0[i] - xT[i];
-    }
-
-    // Phase constraint vector.
-    Vector<double> alpha(n + 1, 0.0);
-    computePhaseConstraint(x0, T0, PsiT, alpha);
-
-    // Augmented (n+1) x (n+1) Newton system:
-    //
-    //   Jaug = | I - PhiT   PsiT |
-    //          | alpha^T    0    |
-    //
-    //   Frhs = | Fp              |
-    //          | alpha^T * x0    |
-
-    DenseMatrix<double> Jaug(n + 1, n + 1);
-    DenseMatrix<double> RHS(n + 1, 1);
-
-    // Top-left block: I - PhiT
-    for (decltype(n) i = 0; i < n; i++) {
-        for (decltype(n) j = 0; j < n; j++) {
-            Jaug.at(i, j) = (i == j ? 1.0 : 0.0) - PhiT.at(i, j);
-        }
-    }
-    // Top-right column: PsiT
-    for (decltype(n) i = 0; i < n; i++) {
-        Jaug.at(i, n) = PsiT[i + 1];
-    }
-    // Bottom-left row: alpha^T
-    for (decltype(n) j = 0; j < n; j++) {
-        Jaug.at(n, j) = alpha[j + 1];
-    }
-    // Bottom-right: 0
-    Jaug.at(n, n) = 0.0;
-
-    // RHS
-    for (decltype(n) i = 0; i < n; i++) {
-        RHS.at(i, 0) = Fp[i + 1];
-    }
-    // Phase constraint row: alpha^T * dx0 = 0.
-    // This constrains the Newton correction to be perpendicular to alpha
-    // (no phase shift), leaving the phase wherever it happens to be.
-    // Using a nonzero RHS here would attempt a simultaneous phase correction
-    // that dwarfs the shooting residual and destroys convergence.
-    RHS.at(n, 0) = 0.0;
-
-    {
-        std::stringstream ss;
-        ss << std::scientific << std::setprecision(4);
-        ss << "PSS: Jaug=\n";
-        for (decltype(n) i = 0; i <= n; i++) {
-            ss << "  [ ";
-            for (decltype(n) j = 0; j <= n; j++) ss << Jaug.at(i, j) << " ";
-            ss << "]  rhs=" << RHS.at(i, 0) << "\n";
-        }
-        Simulator::dbg() << ss.str();
-    }
-
-    // Solve in place via dense LU factorisation.
-    auto rhsView = RHS.column(0);
-    if (!Jaug.destructiveSolve(rhsView)) {
-        s.set(Status::Analysis, "PSS: augmented Newton system is singular.");
-        return false;
-    }
-    // rhsView now holds [dx0; dT0].
-    /*
-    // Step-size limiting: scale down the full Newton step if any component
-    // changes more than 50% relative to its current magnitude.
-    double scale = 1.0;
-    for (decltype(n) i = 0; i < n; i++) {
-        double rel = std::abs(rhsView[i]) / (std::abs(x0[i + 1]) + 1e-12);
-        if (rel > 0.5) scale = std::min(scale, 0.5 / rel);
-    }
-    {
-        double relT = std::abs(rhsView[n]) / T0;
-        if (relT > 0.5) scale = std::min(scale, 0.5 / relT);
-    }
-    
-    {
-        std::stringstream ss;
-        ss << std::scientific << std::setprecision(4);
-        ss << "PSS: Newton step scale=" << scale
-           << "  dx0=[ ";
-        for (decltype(n) i = 0; i < n; i++) ss << rhsView[i] << " ";
-        ss << "]  dT0=" << rhsView[n] << " s\n";
-        Simulator::dbg() << ss.str();
-    }
-    */
-
-    for (decltype(n) i = 0; i < n; i++) {
-        x0[i + 1] -= rhsView[i];
-    }
-    T0 -= rhsView[n];
-
-    if (T0 <= 0) {
-        s.set(Status::Analysis,
-              "PSS: period estimate is negative after Newton step. "
-              "Check Tper initial guess.");
-        return false;
     }
 
     return true;

@@ -10,6 +10,7 @@
 #include "simulator.h"
 #include "common.h"
 #include <deque>
+#include <utility>
 
 namespace NAMESPACE {
 
@@ -84,7 +85,9 @@ void PssTranCore::setShootIC(const Vector<double>& x0) {
 // clearTrajectory
 // ----------------------------------------------------------------
 
-void PssTranCore::clearTrajectory() {
+void PssTranCore::clearTrajectory(double T0) {
+    T0_ = T0;
+
     phiHist_.clear();
     lastAlpha_ = 0.0;
     phiValid_  = false;
@@ -94,21 +97,28 @@ void PssTranCore::clearTrajectory() {
     phiCurrent_.identity();
 
     cHistData_.clear();
+    qHistData_.clear();
     prevCValid_ = false;
 
-    // Get C_0 by evaluating the reactive jacobian at this point
+    psiHist_.clear();
+    psiCurrent_.assign(n, 0.0);
+
+    // Get C_0 and q_0 by evaluating the reactive jacobian and residual at this point
+    Vector<double> qSnap(n + 1, 0.0);
     jacobian.zero();
     EvalSetup es = getNrSolver().evalSetup();
     es.evaluateResistiveJacobian = false;
     es.evaluateReactiveJacobian  = true;
     es.evaluateResistiveResidual = false;
-    es.evaluateReactiveResidual  = false;
+    es.evaluateReactiveResidual  = true;
+    es.storeReactiveState        = true;
     es.evaluateOutvars           = false;
     es.allowBypass               = false;
 
     LoadSetup ls;
     ls.loadReactiveJacobian   = true;
     ls.reactiveJacobianFactor = 1.0;
+    ls.reactiveResidual       = qSnap.data();
 
     if (!circuit.evalAndLoad(commons, &es, &ls, nullptr)) {
         Simulator::err() << "PssTranCore: evalAndLoad(C) failed for C(x_0) \n";
@@ -118,6 +128,8 @@ void PssTranCore::clearTrajectory() {
     // Snapshot C_0 and add it to history
     Vector<double> cSnap(jacobian.data(), jacobian.data() + jacobian.nnz());
     cHistData_.push_front(std::move(cSnap));
+    // Add q_0 to history
+    qHistData_.push_front(std::move(qSnap));
 }
 
 
@@ -136,6 +148,13 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
         phiHist_.push_front(std::move(id));
     }
 
+    // Expand psiHist with zero matrices during ramp-up
+    while (psiHist_.size() < order) {
+        Vector<double> z(n, 0.0);
+        psiHist_.push_front(std::move(z));
+    }
+
+
     // Get Alr = G_k + alpha_k * C_k from the factored NR jacobian
     std::copy(jacobian.data(), jacobian.data() + nnz, lastAlr_.data());
     if (!lastAlr_.refactor()) {
@@ -144,19 +163,24 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
         return false;
     }
 
-    // Get the current C_k by using evalAndLoad. Will be saved to jacobian
+    // Allocate buffer for q(x_k) with bucket at index 0
+    Vector<double> qSnap(n + 1, 0.0);
+
+    // Get the current C_k and q(x_k) by using evalAndLoad. C_k will be saved to jacobian
     jacobian.zero();
     EvalSetup es = getNrSolver().evalSetup();
     es.evaluateResistiveJacobian = false;
     es.evaluateReactiveJacobian  = true;
     es.evaluateResistiveResidual = false;
-    es.evaluateReactiveResidual  = false;
+    es.evaluateReactiveResidual  = true;
+    es.storeReactiveState        = true;
     es.evaluateOutvars           = false;
     es.allowBypass               = false;
 
     LoadSetup ls;
     ls.loadReactiveJacobian   = true;
     ls.reactiveJacobianFactor = 1.0;
+    ls.reactiveResidual       = qSnap.data();
 
     if (!circuit.evalAndLoad(commons, &es, &ls, nullptr)) {
         Simulator::err() << "PssTranCore: evalAndLoad(C) failed at t="
@@ -222,6 +246,39 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
     }
     phiCurrent_ = rhs;   // rhs now holds PhiT at this step
 
+    /// Psi integration
+    Vector<double> psiRhs(n, 0.0);
+
+    // First sum (history terms): \sum_{i=0}^{p-1} \gamma_i C_{k-i} Psi_{k-i}
+    Vector<double> Psi_kmi;
+    Vector<double> c_psi(n, 0.0);  // Where the product C_{k-i} Psi_{k-i} will be stored
+    for (int p=0; p < order; p++) {
+        C_kmi   = cHistData_[p];
+        Psi_kmi = psiHist_[p];
+        
+        std::copy(C_kmi.begin(), C_kmi.end(), scratchC_.data());
+        if (!scratchC_.product(Psi_kmi.data(), c_psi.data())) {
+            Simulator::err() << "PssTranCore: C*psi product failed at t=" << tSolve << "\n";
+            return false;
+        }
+        for (decltype(n) i = 0; i < n; i++) psiRhs[i] += gamma[p] * c_psi[i];
+    }
+
+    // Second sum: \sum_{i=0}^{p-1} \frac{\alpha}{T_0} a_i q_{k-i}
+    for (int p=0; !a.empty() && p < std::min(order, (Int)a.size()); p++) {
+        for (decltype(n) i = 0; i < n; i++) psiRhs[i] -= (alpha / T0_) * a[p] * qHistData_[p][i + 1];
+    }
+
+    // Reactive residual term
+    for (decltype(n) i = 0; i < n; i++) psiRhs[i] += (alpha / T0_) * qSnap[i + 1];
+
+    // Solve for \psi_{k+1}
+    if (!lastAlr_.solve(psiRhs.data())) {
+        Simulator::err() << "PssTranCore: psi solve failed at t=" << tSolve << "\n";
+        return false;
+    }
+    psiCurrent_ = psiRhs;   // psiRhs now holds psi_{k+1}
+
     // Add Phi to history
     DenseMatrix<double> phiSnap(phiCurrent_);
     phiHist_.push_front(std::move(phiSnap));
@@ -230,10 +287,18 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
     /// TODO: Does jacobian sparsity change? It shouldn't
     cHistData_.push_front(std::move(cSnap));
 
+    // Add q(x_k) to history
+    qHistData_.push_front(std::move(qSnap));
+
+    // Add psi to history
+    psiHist_.push_front(psiCurrent_);
+
     // Trim Phi history
     while (phiHist_.size() > order + 1) phiHist_.pop_back();
     // Trim C history
     while (cHistData_.size() > order + 1) cHistData_.pop_back();
+    // Trim q histroy
+    while (qHistData_.size() > order + 1) qHistData_.pop_back();
 
     phiValid_ = true;
     return true;
@@ -277,11 +342,10 @@ bool PssTranCore::integrateAugmentedSensitivity(
     PhiT = phiCurrent_;
 
     auto n = circuit.unknownCount();
-
     PsiT.resize(n + 1);
     PsiT[0] = 0.0;
     for (decltype(n) i = 0; i < n; i++) {
-        PsiT[i + 1] = lastAlpha_ * lastB1_ * x_laststep[i];
+        PsiT[i + 1] = psiCurrent_[i];
     }
 
     return true;
