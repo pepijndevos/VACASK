@@ -124,10 +124,15 @@ bool PssCore::finalizeOutputs(Status& s) {
 }
 
 bool PssCore::deleteOutputs(Id name, Status& s) {
-    // TranCore::deleteOutputs checks for params.write, which is always 0 here so the
-    // output will not be deleted. One option would be to force params.write=1 temporarily
-    // before calling pssTran_.deleteOutputs().
-    return pssTran_.deleteOutputs(name, s);
+    if (!params.write || Simulator::noOutput()) {
+        return true;
+    }
+    // Cannot assume outfile is available
+    auto fname = std::string(name)+".raw";
+    if (std::filesystem::exists(fname)) {
+        std::filesystem::remove(fname);
+    }
+    return true;
 }
 
 bool PssCore::formatError(Status& s) const {
@@ -362,7 +367,7 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
     
     if (!converged) {
         setError(PssError::NoConvergence);
-        co_yield CoreState::Finished;
+        co_yield CoreState::Aborted;
     }
 
     Simulator::dbg() << "PSS analysis finshed.\n";
