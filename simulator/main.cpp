@@ -309,7 +309,7 @@ int main(int argc, char**argv) {
     
     // Command interpreter
     CommandInterpreter interp(tab, tab.control(), cirObj);
-    interp.setPrintProgress(progress),
+    interp.setPrintProgress(progress);
     interp.setRunPostprocess(runPostprocess);
     
     // Run iterpreter

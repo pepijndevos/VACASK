@@ -92,7 +92,10 @@ private:
     RealVector noiseResidual;
     double noiseScale_;
     
-    // Make these thread-local when OpenMP is introduced
+    // Shared mutable scratch for noise loading.
+    // Pre-OpenMP gate: before enabling parallel evaluation, audit TranNRSolver for
+    // shared mutable state and convert these (and any peers added since) to
+    // thread-local storage. Today's single-threaded use is correct.
     RealVector noisePower;
     RealVector noiseExponent;
 

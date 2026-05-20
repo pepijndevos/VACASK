@@ -111,7 +111,6 @@ DevSourceInstanceParams::DevSourceInstanceParams() {
     phase = 0.0;
 }
 
-static ParameterIndex principal = std::get<0>(Introspection<DevSourceInstanceParams>::index("dc"));
 
 template<> int Introspection<DevVSourceInstanceData>::setup() {
     registerMember(v);
@@ -406,11 +405,13 @@ template<> const Device::Flags BuiltinISource::extraFlags =
     Device::Flags::GeneratesAC | Device::Flags::GeneratesDCIncremental;
 
 template<> std::tuple<ParameterIndex, bool> BuiltinVSourceInstance::principalParameterIndex() const {
-    return std::make_tuple(principal, true); 
+    static const auto pair = Introspection<DevSourceInstanceParams>::index("dc");
+    return pair;
 }
 
 template<> std::tuple<ParameterIndex, bool> BuiltinISourceInstance::principalParameterIndex() const {
-    return std::make_tuple(principal, true); 
+    static const auto pair = Introspection<DevSourceInstanceParams>::index("dc");
+    return pair;
 }
 
 template<> bool BuiltinVSourceInstance::deleteHierarchy(Circuit& circuit, Status& s) { 

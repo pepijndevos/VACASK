@@ -91,6 +91,11 @@ public:
 
     // Retrievers
     bool isString(FileStackFileIndex id) const;
+    // True iff id refers to an in-range file entry in `stack`.
+    // Excludes the strings namespace (id < 0) and the badFileId sentinel.
+    bool isFileEntry(FileStackFileIndex id) const {
+        return id >= 0 && static_cast<size_t>(id) < stack.size();
+    }
     const std::string& fileName(FileStackFileIndex id) const;
     const std::string& sectionName(FileStackFileIndex id) const;
     const std::string& canonicalName(FileStackFileIndex id) const;

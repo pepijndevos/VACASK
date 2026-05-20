@@ -182,51 +182,50 @@ bool FileStack::isString(FileStackFileIndex id) const {
 }
 
 const std::string& FileStack::fileName(FileStackFileIndex id) const {
-    if (id>=0) {
+    if (isFileEntry(id)) {
         return stack[id].fileName;
-    } else {
-        return blankString;
     }
+    return blankString;
 }
 
 const std::string& FileStack::sectionName(FileStackFileIndex id) const {
-    if (id>=0) {
+    if (isFileEntry(id)) {
         return stack[id].sectionName;
-    } else {
-        return blankString;
     }
+    return blankString;
 }
 
 const std::string& FileStack::canonicalName(FileStackFileIndex id) const {
-    if (id>=0) {
+    if (isFileEntry(id)) {
         return stack[id].canonicalName;
-    } else {
-        return blankString;
     }
+    return blankString;
 }
 
 FileStackFileIndex FileStack::parentId(FileStackFileIndex id) const {
-    if (id>=0) {
+    if (isFileEntry(id)) {
         return stack[id].parentId;
-    } else {
-        return 0;
     }
+    return 0;
 }
 
 SourceLineNumber FileStack::inclusionLine(FileStackFileIndex id) const {
-    if (id>=0) {
+    if (isFileEntry(id)) {
         return stack[id].inclusionLine;
-    } else {
-        return 0;
     }
+    return 0;
 }
 
 const char* FileStack::cString(FileStackFileIndex id) const {
-    if (id>=0) {
+    if (isFileEntry(id)) {
         return stack[id].stringPtr;
-    } else {
+    }
+    if (id < 0) {
         return rpnStringStack[-id-1];
     }
+    // Out-of-range positive id (e.g. badFileId).
+    DBGCHECK(true, "FileStack::cString called with an out-of-range file id.");
+    return "";
 }
 
 

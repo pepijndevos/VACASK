@@ -361,7 +361,7 @@ bool TranCore::populateStructures(Status& s) {
     // Go through node pairs and add entries to sparsity map
     for(auto& pair : preprocessedIc.nodePairs) {
         auto [node1, node2] = pair;
-        if (!node1 | !node2) {
+        if (!node1 || !node2) {
             // One of the two nodes was not found, ignore pair
             continue;
         }
@@ -371,7 +371,7 @@ bool TranCore::populateStructures(Status& s) {
             return false;
         }
         
-        if (auto [_, ok] = circuit.createJacobianEntry(node2, node1, EntryFlags::Resistive, s); ok) {
+        if (auto [_, ok] = circuit.createJacobianEntry(node2, node1, EntryFlags::Resistive, s); !ok) {
             return false;
         }
     }
@@ -674,6 +674,7 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
         // Check noise mode
         if (params.noisemode!=noiseZoh && params.noisemode!=noiseSde) {
             setError(TranError::NoiseMode);
+            co_yield CoreState::Aborted;
         }
 
         // Check noisefmax
@@ -946,7 +947,7 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
         co_yield CoreState::Aborted;
     }
     // First buildNoiseResidual() call just prepares flicker noise coefficients
-    // Noise samples are all 0 so the generated residual cointribution would also be 0. 
+    // Noise samples are all 0 so the generated residual contribution would also be 0. 
     if (noisefmax) {
         if (!nrSolver.collectNoiseScaling()) {
             setError(TranError::NRSolver);
@@ -1240,6 +1241,7 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
                         auto kdelta = k13-k02;
                         bool correct = false;
                         if (kdelta==0) {
+                            // Lower and upper envelope are parallel, correct
                             correct = true;
                         } else {
                             auto hcross = (x2+k02*hk1-x1)/kdelta;

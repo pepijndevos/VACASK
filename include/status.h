@@ -36,7 +36,8 @@ public:
         AbortRequested, 
         FinishRequested, 
         StopRequested, 
-        Process
+        Process, 
+        InternalError
     };
 
     inline Status(bool ignoreFlag=false) : ignoreFlag(ignoreFlag), error(false) {};

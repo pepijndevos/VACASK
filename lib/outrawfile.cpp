@@ -103,7 +103,7 @@ bool OutputRawfile::addPoint(Status& s) {
 bool OutputRawfile::epilogue(Status& s) {
     outStream.seekp(pointCountPos);
     outStream << count;
-    outStream.seekp(outStream.end);
+    outStream.seekp(0, std::ios_base::end);
     outStream.close(); 
 
     return true;

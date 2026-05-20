@@ -155,9 +155,9 @@ template<> void BuiltinVccs::defineInternals() {
 
 template<> const Device::Flags BuiltinVccs::extraFlags = static_cast<Device::Flags>(0);
 
-static ParameterIndex principalVccs = std::get<0>(Introspection<DevCctlSourceInstanceParams>::index("gain"));
 template<> std::tuple<ParameterIndex, bool> BuiltinVccsInstance::principalParameterIndex() const {
-    return std::make_tuple(principalVccs, true); // gain
+    static const auto pair = Introspection<DevCctlSourceInstanceParams>::index("gain");
+    return pair;
 }
 
 template<> bool BuiltinVccsInstance::deleteHierarchy(Circuit& circuit, Status& s) { 
@@ -304,9 +304,9 @@ template<> void BuiltinVcvs::defineInternals() {
 
 template<> const Device::Flags BuiltinVcvs::extraFlags = static_cast<Device::Flags>(0);
 
-static ParameterIndex principalVcvs = std::get<0>(Introspection<DevCctlSourceInstanceParams>::index("gain"));
 template<> std::tuple<ParameterIndex, bool> BuiltinVcvsInstance::principalParameterIndex() const {
-    return std::make_tuple(principalVcvs, true); // gain
+    static const auto pair = Introspection<DevCctlSourceInstanceParams>::index("gain");
+    return pair;
 }
 
 template<> bool BuiltinVcvsInstance::deleteHierarchy(Circuit& circuit, Status& s) { 
@@ -485,9 +485,9 @@ template<> void BuiltinCccs::defineInternals() {
 
 template<> const Device::Flags BuiltinCccs::extraFlags = static_cast<Device::Flags>(0);
 
-static ParameterIndex principalCccs = std::get<0>(Introspection<DevCctlSourceInstanceParams>::index("gain"));
 template<> std::tuple<ParameterIndex, bool> BuiltinCccsInstance::principalParameterIndex() const {
-    return std::make_tuple(principalCccs, true); // gain
+    static const auto pair = Introspection<DevCctlSourceInstanceParams>::index("gain");
+    return pair;
 }
 
 template<> bool BuiltinCccsInstance::deleteHierarchy(Circuit& circuit, Status& s) { 
@@ -630,9 +630,9 @@ template<> void BuiltinCcvs::defineInternals() {
 
 template<> const Device::Flags BuiltinCcvs::extraFlags = static_cast<Device::Flags>(0);
 
-static ParameterIndex principalCcvs = std::get<0>(Introspection<DevCctlSourceInstanceParams>::index("gain"));
 template<> std::tuple<ParameterIndex, bool> BuiltinCcvsInstance::principalParameterIndex() const {
-    return std::make_tuple(principalCcvs, true); // gain
+    static const auto pair = Introspection<DevCctlSourceInstanceParams>::index("gain");
+    return pair;
 }
 
 template<> bool BuiltinCcvsInstance::deleteHierarchy(Circuit& circuit, Status& s) { 
@@ -837,9 +837,9 @@ template<> void BuiltinMutual::defineInternals() {
 
 template<> const Device::Flags BuiltinMutual::extraFlags = static_cast<Device::Flags>(0);
 
-static ParameterIndex principalMutual = std::get<0>(Introspection<DevMutualInstanceParams>::index("k"));
 template<> std::tuple<ParameterIndex, bool> BuiltinMutualInstance::principalParameterIndex() const {
-    return std::make_tuple(principalMutual, true); // gain
+    static const auto pair = Introspection<DevMutualInstanceParams>::index("k");
+    return pair;
 }
 
 template<> std::tuple<bool, bool, bool> BuiltinMutualInstance::setupCore(Circuit& circuit, CommonData& commons, DeviceRequests* devReq, Status& s) {

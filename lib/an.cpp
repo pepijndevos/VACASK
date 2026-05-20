@@ -615,7 +615,7 @@ std::tuple<bool, bool> Analysis::run(Status& s) {
         if (coroutine_.done()) {
             // Coroutine reached its end
             // This is an internal error because before exit the state must be eiter Aborted or Finished
-            s.set(Status::AbortRequested, "Internal error. Coroutine exited without yielding Aborted or Finished.");
+            s.set(Status::InternalError, "Internal error. Coroutine exited without yielding Aborted or Finished.");
             ok = false;
             break;
         }

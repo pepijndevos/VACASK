@@ -373,11 +373,11 @@ Circuit::Circuit(ParserTables& tab, SourceCompiler* compiler, Status& s)
                     if (pat=="*" || pat==devName) {
                         // Match, replace "*" with devName in xform
                         asName = xform;
-                        do {
-                            auto pos = asName.find("*");
-                            if (pos != std::string::npos)
-                                asName.replace(pos, 1, devName);
-                        } while (pos!=std::string::npos);
+                        while (true) {
+                            auto starPos = asName.find("*");
+                            if (starPos == std::string::npos) break;
+                            asName.replace(starPos, 1, devName);
+                        }
                         accept = true;
                         break;
                     }
@@ -1270,8 +1270,10 @@ bool Circuit::mapUnknowns(Status& s) {
     // We don't need the map anymore
     unknownToNodes.clear();
 
-    // Set number of unknowns (do not cound ground)
-    unknownCountExcludingGround = atUnknown-1;
+    // Set number of unknowns (do not count ground).
+    // atUnknown includes the ground slot at index 0, so subtract it; guard the
+    // unsigned subtraction against the degenerate atUnknown==0 case.
+    unknownCountExcludingGround = atUnknown>0 ? atUnknown-1 : 0;
 
     // Create mapping from unknown to representative node
     // Go through all nodes, prefer nodes that are not internal
