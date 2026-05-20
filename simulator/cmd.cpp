@@ -546,7 +546,9 @@ bool cmd_elaborate(CommandInterpreter& interpreter, PTCommand& cmd, Status& s) {
         
         // Get topdef and topinst
         std::unordered_map<Id, Value> args;
-        evaluateArgs(cmd, interpreter.variableEvaluator(), args, s);
+        if (!evaluateArgs(cmd, interpreter.variableEvaluator(), args, s)) {
+            return false;
+        }
 
         std::string topDefName; 
         auto it1 = args.find("topdef");

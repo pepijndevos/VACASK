@@ -228,7 +228,7 @@ bool RpnEvaluator::evaluate(const Rpn& rpn, Value& result, Status& s) {
                 }
 
                 // Pop condition
-                if (!(branch && keepOnBranch || !branch && keepOnNoBranch)) {
+                if (!((branch && keepOnBranch) || (!branch && keepOnNoBranch))) {
                     stack_.pop();
                 }
                 break;

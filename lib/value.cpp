@@ -92,6 +92,10 @@ bool Value::convert(Type to, Value& dest, Status &s) {
     // Prepare destination
     if (dest.type_ != to) {
         dest.~Value();
+        // Only the heap-backed types need fresh storage allocated here.
+        // Int/Real live inline in the union, so they are intentionally absent;
+        // the dest.type_ = to assignment below tags every target and
+        // convertValue<...> writes the scalar straight into the union.
         switch (to) {
             case Type::String:
                 dest.sVal = new String();
@@ -164,10 +168,10 @@ bool Value::convertInPlace(Type to, Status &s) {
     // Conversion of empty vector to any other vector is possible
     if (isVector() && size()==0 && (to & ValueType::VectorBit)!=0) {
         switch (to) {
-            case Type::IntVec: *this = std::move(IntVector(0)); return true;
-            case Type::RealVec: *this = std::move(RealVector(0)); return true;
-            case Type::StringVec: *this = std::move(StringVector(0)); return true;
-            case Type::ValueVec: *this = std::move(ValueVector(0)); return true;
+            case Type::IntVec: *this = IntVector(0); return true;
+            case Type::RealVec: *this = RealVector(0); return true;
+            case Type::StringVec: *this = StringVector(0); return true;
+            case Type::ValueVec: *this = ValueVector(0); return true;
             default: return false;
         }
     }

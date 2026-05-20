@@ -49,8 +49,8 @@ void Status::extend(const Loc& point) {
 }
 
 void Status::prefix(const std::string& msg) {
-    if (!ignoreFlag) {
-        if (msg.size()>0) {
+    if (!ignoreFlag && msg.size()>0) {
+        if (message_.size()>0) {
             message_ = msg + "\n" + message_;
         } else {
             message_ = msg;

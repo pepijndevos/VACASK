@@ -97,7 +97,6 @@ bool OutputRawfile::addPoint(Status& s) {
                 outStream << "\t" << r << "\n";
             }
         }
-        outStream << "\n";
     }
     count++;
 
@@ -108,7 +107,11 @@ bool OutputRawfile::epilogue(Status& s) {
     outStream.seekp(pointCountPos);
     outStream << count;
     outStream.seekp(0, std::ios_base::end);
-    outStream.close(); 
+    // ASCII plots are separated by a blank line (binary plots are not).
+    if (!checkFlags(Flags::Binary)) {
+        outStream << "\n";
+    }
+    outStream.close();
 
     return true;
 }

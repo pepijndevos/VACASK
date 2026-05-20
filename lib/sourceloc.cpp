@@ -45,6 +45,12 @@ std::string Loc::toString() const {
     SourceColumnNumber column;
     auto [fileStack, fileId, line, offset] = data();
 
+    // The FileStack this location refers to may already be destroyed
+    // (lookup returns nullptr). Without it we cannot resolve file/line context.
+    if (!fileStack) {
+        return std::string("<unknown location>");
+    }
+
     const SourceColumnNumber maxFront = 35;
     const SourceColumnNumber maxLen = 70;
 
@@ -96,8 +102,11 @@ std::string Loc::toString() const {
         s << "\n";
 
         // Is it just a string with no inclusion history
+        // Keep the source-line + caret context already in s, then append the
+        // position and a <string input> marker in place of a filename/inclusion chain.
         if (fileStack->isString(fileId)) {
-            return std::string("<string input>");
+            s << line << ":" << column << " (0x" << std::hex << offset << std::dec << ") in <string input>";
+            return s.str();
         }
         s << line << ":" << column << " (0x" << std::hex << offset << std::dec << ")" << " in ";
         auto pos = fileId;

@@ -1,3 +1,4 @@
+#include <stdexcept>
 #include "an.h"
 #include "simulator.h"
 #include "common.h"
@@ -347,7 +348,7 @@ AnalysisCoroutine Analysis::coroutine(Status& s) {
             // Create coroutine, continue mode on if state has been restored
             auto cc = coreCoroutine(restoredState);
             while (cc) {
-                bool exitLoop;
+                bool exitLoop = false;
                 auto state = cc.resume();
                 switch (state) {
                     case CoreState::Aborted:
@@ -356,9 +357,10 @@ AnalysisCoroutine Analysis::coroutine(Status& s) {
                         s.extend("Analysis '"+std::string(name_)+"' aborted.");
                         s.extend("Sweep aborted @ "+sweeper.progress()+".");
                         co_yield AnalysisState::Aborted;
+                        break;
                     case CoreState::Finished:
-                        // If a core finishes, the analysis is not finished 
-                        // because we may still have some sweep points to process. 
+                        // If a core finishes, the analysis is not finished
+                        // because we may still have some sweep points to process.
                         if (sweepDebug>1) {
                             Simulator::dbg() << "Analysis '"+std::string(name_)+"' - finish requested.\n";
                             Simulator::dbg() << "Finishing sweep @ "+sweeper.progress()+".\n";
@@ -368,15 +370,18 @@ AnalysisCoroutine Analysis::coroutine(Status& s) {
                         break;
                     case CoreState::Stopped:
                         // Stopping a core stops the analysis (and sweep)
+                        // On resume we continue running this core (loop again).
                         if (sweepDebug>1) {
                             Simulator::dbg() << "Analysis '"+std::string(name_)+"' - stop requested.\n";
                             Simulator::dbg() << "Stopping sweep @ "+sweeper.progress()+".\n";
                         }
                         co_yield AnalysisState::Stopped;
+                        break;
                     default:
                         // Any other state we don't know aborts the analysis
                         s.set(Status::AbortRequested, "Yielded value not supported. Aborting analysis '"+std::string(name_)+"'.");
                         co_yield AnalysisState::Aborted;
+                        break;
                 }
                 if (exitLoop) {
                     break;
@@ -502,20 +507,24 @@ AnalysisCoroutine Analysis::coroutine(Status& s) {
                         formatCoreError(s);
                         s.extend("Analysis '"+std::string(name_)+"' aborted.");
                         co_yield AnalysisState::Aborted;
+                        break;
                     case CoreState::Finished:
                         if (sweepDebug>1) {
                             Simulator::dbg() << "Analysis '"+std::string(name_)+"' - finish requested.\n";
                         }
                         // THis is not a swept analysis - if core finishes, so does the analysis
                         co_yield AnalysisState::Finished;
+                        break;
                     case CoreState::Stopped:
                         if (sweepDebug>1) {
                             Simulator::dbg() << "Analysis '"+std::string(name_)+"' - stop requested.\n";
                         }
                         co_yield AnalysisState::Stopped;
+                        break;
                     default:
                         s.set(Status::AbortRequested, "Yielded value not supported. Aborting analysis.");
                         co_yield AnalysisState::Aborted;
+                        break;
                 }
             }
         }
@@ -548,9 +557,10 @@ bool Analysis::start(Status& s) {
 }
 
 AnalysisState Analysis::resume() {
-    // Cannot do this on a coroutine that is not running
+    // Resuming a coroutine that is not valid or already done is a usage error
+    // (resuming a finished coroutine is undefined behavior). Fail loudly.
     if (!coroutine_.isValid() || coroutine_.done()) {
-        return AnalysisState::Aborted;
+        throw std::runtime_error("resume() called on an invalid or finished analysis coroutine.");
     }
     lastCoroutineState = coroutine_.resume();
     return lastCoroutineState;
