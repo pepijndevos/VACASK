@@ -32,6 +32,7 @@
 #include "location.h"
 #include <utility>
 #include <tuple>
+#include <limits>
 #include <iostream>
 #include "common.h"
 
@@ -43,6 +44,12 @@ namespace NAMESPACE::dflparse {
 
 namespace NAMESPACE {
     // Stuff from library namespace
+    // Init-order safe: createStatic() depends on no other dynamic initializer.
+    // It touches only constant-initialized counters (nextStatic/nextOrdinary,
+    // set before all dynamic init) and Meyers-singleton pools/maps (built lazily
+    // on first use). As a startup-time namespace-scope static, saveCmd is interned
+    // before main(), i.e. before any ordinary "save" id could exist -- the intended
+    // usage documented in identifier.h (static ids created before ordinary ones).
     static Id saveCmd = Id::createStatic("save");
 }
 
@@ -237,6 +244,16 @@ typedef struct subckt {
 // Rules
 %%
 
+// Convention used throughout the actions below:
+// Freshly-built temporaries are wrapped in std::move(), e.g.
+//   $$ = std::move(PTInstance(...));
+// even though a temporary is already an rvalue. This is a deliberate, uniform
+// marker of move intent kept for consistency with the std::move() applied to
+// named semantic values such as std::move($2). On a prvalue it has no effect on
+// overload resolution (move-assignment is selected either way), so it is harmless
+// but also provides no extra safety here -- unlike on a named lvalue, where
+// omitting std::move() would silently downgrade a move to a copy.
+
 output
   : INNETLIST subckt_build END {
     // Toplevel circuit definition
@@ -249,11 +266,15 @@ output
     }
   }
   | INEXPR expr END {
-    // Parse an expression
+    // Parse an expression.
+    // No tables.verify() here: this path populates only *expressionPtr and
+    // builds nothing in tables that would require verification.
     *expressionPtr = std::move($2);
   }
   | INPARAMS opt_broken_parameter_list END {
-    // Parse a parameters list
+    // Parse a parameters list.
+    // No tables.verify() here: this path populates only *parametersPtr and
+    // builds nothing in tables that would require verification.
     *parametersPtr = std::move($2.params);
   }
 
@@ -272,7 +293,7 @@ subckt_build
     // Subcircuit definition start, no terminals
     $$.def = std::move(PTSubcircuitDefinition(
         $2, 
-        PTIdentifierList(), 
+        std::move(PTIdentifierList()),
         @1.loc()
     ));
     // This is not the toplevel definition
@@ -409,6 +430,9 @@ condblock_build
   }
   | condblock_build instance {
     $$ = std::move($1);
+    // back() is always valid here: the only base production (BLKIF expr NEWLINE)
+    // adds a block, and every other production keeps the sequence non-empty, so a
+    // reduced condblock_build always holds >=1 block. Same for the model/condblock cases.
     $$.back().add(std::move($2));
   }
   | condblock_build model {
@@ -564,12 +588,21 @@ expr
     auto needsConversion = !$3.endsWithMakeBoolean();
     $$.extend(std::move($1));
     $$.extend(Rpn::MakeBoolean(), @2.loc());
-    $$.extend(Rpn::Branch($3.size()+(needsConversion?1:0)+2, Rpn::BrFalse|Rpn::BrKeepOnBranch|Rpn::BrHidden), @2.loc());
-    $$.extend(std::move($3)); 
+    auto branchPos = $$.size();
+    auto branchOffset = $3.size()+(needsConversion?1:0)+2;
+    $$.extend(Rpn::Branch(branchOffset, Rpn::BrFalse|Rpn::BrKeepOnBranch|Rpn::BrHidden), @2.loc());
+    $$.extend(std::move($3));
     if (needsConversion) {
       $$.extend(Rpn::MakeBoolean(), @2.loc());
     }
-    $$.extend(Rpn::Op(Rpn::OpAnd), @2.loc());  
+    $$.extend(Rpn::Op(Rpn::OpAnd), @2.loc());
+    // The BrFalse branch must land just past op(and), i.e. at the end of the
+    // sequence built here. Catch silently-wrong offset arithmetic.
+    if (branchPos+branchOffset != $$.size()) {
+        status.set(Status::Unsupported, "Internal error: short-circuit '&&' branch offset is wrong.");
+        status.extend(@2.loc());
+        YYERROR;
+    }
   }
   | expr OR expr { 
     // short circuit (a || b) translation to RPN
@@ -583,12 +616,21 @@ expr
     auto needsConversion = !$3.endsWithMakeBoolean();
     $$.extend(std::move($1));
     $$.extend(Rpn::MakeBoolean(), @2.loc());
-    $$.extend(Rpn::Branch($3.size()+(needsConversion?1:0)+2, Rpn::BrKeepOnBranch|Rpn::BrHidden), @2.loc());
-    $$.extend(std::move($3)); 
+    auto branchPos = $$.size();
+    auto branchOffset = $3.size()+(needsConversion?1:0)+2;
+    $$.extend(Rpn::Branch(branchOffset, Rpn::BrKeepOnBranch|Rpn::BrHidden), @2.loc());
+    $$.extend(std::move($3));
     if (needsConversion) {
       $$.extend(Rpn::MakeBoolean(), @2.loc());
     }
     $$.extend(Rpn::Op(Rpn::OpOr), @2.loc());
+    // The BrTrue branch must land just past op(or), i.e. at the end of the
+    // sequence built here. Catch silently-wrong offset arithmetic.
+    if (branchPos+branchOffset != $$.size()) {
+        status.set(Status::Unsupported, "Internal error: short-circuit '||' branch offset is wrong.");
+        status.extend(@2.loc());
+        YYERROR;
+    }
   }
   | expr QUESTION expr COLON expr %prec QUESTION {
     // Ternary operator a?b:c, translation to RPN
@@ -598,12 +640,24 @@ expr
     //        jump end 
     // false: c ($5)
     // end:   op(question) // does nothing during execution, needed by formatting
-    $$.extend(std::move($1)); 
-    $$.extend(Rpn::Branch($3.size()+2, Rpn::BrFalse|Rpn::BrHidden), @2.loc());
-    $$.extend(std::move($3)); 
-    $$.extend(Rpn::Jump($5.size()+2, Rpn::BrHidden), @2.loc());
-    $$.extend(std::move($5)); 
+    $$.extend(std::move($1));
+    auto branchPos = $$.size();
+    auto branchOffset = $3.size()+2;
+    $$.extend(Rpn::Branch(branchOffset, Rpn::BrFalse|Rpn::BrHidden), @2.loc());
+    $$.extend(std::move($3));
+    auto jumpPos = $$.size();
+    auto jumpOffset = $5.size()+2;
+    $$.extend(Rpn::Jump(jumpOffset, Rpn::BrHidden), @2.loc());
+    auto falsePos = $$.size();
+    $$.extend(std::move($5));
     $$.extend(Rpn::Op(Rpn::OpQuestion), @2.loc());
+    // The BrFalse branch must land on c ($5); the jump must land just past
+    // op(question). Catch silently-wrong offset arithmetic.
+    if (branchPos+branchOffset != falsePos || jumpPos+jumpOffset != $$.size()) {
+        status.set(Status::Unsupported, "Internal error: ternary branch/jump offset is wrong.");
+        status.extend(@2.loc());
+        YYERROR;
+    }
   }
   | BITNOT expr { 
     $$.extend(std::move($2)); 
@@ -627,12 +681,18 @@ expr
     // Function call, no arguments
     $$.extend(Rpn::FunctionCall(std::move($1), 0), @1.loc()); 
   }
-  | IDENTIFIER LPAREN exprlist RPAREN { 
+  | IDENTIFIER LPAREN exprlist RPAREN {
     // Function call with arguments
-    for(Rpn::Arity i=0; i<$3.size(); i++) {
-        $$.extend(std::move($3[i])); 
+    // Arity is stored as Rpn::Arity (uint32_t); reject counts that would not fit.
+    if ($3.size() > std::numeric_limits<Rpn::Arity>::max()) {
+        status.set(Status::BadArguments, "Function call has too many arguments.");
+        status.extend(@1.loc());
+        YYERROR;
     }
-    $$.extend(Rpn::FunctionCall(std::move($1), $3.size()), @1.loc()); 
+    for(Rpn::Arity i=0; i<$3.size(); i++) {
+        $$.extend(std::move($3[i]));
+    }
+    $$.extend(Rpn::FunctionCall(std::move($1), static_cast<Rpn::Arity>($3.size())), @1.loc());
   }
   | LBRACKET RBRACKET {
     // Empty vector of type Int
@@ -645,10 +705,15 @@ expr
   | LBRACKET exprlist RBRACKET {
     // Pack values in a vector, flatten lists into a vector
     // [,] is an empty Int vector
-    for(Rpn::Arity i=0; i<$2.size(); i++) {
-        $$.extend(std::move($2[i])); 
+    if ($2.size() > std::numeric_limits<Rpn::Arity>::max()) {
+        status.set(Status::BadArguments, "Vector has too many elements.");
+        status.extend(@1.loc());
+        YYERROR;
     }
-    $$.extend(Rpn::PackVec($2.size()), @1.loc()); 
+    for(Rpn::Arity i=0; i<$2.size(); i++) {
+        $$.extend(std::move($2[i]));
+    }
+    $$.extend(Rpn::PackVec(static_cast<Rpn::Arity>($2.size())), @1.loc());
   }
   | LBRACKET SEMICOLON RBRACKET {
     // Empty list
@@ -665,10 +730,15 @@ expr
     // List with two or more elements
     // Pack values in a list, keep members that are lists themselves intact
     // This produces a list of lists of ...
-    for(Rpn::Arity i=0; i<$2.size(); i++) {
-        $$.extend(std::move($2[i])); 
+    if ($2.size() > std::numeric_limits<Rpn::Arity>::max()) {
+        status.set(Status::BadArguments, "List has too many elements.");
+        status.extend(@1.loc());
+        YYERROR;
     }
-    $$.extend(Rpn::PackList($2.size()), @1.loc()); 
+    for(Rpn::Arity i=0; i<$2.size(); i++) {
+        $$.extend(std::move($2[i]));
+    }
+    $$.extend(Rpn::PackList(static_cast<Rpn::Arity>($2.size())), @1.loc());
   }
   | LBRACKET COLON RBRACKET {
     // Empty list
@@ -683,10 +753,15 @@ expr
   | LBRACKET colexprlist RBRACKET {
     // List with two or more elements unpacked
     // Merge scalars and lists in one list
-    for(Rpn::Arity i=0; i<$2.size(); i++) {
-        $$.extend(std::move($2[i])); 
+    if ($2.size() > std::numeric_limits<Rpn::Arity>::max()) {
+        status.set(Status::BadArguments, "List has too many elements.");
+        status.extend(@1.loc());
+        YYERROR;
     }
-    $$.extend(Rpn::MergeList($2.size()), @1.loc()); 
+    for(Rpn::Arity i=0; i<$2.size(); i++) {
+        $$.extend(std::move($2[i]));
+    }
+    $$.extend(Rpn::MergeList(static_cast<Rpn::Arity>($2.size())), @1.loc());
   }
   
   | expr LBRACKET expr RBRACKET {
@@ -752,7 +827,6 @@ parameter_list
             YYERROR;
         }
         $$.params.add(PTParameterValue($1.id, std::move(v), @1.loc()));
-        auto dump = std::move($1.expr);
     } else {
         $$.params.add(PTParameterExpression($1.id, std::move($1.expr), @1.loc()));
     }
@@ -774,7 +848,6 @@ parameter_list
             YYERROR;
         }
         $$.params.add(PTParameterValue($2.id, std::move(v), @2.loc()));
-        auto dump = std::move($2.expr);
     } else {
         $$.params.add(PTParameterExpression($2.id, std::move($2.expr), @2.loc()));
     }
@@ -794,7 +867,7 @@ instance
     $$ = std::move(PTInstance(
         $1, 
         $4, 
-        PTIdentifierList(), 
+        std::move(PTIdentifierList()),
         @1.loc()
     ));
   }
@@ -812,7 +885,7 @@ instance
     $$ = std::move(PTInstance(
         $1, 
         $4, 
-        PTIdentifierList(), 
+        std::move(PTIdentifierList()),
         std::move($5.params), 
         @1.loc()
     ));
@@ -879,7 +952,7 @@ savecmd
   }
   | IDENTIFIER LPAREN savestrlist RPAREN {
     if ($3.size()>2) {
-        status.set(Status::BadArguments, "Save directive has too many arguments.");
+        status.set(Status::BadArguments, "Save directive accepts at most 2 arguments.");
         status.extend(@1.loc());
         YYERROR;
     } else if ($3.size()==2) {
@@ -1037,6 +1110,10 @@ control_block_build
     // This has to be defined separately because 
     // the syntax of save command is different 
     // from the rest of commands. 
+    // Exception to the std::move() convention above: this is a local
+    // initialization, not a move into a sink. The prvalue is left bare so
+    // guaranteed copy elision constructs cmd in place; wrapping it in
+    // std::move() would defeat the elision and force an extra move.
     auto cmd = PTCommand(@2.loc(), saveCmd);
     PTSaves s;
     s.add(std::move($3));

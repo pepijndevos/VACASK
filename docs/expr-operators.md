@@ -79,3 +79,5 @@ Operators are listed from lowest to highest precedence. Operators on the same ro
 | 12 | `**` | Right |
 | 13 | unary `-`  `!`  `~` | Right |
 | 14 (highest) | `()` `[]` | Left |
+
+> **Note:** Unary operators (`-`, `!`, `~`) bind tighter than `**`, following Verilog-AMS. Consequently `-a ** b` evaluates as `(-a) ** b`, not `-(a ** b)`. This differs from Python, Fortran, and ordinary mathematical notation, where the power operator binds tighter than the leading unary minus. Use explicit parentheses when the intent is `-(a ** b)`.

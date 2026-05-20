@@ -24,6 +24,8 @@ static Id idExcept = Id::createStatic("except");
 static Id idAnalysis = Id::createStatic("analysis");
 static Id idCircuit = Id::createStatic("circuit");
 static Id idChanges = Id::createStatic("changes");
+static Id idEol = Id::createStatic("eol");
+static Id idSeparator = Id::createStatic("separator");
 
 static const std::string defaultTopDefName = "__topdef__";
 static const std::string defaultTopInstName = "__topinst__";
@@ -600,6 +602,7 @@ bool cmd_print(CommandInterpreter& interpreter, PTCommand& cmd, Status& s) {
         return false;
     }
 
+    auto trailingNewline = true;
     if (cmd.keywords().size()>0) {
         auto what = cmd.keywords()[0].name();
         if (what=="device_files") {
@@ -723,27 +726,60 @@ bool cmd_print(CommandInterpreter& interpreter, PTCommand& cmd, Status& s) {
         } else if (what=="rpn") {
             // Print RPN of expressions (one per line) for testing purposes
             for(auto& it : cmd.expressions()) {
+                auto x = it.str();
                 Simulator::out() << it.str() << "\n"; 
             } 
+            trailingNewline = false;
         } else {
             s.set(Status::NotFound, "Unknown keyword '"+std::string(what)+"'.");
             return false;
         }
-        Simulator::out() << "\n";
     } else {
         // Expressions
+        std::string eolString = "\n";
+        std::string separatorString = " ";
+        if (cmd.args().count()>0) {
+            std::unordered_map<Id, Value> args;
+            if (!evaluateArgs(cmd, interpreter.variableEvaluator(), args, s)) {
+                return false;
+            }
+            for (const auto& [id, value] : args) {
+                // use id and value
+                if (id == idEol) {
+                    if (value.type()!=Value::Type::String) {
+                        s.set(Status::BadArguments, "eol must be a string.");
+                        return false;
+                    }
+                    eolString = value.val<const String>();
+                } else if (id == idSeparator) {
+                    if (value.type()!=Value::Type::String) {
+                        s.set(Status::BadArguments, "separator must be a string.");
+                        return false;
+                    }
+                    separatorString = value.val<const String>();
+                } else {
+                    s.set(Status::BadArguments, "Unknown keyword argument '"+std::string(id)+"'.");
+                    return false;
+                }
+            }
+        }
         std::vector<Value> values;
         if (!evaluateExpressions(interpreter.variableEvaluator(), cmd, values, s)) {
             return false;
         }
         for(auto& v : values) {
             if (v.type()==Value::Type::String) {
-                // String scalars are printed without quotes and without trailing space
+                // String scalars are printed without quotes
                 Simulator::out() << v.val<String>();
             } else {
-                Simulator::out() << v << " ";
+                Simulator::out() << v;
             }
+            Simulator::out() << separatorString;
         }
+        Simulator::out() << eolString;
+        trailingNewline = false;
+    }
+    if (trailingNewline) {
         Simulator::out() << "\n";
     }
     return true;
@@ -759,7 +795,7 @@ std::unordered_map<Id, CommandInterpreter::CmdDesc> CommandInterpreter::commandD
     { Id::createStatic("options"),      { 0,  0,             0,  0,             false, {},      cmd_options } }, 
     { Id::createStatic("alter"),        { 1,  1,             0,  CmdDesc::many, false, {},      cmd_alter } }, 
     { Id::createStatic("elaborate"),    { 1,  1,             0,  CmdDesc::many, true,  {"topdef", "topinst"}, cmd_elaborate } }, 
-    { Id::createStatic("print"),        { 0,  1,             0,  CmdDesc::many, true,  {},      cmd_print } }, 
+    { Id::createStatic("print"),        { 0,  1,             0,  CmdDesc::many, true,  {"eol", "separator"},      cmd_print } }, 
     { Id::createStatic("postprocess"),  { 0,  0,             1,  CmdDesc::many, true,  {},      cmd_postprocess } }, 
 };
 

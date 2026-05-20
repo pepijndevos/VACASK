@@ -5,16 +5,19 @@ The `print` command writes information to standard output. It is mainly used for
 ## Printing expression values
 
 ```text
-print (expr1 [, expr2 ...])
+print (expr1 [, expr2 ...]) [eol=string] [separator=string]
 ```
 
-Evaluates and prints one or more expressions. Strings are printed without quotes; numbers and vectors are followed by a space. A newline is appended at the end.
+Evaluates and prints one or more expressions. Strings are printed without quotes. By default, expressions are separated by a space and the output ends with a newline.
+
+Use `separator` to change the string printed between expressions (default: `" "`). Use `eol` to change the string printed at the end of output (default: `"\n"`).
 
 ```text
 print ("vdd =", 1.8)
 print ("gain =", 10*log10(gain^2), "dB")
 print ("nodes:", n1, n2, n3)
 print ([1,2,3])
+print ("a", "b", "c") separator="," eol=";"
 ```
 
 ## Inspecting circuit state

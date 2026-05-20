@@ -61,13 +61,13 @@ bool vectorBuild(RpnStack& stack, Rpn::Arity argc, Status& s) {
     Value res;
     switch (vp->type()) {
         case Value::Type::Int:
-            res = IntVector(n, vp->val<Int>());
+            res = std::move(IntVector(n, vp->val<Int>()));
             break;
         case Value::Type::Real:
-            res = RealVector(n, vp->val<Real>());
+            res = std::move(RealVector(n, vp->val<Real>()));
             break;
         case Value::Type::String:
-            res = StringVector(n, vp->val<String>());
+            res = std::move(StringVector(n, vp->val<String>()));
             break;
     }
 
@@ -290,13 +290,13 @@ bool vectorPack(RpnStack& stack, Rpn::Arity argc, Status& s) {
     Value res;
     switch (st) {
         case Value::Type::Int:
-            res = IntVector(n);
+            res = std::move(IntVector(n));
             break;
         case Value::Type::Real:
-            res = RealVector(n);
+            res = std::move(RealVector(n));
             break;
         case Value::Type::String:
-            res = StringVector(n);
+            res = std::move(StringVector(n));
             break;
     }
 
@@ -321,7 +321,7 @@ bool vectorPack(RpnStack& stack, Rpn::Arity argc, Status& s) {
 
 bool listPack(RpnStack& stack, Rpn::Arity argc, Status& s) {
     // Create empty list
-    Value res{ValueVector()};
+    Value res{std::move(ValueVector())};
 
     // Get Value vector
     auto& vVec = res.val<ValueVector>();
@@ -347,7 +347,7 @@ bool listPack(RpnStack& stack, Rpn::Arity argc, Status& s) {
 
 bool listMerge(RpnStack& stack, Rpn::Arity argc, Status& s) {
     // Create empty list
-    Value res{ValueVector()};
+    Value res{std::move(ValueVector())};
 
     // Get Value vector
     auto& vVec = res.val<ValueVector>();

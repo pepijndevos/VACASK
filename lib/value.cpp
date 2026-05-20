@@ -165,13 +165,18 @@ bool Value::convertInPlace(Type to, Status &s) {
     if (type_==to)
         return true;
 
-    // Conversion of empty vector to any other vector is possible
+    // Conversion of empty vector to any other vector is possible.
+    // The std::move() below is redundant here (the right-hand side is already a
+    // prvalue, so operator=(T&&) is selected either way), but it is kept as a
+    // deliberate, uniform marker of move intent. On a named lvalue source,
+    // omitting std::move() would silently downgrade a move to a copy; we apply
+    // it consistently even on temporaries so the move intent is unambiguous.
     if (isVector() && size()==0 && (to & ValueType::VectorBit)!=0) {
         switch (to) {
-            case Type::IntVec: *this = IntVector(0); return true;
-            case Type::RealVec: *this = RealVector(0); return true;
-            case Type::StringVec: *this = StringVector(0); return true;
-            case Type::ValueVec: *this = ValueVector(0); return true;
+            case Type::IntVec: *this = std::move(IntVector(0)); return true;
+            case Type::RealVec: *this = std::move(RealVector(0)); return true;
+            case Type::StringVec: *this = std::move(StringVector(0)); return true;
+            case Type::ValueVec: *this = std::move(ValueVector(0)); return true;
             default: return false;
         }
     }

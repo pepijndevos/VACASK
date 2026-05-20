@@ -109,7 +109,7 @@ public:
 
     // Extract value, returns reference to value
     template<typename T> T& val();
-    template<typename T> T& val() const;
+    template<typename T> const T& val() const;
     
     // Convert
     bool convert(Type to, Value& dest, Status& s=Status::ignore);

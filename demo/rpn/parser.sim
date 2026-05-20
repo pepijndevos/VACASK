@@ -11,6 +11,6 @@ control
   print rpn(a || b || c || d)
   print ("short circuit or: ", 0||0, 0||1, 1||0, 1||1)
   print rpn(a?b:c)
-  print ("ternary, true, should be 10 : ", 1?10:20)
+  print ("ternary, true, should be 10 : ", 1?10:20) separator=" " eol="\n"
   print ("ternary, false, should be 20: ", 0?10:20)
 endc
