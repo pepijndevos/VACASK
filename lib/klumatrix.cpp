@@ -130,14 +130,16 @@ template<typename IndexType, typename ValueType> bool KluMatrixCore<IndexType, V
         return false;
     }
 
-    decltype(nnz_) atCol = 0;
     decltype(nnz_) atNz = 0;
-    
-    // Go through allocated Jacobian entries
-    // These entries are already sorted by column first, then row
-    // so they are in the same order as they appear in jacI
-    // Note that Jacobian indices are zero-based, so we subtract 1 from row and column index
-    bool start = true;
+    decltype(nnz_) curCol = 0;   // columns 0..curCol already have AP[] written
+    AP[0] = 0;
+
+    // Go through allocated Jacobian entries.
+    // These entries are already sorted by column first, then row,
+    // so they are in the same order as they appear in jacI.
+    // Note that Jacobian indices are zero-based, so we subtract 1 from row and column index.
+    // CSC column pointers: AP has AN+1 entries, AP[c] is the offset of column c's
+    // first nonzero, AP[AN] == nnz, and an empty column satisfies AP[c] == AP[c+1].
     for(auto it=m.positions().begin(); it!=m.positions().end(); ++it) {
         auto row = it->first;
         auto col = it->second;
@@ -151,17 +153,20 @@ template<typename IndexType, typename ValueType> bool KluMatrixCore<IndexType, V
         row -= 1;
         col -= 1;
 
-        // First entry, or new column
-        if (start || atCol!=col) {
-            // Starting new / first column
-            AP[col] = atNz;
-            atCol = col;
-            start = false;
+        // Close every column before col (including empty ones) at the
+        // current running nonzero count.
+        while (curCol < col) {
+            AP[curCol+1] = atNz;
+            curCol++;
         }
         AI[atNz] = row;
         atNz++;
     }
-    AP[atCol+1] = nnz_;
+    // Close the last populated column and any trailing empty columns.
+    while (curCol < AN) {
+        AP[curCol+1] = atNz;
+        curCol++;
+    }
     
     // New does not call default constructor for builtin types
     // i.e. doubles are not initialized to 0. 
@@ -588,17 +593,17 @@ template<typename IndexType, typename ValueType> std::tuple<IndexType, bool> Klu
 template<typename IndexType, typename ValueType> void KluMatrixCore<IndexType, ValueType>::dumpSparsity(std::ostream& os) {
    for(IndexType row=0; row<AN; row++) {
         if (row>0) {
-            std::cout << "\n";
+            os << "\n";
         }
         for(IndexType col=0; col<AN; col++) {
             auto [offs, found] = nonzeroOffset(row, col);
             if (found) {
-                std::cout << "x";
+                os << "x";
             } else {
-                std::cout << ".";
+                os << ".";
             }
         }
-    } 
+    }
 }
 
 template<typename IndexType, typename ValueType> void KluMatrixCore<IndexType, ValueType>::dumpSparsityTables(std::ostream& os) {
@@ -622,7 +627,7 @@ template<typename IndexType, typename ValueType> void KluMatrixCore<IndexType, V
 
 template<typename IndexType, typename ValueType> void KluMatrixCore<IndexType, ValueType>::dump(std::ostream& os, ValueType* rhs, int colw, int prec, bool zeroindex) {
     std::ios oldState(nullptr);
-    oldState.copyfmt(std::cout);
+    oldState.copyfmt(os);
     os << std::scientific << std::setprecision(prec);
 
     os << "     ";
@@ -640,7 +645,7 @@ template<typename IndexType, typename ValueType> void KluMatrixCore<IndexType, V
             os << std::setw(colw) << "rhs";
         }
     }
-    std::cout << "\n";
+    os << "\n";
     for(IndexType row=0; row<AN; row++) {
         if (row>0) {
             os << "\n";
@@ -684,12 +689,12 @@ template<typename IndexType, typename ValueType> void KluMatrixCore<IndexType, V
         }
     }
 
-    std::cout.copyfmt(oldState);
+    os.copyfmt(oldState);
 }
 
 template<typename IndexType, typename ValueType> void KluMatrixCore<IndexType, ValueType>::dumpVector(std::ostream& os, ValueType* v, int colw, int prec) {
     std::ios oldState(nullptr);
-    oldState.copyfmt(std::cout);
+    oldState.copyfmt(os);
     os << std::scientific << std::setprecision(prec);
 
     for(IndexType i=0; i<AN; i++) {
@@ -704,12 +709,12 @@ template<typename IndexType, typename ValueType> void KluMatrixCore<IndexType, V
                 os << std::setw(colw) << v[i].imag();
             }
             os << "i";
-        } else {    
+        } else {
             os << std::setw(colw) << v[i];
         }
     }
-    
-    std::cout.copyfmt(oldState);
+
+    os.copyfmt(oldState);
 }
 
 template<typename IndexType, typename ValueType> bool KluMatrixCore<IndexType, ValueType>::formatError(Status& s, NameResolver* resolver) const {

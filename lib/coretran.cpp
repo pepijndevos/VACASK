@@ -1208,11 +1208,12 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
             // Do this only if method we were using was trapezoidal
             auto& filteredSolutionVector = filteredSolution.vector();
 
-            // Use noiseless solution for ringing filter if tran_cleanlte is enabled
-            // needNoiseless guarantees computation of noiseless solution
-            // but only in transient noise analysis. 
+            // Use noiseless solution for ringing filter if doing transient noise
             auto& solutionVector = (computeNoiseContribution) ? noiselessSolution : solution.vector();
-
+            
+            // Ringing filter removes trapezoidal ringing from signal. 
+            // The cleaned signal is used for the predictor. 
+            // The solution is left untouched. 
             if (integCoeffs.method()==IntegratorCoeffs::Method::AdamsMoulton && integCoeffs.order()==2) {
                 // Need at least 3 past points
                 if (trapHistory>=3) {
@@ -1225,6 +1226,7 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
                     auto hk1 = pastTimesteps.at(0);
                     auto hk2 = pastTimesteps.at(1);
                     
+                    // 
                     filteredSolutionVector[0] = 0;
                     for(UnknownIndex i=1; i<=n; i++) {
                         // Latest point
@@ -1233,24 +1235,38 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
                         auto x1 = solutionVector1[i];
                         auto x2 = solutionVector2[i];
                         auto x3 = solutionVector3[i];
+                        
+                        // We take 4 consecutive points, 3 from history (x1, x2, x3-oldest) 
+                        // and the current solution (x0). 
+                        // We form two linear envelopes:
+                        // - first from points x1 and x3 (k13)
+                        // - second from points x0 and x2 (k02)
                         // Slope of envelope defined by x1 and x3
                         auto k13 = (x1-x3)/(hk1+hk2);
                         // Slope of envelope defined by x2 and x0
                         auto k02 = (x0-x2)/(hk1+hk);
-                        // Find crossing, decide if we do correction
-                        auto kdelta = k13-k02;
+
+                        // This code computes the crossing of two envelopes and sets the correction triggering flag
+                        // The idea is: if crossing is between points x3 and x0, do no correction. 
+                        // Force correction if the two envelopes are parallel. 
+                        // Find crossing, decide if we do correction. 
+                        // Disabled for now. 
                         bool correct = false;
-                        if (kdelta==0) {
-                            // Lower and upper envelope are parallel, correct
-                            correct = true;
-                        } else {
-                            auto hcross = (x2+k02*hk1-x1)/kdelta;
-                            // Crossing after x0 or before x3
-                            if (hcross>hk || hcross<-(hk1+hk2)) {
-                                correct = true;
-                            }
-                        }
-                        // Always correct
+                        // auto kdelta = k13-k02;
+                        // if (kdelta==0) {
+                        //     // Lower and upper envelope are parallel, correct
+                        //     correct = true;
+                        // } else {
+                        //     // Compute crossing
+                        //     auto hcross = (x2+k02*hk1-x1)/kdelta;
+                        //     // Crossing after x0 or before x3
+                        //     if (hcross>hk || hcross<-(hk1+hk2)) {
+                        //         correct = true;
+                        //     }
+                        // }
+
+                        // Always correct, this flag is kept so that we can later enable the above code
+                        // for crossing detection. 
                         correct = true;
                         if (correct) {
                             // Do correction
@@ -1397,7 +1413,9 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
             bool haveRatio = false;
             double maxRatio = 0.0;
 
-            // Choose between noiseless and noisy solution when trap lte filter is not used
+            // LTE is computed based on filtered solution if tran_trapltefilter is enabled. 
+            // Unfiltered solution is the noiseless solution in transient noise analysis 
+            // and plain solution in ordinary transient analysis. 
             auto& unfilteredSolution = (computeNoiseContribution) ? noiselessSolution : solution.vector();
             for(decltype(n) i=1; i<=n; i++) {
                 // Get unknown nature index
@@ -1411,7 +1429,6 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
                 ) {
                     // Use filtered history if the algorithm we are using is trapezoidal
                     // and tran_trapltefilter is enabled. 
-                    // It is noiseless if tran_cleanlte is enabled and noiseless solution is computed. 
                     lte = factor*(filteredSolution.vector()[i] - predictedSolution[i]);
                 } else {
                     lte = factor*(unfilteredSolution[i] - predictedSolution[i]);

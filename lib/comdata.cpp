@@ -120,12 +120,14 @@ void CommonData::scaleTolerances(double scl) {
 }
 
 bool CommonData::enumerateNatures(Status& s) {
-    auto n = unknown_natureId.size();
+    // n is the number of unknowns excluding ground; arrays hold n+1 entries with
+    // index 0 the reference (ground) unknown, so iterate 0..n inclusive.
+    auto n = unknown_natureId.size()-1;
     unknown_natureIndex.resize(n+1);
     unknown_idt_natureIndex.resize(n+1);
     residual_natureIndex.resize(n+1);
     residual_idt_natureIndex.resize(n+1);
-    for(decltype(n) i=0; i<n; i++) {
+    for(decltype(n) i=0; i<=n; i++) {
         unknown_natureIndex[i] = natures.natureIndex(unknown_natureId[i]);
         unknown_idt_natureIndex[i] = natures.natureIndex(unknown_idt_natureId[i]);
         residual_natureIndex[i] = natures.natureIndex(residual_natureId[i]);

@@ -1,5 +1,6 @@
 #include <cstddef>
 #include <cstdlib>
+#include <new>
 #include "osdidevice.h"
 #include "osdimodel.h"
 #include "osdiinstance.h"
@@ -177,6 +178,10 @@ std::tuple<bool,bool> OsdiDevice::writeParameter(OsdiFile::OsdiParameterId osdiI
                 free(*ptr);
             }
             *ptr = (char*)malloc(src.size()+1);
+            // Out of memory: fail loudly rather than dereferencing nullptr below.
+            if (!*ptr) {
+                throw std::bad_alloc();
+            }
             // Copy data
             size_t i;
             for(i=0; i<src.size(); i++) {

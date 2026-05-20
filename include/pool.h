@@ -4,6 +4,8 @@
 #include <forward_list>
 #include <iostream>
 #include <cstring>
+#include <cstdlib>
+#include <new>
 #include <vector>
 #include <utility>
 #include "common.h"
@@ -25,7 +27,11 @@ public:
 
         Block(size_t size) : size(size), used(0), failures(0) {
             mem = malloc(size);
-        }; 
+            // Out of memory: fail loudly rather than handing out nullptr-based pointers.
+            if (!mem) {
+                throw std::bad_alloc();
+            }
+        };
 
         ~Block() {
             free(mem);

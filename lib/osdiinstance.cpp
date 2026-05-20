@@ -1,5 +1,6 @@
 #include <cstring>
 #include <cstddef>
+#include <new>
 #include "osdiinstance.h"
 #include "circuit.h"
 #include "simulator.h"
@@ -15,6 +16,10 @@ namespace NAMESPACE {
 OsdiInstance::OsdiInstance(OsdiModel* model, Id name, Instance* parentInstance, const PTInstance& parsedInstance, Status &s) 
     : Instance(model, name, parentInstance, parsedInstance), core_(nullptr), connectedTerminalCount(0) {
     core_ = alignedAlloc(sizeof(::max_align_t), model->device()->descriptor()->instance_size);
+    // Out of memory: fail loudly rather than memset()-ing a nullptr.
+    if (!core_) {
+        throw std::bad_alloc();
+    }
     memset(core_, 0, model->device()->descriptor()->instance_size);
 
     // Create nodes (terminals+internal nodes) list

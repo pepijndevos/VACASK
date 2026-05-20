@@ -99,7 +99,7 @@ void CStringPool::dump(std::ostream& os, bool details) {
             i += n+1;
             strCount++;
         }
-        std::cout << "  string count: " << strCount << "\n";
+        os << "  string count: " << strCount << "\n";
     }
 }
 

@@ -1,5 +1,6 @@
 #include <cstring>
 #include <cstdlib>
+#include <new>
 #include "osdimodel.h"
 #include "osdiinstance.h"
 #include "circuit.h"
@@ -12,6 +13,10 @@ namespace NAMESPACE {
 OsdiModel::OsdiModel(OsdiDevice *device, Id name, Instance* parentInstance, const PTModel& parsedModel, Status& s) 
     : Model(device, name, parentInstance, parsedModel), core_(nullptr) {
     core_ = alignedAlloc(sizeof(::max_align_t), device->descriptor()->model_size);
+    // Out of memory: fail loudly rather than memset()-ing a nullptr.
+    if (!core_) {
+        throw std::bad_alloc();
+    }
     memset(core_, 0, device->descriptor()->model_size);
     
     setFlags(Flags::IsValid);

@@ -163,11 +163,6 @@ bool KluBlockSparseMatrixCore<IndexType, ValueType>::rebuild(SparsityMap& m, Equ
         blockColumnOrigin[blockColNdx] = atNz;
         blockColumnStride[blockColNdx] = blocksInColumn*nbRow_;
 
-        // No blocks in this block column, nothing to do
-        if (blocksInColumn==0) {
-            continue;
-        }
-
         // Iterate through subcolumns of each dense block
         // This loop runs even if there are no dense blocks in this column of dense blocks
         // Therefore AP is filled with indices correctly even in this case
