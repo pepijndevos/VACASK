@@ -156,7 +156,12 @@ after INCEND we have
 %}
 
 .*          {
-                yylval->build<std::string>(yytext);
+                // Strip a trailing CR so CRLF line endings don't leave \r in the title.
+                std::string title(yytext, yyleng);
+                if (!title.empty() && title.back()=='\r') {
+                    title.pop_back();
+                }
+                yylval->build<std::string>(std::move(title));
                 return(token::TITLE);
             }
 \n          {
@@ -412,7 +417,7 @@ after INCEND we have
                 error(*loc, "Syntax error, unexpected string in library directive.");
                 return(token::YYerror);
             }
-<SECLOOK>^[ \t]*\section[ \t]* {
+<SECLOOK>^[ \t]*section[ \t]* {
                 // Found section, skipped trailing spaces
                 // Go to SECLOOKNAME
                 BEGIN(SECLOOKNAME);
@@ -515,8 +520,12 @@ after INCEND we have
             }
 
 <BODY>0|([1-9][0-9]*) {
+                // Int is 32-bit (OSDI API). Parse as unsigned long and narrow to
+                // Int, keeping the low-order bits, so a literal exceeding 32 bits is
+                // truncated rather than rejected (matches hex literal handling).
+                // Assumes sizeof(int) >= sizeof(Int).
                 try {
-                    yylval->build<Int>(std::stoi(yytext, nullptr, 10));
+                    yylval->build<Int>(static_cast<Int>(std::stoul(yytext, nullptr, 10)));
                 } catch (const std::out_of_range&) {
                     error(*loc, "Integer literal out of range.");
                     return(token::YYerror);
@@ -804,6 +813,10 @@ after INCEND we have
                     if (*p == '\'' && p + 1 < end && *(p+1) == '\'')
                         p++;
                     p++;
+                }
+                if (result.empty()) {
+                    error(*loc, "Syntax error, empty quoted identifier.");
+                    return(token::YYerror);
                 }
                 yylval->build<Id>(result);
                 return(token::IDENTIFIER);

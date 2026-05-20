@@ -179,8 +179,11 @@ endif()
 #include_directories("${SuiteSparse_INCLUDE_DIRS}")
 include_directories("${SuiteSparse_DIR}/include")
 
-find_package(BISON REQUIRED)
-find_package(FLEX REQUIRED)
+# Bison >= 3.3 is required (matches %require "3.3" in lib/dflparser.y).
+# Flex  >= 2.6.4 is required for the (?:...) non-capturing group syntax used in
+# lib/dfllexer.l (extended patterns landed in the 2.6 series; 2.6.4 is verified).
+find_package(BISON 3.3 REQUIRED)
+find_package(FLEX 2.6.4 REQUIRED)
 
 # This is for circumventing a bug in mingw cmake 3.28 that causes it to incorrectly set two variables
 if (${SIM_PLATFORM} STREQUAL "Windows")
