@@ -79,8 +79,15 @@ public:
     FileStackFileIndex addStringFile(const std::string &str);
     FileStackFileIndex addStringFile(std::string &&str);
 
-    // Add a string that is to be parsed as RPN expression
-    // Negative indices are reserved for this
+    // Add a string that is to be parsed as RPN expression.
+    // Negative indices are reserved for this (first string -> -1).
+    // NOTE: currently unused scaffolding. The parser stores its in-memory
+    // source strings via addStringFile() (non-negative ids); addRpnString()
+    // exists for a future RPN-string-location feature and has no callers yet.
+    // Expression parsing should migrate to this: each addStringFile() creates a
+    // full stack entry (three std::strings plus pointers), whereas an RPN string
+    // costs only a single const char* in rpnStringStack -- a large saving when
+    // parsing many small expressions.
     FileStackFileIndex addRpnString(const char* str, size_t n);
     FileStackFileIndex addRpnString(const char* str);
     FileStackFileIndex addRpnString(const std::string &str);

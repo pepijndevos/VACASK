@@ -35,33 +35,18 @@ bool Parser::parseNetlistFile(FileStackFileIndex stackPosition, Status& s) {
     return st;
 }
 
-bool Parser::parseNetlistString(const std::string& input, Status& s) {
+bool Parser::parseNetlistString(std::string input, Status& s) {
     auto t0 = Accounting::wclk();
     tab_.accounting().acctNew.parse++;
-    
-    // Add to filestack (makes a copy)
-    auto pos = tab_.fileStack().addStringFile(input);
 
-    // Create a stream, copy string into stream
-    std::istringstream stream;
-    stream.str(input);
-    
-    auto st = netlistParseHelper(stream, pos, s); 
-    tab_.accounting().acctNew.tparse += Accounting::wclkDelta(t0);
-    return st;
-}
-
-bool Parser::parseNetlistString(const std::string&& input, Status& s) {
-    auto t0 = Accounting::wclk();
-    
-    // Add to filestack (makes a copy)
+    // Add to filestack (makes a copy; input stays valid for the move below)
     auto pos = tab_.fileStack().addStringFile(input);
 
     // Create a stream, move string into stream
     std::istringstream stream;
     stream.str(std::move(input));
-    
-    auto st = netlistParseHelper(stream, pos, s); 
+
+    auto st = netlistParseHelper(stream, pos, s);
     tab_.accounting().acctNew.tparse += Accounting::wclkDelta(t0);
     return st;
 }
@@ -94,35 +79,10 @@ bool Parser::exprParseHelper(std::istream &stream, FileStackFileIndex pos, Statu
     return true;
 }
 
-Rpn Parser::parseExpression(const std::string& input, Status& s) {
+Rpn Parser::parseExpression(std::string input, Status& s) {
     auto t0 = Accounting::wclk();
 
-    // Add to filestack (makes a copy)
-    auto pos = tab_.fileStack().addStringFile(input);
-
-    // Create a stream, copy string into stream
-    std::istringstream stream;
-    stream.str(input);
-
-    Status tmps;
-    auto st = exprParseHelper(stream, pos, tmps); 
-    
-    tab_.accounting().acctNew.tparse += Accounting::wclkDelta(t0);
-
-    // Throw on failure
-    if (!st) {
-        s.set(tmps);
-        Simulator::err() << tmps.message();
-        throw std::runtime_error(std::string("Failed to parse expression '")+stream.str()+"'");
-    }
-
-    return std::move(parsedExpression);
-}
-
-Rpn Parser::parseExpression(const std::string&& input, Status& s) {
-    auto t0 = Accounting::wclk();
-
-    // Add to filestack (makes a copy)
+    // Add to filestack (makes a copy; input stays valid for the move below)
     auto pos = tab_.fileStack().addStringFile(input);
 
     // Create a stream, move string into stream
@@ -130,8 +90,8 @@ Rpn Parser::parseExpression(const std::string&& input, Status& s) {
     stream.str(std::move(input));
 
     Status tmps;
-    auto st = exprParseHelper(stream, pos, tmps); 
-    
+    auto st = exprParseHelper(stream, pos, tmps);
+
     tab_.accounting().acctNew.tparse += Accounting::wclkDelta(t0);
 
     // Throw on failure
@@ -140,7 +100,7 @@ Rpn Parser::parseExpression(const std::string&& input, Status& s) {
     if (!st) {
         s.set(tmps);
         Simulator::err() << tmps.message();
-        throw std::runtime_error(std::string("Failed to parse expression '")+stream.str()+"'"); 
+        throw std::runtime_error(std::string("Failed to parse expression '")+stream.str()+"'");
     }
 
     return std::move(parsedExpression);
@@ -160,35 +120,10 @@ bool Parser::parametersParseHelper(std::istream &stream, FileStackFileIndex pos,
     return true;
 }
 
-PTParameters Parser::parseParameters(const std::string& input, Status& s) {
+PTParameters Parser::parseParameters(std::string input, Status& s) {
     auto t0 = Accounting::wclk();
 
-    // Add to filestack (makes a copy)
-    auto pos = tab_.fileStack().addStringFile(input);
-
-    // Create a stream, copy string into stream
-    std::istringstream stream;
-    stream.str(input);
-
-    Status tmps;
-    auto st = parametersParseHelper(stream, pos, tmps); 
-    
-    tab_.accounting().acctNew.tparse += Accounting::wclkDelta(t0);
-
-    // Throw on failure
-    if (!st) {
-        s.set(tmps);
-        Simulator::err() << tmps.message();
-        throw std::runtime_error(std::string("Failed to parse parameters '")+stream.str()+"'");
-    }
-
-    return std::move(parsedParameters);
-}
-
-PTParameters Parser::parseParameters(const std::string&& input, Status& s) {
-    auto t0 = Accounting::wclk();
-
-    // Add to filestack (makes a copy)
+    // Add to filestack (makes a copy; input stays valid for the move below)
     auto pos = tab_.fileStack().addStringFile(input);
 
     // Create a stream, move string into stream
@@ -196,8 +131,8 @@ PTParameters Parser::parseParameters(const std::string&& input, Status& s) {
     stream.str(std::move(input));
 
     Status tmps;
-    auto st = parametersParseHelper(stream, pos, tmps); 
-    
+    auto st = parametersParseHelper(stream, pos, tmps);
+
     tab_.accounting().acctNew.tparse += Accounting::wclkDelta(t0);
 
     // Throw on failure

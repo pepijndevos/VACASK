@@ -29,15 +29,15 @@ public:
     // Do not throw, return false on error
     bool parseNetlistFile(FileStackFileIndex fileIndex, Status& s=Status::ignore);
     
-    bool parseNetlistString(const std::string& input, Status& s=Status::ignore);
-    bool parseNetlistString(const std::string&& input, Status& s=Status::ignore);
-    
-    // Throw on error
-    Rpn parseExpression(const std::string& input, Status& s=Status::ignore);
-    Rpn parseExpression(const std::string&& input, Status& s=Status::ignore);
+    // Takes input by value: the string is copied into the file stack and then
+    // moved into the parse stream, so callers passing temporaries/literals incur
+    // no extra copy beyond the unavoidable file-stack copy.
+    bool parseNetlistString(std::string input, Status& s=Status::ignore);
 
-    PTParameters parseParameters(const std::string& input, Status& s=Status::ignore);
-    PTParameters parseParameters(const std::string&& input, Status& s=Status::ignore);
+    // Throw on error
+    Rpn parseExpression(std::string input, Status& s=Status::ignore);
+
+    PTParameters parseParameters(std::string input, Status& s=Status::ignore);
 
 private:
     bool netlistParseHelper(std::istream& stream, FileStackFileIndex pos, Status& s=Status::ignore);

@@ -26,7 +26,7 @@ char helpText[] =
     "  -se, --skip-embed   do not dump embedded files\n"
     "  -sp, --skip-postprocess\n"
     "                      do not run postprocessing steps\n"
-    "       --extratomlfile <file>\n"
+    "       --extra-tomlfile <file>\n"
     "                      addittionally load specified toml file as last\n"  
     "       --tomlfile <file>\n"
     "                      skip loading all toml files, except this one\n"  

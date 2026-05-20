@@ -167,6 +167,12 @@ FileStackFileIndex FileStack::addStringFile(std::string&& str) {
     return addStringFile(str.c_str(), str.size());
 }
 
+// Currently unused. The parser uses addStringFile() for its in-memory source
+// strings (non-negative ids); this exists for a future RPN-string-location
+// feature and has no callers yet. Expression parsing should migrate here:
+// addStringFile() allocates a full stack entry (three std::strings plus
+// pointers) per string, while an RPN string costs only one const char* in
+// rpnStringStack -- a large saving when parsing many small expressions.
 FileStackFileIndex FileStack::addRpnString(const char* str, size_t n) {
     // Check limit
     if (rpnStringStack.size()>=maxFileId) {
@@ -174,7 +180,9 @@ FileStackFileIndex FileStack::addRpnString(const char* str, size_t n) {
     }
     
     rpnStringStack.push_back(stringsPool.allocate(str, n));
-    return -(rpnStringStack.size()+1);
+    // String ids are the negated 1-based position: first string -> -1,
+    // decoded by cString() as rpnStringStack[-id-1].
+    return -static_cast<FileStackFileIndex>(rpnStringStack.size());
 }
 
 bool FileStack::isString(FileStackFileIndex id) const {
@@ -217,6 +225,10 @@ SourceLineNumber FileStack::inclusionLine(FileStackFileIndex id) const {
 }
 
 const char* FileStack::cString(FileStackFileIndex id) const {
+    // id encodes which backing store to read from:
+    //   0 .. stack.size()-1  -> string-input file entry; content is stack[id].stringPtr
+    //   negative             -> RPN string; ids start at -1, so index = -id-1 into rpnStringStack
+    //   badFileId / other    -> out-of-range sentinel, no backing content
     if (isFileEntry(id)) {
         return stack[id].stringPtr;
     }
