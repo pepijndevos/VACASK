@@ -165,9 +165,14 @@ public:
     // Converged period in seconds. Valid after a successful run().
     double convergedPeriod() const { return T0_converged_; }
 
-    // Converged PSS initial condition vector xs(t0).
-    // Valid after a successful run().
+    // Converged PSS initial condition vector xs(t0). Valid after a successful run().
     const Vector<double>& convergedInitialCondition() const { return x0_converged_; }
+
+    // Converged monodromy matrix Phi. Valid after a successful run().
+    const DenseMatrix<double>& convergedMonodromy() const { return phiT_; }
+
+    // Converged adjoint monodromy matrix Omega. Valid after a successful run().
+    const DenseMatrix<double>& convergedAdjointMonodromy() const { return omegaT_; }
 
 protected:
     // Clear error
