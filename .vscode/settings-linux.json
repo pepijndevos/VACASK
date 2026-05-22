@@ -2,6 +2,8 @@
     "cmake.configureOnOpen": true, 
     "cmake.buildDirectory": "${workspaceFolder}/../build.${workspaceRootFolderName}/${buildType}", 
     "cmake.parallelJobs": 0, 
+    "cmake.ctest.parallelJobs": 0, 
+    "cmake.ctest.allowParallelJobs": true,
     "cmake.buildEnvironment": {
         "VERBOSE": "1"
     }, 
