@@ -116,6 +116,12 @@ public:
         Vector<double>&      x_laststep
     );
 
+    // Enable trajectory capture for the next shoot (call before final runShoot)
+    void enableTrajectoryCapture();
+
+    // Backwards-integrate the adjoint monodromy matrix
+    bool integrateAdjointMonodromy(DenseMatrix<double>& Omega);
+
 protected:
     // Called by TranCore at every accepted timestep with jacobian holding
     // the factored Alr_k = G_k + alpha_k * C_k from the NR solve.
@@ -124,6 +130,15 @@ protected:
     virtual bool onTimestepAccepted(double tSolve, double hk, Int order);
 
 private:
+    // Record of data needed for backward adjoint integration at each accepted step
+    struct StepRecord {
+        Vector<double> aData;   // raw A_k values (size nnz)
+        Vector<double> cData;     // raw C_k values (size nnz)
+        Vector<double> gamma;     // gamma_i coefficients (size order)
+        Int            order;
+    };
+
+
     // Current sensitivity matrix Phi(t), column-major n×n.
     // Initialised to I in clearTrajectory(), updated at every accepted step.
     // Equals PhiT after the shoot completes.
@@ -171,6 +186,12 @@ private:
 
     // False until prevCData_ has been populated for Adams-Moulton.
     bool prevCValid_;
+
+    // Trajectory buffer populated during final shoot for adjoint monodromy integration
+    std::vector<StepRecord> trajectory_;
+
+    // If true, gamma, C_k and A_k values are stored during the transient run. Needed for adjoint monodromy integration.
+    bool captureTrajectory_;
 };
 
 } // namespace NAMESPACE

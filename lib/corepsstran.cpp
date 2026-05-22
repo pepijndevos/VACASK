@@ -27,7 +27,8 @@ PssTranCore::PssTranCore(
              jacobian, solution, states),
     lastAlpha_(0.0),
     lastB1_(1.0),
-    phiValid_(false) {
+    phiValid_(false),
+    captureTrajectory_(false) {
 }
 
 
@@ -130,6 +131,8 @@ void PssTranCore::clearTrajectory(double T0) {
     cHistData_.push_front(std::move(cSnap));
     // Add q_0 to history
     qHistData_.push_front(std::move(qSnap));
+
+    captureTrajectory_= false;
 }
 
 
@@ -279,6 +282,18 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
     }
     psiCurrent_ = psiRhs;   // psiRhs now holds psi_{k+1}
 
+    // If trajectory capture is enabled, store necessary values for the adjoint integration
+    if (captureTrajectory_) {
+        StepRecord rec;
+        rec.aData = Vector<double>(lastAlr_.data(), lastAlr_.data() + nnz);
+        rec.cData = cSnap;
+        rec.gamma = gamma;
+        rec.order = order;
+        trajectory_.push_back(std::move(rec));
+    }
+
+    /* Add values to history deques */
+
     // Add Phi to history
     DenseMatrix<double> phiSnap(phiCurrent_);
     phiHist_.push_front(std::move(phiSnap));
@@ -351,6 +366,139 @@ bool PssTranCore::integrateAugmentedSensitivity(
     return true;
 }
 
+// ----------------------------------------------------------------
+// integrateAdjointMonodromy
+// ----------------------------------------------------------------
+bool PssTranCore::integrateAdjointMonodromy(DenseMatrix<double>& Omega){
+    if (trajectory_.empty()) {
+        Simulator::err() << "PssTranCore: no trajectory captured; "
+                            "call enableTrajectoryCapture() before the final shoot.\n";
+        return false;
+    }
+
+    auto n   = circuit.unknownCount();
+    auto nnz = jacobian.nnz();
+
+    // Omega_N = I  (initial condition at t=T0)
+    Omega.resize(n, n, DenseMatrix<double>::Major::Column);
+    Omega.identity();
+
+    // History is built in this function and not needed anywhere else, so declare it here
+    std::deque<DenseMatrix<double>> omegaHist;
+    omegaHist.push_front(Omega);  // seed with Omega_N = I
+
+    // Scratch KLU matrix for A_k (for tsolve) and C_k (for tproduct)
+    KluRealMatrix scratchA;
+    KluRealMatrix scratchC;
+    if (!scratchA.rebuild(circuit.sparsityMap(), n)) {
+        Simulator::err() << "PssTranCore: failed to rebuild scratchA for Omega integration.\n";
+        return false;
+    }
+    if (!scratchC.rebuild(circuit.sparsityMap(), n)) {
+        Simulator::err() << "PssTranCore: failed to rebuild scratchC for Omega integration.\n";
+        return false;
+    }
+
+    Int nSteps = static_cast<Int>(trajectory_.size());
+
+
+    // 1. Find the absolute maximum LMS stencil depth used in this transient.
+    // This allows us to trim the history buffer safely without making ANY
+    // assumptions about the underlying integration method (BDF, AM, Gear, etc.).
+    Int maxLMSOrder = 1;
+    for (const auto& rec : trajectory_) {
+        if (rec.order > maxLMSOrder) {
+            maxLMSOrder = rec.order;
+        }
+    }
+
+    // Walk trajectory in reverse (backward in time)
+    for (Int k = nSteps - 1; k >= 0; k--) {
+        // 1. Fetch A_k and C_k
+        // trajectory_ stores step m+1 at index m. So A_k is at index k-1.
+        // By periodicity, A_0 = A_N and C_0 = C_N, found at nSteps-1.
+        Int acIdx = (k == 0) ? (nSteps - 1) : (k - 1);
+        const StepRecord& acRec = trajectory_[acIdx];
+
+        ///////////////
+        bool printStep = true;
+
+        // Load A_k into scratchA and refactor for tsolve
+        std::copy(acRec.aData.begin(), acRec.aData.end(), scratchA.data());
+        if (!scratchA.refactor()) {
+            Simulator::err() << "PssTranCore: scratchA refactor failed at backward step k="
+                             << k << "\n";
+            return false;
+        }
+
+        // Load C_k into scratchC for tproduct
+        std::copy(acRec.cData.begin(), acRec.cData.end(), scratchC.data());
+
+        // Build RHS = C_k^T * sum(gamma_i * Omega_{k+1+i}), column by column
+        DenseMatrix<double> rhs(n, n, DenseMatrix<double>::Major::Column);
+        Vector<double> s_col(n);
+        Vector<double> rhs_col(n);
+
+        // Limit look-ahead by the amount of history actually available
+        Int histSize = static_cast<Int>(omegaHist.size());
+
+        for (decltype(n) j = 0; j < n; j++) {
+            // Compute j-th column of S = sum(gamma_i * Omega_{k+1+i})
+            std::fill(s_col.begin(), s_col.end(), 0.0);
+            for (Int i = 0; i < histSize; i++) {
+                // TRUNCATION GUARD: No forward equations exist past step N
+                if (k + i >= nSteps) {
+                    break; 
+                }
+                
+                const StepRecord& futureRec = trajectory_[k + i];
+                
+                // Guard against accessing gammas beyond the order of this specific future step
+                if (i >= futureRec.order) {
+                    continue;
+                }
+
+                DenseMatrix<double>& Om = omegaHist[i]; 
+                double gamma = futureRec.gamma[i];
+                
+                for (decltype(n) row = 0; row < n; row++) {
+                    s_col[row] += gamma * Om.at(row, j);
+                }
+            }
+            // Apply C_k^T to get j-th column of rhs
+            if (!scratchC.tproduct(s_col.data(), rhs_col.data())) {
+                Simulator::err() << "PssTranCore: C^T product failed at backward step k="
+                                 << k << "\n";
+                return false;
+            }
+            for (decltype(n) i = 0; i < n; i++) rhs.at(i, j) = rhs_col[i];
+
+        }
+
+        // Solve A_k^T * Omega_k = rhs (overwrites rhs with solution)
+        if (!scratchA.tsolveBlock(rhs.data().data(), static_cast<Int>(n))) {
+            Simulator::err() << "PssTranCore: tsolveBlock failed at backward step k="
+                             << k << "\n";
+            return false;
+        }
+
+        // Push Omega_k to history
+        DenseMatrix<double> omegaSnap(rhs);
+        omegaHist.push_front(std::move(omegaSnap));
+
+        // Trim history to depth order+1
+        while (static_cast<Int>(omegaHist.size()) > maxLMSOrder + 1) omegaHist.pop_back();
+    }
+
+    // Omega_0 is the last computed value
+    Omega = omegaHist.front();
+    return true;
+}
+
+void PssTranCore::enableTrajectoryCapture() {
+    captureTrajectory_ = true;
+    trajectory_.clear();
+        }
 
 // ----------------------------------------------------------------
 // PSS rawfile output

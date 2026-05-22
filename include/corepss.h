@@ -111,6 +111,7 @@ public:
         StabilisationFailed,
         ShootFailed,
         SensitivityFailed,
+        AdjointFailed,
         LinearSolveFailed,
         OutputError,
         TperInvalid,
@@ -195,6 +196,10 @@ private:
     PssTranCore&        pssTran_;
 
     PssParameters&      params;
+
+    // State transition matrices
+    DenseMatrix<double> phiT_;
+    DenseMatrix<double> omegaT_;    // adjoint
 
     // Run the DC operating point and the stabilisation transient.
     // On return, solution_.vector() holds the initial guess x0 for the

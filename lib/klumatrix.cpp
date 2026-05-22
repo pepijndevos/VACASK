@@ -580,6 +580,56 @@ template<typename IndexType, typename ValueType> bool KluMatrixCore<IndexType, V
     return true;
 }
 
+template<typename IndexType, typename ValueType> bool KluMatrixCore<IndexType, ValueType>::tsolve(ValueType* b) {
+    clearError();
+
+    int st;
+    if constexpr(std::is_same<ValueType, Complex>::value) {
+        if constexpr(std::is_same<int32_t, IndexType>::value) {
+            st = klu_z_tsolve(symbolic, numeric, AN, 1, reinterpret_cast<double*>(b), 0, &common);
+        } else {
+            st = klu_zl_tsolve(symbolic, numeric, AN, 1, reinterpret_cast<double*>(b), 0, &common);
+        }
+    } else {
+        if constexpr(std::is_same<int32_t, IndexType>::value) {
+            st = klu_tsolve(symbolic, numeric, AN, 1, b, &common);
+        } else {
+            st = klu_l_tsolve(symbolic, numeric, AN, 1, b, &common);
+        }
+    }
+
+    if (!st) {
+        lastError = Error::Solve;
+        return false;
+    }
+    return true;
+}
+
+template<typename IndexType, typename ValueType> bool KluMatrixCore<IndexType, ValueType>::tsolveBlock(ValueType* B, IndexType nrhs) {
+    clearError();
+
+    int st;
+    if constexpr(std::is_same<ValueType, Complex>::value) {
+        if constexpr(std::is_same<int32_t, IndexType>::value) {
+            st = klu_z_tsolve(symbolic, numeric, AN, nrhs, reinterpret_cast<double*>(B), 0, &common);
+        } else {
+            st = klu_zl_tsolve(symbolic, numeric, AN, nrhs, reinterpret_cast<double*>(B), 0, &common);
+        }
+    } else {
+        if constexpr(std::is_same<int32_t, IndexType>::value) {
+            st = klu_tsolve(symbolic, numeric, AN, nrhs, B, &common);
+        } else {
+            st = klu_l_tsolve(symbolic, numeric, AN, nrhs, B, &common);
+        }
+    }
+
+    if (!st) {
+        lastError = Error::Solve;
+        return false;
+    }
+    return true;
+}
+
 // Both vectors must be distinct
 template<typename IndexType, typename ValueType> bool KluMatrixCore<IndexType, ValueType>::product(ValueType* vec, ValueType* res) {
     // Zero out result
@@ -594,6 +644,23 @@ template<typename IndexType, typename ValueType> bool KluMatrixCore<IndexType, V
         for(IndexType i=col1; i<col2; i++) {
             auto row = AI[i];
             res[row] += Ax[i]*vec[col];
+        }
+    }
+
+    return true;
+}
+
+// Both vectors must be distinct
+template<typename IndexType, typename ValueType> bool KluMatrixCore<IndexType, ValueType>::tproduct(ValueType* vec, ValueType* res) {
+    for(IndexType i=0; i<AN; i++) {
+        res[i] = 0.0;
+    }
+
+    for(IndexType col=0; col<AN; col++) {
+        IndexType col1 = AP[col];
+        IndexType col2 = AP[col+1];
+        for(IndexType i=col1; i<col2; i++) {
+            res[col] += Ax[i]*vec[AI[i]];
         }
     }
 

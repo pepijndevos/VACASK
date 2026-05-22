@@ -294,9 +294,20 @@ public:
     // B is stored column-major with leading dimension AN (ldim = AN).
     // On return B contains the solution columns, overwriting the RHS.
     bool solveBlock(ValueType* B, IndexType nrhs);
-    
+
+    // Transpose solve after factorization, result is stored in b
+    bool tsolve(ValueType* b);
+
+    // Block transpose solve: solve A^T X = B for nrhs right-hand sides simultaneously.
+    // B is stored column-major with leading dimension AN (ldim = AN).
+    // On return B contains the solution columns, overwriting the RHS.
+    bool tsolveBlock(ValueType* B, IndexType nrhs);
+
     // Matrix-vector product, result is stored in res
     bool product(ValueType* vec, ValueType* res);
+
+    // Transpose matrix-vector product A^T v, result is stored in res
+    bool tproduct(ValueType* vec, ValueType* res);
     
     // Residual (Ax-b), stored in res
     bool residual(ValueType* x, ValueType* b, ValueType* res);

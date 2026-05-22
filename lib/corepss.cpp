@@ -386,14 +386,26 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
             // This is not a PSS failure, Core is finished, not aborted
             co_yield CoreState::Finished;
         }
+    }
         solution.vector() = x0;
         pssTran_.setShootIC(x0);
         pssTran_.clearTrajectory(T0);
+    pssTran_.enableTrajectoryCapture();
         if (!runShoot(T0, s)) {
             setError(PssError::ShootFailed);
             co_yield CoreState::Aborted;
         }
+
+    // Integrate Omega backward using captured trajectory
+    DenseMatrix<double> Omega;
+    if (!pssTran_.integrateAdjointMonodromy(Omega)) {
+        setError(PssError::AdjointFailed);
+        co_yield CoreState::Aborted;
+    
     }
+    
+    phiT_ = PhiT;  
+    omegaT_ = Omega;
 
     co_yield CoreState::Finished;
     
