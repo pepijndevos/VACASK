@@ -71,10 +71,10 @@ public:
     SparsityMap& operator=(const SparsityMap&)  = delete;
     SparsityMap& operator=(      SparsityMap&&) = delete;
 
-    typedef struct {
+    struct Entry {
         MatrixEntryIndex index;
         EntryFlags flags { EntryFlags::NoFlags };
-    } Entry;
+    };
 
     // Type of map from MatrixEntryPosition into a linear array index
     typedef std::unordered_map<MatrixEntryPosition, Entry, MatrixEntryPositionHash> Map;
