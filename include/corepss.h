@@ -37,9 +37,9 @@
 //
 // Newton loop outline:
 //
-//   Stabilise: integrate Tstab seconds from xDC to obtain x0.
+//   Stabilise: integrate tstab seconds from xDC to obtain x0.
 //
-//   For l = 0, 1, ..., maxitr:
+//   For l = 0, 1, ..., pss_itl:
 //
 //     Shoot: set solution = x0, run pssTran_ for T0 seconds.
 //            pssTran_ collects G(t) and C(t) via onTimestepAccepted().
@@ -82,9 +82,8 @@ namespace NAMESPACE {
 
 typedef struct PssParameters {
     Int  driven {0};            // Non-autonomous (driven) circuit
-    Real Tper   {0.0};          // Initial period guess
-    Real Tstab  {0.0};          // Stabilization transient time
-    Int  maxitr {20};           // Maximum iterations before aborting
+    Real tper   {0.0};          // Initial period guess
+    Real tstab  {0.0};          // Stabilization transient time
     Real epsmax {1e-12};        // Convergence tolerance
     Int  write  {1};            // Write output datasets
     Int  writestab {0};         // Write the stabilization transient plot

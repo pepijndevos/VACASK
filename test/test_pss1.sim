@@ -62,14 +62,14 @@ control
 
   options op_debug=3 tran_debug=0
   options rawfile="binary" strictsave=1
-  options tran_debug=3
+  options pss_debug=1
   options tran_method="gear"
 
   save default
 
   // ic=["1"; 0.9]: start stabilisation from V(1)=0.9V (away from the DC
   // fixed point at V=0) so the oscillation grows to the limit cycle.
-  analysis pss1 pss Tper=200n Tstab=5u maxitr=50 epsmax=1e-5 ic=["1"; 0.9] writestab=1
+  analysis pss1 pss tper=200n tstab=5u epsmax=1e-5 ic=["1"; 0.9] writestab=1
   //analysis tran1 tran start=0 stop=5u step=2.2n maxstep=22n ic=["1"; 0.9] 
 
   postprocess(PYTHON, "runme.py")

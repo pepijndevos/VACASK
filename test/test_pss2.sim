@@ -14,10 +14,10 @@ IHP SG13G2 Colpitts oscillator - transient and PSS
 //
 //
 // PSS:
-//   colpitts_osc_pss uses i_kick with delay=1.5 ns: fires during Tstab to
+//   colpitts_osc_pss uses i_kick with delay=1.5 ns: fires during tstab to
 //   kick the LC tank, but NOT during the 1.117 ns shooting window.
-//   Tstab=300e-8 (3 µs ≈ 2685 periods): long startup due to small excess gain.
-//   Tper=1.117e-9 is the initial period guess; Newton refines it.
+//   tstab=300e-8 (3 µs ≈ 2685 periods): long startup due to small excess gain.
+//   tper=1.117e-9 is the initial period guess; Newton refines it.
 
 ground 0
 
@@ -37,7 +37,7 @@ subckt colpitts_osc_pss()
     c2       (em 0)     sg13g2_default_mod_c c=6.3p
     r_em     (em 0)     sg13g2_default_mod_r r=100
     q1       (col base em 0) npn13G2
-    // Kick at 1.5 ns: fires during Tstab (circuit at correct OP, kicks LC tank)
+    // Kick at 1.5 ns: fires during tstab (circuit at correct OP, kicks LC tank)
     //   but NOT during the 1.117 ns PSS shooting window.
     // gm≈85 mS, loop gain >> 1, and oscillation grows after the 1.5 ns kick.
     i_kick   (col 0)    isrc type="pulse" val0=0 val1=1m rise=0.05n fall=0.05n width=0.5n delay=1.5n
@@ -54,7 +54,8 @@ control
     // --- PSS: autonomous circuit, i_kick perturbs the tank during Tstab ---
     elaborate circuit("colpitts_osc_pss")
     save default
-    analysis pss1 pss Tper=1.117e-9 Tstab=300e-8 epsmax=1e-6 maxitr=500 writestab=1
+    options pss_itl=500
+    analysis pss1 pss tper=1.117e-9 tstab=300e-8 epsmax=1e-6 writestab=1
 
     postprocess(PYTHON, "runme.py")
 endc

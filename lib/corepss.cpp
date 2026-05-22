@@ -15,9 +15,8 @@ namespace NAMESPACE {
 
 template<> int Introspection<PssParameters>::setup() {
     registerMember(driven);
-    registerMember(Tper);
-    registerMember(Tstab);
-    registerMember(maxitr);
+    registerMember(tper);
+    registerMember(tstab);
     registerMember(epsmax);
     registerMember(write);
     registerMember(writestab);
@@ -140,7 +139,7 @@ bool PssCore::formatError(Status& s) const {
         case PssError::NoConvergence:
             s.set(Status::Analysis,
                   "PSS failed to converge in " +
-                  std::to_string(params.maxitr) + " iterations.");
+                  std::to_string(circuit.simulatorOptions().core().pss_itl) + " iterations.");
             return false;
         case PssError::StabilisationFailed:
             s.set(Status::Analysis, "PSS stabilisation transient failed.");
@@ -205,9 +204,9 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
     Vector<double>      Fp(n + 1, 0.0);
     Vector<double>      alpha(n + 1, 0.0);
     DenseMatrix<double> Jp(n + 1, n + 1);
-    double              epsilon = params.epsmax + 1;  // Make initial epsilon big enough
 
-    Int iterIndex = 0;
+    Int    iterIndex = 0;
+    double epsilon   = params.epsmax + 1;  // Make initial epsilon big enough
     Vector<double>  x0;
     Vector<double>  xT;
     double          T0;
@@ -219,12 +218,12 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
     ss << std::scientific << std::setprecision(4);
 
     // Check parameters
-    if(params.Tper <= 0) {
+    if(params.tper <= 0) {
         setError(PssError::TperInvalid);
         co_yield CoreState::Aborted;
     }
 
-    if (params.Tstab < 10.0 * params.Tper) {
+    if (params.tstab < 10.0 * params.tper) {
         Simulator::wrn() << "PSS: Tstab < 10 * Tper. Oscillator may not have settled.\n";
     }
 
@@ -236,7 +235,7 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
 
     // x_0^(0) is the state of the circuit after running the stabilisation transient
     x0 = solution.vector();
-    T0 = params.Tper;
+    T0 = params.tper;
 
     // Obtain x_T^(0) by running a transient simulation for T_0 seconds
     solution.vector() = x0;
@@ -249,7 +248,7 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
     xT = solution.vector();
 
     // PSS-SHOOT main loop (outer NR)
-    while (iterIndex <= params.maxitr && epsilon > params.epsmax) {
+    while (iterIndex <= options.pss_itl && epsilon > params.epsmax) {
 
         if (debug>0){
             ss.str(""); 
@@ -350,7 +349,7 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
             epsilon = std::max(epsilon, std::abs(x0[i] - xT[i]));
         }
         if (debug>0){
-            ss.str(""); 
+            ss.str("");
             ss << "\tepsilon= " << epsilon << "\n";
             Simulator::dbg() << ss.str();
         }
@@ -431,9 +430,9 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
 // ----------------------------------------------------------------
 
 bool PssCore::runStabilisation(Status& s) {
-    params.stabilParams.step    = params.Tper / 1000.0;
-    params.stabilParams.stop    = params.Tstab;
-    params.stabilParams.maxstep = params.Tper / 1000.0;
+    params.stabilParams.step    = params.tper / 1000.0;
+    params.stabilParams.stop    = params.tstab;
+    params.stabilParams.maxstep = params.tper / 1000.0;
     params.stabilParams.start   = 0.0;
     params.stabilParams.write   = params.writestab;
 
