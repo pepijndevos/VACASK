@@ -300,6 +300,9 @@ bool Spurs::build(const std::vector<double>& fundamentals, const std::vector<Int
     // Build unpruned small signal analysis spectrum (symmetric)
     buildSmsig();
 
+    // Build map from pruned to full small signal spectrum
+    buildPrunedSmsigFreqIndex();
+
     if (debug>0) {
         Simulator::out() << "Spurs, " << spurs_.size() << " frequencies\n";
         auto nn = spurWeights_.nRows();
@@ -326,13 +329,32 @@ bool Spurs::build(const std::vector<double>& fundamentals, const std::vector<Int
     return true;
 }
 
+void Spurs::buildPrunedSmsigFreqIndex() {
+    // Current smsigFreq spectrum size
+    auto nf = smsigFreq_.size();
+
+    // Full small signal spectrum size
+    auto nfFull = spurs_.size();
+
+    // Build pruned small-signal frequency index for each full spectrum index
+    // Assume there is no such index for given full spectrum index
+    prunedSmsigFreqIndex_.resize(nfFull);
+    for(decltype(nf) i=0; i<nf; i++) {
+        prunedSmsigFreqIndex_[i] = noPrunedSmsigFreqIndex;
+    }
+    for(decltype(nf) i=0; i<nf; i++) {
+        auto fullIndex = fullSmsigFreqIndex_[i];
+        prunedSmsigFreqIndex_[fullIndex] = i;
+    }
+}
+
 // Go through nonnegative small-signal frequencies, prune frequencies 
 // - exceeding maximal harmonic weight
 // - exceeding maximal frequency
 // Prunes smsigFreq_, smsigFreqWeightIndices_, and fullSmsigFreqIndex_. 
 // Updates dcIndex. 
 // buildMixingMap() takes into account only frequencies that were not pruned. 
-void Spurs::prune(const Vector<Int>& maxHarm, double maxFreq) {
+bool Spurs::prune(const Vector<Int>& maxHarm, double maxFreq, Status& s) {
     auto n = fundamentals_.size();
     auto nf = smsigFreq_.size();
     std::vector<bool> pruneFlag(nf, false);
@@ -361,6 +383,7 @@ void Spurs::prune(const Vector<Int>& maxHarm, double maxFreq) {
     // Prune
     auto dest = 0;
     decltype(dcIndex) newDcIndex;
+    bool haveDc = false;
     for(decltype(nf) i=0; i<nf; i++) {
         if (!pruneFlag[i]) {
             // Copy
@@ -369,13 +392,25 @@ void Spurs::prune(const Vector<Int>& maxHarm, double maxFreq) {
             fullSmsigFreqIndex_[dest] = fullSmsigFreqIndex_[i];
             if (i==dcIndex) {
                 newDcIndex = dest;
+                haveDc = true;
             }
             dest++;
-        }
-        
+        }   
     }
     // Fix dc Index
+    fullSmsigFreqIndex_.resize(dest);
     dcIndex = newDcIndex;
+
+    // Sanity check - DC must stay
+    if (!haveDc) {
+        s.set(Status::CreationFailed, "Internal error. Pruning removed DC comnponent.");
+        return false;
+    }
+
+    // Build map from pruned to full small signal spectrum
+    buildPrunedSmsigFreqIndex();
+        
+    return true;
 }
 
 bool Spurs::buildMixingMap(Int debug, Status& s) {
@@ -394,7 +429,8 @@ bool Spurs::buildMixingMap(Int debug, Status& s) {
     // smsigFreq_
     smsigFreqMap.clear();
     for(decltype(nf) i=0; i<nf; i++) {
-        smsigFreqMap[spurWeights_.row(smsigFreqWeightIndices_[i])] = i;
+        auto fullI = fullSmsigFreqIndex_[i];
+        smsigFreqMap[spurWeights_.row(smsigFreqWeightIndices_[fullI])] = i;
     }
 
     // Mapping from indices in smsigFreq_ to indices of weights is handled by 
@@ -422,10 +458,12 @@ bool Spurs::buildMixingMap(Int debug, Status& s) {
     // Default is no Jacobian index for (out, in)
     mixingStencil_.fill(noJacIndex);
     for(decltype(nf) inF=0; inF<nf; inF++) {
-        auto inW = spurWeights_.row(smsigFreqWeightIndices_[inF]);
+        auto fullInF = fullSmsigFreqIndex_[inF];
+        auto inW = spurWeights_.row(smsigFreqWeightIndices_[fullInF]);
         for(decltype(nf) jacF=0; jacF<nf; jacF++) {
+            auto fullJacF = fullSmsigFreqIndex_[jacF]; 
             // Compute output weigths
-            auto jacW = spurWeights_.row(smsigFreqWeightIndices_[jacF]);
+            auto jacW = spurWeights_.row(smsigFreqWeightIndices_[fullJacF]);
             for(decltype(n) k=0; k<n; k++) {
                 outW[k] = inW[k] + jacW[k];
             }
@@ -433,9 +471,13 @@ bool Spurs::buildMixingMap(Int debug, Status& s) {
             auto it = smsigFreqMap.find(outW);
             if (it!=smsigFreqMap.end()) {
                 // In map, get spur index
-                auto outF = it->second;
-                // Write mixing stencil
-                mixingStencil_.at(outF, inF) = jacF;
+                auto fullOutF = it->second;
+                auto outF = prunedSmsigFreqIndex_[fullOutF]; 
+                // If output frequency is in the pruned spectrum
+                if (outF!=noPrunedSmsigFreqIndex) {
+                    // Write mixing stencil
+                    mixingStencil_.at(outF, inF) = jacF;
+                }
             }
         }
     }

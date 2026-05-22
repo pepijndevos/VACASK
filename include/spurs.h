@@ -29,42 +29,51 @@ public:
     // Fundamental frequencies vector
     const Vector<Real>& fundamentals() const { return fundamentals_; };
 
-    // Truncated grid point weights + weights of their negatives
-    const auto spurWeights(size_t i) { return spurWeights_.row(i); };
-    
     // Frequencies corresponding to truncated grid points used by HB, no negatives included
     const std::vector<double>& spectrum() const { return spectrum_; };
 
+    // Truncated grid point weights
+    // Let n denote the number of frequencies in spectrum()
+    // Index 0 is DC, indices 1..n-1 are positive spectrum components
+    // indices n..2n-2 are the negatives on frequencies with indices 1..n-1
+    const auto spurWeights(size_t i) { return spurWeights_.row(i); };
+    
     // Negatives and positives of truncated grid point frequencies
+    // Sorted in ascending order. 
+    // If prune() was called this spectrum has fewer than 2n-1 components
     // Row and column indices in mixingStencil refer to frequencies in this vector
     const std::vector<double>& smsigFreq() const { return smsigFreq_; };
 
-    // Weights for the i-th small-signal frequency (index into smsigFreq_)
+    // Weights for the i-th small-signal frequency (index into smsigFreq())
     VectorView<Int> smsigFreqWeights(size_t i) const { return spurWeights_.row(smsigFreqWeightIndices_[i]); };
 
     // Mapping from (output, input) spur index pair to frequency-domain Jacobian component index
-    // i<0  .. no entry foir this pair
+    // Row/column indices match the optionally truncated smsigFreq() spectrum
+    // i<0  .. no entry for this pair
     // i>=0 .. entries corresponding to Jacobians at frequencies given by spectrum, i.e. Jac[i]
     const DenseMatrix<Int>& mixingStencil() const { return mixingStencil_; };
 
-    // Returns the index of the small-signal frequency corresponding to f
+    // Returns the index of the small-signal frequency in smsigFreq() corresponding to f
+    // First return value is false if not found. 
     std::tuple<bool, size_t> smsigFreqIndex(double f, double tol=1e-14) const;
     
     // Decodes a spur given as frequency or weights vector into the corresponding small-signal frequency index
+    // First return value is false if not found. 
     std::tuple<bool, size_t> smsigFreqIndex(const Value& v) const;
     
-    // Build grid and spectrum (for HB)
+    // Build grid and spectrum (for HB). Also builds full smsigFreq() spectrum. 
     bool build(const std::vector<double>& fundamentals, const std::vector<int>& nHarmonics, int maxImOrder=0, bool hybrid=false, Int debug=0, Status& s=Status::ignore);
 
-    // Prune spurs with tone weights above maxHarm or absolute frequency above maxFreq. 
+    // Prune spurs with absolute tone weights above maxHarm or absolute frequency above maxFreq
+    // from smsigFreq() spectrum. 
     // Negative maxHarm component disables pruning by that tone weight. 
     // Negative maxFreq disables pruning by frequency. 
-    void prune(const Vector<Int>& maxHarm, double maxFreq=-1);
+    bool prune(const Vector<Int>& maxHarm, double maxFreq=-1, Status& s=Status::ignore);
    
-    // Build mixing map for (quasi)perodic small-signal analyses
+    // Build mixing map for (quasi)perodic small-signal analyses based on current smsigFreq() spectrum. 
     bool buildMixingMap(int debug=0, Status& s=Status::ignore);
 
-    // Range of indices for column i where mixing entries are found
+    // Range of indices for column i of mixing map where mixing entries are found. 
     std::tuple<size_t, size_t> rowRange(size_t i) const { return std::make_tuple(rowStartNonzero[i], rowEndNonzero[i]); };
 
     // This value in mixingMap indicated no entry at that position
@@ -76,6 +85,9 @@ private:
 
     // Build unpruned small signal analysis spectrum and associated data
     void buildSmsig();
+
+    // Build map from full small-signal spectrum to pruned small-signal spectrum
+    void buildPrunedSmsigFreqIndex();
 
     // Custom hasher based on a pointer to integer array
     struct ArrayHasher {
@@ -130,6 +142,13 @@ private:
 
     // Full small-signal spectrum index (used for transcribing full spectrum to pruned spectrum)
     Vector<size_t> fullSmsigFreqIndex_;
+
+    // Pruned small-signal spectrum index (for tranlating full small-signal spectrum index into pruned spectrum index)
+    Vector<size_t> prunedSmsigFreqIndex_;
+
+    // For prunedSmsigFreqIndex_, this value indicates that there is no corresponding 
+    // pruned small signal frequency in smsigFreq_
+    static constexpr size_t noPrunedSmsigFreqIndex = SIM_SIZE_T_MAX;
 
     // Flag that indicates two components in signedSpectrum_ were in conflict 
     // (resulted in same absolute frequency). One of them was removed. 
