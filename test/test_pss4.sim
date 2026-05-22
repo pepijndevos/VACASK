@@ -24,7 +24,8 @@ control
   options tran_method="gear"
 
   options pss_itl=500
-  analysis pss1 pss driven=1 tper=2m tstab=1n epsmax=5e-4 writestab=1
+  options pss_tolscale=0.5
+  analysis pss1 pss driven=1 tper=2m tstab=1n writestab=1
   
   postprocess(PYTHON, "runme.py")
 endc

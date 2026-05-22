@@ -17,7 +17,6 @@ template<> int Introspection<PssParameters>::setup() {
     registerMember(driven);
     registerMember(tper);
     registerMember(tstab);
-    registerMember(epsmax);
     registerMember(write);
     registerMember(writestab);
     registerMember(ic);
@@ -205,8 +204,8 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
     Vector<double>      alpha(n + 1, 0.0);
     DenseMatrix<double> Jp(n + 1, n + 1);
 
-    Int    iterIndex = 0;
-    double epsilon   = params.epsmax + 1;  // Make initial epsilon big enough
+    Int    iterIndex  = 0;
+    double worstRatio = 0.0;
     Vector<double>  x0;
     Vector<double>  xT;
     double          T0;
@@ -248,7 +247,7 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
     xT = solution.vector();
 
     // PSS-SHOOT main loop (outer NR)
-    while (iterIndex <= options.pss_itl && epsilon > params.epsmax) {
+    while (iterIndex <= options.pss_itl) {
 
         if (debug>0){
             ss.str(""); 
@@ -343,19 +342,27 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
         }
         xT = solution.vector();
 
-        // Compute error using infinite-norm
-        epsilon = 0;
+        // Convergence check: per-unknown shooting residual vs SPICE delta tolerance.
+        // A (used): tol[i] = pss_tolscale * max(|x0[i]|*reltol, abstol[i]) -- matches OP/TRAN
+        //   checkDelta; scales with signal magnitude so large/small nodes converge proportionally.
+        // B (alternative): tol[i] = pss_tolscale * abstol[i] -- purely absolute; simpler but
+        //   insensitive to signal magnitude, may over-converge large nodes or under-converge small ones.
+        bool shootConverged = true;
+        worstRatio = 0.0;
         for (decltype(n) i = 1; i <= n; i++) {
-            epsilon = std::max(epsilon, std::abs(x0[i] - xT[i]));
+            double tol = options.pss_tolscale *
+                         std::max(std::fabs(x0[i]) * options.reltol, commons.unknown_abstol[i]);
+            double ratio = std::fabs(x0[i] - xT[i]) / tol;
+            if (ratio > worstRatio) worstRatio = ratio;
+            if (ratio > 1.0) shootConverged = false;
         }
         if (debug>0){
             ss.str("");
-            ss << "\tepsilon= " << epsilon << "\n";
+            ss << "\tworst residual ratio= " << worstRatio << "\n";
             Simulator::dbg() << ss.str();
         }
 
-        if (epsilon < params.epsmax) {
-            // Converged
+        if (shootConverged) {
             converged = true;
             break;
         } else {
@@ -372,7 +379,7 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
     if (debug>0) {
         ss.str("");
         ss << "Converged in " << iterIndex + 1 << " iterations.\n";
-        ss << "Final epsilon = " << epsilon << "\n";
+        ss << "Final worst residual ratio = " << worstRatio << "\n";
         Simulator::dbg() << ss.str();
     }
 

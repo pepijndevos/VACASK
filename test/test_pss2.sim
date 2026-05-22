@@ -55,7 +55,8 @@ control
     elaborate circuit("colpitts_osc_pss")
     save default
     options pss_itl=500
-    analysis pss1 pss tper=1.117e-9 tstab=300e-8 epsmax=1e-6 writestab=1
+    options pss_tolscale=1e-2
+    analysis pss1 pss tper=1.117e-9 tstab=300e-8 writestab=1
 
     postprocess(PYTHON, "runme.py")
 endc

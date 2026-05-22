@@ -90,6 +90,7 @@ typedef struct SimulatorOptions  {
     Int hb_skipinitial;
     std::vector<Id> hb_homotopy;
     Int hb_nsiter;
+    Real pss_tolscale;
     Int pss_itl;
     Int pss_debug;
     Id rawfile;

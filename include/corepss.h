@@ -47,7 +47,7 @@
 //
 //     Residual: Fp = x0 - xT
 //
-//     Converged? if norm(Fp) < epsmax, store result and return.
+//     Converged? if per-unknown |Fp[i]| < pss_tolscale*max(|x0[i]|*reltol, abstol[i]), store result and return.
 //
 //     Sensitivity: call pssTran_.integrateSensitivity() to obtain:
 //       PhiT  - n x n state-transition matrix dxT/dx0
@@ -84,7 +84,6 @@ typedef struct PssParameters {
     Int  driven {0};            // Non-autonomous (driven) circuit
     Real tper   {0.0};          // Initial period guess
     Real tstab  {0.0};          // Stabilization transient time
-    Real epsmax {1e-12};        // Convergence tolerance
     Int  write  {1};            // Write output datasets
     Int  writestab {0};         // Write the stabilization transient plot
     Value ic {Value("")};       // Initial conditions

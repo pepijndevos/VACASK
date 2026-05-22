@@ -14,7 +14,8 @@ control
   abort always
   options tran_method="gear"
   options pss_itl=500
-  analysis pss1 pss driven=1 tper=20m tstab=0.1n epsmax=5e-4 writestab=1
+  options pss_tolscale=1.5e-3
+  analysis pss1 pss driven=1 tper=20m tstab=0.1n writestab=1
   postprocess(PYTHON, "runme.py")
 endc
 
