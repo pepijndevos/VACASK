@@ -201,7 +201,6 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
     auto n = circuit.unknownCount();
 
     /// TODO: Move to private class members. Size correctly during rebuild.
-    DenseMatrix<double> PhiT;
     Vector<double>      PsiT;
     Vector<double>      Fp(n + 1, 0.0);
     Vector<double>      alpha(n + 1, 0.0);
@@ -268,7 +267,7 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
         }
 
         // Obtain sensitivity matrices
-        if (!runSensitivity(PhiT, PsiT, s)) {
+        if (!runSensitivity(phiT_, PsiT, s)) {
             setError(PssError::SensitivityFailed);
             co_yield CoreState::Aborted;
         }
@@ -278,7 +277,7 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
             ss << "\tPhiT=\n";
             for (decltype(n) i = 0; i < n; i++) {
                 ss << "\t  [ ";
-                for (decltype(n) j = 0; j < n; j++) ss << PhiT.at(i, j) << " ";
+                for (decltype(n) j = 0; j < n; j++) ss << phiT_.at(i, j) << " ";
                 ss << "]\n";
             }
             if(!params.driven) {
@@ -298,7 +297,7 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
         // Jacobian: I - PhiT
         for (decltype(n) i = 0; i < n; i++) {
             for (decltype(n) j = 0; j < n; j++) {
-                Jp.at(i, j) = (i == j ? 1.0 : 0.0) - PhiT.at(i, j);
+                Jp.at(i, j) = (i == j ? 1.0 : 0.0) - phiT_.at(i, j);
             }
         }
 
@@ -387,26 +386,41 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
             co_yield CoreState::Finished;
         }
     }
-        solution.vector() = x0;
-        pssTran_.setShootIC(x0);
-        pssTran_.clearTrajectory(T0);
+    solution.vector() = x0;
+    pssTran_.setShootIC(x0);
+    pssTran_.clearTrajectory(T0);
     pssTran_.enableTrajectoryCapture();
-        if (!runShoot(T0, s)) {
-            setError(PssError::ShootFailed);
-            co_yield CoreState::Aborted;
-        }
+    if (!runShoot(T0, s)) {
+        setError(PssError::ShootFailed);
+        co_yield CoreState::Aborted;
+    }
 
     // Integrate Omega backward using captured trajectory
-    DenseMatrix<double> Omega;
-    if (!pssTran_.integrateAdjointMonodromy(Omega)) {
+    if (!pssTran_.integrateAdjointMonodromy(omegaT_)) {
         setError(PssError::AdjointFailed);
         co_yield CoreState::Aborted;
     
     }
-    
-    phiT_ = PhiT;  
-    omegaT_ = Omega;
 
+    if (debug>0) {
+        ss.str(""); 
+        auto n = circuit.unknownCount();
+        ss << "-- Monodromy matrices --\n";
+        ss << "\tPhi(T,0) =\n";
+        for (decltype(n) i = 0; i < n; i++) {
+            ss << "\t  [ ";
+            for (decltype(n) j = 0; j < n; j++) ss << phiT_.at(i, j) << " ";
+            ss << "]\n";
+        }
+        ss << "\tOmega(T,0) =\n";
+        for (decltype(n) i = 0; i < n; i++) {
+            ss << "\t  [ ";
+            for (decltype(n) j = 0; j < n; j++) ss << omegaT_.at(i, j) << " ";
+            ss << "]\n";
+        }
+        Simulator::dbg() << ss.str();
+    }
+    
     co_yield CoreState::Finished;
     
 }
