@@ -54,6 +54,7 @@ d1  (vout 0)    vdp_nl
 
 // I1: 1mA kick pulse at t=0, width=1ns (single shot, no period).
 // Matches I1=0/I2=1mA/T1=0/T2=1ns from Fig. 2 of the paper.
+// 15n delay prevents it from firing during PSS shooting
 i1 (0 vout) isource type="pulse" val0=0 val1=1m delay=15n width=1n rise=10p fall=10p
 
 control
@@ -61,8 +62,6 @@ control
   options pss_debug=1
   options rawfile="binary" strictsave=1
   options reltol=1e-3 abstol=1e-12
-  
-  options tran_method="gear"
 
   save default
 

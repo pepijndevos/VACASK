@@ -132,9 +132,11 @@ protected:
 private:
     // Record of data needed for backward adjoint integration at each accepted step
     struct StepRecord {
-        Vector<double> aData;   // raw A_k values (size nnz)
-        Vector<double> cData;     // raw C_k values (size nnz)
-        Vector<double> gamma;     // gamma_i coefficients (size order)
+        Vector<double> aData;    // raw A_k values (size nnz)
+        Vector<double> cData;    // raw C_k values (size nnz)
+        Vector<double> gData;    // G_k = A_k - alpha_k * C_k  (size nnz)
+        Vector<double> gammaC;   // alpha * a[i]    — coefficient for C term (size order)
+        Vector<double> gammaG;   // -(b[i] / b1)   — coefficient for G term (size order)
         Int            order;
     };
 
@@ -167,6 +169,9 @@ private:
 
     // Circular history of past reactive Jacobians C_k.
     std::deque<Vector<double>> cHistData_;
+
+    // Circular history of past resistive Jacobians G_k = A_k - alpha_k * C_k.
+    std::deque<Vector<double>> gHistData_;
 
     // Circular history of past reactive residuals q_k
     std::deque<Vector<double>> qHistData_;
