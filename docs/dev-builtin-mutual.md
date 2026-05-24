@@ -28,7 +28,7 @@ m12 () mutual k=0.9 ind1="l1" ind2="l2"
 | `ctlnode1` | string | `"flow(br)"` | Internal flow node of `ind1` that carries its branch current. |
 | `ctlnode2` | string | `"flow(br)"` | Internal flow node of `ind2` that carries its branch current. |
 
-The default `ctlnode1` and `ctlnode2` values work with inductors that introduce a branch-current unknown, which is the case for the VACASK Verilog-A inductor (`inductor.osdi`). Verilog-A models that do not expose a `flow(br)` node cannot be coupled with `mutual`. The model also assumes the coupled inductors expose `l` (inductance) and `$mfactor` parameters. The inductive coupling module does not expose a `$mfactor` parameter. 
+The default `ctlnode1` and `ctlnode2` values work with inductors that introduce a branch-current unknown, which is the case for the VACASK Verilog-A inductor (`inductor.osdi`). Verilog-A models that do not expose a flow node cannot be coupled with `mutual`. The model also assumes the coupled inductors expose `l` (inductance) and `$mfactor` parameters. The inductive coupling module does not expose a `$mfactor` parameter. 
 
 ## Output variables
 
