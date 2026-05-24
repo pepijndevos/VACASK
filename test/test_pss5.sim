@@ -1,23 +1,5 @@
 Single tone HB of a self-heating lighbulb
-
-ground 0 
-
-load "lightbulb.va"
-
-model vsource vsource
-model lightbulb lightbulb rth=(3000-25)/60 ta=25
-
-v1 (1 0) vsource dc=0 type="sine" sinedc=0.0 ampl=325 freq=50
-b1 (1 0) lightbulb
-
-control
-  abort always
-  options tran_method="gear"
-  options pss_itl=500
-  options pss_tolscale=1.5e-3
-  analysis pss1 pss driven=1 tper=20m tstab=0.1n writestab=1
-  postprocess(PYTHON, "runme.py")
-endc
+// Mirrors test_hb3.sim
 
 embed "lightbulb.va" <<<FILE
 `include "constants.vams"
@@ -57,6 +39,27 @@ module lightbulb(A, B);
 endmodule
 >>>FILE
 
+ground 0 
+
+load "lightbulb.va"
+
+model vsource vsource
+model lightbulb lightbulb rth=(3000-25)/60 ta=25
+
+v1 (1 0) vsource dc=0 type="sine" sinedc=0.0 ampl=325 freq=50
+b1 (1 0) lightbulb
+
+control
+  options rawfile="binary" strictsave=1
+  options pss_itl=500
+  options pss_tolscale=1.5e-3
+
+  save default
+
+  analysis pss1 pss driven=1 tper=20m tstab=200m writestab=1
+
+  postprocess(PYTHON, "runme.py")
+endc
 
 embed "runme.py" <<<FILE
 from rawfile import rawread
@@ -84,65 +87,46 @@ status = amp_pp > 0.1
 tests.append(status)
 print(f"Tran: peak-to-peak in 2nd half = {amp_pp*1e3:.1f} mV (expect > 100 mV): {status}")
 
-# -------------------------------------------------------------------
-# PSS results (gracefully skipped if PSS not yet converging)
-# -------------------------------------------------------------------
-pss_ok = False
-try:
-    ppss  = rawread('pss1.raw').get()
-    tp    = ppss['time']
-    Tp    = ppss['b1:t']
-    ip    = -ppss['v1:flow(br)']
-    T0    = float(tp[-1] - tp[0])
-    f0    = 1.0 / T0
-    Tpp   = float(Tp.max() - Tp.min())
-    print(f"PSS:  converged T0={T0:.4e} s  f0={f0:.1f} Hz  Tpp={Tpp*1e3:.0f} deg C")
-    pss_ok = True
-except Exception as e:
-    print(f"PSS:  not available ({e})")
+ppss  = rawread('pss1.raw').get()
+tp    = ppss['time']
+Tp    = ppss['b1:t']
+ip    = -ppss['v1:flow(br)']
+T0    = float(tp[-1] - tp[0])
+f0    = 1.0 / T0
+Tpp   = float(Tp.max() - Tp.min())
+print(f"PSS:  converged T0={T0:.4e} s  f0={f0:.1f} Hz  Tpp={Tpp*1e3:.0f} deg C")
 
-status = pss_ok
-tests.append(status)
-print(f"PSS:  converged: {status}")
-
-# -------------------------------------------------------------------
-# Spectrum from PSS waveform (exact harmonics, no leakage)
-# -------------------------------------------------------------------
-if pss_ok:
-    N_fft  = 1024
-    tp_uni = np.linspace(float(tp[0]), float(tp[0]) + T0, N_fft, endpoint=False)
-    Tp_uni = np.interp(tp_uni, tp, Tp)
-    fmag   = np.abs(np.fft.rfft(Tp_uni)) * (2.0 / N_fft)
-    fmag[0] /= 2                             # DC bin is one-sided already
-    freqs  = np.arange(len(fmag)) * f0      # harmonic frequencies in Hz
-    vph = np.angle(np.fft.rfft(Tp_uni)) * 180 / np.pi
+# ---------------------------
+# Spectrum from PSS waveform
+# ---------------------------
+N_fft  = 1024
+tp_uni = np.linspace(float(tp[0]), float(tp[0]) + T0, N_fft, endpoint=False)
+Tp_uni = np.interp(tp_uni, tp, Tp)
+fmag   = np.abs(np.fft.rfft(Tp_uni)) * (2.0 / N_fft)
+fmag[0] /= 2                             # DC bin is one-sided already
+freqs  = np.arange(len(fmag)) * f0      # harmonic frequencies in Hz
 
 if isTest():
     sys.exit(not all(tests))
-elif pss_ok:
-    import matplotlib.pyplot as plt
 
-    n_panels = 3
-    fig, axes = plt.subplots(n_panels, 1, figsize=(9, 4 * n_panels), constrained_layout=True)
-    fig.suptitle("Single tone PSS of a self-heating lighbulb")
+import matplotlib.pyplot as plt
 
-    axes[0].plot(tp * 1e3, Tp, lw=1.2, color='C1')
-    axes[0].axhline(Tp[0], ls='--', alpha=0.2)
-    axes[0].set_xlabel("time [ms]")
-    axes[0].set_ylabel("T [deg C]")
-    axes[0].set_title(f"PSS periodic response  f0={f0:.1f} Hz")
+n_panels = 2
+fig, axes = plt.subplots(n_panels, 1, figsize=(9, 4 * n_panels), constrained_layout=True)
+fig.suptitle("Single tone PSS of a self-heating lighbulb")
 
-    axes[1].stem(freqs, fmag)
-    axes[1].set_yscale("log")
-    axes[1].set_xlabel("frequency [Hz]")
-    axes[1].set_ylabel("|FFT| amplitude [deg C]")
-    axes[1].set_title("PSS spectrum")
-    axes[1].set_xlim(-10, 510)
+axes[0].plot(tp * 1e3, Tp, lw=1.2, color='C1')
+axes[0].axhline(Tp[0], ls='--', alpha=0.2)
+axes[0].set_xlabel("time [ms]")
+axes[0].set_ylabel("T [deg C]")
+axes[0].set_title(f"PSS periodic response  f0={f0:.1f} Hz")
 
-    axes[2].stem(freqs, vph)
-    axes[2].set_xlabel("frequency [Hz]")
-    axes[2].set_ylabel("Phase [deg]")
-    axes[2].set_title("PSS spectrum (phase)")
+axes[1].stem(freqs, fmag)
+axes[1].set_yscale("log")
+axes[1].set_xlabel("frequency [Hz]")
+axes[1].set_ylabel("|FFT| amplitude [deg C]")
+axes[1].set_title("PSS spectrum")
+axes[1].set_xlim(-10, 510)
 
-    plt.show()
+plt.show()
 >>>FILE

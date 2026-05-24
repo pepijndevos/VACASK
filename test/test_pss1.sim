@@ -2,8 +2,7 @@ Van der Pol LC oscillator - PSS convergence test
 
 // Circuit
 // -------
-// A single-node LC oscillator with a Van der Pol nonlinear conductance,
-// implemented in one embedded Verilog-A module (no external OSDI models):
+// A single-node LC oscillator with a Van der Pol nonlinear conductance
 //
 //   C  = 1 nF  (ddt)
 //   L  = 1 uH  (idt, IL(0)=0)
@@ -14,15 +13,12 @@ Van der Pol LC oscillator - PSS convergence test
 //   f0 = 1 / (2*pi*sqrt(L*C)) = 1 / (2*pi*sqrt(1e-6*1e-9)) ~= 5.033 MHz
 //   T0 ~= 198.69 ns
 //
-// The DC operating point is V=0, which is a fixed point of BDF.
 // To kick the oscillation, ic=["1"; 0.9] sets V(1)=0.9 V at t=0.
 //
 // PSS parameters
 // --------------
 //   Tper  = 200ns  (initial guess, ~1% above exact T0)
 //   Tstab = 5us    (25 periods; enough for the oscillation to settle)
-//   tran_method = "gear"  (BDF; trapezoidal not supported by the PSS
-//                          sensitivity integrator)
 
 ground 0
 
@@ -60,18 +56,15 @@ osc1 (1 0) vdposc
 control
   abort never
 
-  options op_debug=3 tran_debug=0
   options rawfile="binary" strictsave=1
   options pss_debug=1
-  options tran_method="gear"
+  options pss_tolscale=1e-2
 
   save default
 
   // ic=["1"; 0.9]: start stabilisation from V(1)=0.9V (away from the DC
   // fixed point at V=0) so the oscillation grows to the limit cycle.
-  options pss_tolscale=1e-2
   analysis pss1 pss tper=200n tstab=5u ic=["1"; 0.9] writestab=1
-  //analysis tran1 tran start=0 stop=5u step=2.2n maxstep=22n ic=["1"; 0.9] 
 
   postprocess(PYTHON, "runme.py")
 endc

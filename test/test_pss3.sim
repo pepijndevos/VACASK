@@ -1,4 +1,22 @@
 Single tone driven PSS of a resistive circuit
+// Mirrors test_hb1.sim
+
+embed "nl3.va" <<<FILE
+`include "constants.vams"
+`include "disciplines.vams"
+
+module nl3(A,B);
+    // Simplified SPICE diode, used for validation purposes
+    
+    // Terminals and internal nodes
+    inout A, B;
+    electrical A,B;
+    
+    analog begin
+        I(A,B) <+ 0.5 + pow(V(A,B), 3);
+    end
+endmodule
+>>>FILE
 
 ground 0 
 
@@ -21,15 +39,16 @@ nl1 (1 0) nl3
 //   phase 0   -90  0 +90
 
 control
-  abort always
-  options tran_method="gear"
-  options pss_itl=500
+  options rawfile="binary" strictsave=1
+  options pss_debug=0
   options pss_tolscale=1e-3
+
+  save default
+
   analysis pss1 pss driven=1 tper=1m tstab=10m writestab=1
   
   postprocess(PYTHON, "runme.py")
 endc
-
 
 embed "runme.py" <<<FILE
 from rawfile import rawread

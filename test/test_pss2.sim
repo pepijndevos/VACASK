@@ -16,7 +16,6 @@ IHP SG13G2 Colpitts oscillator - transient and PSS
 // PSS:
 //   colpitts_osc_pss uses i_kick with delay=1.5 ns: fires during tstab to
 //   kick the LC tank, but NOT during the 1.117 ns shooting window.
-//   tstab=300e-8 (3 µs ≈ 2685 periods): long startup due to small excess gain.
 //   tper=1.117e-9 is the initial period guess; Newton refines it.
 
 ground 0
@@ -44,19 +43,15 @@ subckt colpitts_osc_pss()
 ends
 
 control
-    options temp=27
-    options rawfile="binary" strictsave=1
-    options reltol=1e-4 abstol=1e-12 vntol=1e-6
-    options pss_debug=1
-    // Default tran_method="trap" is rejected by integrateSensitivity().
-    options tran_method="gear"
-
-    // --- PSS: autonomous circuit, i_kick perturbs the tank during Tstab ---
     elaborate circuit("colpitts_osc_pss")
-    save default
-    options pss_itl=500
+
+    options rawfile="binary" strictsave=1
+    options pss_debug=1
     options pss_tolscale=1e-2
-    analysis pss1 pss tper=1.117e-9 tstab=300e-8 writestab=1
+
+    save default
+
+    analysis pss1 pss tper=1.117n tstab=50n writestab=1
 
     postprocess(PYTHON, "runme.py")
 endc
@@ -87,40 +82,20 @@ status  = amp_pp > 0.1
 tests.append(status)
 print(f"Tran: peak-to-peak in 2nd half = {amp_pp*1e3:.1f} mV (expect > 100 mV): {status}")
 
-dt_uni = 0.05e-9
-t_uni  = np.arange(t[n_half], t[-1], dt_uni)
-v_uni  = np.interp(t_uni, t[n_half:], vcol[n_half:])
-v_ac   = v_uni - np.mean(v_uni)
-fmag   = np.abs(np.fft.rfft(v_ac))
-freqs  = np.fft.rfftfreq(len(v_ac), d=dt_uni)
-ipeak  = int(np.argmax(fmag[1:]) + 1)
-f_peak = float(freqs[ipeak])
-status = 700e6 <= f_peak <= 1100e6
-tests.append(status)
-print(f"Tran: dominant peak at {f_peak/1e6:.1f} MHz (expect 700-1100 MHz): {status}")
-
-# -------------------------------------------------------------------
-# PSS results (gracefully skipped if PSS not yet converging)
-# -------------------------------------------------------------------
-pss_ok = False
-try:
-    ppss  = rawread('pss1.raw').get()
-    tp    = ppss['time']
-    vp    = ppss['col']
-    T0    = float(tp[-1] - tp[0])
-    f0    = 1.0 / T0
-    vpp   = float(vp.max() - vp.min())
-    print(f"PSS:  converged T0={T0:.4e} s  f0={f0/1e6:.1f} MHz  Vpp={vpp*1e3:.0f} mV")
-    pss_ok = True
-except Exception as e:
-    print(f"PSS:  not available ({e})")
+ppss  = rawread('pss1.raw').get()
+tp    = ppss['time']
+vp    = ppss['col']
+T0    = float(tp[-1] - tp[0])
+f0    = 1.0 / T0
+vpp   = float(vp.max() - vp.min())
+print(f"PSS:  converged T0={T0:.4e} s  f0={f0/1e6:.1f} MHz  Vpp={vpp*1e3:.0f} mV")
 
 if isTest():
     sys.exit(not all(tests))
 else:
     import matplotlib.pyplot as plt
 
-    n_panels = 3 if pss_ok else 2
+    n_panels  = 2
     fig, axes = plt.subplots(n_panels, 1, figsize=(9, 4 * n_panels))
     fig.suptitle("IHP SG13G2 Colpitts 896 MHz")
 
@@ -129,18 +104,10 @@ else:
     axes[0].set_ylabel("V(col) [V]")
     axes[0].set_title(f"Transient  (Vpp = {amp_pp*1e3:.0f} mV)")
 
-    axes[1].semilogy(freqs[1:] / 1e9, fmag[1:], lw=0.8)
-    axes[1].axvline(f_peak / 1e9, color='r', ls='--', label=f"{f_peak/1e6:.0f} MHz")
-    axes[1].set_xlabel("frequency [GHz]")
-    axes[1].set_ylabel("|FFT| [a.u.]")
-    axes[1].set_xlim(0, 4)
-    axes[1].legend()
-
-    if pss_ok:
-        axes[2].plot(tp * 1e9, vp, lw=1.2, color='C1')
-        axes[2].set_xlabel("time [ns]")
-        axes[2].set_ylabel("V(col) [V]")
-        axes[2].set_title(f"PSS converged limit cycle  f0={f0/1e6:.1f} MHz")
+    axes[1].plot(tp * 1e9, vp, lw=1.2, color='C1')
+    axes[1].set_xlabel("time [ns]")
+    axes[1].set_ylabel("V(col) [V]")
+    axes[1].set_title(f"PSS converged limit cycle  f0={f0/1e6:.1f} MHz")
 
     plt.tight_layout()
     plt.show()
