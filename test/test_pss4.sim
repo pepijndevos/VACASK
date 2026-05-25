@@ -21,11 +21,10 @@ r1 (2 0) resistor r=200k
 
 control
   abort always
-  options tran_method="gear"
-
-  options pss_itl=500
+  options pss_debug=1
+  options pss_itl=50
   options pss_tolscale=0.5
-  analysis pss1 pss driven=1 tper=2m tstab=1n writestab=1
+  analysis pss1 pss driven=1 tper=2m tstab=20m writestab=1 maxacfreq=1.975M
   
   postprocess(PYTHON, "runme.py")
 endc

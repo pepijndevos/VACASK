@@ -81,11 +81,12 @@
 namespace NAMESPACE {
 
 typedef struct PssParameters {
-    Int  driven {0};            // Non-autonomous (driven) circuit
-    Real tper   {0.0};          // Initial period guess
-    Real tstab  {0.0};          // Stabilization transient time
-    Int  write  {1};            // Write output datasets
-    Int  writestab {0};         // Write the stabilization transient plot
+    Int  driven     {0};        // Non-autonomous (driven) circuit
+    Real tper       {0.0};      // Initial period guess
+    Real tstab      {0.0};      // Stabilization transient time
+    Real maxacfreq  {0.0};      // Max AC frequency to resolve; limits maxstep to 1/(2*maxacfreq). Clipped to 40/tper if below that.
+    Int  write      {1};        // Write output datasets
+    Int  writestab  {0};        // Write the stabilization transient plot
     Value ic {Value("")};       // Initial conditions
 
     // Parameters forwarded to subsidiary cores

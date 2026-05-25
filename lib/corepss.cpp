@@ -17,6 +17,7 @@ template<> int Introspection<PssParameters>::setup() {
     registerMember(driven);
     registerMember(tper);
     registerMember(tstab);
+    registerMember(maxacfreq);
     registerMember(write);
     registerMember(writestab);
     registerMember(ic);
@@ -441,6 +442,12 @@ bool PssCore::runStabilisation(Status& s) {
     params.stabilParams.stop    = params.tstab;
     params.stabilParams.maxstep = params.tper / 1000.0;
     params.stabilParams.start   = 0.0;
+    if (params.maxacfreq > 0) {
+        double effMaxacfreq = std::max(params.maxacfreq, 40.0 / params.tper);
+        double hmax = std::min(params.stabilParams.maxstep, 1.0 / (2.0 * effMaxacfreq));
+        params.stabilParams.maxstep = hmax;
+        params.stabilParams.step    = std::min(params.stabilParams.step, hmax);
+    }
     params.stabilParams.write   = params.writestab;
 
     // icmode and ic were forwarded to stabilParams in Pss::preMapping().
@@ -482,6 +489,12 @@ bool PssCore::runShoot(double T0, Status& s) {
     params.shootParams.maxstep = T0 / 1e3;
     params.shootParams.start   = 0.0;
     params.shootParams.icmode  = TranCore::icmodeUic;
+    if (params.maxacfreq > 0) {
+        double effMaxacfreq = std::max(params.maxacfreq, 40.0 / T0);
+        double hmax = std::min(params.shootParams.maxstep, 1.0 / (2.0 * effMaxacfreq));
+        params.shootParams.maxstep = hmax;
+        params.shootParams.step    = std::min(params.shootParams.step, hmax);
+    }
     // write is left as-is: 0 during Newton iterations, 1 for the final output shoot.
 
     if (!pssTran_.run(false)) {
