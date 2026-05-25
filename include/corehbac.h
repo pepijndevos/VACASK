@@ -44,7 +44,9 @@ typedef struct HBACParameters {
                         // Default is empty list {} (all spurs). 
     Value maxharm {-1}; // Maximal absolute tone weight for spectrum truncation. 
                         // Integer or integer vector, scalar applies to all tones. 
-                        // -1 keeps all tones computed by hb. 
+                        // <0 keeps all tones computed by hb. 
+    Real maxfreq {-1};  // Maximal absolute frequencyfor spectrum truncation
+                        // <0 keeps all tones. 
     Int write {1};      // Write the results to a file
                         // writehb is the write parameter of hb core
                         // nodeset and store parameters of the hb core are also exposed. 
@@ -156,6 +158,8 @@ protected:
     std::vector<std::vector<Int>> spurSignatures;
 
     Vector<Real> omega;
+
+    Spurs spurs_;
 
     double frequency;
 };

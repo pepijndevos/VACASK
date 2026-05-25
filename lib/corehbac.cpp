@@ -22,6 +22,7 @@ template<> int Introspection<HBACParameters>::setup() {
     registerMember(values);
     registerMember(outspur);
     registerMember(maxharm);
+    registerMember(maxfreq);
     registerMember(write);
     registerNamedMember(hbParams.write, "writehb");
     registerNamedMember(hbParams.freq, "freq");
@@ -76,7 +77,7 @@ bool HBACCore::resolveOutputDescriptors(bool strict, Status& s) {
     // Resolve output descriptors
     bool ok = true; 
     auto nStoredSpurs = spurIndices.size();
-    auto nSpurs = hbCore_.spurs().smsigFreq().size();
+    auto nSpurs = spurs_.smsigFreq().size();
 
     for (auto it = outputDescriptors.cbegin(); it != outputDescriptors.cend(); ++it) {
         Node *node;
@@ -168,11 +169,10 @@ bool HBACCore::deleteOutputs(Id name, Status& s) {
 }
   
 void HBACCore::constructSuffixes() {
-    auto& spurs = hbCore_.spurs();
-    auto nf = spurs.smsigFreq().size();
+    auto nf = spurs_.smsigFreq().size();
     suffixes.clear();
     for (auto i : spurIndices) {
-        auto w = spurs.smsigFreqWeights(i);
+        auto w = spurs_.smsigFreqWeights(i);
         std::string s;
         for (size_t k = 0; k < w.n(); k++) {
             if (k > 0) s += ',';
@@ -188,7 +188,7 @@ void HBACCore::constructSuffixes() {
 // f    - small-signal input frequency (Hz)
 // omega - output vector, resized to nf (number of spurs)
 void HBACCore::computeOmega(Real f) {
-    auto& smsigFreq = hbCore_.spurs().smsigFreq();
+    auto& smsigFreq = spurs_.smsigFreq();
     auto nf = smsigFreq.size();
     for (size_t n = 0; n < nf; n++) {
         omega[n] = 2.0 * std::numbers::pi * (f + smsigFreq[n]);
@@ -218,8 +218,7 @@ void HBACCore::fillDenseBlock(
     const Vector<Real>& omega,
     DenseMatrixView<Complex>& block
 ) {
-    auto& spurs = hbCore_.spurs();
-    auto& stencil = spurs.mixingStencil();
+    auto& stencil = spurs_.mixingStencil();
     auto nf = stencil.nRows();
     
     // G.dump(std::cout);
@@ -230,7 +229,7 @@ void HBACCore::fillDenseBlock(
     auto* o = &omega.at(0);
     for (size_t m = 0; m < nf; m++) {
         // Omega is common for the whole row
-        auto [start, end] = spurs.rowRange(m);
+        auto [start, end] = spurs_.rowRange(m);
         auto om = o + start;
         auto p1 = &block.at(start, m);
         auto jacIndex = &stencil.at(start, m);;
@@ -289,11 +288,42 @@ bool HBACCore::rebuild(Status& s) {
 
     auto& options = circuit.simulatorOptions().core();
 
-    auto& spurs = hbCore_.spurs();
-    if (!spurs.buildMixingMap(options.smsig_debug>0, s)) {
+    // Make a local copy of spurs structure
+    spurs_ = Spurs(hbCore_.spurs());
+
+    // Get maxharm and maxfreq
+    Vector<Int> maxharm(spurs_.fundamentals().size());
+    if (params.maxharm.isVector()) {
+        // Vector maxharm
+        if (params.maxharm.type()!=Value::Type::IntVec) {
+            s.set(Status::BadArguments, "Maxharm vector must be an integer vector.");
+            return false;
+        }
+        if (params.maxharm.size()!=spurs_.fundamentals().size()) {
+            s.set(Status::BadArguments, "Maxharm vector size must match the number of fundamental frequencies.");
+            return false;
+        }
+        maxharm = params.maxharm.val<IntVector>();
+    } else {
+        // Scalar maxharm
+        if (params.maxharm.type()!=Value::Type::Int) {
+            s.set(Status::BadArguments, "Maxharm scalar must be an integer.");
+            return false;
+        }
+        maxharm.assign(spurs_.fundamentals().size(), params.maxharm.val<Int>());
+    }
+    auto maxfreq = params.maxfreq;
+    
+    // Prune spurs
+    if (!spurs_.prune(maxharm, maxfreq, s)) {
         return false;
     }
-    auto& stencil = spurs.mixingStencil();
+    
+    // Build mixing map
+    if (!spurs_.buildMixingMap(options.smsig_debug>0, s)) {
+        return false;
+    }
+    auto& stencil = spurs_.mixingStencil();
     auto nf = stencil.nRows();
 
     // Collect output spurs
@@ -303,14 +333,14 @@ bool HBACCore::rebuild(Status& s) {
         // Empty list means all spurs
         if (params.outspur.size()==0) {
             // Empty list means all spurs
-            auto nf = spurs.smsigFreq().size();
+            auto nf = spurs_.smsigFreq().size();
             for(decltype(nf) i=0; i<nf; i++) {
                 newSpurIndices.push_back(static_cast<int>(i));
             }
         } else {
             size_t cnt=0;
             for (const auto& v : params.outspur.val<ValueVector>()) {
-                auto [ok, ndx] = spurs.smsigFreqIndex(v);
+                auto [ok, ndx] = spurs_.smsigFreqIndex(v);
                 if (!ok) {
                     s.set(Status::BadArguments, "Output spur #"+std::to_string(cnt)+" not found.");
                     return false;
@@ -321,7 +351,7 @@ bool HBACCore::rebuild(Status& s) {
         }
     } else {
         // Single spur: scalar real frequency or integer weight vector
-        auto [ok, ndx] = spurs.smsigFreqIndex(params.outspur);
+        auto [ok, ndx] = spurs_.smsigFreqIndex(params.outspur);
         if (!ok) {
             s.set(Status::BadArguments, "Output spur not found.");
             return false;
@@ -339,7 +369,7 @@ bool HBACCore::rebuild(Status& s) {
     std::vector<std::vector<Int>> newSignatures;
     newSignatures.reserve(newSpurIndices.size());
     for (auto i : newSpurIndices) {
-        auto w = spurs.smsigFreqWeights(i);
+        auto w = spurs_.smsigFreqWeights(i);
         std::vector<Int> sig(w.n());
         for (size_t k = 0; k < w.n(); k++) {
             sig[k] = w[k];
@@ -420,7 +450,7 @@ bool HBACCore::collectExcitations() {
 
                 excitations.push_back(std::move(Excitation(inst, {}, {})));
                 for(decltype(nSpurs) i=0; i<nSpurs; i++) {
-                    auto [ok, ndx] = hbCore_.spurs().smsigFreqIndex(spurs[i]);
+                    auto [ok, ndx] = spurs_.smsigFreqIndex(spurs[i]);
                     if (!ok) {
                         setError(HBACError::SpurNotFound);
                         errorInst = inst;
@@ -452,8 +482,7 @@ CoreCoroutine HBACCore::coroutine(bool continuePrevious) {
     Int debug = options.smsig_debug;
     
     auto n = circuit.unknownCount(); 
-    auto& spurs = hbCore_.spurs();
-    auto& stencil = spurs.mixingStencil();
+    auto& stencil = spurs_.mixingStencil();
     auto nf = stencil.nRows();
 
     // Colect excitations
@@ -700,7 +729,7 @@ bool HBACCore::run(bool continuePrevious) {
 }
 
 bool HBACCore::formatError(Status& s) const {
-    auto nr = HBACUnknownNameResolver(circuit, hbCore_.spurs().smsigFreq().size());
+    auto nr = HBACUnknownNameResolver(circuit, spurs_.smsigFreq().size());
     std::stringstream ss;
     ss << std::scientific << std::setprecision(4);
     
@@ -757,13 +786,12 @@ void HBACCore::dump(std::ostream& os) const {
     AnalysisCore::dump(os);
     os << "  Results\n";
     auto n = circuit.unknownCount();
-    auto& spurs = hbCore_.spurs();
-    auto nf = spurs.smsigFreq().size();
+    auto nf = spurs_.smsigFreq().size();
     for(decltype(n) i=1; i<=n; i++) {
         for(decltype(nf) j=0; j<nf; j++) {
             auto rn = circuit.reprNode(i);
             auto c = acSolution.data()[i];
-            os << "    " << rn->name() << ", spur=" << spurs.smsigFreq()[j] <<  " : " << c.real();
+            os << "    " << rn->name() << ", spur=" << spurs_.smsigFreq()[j] <<  " : " << c.real();
             if (c.imag()>=0) {
                 os << "+";
             }
