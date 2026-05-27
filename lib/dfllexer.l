@@ -794,28 +794,44 @@ after INCEND we have
                     return (token::IDENTIFIER);
                 }
             }
-<LINESTART,BODY>[a-zA-Z_$][0-9a-zA-Z_$]* { 
-                // Identifier
+<LINESTART,BODY>(?:[a-zA-Z_$][0-9a-zA-Z_$]*|'(?:[^[:space:]']|'')*')(?:[0-9a-zA-Z_$]+|'(?:[^[:space:]']|'')*')* {
+                // Identifier: one or more parts, each either unquoted or quoted
+                // Unquoted parts must start with letter, underscore, or $
+                // Quoted parts can contain any non-whitespace ('' is escaped quote)
                 BEGIN(BODY);
-                yylval->build<Id>(yytext);
-                return(token::IDENTIFIER);
-            }
-<LINESTART,BODY>'[^[:space:]']*(?:''[^[:space:]']*)*' {
-                // Identifier in single quotes, any nonempty alphanumeric sequence without whitespace
-                // A pair of single quotes translates to one single quote. 
-                BEGIN(BODY);
-                auto n = std::strlen(yytext);
-                const char* p = yytext + 1;
-                const char* end = yytext + n - 1;
                 std::string result;
+                const char* p = yytext;
+                const char* end = yytext + std::strlen(yytext);
+
                 while (p < end) {
-                    result += *p;
-                    if (*p == '\'' && p + 1 < end && *(p+1) == '\'')
+                    if (*p == '\'') {
+                        // Quoted part: skip opening quote, collect until closing quote
+                        p++; // skip opening quote
+                        while (p < end) {
+                            if (*p == '\'') {
+                                if (p + 1 < end && *(p + 1) == '\'') {
+                                    // Escaped quote ''
+                                    result += '\'';
+                                    p += 2;
+                                } else {
+                                    // Closing quote
+                                    p++;
+                                    break;
+                                }
+                            } else {
+                                result += *p;
+                                p++;
+                            }
+                        }
+                    } else {
+                        // Unquoted part: collect identifier characters
+                        result += *p;
                         p++;
-                    p++;
+                    }
                 }
+
                 if (result.empty()) {
-                    error(*loc, "Syntax error, empty quoted identifier.");
+                    error(*loc, "Syntax error, empty identifier.");
                     return(token::YYerror);
                 }
                 yylval->build<Id>(result);

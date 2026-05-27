@@ -3,13 +3,18 @@
 Identifiers name nodes, instances, models, parameters and other named
 entities.  The following rules apply:
 
-- Unquoted identifiers must start with a letter (`A-Z`, `a-z`), underscore
+- **Unquoted identifiers** must start with a letter (`A-Z`, `a-z`), underscore
   (`_`), or dollar sign (`$`). Subsequent characters may be letters, digits,
   underscores or dollar signs.  Examples: `R1`, `node_foo`, `$temp`.
-- Quoted identifiers (single quotes) may contain any non-whitespace characters.
+- **Quoted identifiers** (single quotes) may contain any non-whitespace characters.
   A literal single quote is written as `''` (two single quotes). They are
   useful when the name would otherwise be illegal,
   e.g. `'3.3V'` or `'node(1)'`.
+- **Mixed identifiers** may combine quoted and unquoted parts concatenated together.
+  The first part, if unquoted, must start with a letter, underscore, or `$`. 
+  Subsequent parts can be quoted or unquoted.
+  Examples: `R'1'`, `node'_'name`, `'3.3'V`, `var'part'2'name'end`.
+  Quoted parts handle the `''` escape sequence as above.
 
 Identifiers (like everything else in the input file) are **case-sensitive**; `R1` and `r1` are distinct.
 
