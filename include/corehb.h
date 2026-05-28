@@ -97,7 +97,7 @@ public:
     // Set stored solutiuon for evaluation, does not set up Jacobian to save memory
     // Bind circuit to jacColoc and evaluate at current solution
     bool evaluateAtNodeset();
-    bool getFrequencyDomainJacobians(KluBlockSparseComplexMatrix& jacSpec);
+    bool getFrequencyDomainJacobians(KluBlockSparseComplexMatrix& jacSpec, const Spurs& prunedSpurs);
 
     void dump(std::ostream& os) const;
 

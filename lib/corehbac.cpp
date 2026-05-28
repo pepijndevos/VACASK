@@ -64,7 +64,7 @@ HBACCore::HBACCore(
 ) : AnalysisCore(parentResolver, circuit, commons), params(params), outfile(nullptr), hbCore_(hbCore), 
     jacSpec(jacSpec), 
     hbSolution(hbSolution), 
-    acMatrix(acMatrix), acSolution(acSolution) {
+    acMatrix(acMatrix), acSolution(acSolution), firstBuild(true) {
 }
 
 HBACCore::~HBACCore() {
@@ -281,6 +281,19 @@ void HBACCore::fillMatrix() {
         // C.dump(std::cout);
         // block.dump(std::cout);
     }
+}
+
+std::tuple<bool, bool> HBACCore::requestsRebuild(Status& s) {
+    // First build, nothing to compare to
+    if (firstBuild) {
+        return std::make_tuple(true, true);
+    }
+
+    bool needsRebuild = oldParams.maxharm != params.maxharm ||
+                        oldParams.maxfreq != params.maxfreq;
+    
+    oldParams = params;
+    return std::make_tuple(true, needsRebuild);
 }
 
 bool HBACCore::rebuild(Status& s) {
@@ -515,7 +528,7 @@ CoreCoroutine HBACCore::coroutine(bool continuePrevious) {
     }
 
     // Collect frequency-domain Jacobians
-    hbCore_.getFrequencyDomainJacobians(jacSpec);
+    hbCore_.getFrequencyDomainJacobians(jacSpec, spurs_);
 
     // Check if the Jacobians are finite
     if (options.matrixcheck && !jacSpec.isFinite(true, true)) {

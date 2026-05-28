@@ -101,6 +101,7 @@ public:
     bool addDefaultOutputDescriptors(Status& s);
     bool resolveOutputDescriptors(bool strict, Status& s=Status::ignore);
 
+    std::tuple<bool, bool> requestsRebuild(Status& s = Status::ignore);
     bool rebuild(Status& s=Status::ignore); 
     bool initializeOutputs(Id name, Status& s=Status::ignore);
     bool run(bool continuePrevious);
@@ -151,6 +152,12 @@ protected:
     KluBlockSparseComplexMatrix& jacSpec;
     KluBlockSparseComplexMatrix& acMatrix;
     Vector<Complex>& acSolution;
+
+    // Previous HB parameters to check if we need to rebuild()
+    HBACParameters oldParams;
+    // Flag indicating rebuild() has not been called yet
+    bool firstBuild;
+
     HBACParameters& params;
 
     std::vector<std::string> suffixes;

@@ -45,29 +45,38 @@ subckt sintest()
   elo (lon lob lop lob) vcvs gain=-1
 ends
 
+subckt swtest()
+  vin (inp inb) v type="sine" sinedc=0 ampl=2m freq=50k spur={0.0} smag=[1]
+  ein (inn inb inp inb) vcvs gain=-1
+  vlo (lop lob) v type="pulse" val0=-0.5 val1=0.5 delay=0 rise=10n fall=10n width=1u/2-10n period=1u
+  elo (lon lob lop lob) vcvs gain=-1
+ends
 
 control
   elaborate circuit("dctest")
 
+  // OP analysis to test if the bias is correct
   save p('x1:rd1',i) p('x1:rd2',i) v(inp) v(inn)
   analysis op1 op
 
+  // DC sweep of Gilbert cell when used as a multiplier
   clear saves
   sweep vlo instance="vlo" parameter="dc" from=-100m to=100m mode="lin" points=6
   sweep vrf instance="vrf" parameter="dc" from=-100m to=100m mode="lin" points=50
     analysis op2 op
 
+  // elaborate circuit("sintest")
+  elaborate circuit("swtest")
   
-  elaborate circuit("sintest")
-  
-  // Multiplier mode
-  alter instance("vlo") ampl=20m
+  // Transient, 2-tone HB
   analysis tran1 tran step=1n stop=40u maxstep=2n 
-  analysis hb1 hb freq=[50k, 1M] truncate="box" nharm=[5, 3]
+  options reltol=1e-9 abstol=1e-12 vntol=1e-8
+  analysis hb1 hb freq=[50k, 1M] truncate="box" nharm=[1, 25]
 
-  // Switch mode
-  alter instance("vlo") ampl=800m
-  analysis hbac1 hbac freq=[1M] truncate="box" nharm=10 outspur={} from=1 to=500k mode="dec" points=10
+  // HBAC, turn off vin so it does not disturb the HB periodic operating point
+  alter instance("vin") ampl=0
+  // Use only first 10 harmonics in HBAC
+  analysis hbac1 hbac freq=[1M] truncate="box" nharm=45 outspur={} from=1 to=500k mode="dec" points=10 maxharm=10 
 
   postprocess(PYTHON, "runme.py")
 endc
@@ -145,7 +154,7 @@ f = np.real(hbac1['frequency'])
 
 flo = 1e6
 for spur in range(-10,11):
-  out = 20*np.log10(hbac1[f'outp;{spur}']-hbac1[f'outn;{spur}'])
+  out = 20*np.log10(np.abs(hbac1[f'outp;{spur}']-hbac1[f'outn;{spur}']))
   fspur = flo*spur
   ls = '-' if fspur>=0 else ':'
   ax_dict["F"].plot(np.abs(fspur+f)/1e6, out, label='spur={}MHz'.format(flo*spur/1e6), linestyle=ls)
@@ -155,7 +164,6 @@ ax_dict["F"].set_xlabel('f [MHz]')
 ax_dict["F"].set_ylabel('gain [dB]')
 
 fig1.tight_layout()
-
 
 plt.show()
 >>>FILE

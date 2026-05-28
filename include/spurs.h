@@ -79,6 +79,12 @@ public:
     // This value in mixingMap indicated no entry at that position
     static constexpr Int noJacIndex = -1;
 
+    // DC component index in smsigFreq vector
+    size_t dcIndex() const { return dcIndex_; };
+
+    // Translator from pruned smsigFreq to unpruned full smsigFreq
+    const Vector<size_t>& fullSmsigFreqIndex() const { return fullSmsigFreqIndex_; };
+
 private:
     // Spur properties
     std::tuple<double, int, int> spurStats(VectorView<Int>& weights) const;
@@ -129,7 +135,7 @@ private:
     Vector<Real> spectrum_;
 
     // Index of DC component is smsigFreq_
-    size_t dcIndex;
+    size_t dcIndex_;
     
     // Small-signal frequencies, sorted - used by (quasi)periodic small signal analyses
     // These are frequencies from spectrun_ and their negatives, 0 is always included

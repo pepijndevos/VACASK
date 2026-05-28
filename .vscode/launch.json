@@ -210,6 +210,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/../build.${workspaceRootFolderName}/Release/simulator/vacask",
             "args": [ "${workspaceFolder}/demo/gilbert/gilbert.sim" ],
+            // "args": [ "-df", "-dp", "${workspaceFolder}/test/test_hbac1.sim" ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}/../build.${workspaceRootFolderName}/Release/test/manual_run",
             "environment": [
@@ -236,7 +237,8 @@
             // "program": "${workspaceFolder}/../build.${workspaceRootFolderName}/Debug/simulator/vacask",
             // "program": "${workspaceFolder}/../build.${workspaceRootFolderName}/Release/simulator/vacask",
             // "args": [ "-df", "${workspaceFolder}/../vacask_models/test.sim" ], 
-            "args": [ "-df", "${workspaceFolder}/demo/sc/lpfilter.sim" ], 
+            // "args": [ "-df", "${workspaceFolder}/demo/sc/lpfilter.sim" ], 
+            "args": [ "-df", "${workspaceFolder}/test/test_hbac1.sim" ], 
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}/../vacask_models",
             "externalConsole": false,

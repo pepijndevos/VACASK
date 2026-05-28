@@ -37,7 +37,7 @@ void Spurs::buildSmsig() {
     }
 
     // Index of DC
-    dcIndex = smsigFreq_.size();
+    dcIndex_ = smsigFreq_.size();
 
     // Append positive frequencies
     for(decltype(nf) i=0; i<nf; i++) {
@@ -339,7 +339,7 @@ void Spurs::buildPrunedSmsigFreqIndex() {
     // Build pruned small-signal frequency index for each full spectrum index
     // Assume there is no such index for given full spectrum index
     prunedSmsigFreqIndex_.resize(nfFull);
-    for(decltype(nf) i=0; i<nf; i++) {
+    for(decltype(nf) i=0; i<nfFull; i++) {
         prunedSmsigFreqIndex_[i] = noPrunedSmsigFreqIndex;
     }
     for(decltype(nf) i=0; i<nf; i++) {
@@ -359,11 +359,11 @@ bool Spurs::prune(const Vector<Int>& maxHarm, double maxFreq, Status& s) {
     auto nf = smsigFreq_.size();
     std::vector<bool> pruneFlag(nf, false);
     // Positive frequencies only
-    for(decltype(nf) i=dcIndex; i<nf; i++) {
+    for(decltype(nf) i=dcIndex_; i<nf; i++) {
         bool prune = false;
         auto wi = smsigFreqWeightIndices_[i];
         for(decltype(n) j=0; j<n; j++) {
-            if (maxHarm[j]>=0 && std::abs(spurWeights_.at(wi, j)>maxHarm[j])) {
+            if (maxHarm[j]>=0 && std::abs(spurWeights_.at(wi, j))>maxHarm[j]) {
                 prune = true;
                 break;
             }
@@ -376,13 +376,13 @@ bool Spurs::prune(const Vector<Int>& maxHarm, double maxFreq, Status& s) {
         // Store prune flag, prune positive and negative frequency
         if (prune) {
             pruneFlag[i] = prune;
-            pruneFlag[dcIndex-(i-dcIndex)] = prune;
+            pruneFlag[dcIndex_-(i-dcIndex_)] = prune;
         }
     }
 
     // Prune
     auto dest = 0;
-    decltype(dcIndex) newDcIndex;
+    decltype(dcIndex_) newDcIndex;
     bool haveDc = false;
     for(decltype(nf) i=0; i<nf; i++) {
         if (!pruneFlag[i]) {
@@ -390,7 +390,7 @@ bool Spurs::prune(const Vector<Int>& maxHarm, double maxFreq, Status& s) {
             smsigFreq_[dest] = smsigFreq_[i];
             smsigFreqWeightIndices_[dest] = smsigFreqWeightIndices_[i];
             fullSmsigFreqIndex_[dest] = fullSmsigFreqIndex_[i];
-            if (i==dcIndex) {
+            if (i==dcIndex_) {
                 newDcIndex = dest;
                 haveDc = true;
             }
@@ -399,7 +399,9 @@ bool Spurs::prune(const Vector<Int>& maxHarm, double maxFreq, Status& s) {
     }
     // Fix dc Index
     fullSmsigFreqIndex_.resize(dest);
-    dcIndex = newDcIndex;
+    smsigFreq_.resize(dest);
+    smsigFreqWeightIndices_.resize(dest);
+    dcIndex_ = newDcIndex;
 
     // Sanity check - DC must stay
     if (!haveDc) {
@@ -409,7 +411,7 @@ bool Spurs::prune(const Vector<Int>& maxHarm, double maxFreq, Status& s) {
 
     // Build map from pruned to full small signal spectrum
     buildPrunedSmsigFreqIndex();
-        
+
     return true;
 }
 
@@ -470,14 +472,10 @@ bool Spurs::buildMixingMap(Int debug, Status& s) {
             // Look up output spur index (index of frequency in smsigFreq_)
             auto it = smsigFreqMap.find(outW);
             if (it!=smsigFreqMap.end()) {
-                // In map, get spur index
-                auto fullOutF = it->second;
-                auto outF = prunedSmsigFreqIndex_[fullOutF]; 
-                // If output frequency is in the pruned spectrum
-                if (outF!=noPrunedSmsigFreqIndex) {
-                    // Write mixing stencil
-                    mixingStencil_.at(outF, inF) = jacF;
-                }
+                // In map, get spur index in pruned spectrum
+                auto outF = it->second;
+                // Write mixing stencil
+                mixingStencil_.at(outF, inF) = jacF;
             }
         }
     }

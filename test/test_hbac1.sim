@@ -16,13 +16,14 @@ control
   
   print unknowns
   print sparsity
-  options homotopy_debug=1 hb_debug=5 smsig_debug=1
+  options homotopy_debug=1 hb_debug=0 smsig_debug=1
   options reltol=1e-12
 
-  // HBAC with preceding HB
-  analysis hbac1 hbac freq=[1k] nharm=3 outspur={} values=[10.0]
+  // HBAC with preceding HB, use only first 3 harmonics from HB results
+  analysis hbac1 hbac freq=[1k] nharm=10 outspur={} values=[10.0] maxharm=3
   
-  analysis hb1 hb freq=[1k] nharm=3 store="hbsol"
+  options smsig_debug=0
+  analysis hb1 hb freq=[1k] nharm=10 store="hbsol"
   // HBAC using the solution of a past HB
   analysis hbac2 hbac nodeset="hbsol" hbsolve=0 outspur={} values=[10.0]
   // Small differences between hbac1 and hbac2 are because the TD solution at colocation points 
