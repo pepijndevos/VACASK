@@ -450,9 +450,6 @@ bool PssTranCore::integrateAdjointMonodromy(DenseMatrix<double>& Omega){
         Int acIdx = (k == 0) ? (nSteps - 1) : (k - 1);
         const StepRecord& acRec = trajectory_[acIdx];
 
-        ///////////////
-        bool printStep = true;
-
         // Load A_k into scratchA and refactor for tsolve
         std::copy(acRec.aData.begin(), acRec.aData.end(), scratchA.data());
         if (!scratchA.refactor()) {
@@ -461,64 +458,47 @@ bool PssTranCore::integrateAdjointMonodromy(DenseMatrix<double>& Omega){
             return false;
         }
 
-        // Load C_k and G_k for tproduct
-        std::copy(acRec.cData.begin(), acRec.cData.end(), scratchC.data());
-        std::copy(acRec.gData.begin(), acRec.gData.end(), scratchG.data());
-
-        // Determine if any future record in the look-ahead window has nonzero gammaG
-        Int histSize = static_cast<Int>(omegaHist.size());
-        bool anyGammaG = false;
-        for (Int i = 0; !anyGammaG && i < histSize && k + i < nSteps; i++) {
-            const StepRecord& fr = trajectory_[k + i];
-            if (i < fr.order && i < (Int)fr.gammaG.size() && fr.gammaG[i] != 0.0)
-                anyGammaG = true;
-        }
-
-        // Build RHS column by column
-        // RHS[:,j] = C_k^T * sum_i(gammaC_i * Omega_{k+i+1}[:,j])
-        //          + G_k^T * sum_i(gammaG_i * Omega_{k+i+1}[:,j])   (AM only)
+        // Build RHS: rhs[:,j] = sum_i [ C_{k+i}^T * gammaC_i * Omega_{k+i}[:,j]
+        //                             + G_{k+i}^T * gammaG_i * Omega_{k+i}[:,j] ]
+        // Each history slot i uses its own C and G matrices from trajectory_[k+i].
         DenseMatrix<double> rhs(n, n, DenseMatrix<double>::Major::Column);
-        Vector<double> s_col(n);
-        Vector<double> s_col_g(n);
+        Vector<double> om_col(n);
         Vector<double> rhs_col(n);
 
-        for (decltype(n) j = 0; j < n; j++) {
-            std::fill(s_col.begin(), s_col.end(), 0.0);
-            if (anyGammaG) std::fill(s_col_g.begin(), s_col_g.end(), 0.0);
+        Int histSize = static_cast<Int>(omegaHist.size());
+        for (Int i = 0; i < histSize; i++) {
+            if (k + i >= nSteps) break;
+            const StepRecord& futureRec = trajectory_[k + i];
+            if (i >= futureRec.order) continue;
 
-            for (Int i = 0; i < histSize; i++) {
-                if (k + i >= nSteps) break;
-                const StepRecord& futureRec = trajectory_[k + i];
-                if (i >= futureRec.order) continue;
+            double gC = (i < (Int)futureRec.gammaC.size()) ? futureRec.gammaC[i] : 0.0;
+            double gG = (i < (Int)futureRec.gammaG.size()) ? futureRec.gammaG[i] : 0.0;
 
-                double gC = (i < (Int)futureRec.gammaC.size()) ? futureRec.gammaC[i] : 0.0;
-                DenseMatrix<double>& Om = omegaHist[i];
-                for (decltype(n) row = 0; row < n; row++)
-                    s_col[row] += gC * Om.at(row, j);
+            DenseMatrix<double>& Om = omegaHist[i];
 
-                if (anyGammaG) {
-                    double gG = (i < (Int)futureRec.gammaG.size()) ? futureRec.gammaG[i] : 0.0;
-                    for (decltype(n) row = 0; row < n; row++)
-                        s_col_g[row] += gG * Om.at(row, j);
+            if (gC != 0.0)
+                std::copy(futureRec.cData.begin(), futureRec.cData.end(), scratchC.data());
+            if (gG != 0.0)
+                std::copy(futureRec.gData.begin(), futureRec.gData.end(), scratchG.data());
+
+            for (decltype(n) j = 0; j < n; j++) {
+                for (decltype(n) row = 0; row < n; row++) om_col[row] = Om.at(row, j);
+                if (gC != 0.0) {
+                    if (!scratchC.tproduct(om_col.data(), rhs_col.data())) {
+                        Simulator::err() << "PssTranCore: C^T product failed at backward step k="
+                                         << k << " i=" << i << "\n";
+                        return false;
+                    }
+                    for (decltype(n) row = 0; row < n; row++) rhs.at(row, j) += gC * rhs_col[row];
                 }
-            }
-
-            // Apply C_k^T
-            if (!scratchC.tproduct(s_col.data(), rhs_col.data())) {
-                Simulator::err() << "PssTranCore: C^T product failed at backward step k="
-                                 << k << "\n";
-                return false;
-            }
-            for (decltype(n) i = 0; i < n; i++) rhs.at(i, j) = rhs_col[i];
-
-            // Apply G_k^T (AM methods only)
-            if (anyGammaG) {
-                if (!scratchG.tproduct(s_col_g.data(), rhs_col.data())) {
-                    Simulator::err() << "PssTranCore: G^T product failed at backward step k="
-                                     << k << "\n";
-                    return false;
+                if (gG != 0.0) {
+                    if (!scratchG.tproduct(om_col.data(), rhs_col.data())) {
+                        Simulator::err() << "PssTranCore: G^T product failed at backward step k="
+                                         << k << " i=" << i << "\n";
+                        return false;
+                    }
+                    for (decltype(n) row = 0; row < n; row++) rhs.at(row, j) += gG * rhs_col[row];
                 }
-                for (decltype(n) i = 0; i < n; i++) rhs.at(i, j) += rhs_col[i];
             }
         }
 
