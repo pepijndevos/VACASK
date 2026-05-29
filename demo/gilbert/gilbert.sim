@@ -70,7 +70,7 @@ control
   
   // Transient, 2-tone HB
   analysis tran1 tran step=1n stop=40u maxstep=2n 
-  options reltol=1e-9 abstol=1e-12 vntol=1e-8
+  options reltol=1e-9 abstol=1e-12 vntol=1e-10
   analysis hb1 hb freq=[50k, 1M] truncate="box" nharm=[1, 25]
 
   // HBAC, turn off vin so it does not disturb the HB periodic operating point

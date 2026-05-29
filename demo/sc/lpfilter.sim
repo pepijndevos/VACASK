@@ -76,10 +76,10 @@ control
   clear saves
 
   // No excitation signal for HB, just clock
-  alter instance("v1") type="dc" dc=0
+  alter instance("v1") type="dc" dc=0.01
   // save dv(in) dv(out) dv(out1)
-  options reltol=1e-6
-  analysis hbac1 hbac freq=[fclk] tstart=4/fclk nharm=55 from=100 to=20k mode="dec" points=10
+  options reltol=1e-6 abstol=1e-12 vntol=1e-8
+  analysis hbac1 hbac freq=[fclk] tstart=4/fclk nharm=50 maxharm=10 from=100 to=20k mode="dec" points=10
 
   postprocess(PYTHON, "runme.py")
 endc
