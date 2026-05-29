@@ -44,11 +44,10 @@ template<> int Introspection<DevSourceInstanceParams>::setup() {
     registerMember(offset);
     registerMember(scale);
     registerMember(stretch);
-    registerMember(pwlperiod);
-    registerMember(twidth);
-    registerMember(allbrkpts);
+    registerNamedMember(breakpt, "break");
     registerMember(slopetol);
-    registerMember(reltol);
+    registerMember(sloperel);
+    registerMember(slopeglob);
     
     registerMember(modfreq);
     registerMember(modphase);
@@ -60,25 +59,40 @@ template<> int Introspection<DevSourceInstanceParams>::setup() {
 }
 instantiateIntrospection(DevSourceInstanceParams);
 
+static Id typeSine = Id::createStatic("sine");
+static Id typePulse = Id::createStatic("pulse");
+static Id typeExp = Id::createStatic("exp");
+static Id typeDc = Id::createStatic("dc");
+static Id typePwl = Id::createStatic("pwl");
+static Id typeAm = Id::createStatic("am");
+static Id typeFm = Id::createStatic("fm");
+
+static Id valAll = Id::createStatic("all");
+static Id valNone = Id::createStatic("none");
+static Id valAuto = Id::createStatic("auto");
+
 DevSourceInstanceParams::DevSourceInstanceParams() {
     mfactor = 1;
 
     type = "dc";
     delay = 0.0;
     tdphase = 0.0;
-    
+    period = 0.0;
+
     // type="dc"
     dc = 0.0;
 
     // type="pulse"
     val0 = 0.0;
     val1 = 1.0;
-    period = 0.0;
+    // delay
     rise = 1e-9;
     fall = 0.0;
     width = 0.0;
-
+    // period
+    
     // type="sine"
+    // delay
     sinedc = 0.0;
     ampl = 1.0;
     freq = 1e3;
@@ -86,6 +100,7 @@ DevSourceInstanceParams::DevSourceInstanceParams() {
     theta = 0.0;
 
     // type="exp"
+    // val0, val1, delay
     td2 = 0.0;
     tau1 = 0.0;
     tau2 = 0.0;
@@ -95,11 +110,11 @@ DevSourceInstanceParams::DevSourceInstanceParams() {
     offset = 0.0;
     scale = 1.0;
     stretch = 1.0;
-    pwlperiod = 0.0;
-    twidth = 0.0;
-    allbrkpts = "auto";
+    // delay, period, tdphase
+    breakpt = valAuto;
     slopetol = 0.0;
-    reltol = 0.1;
+    sloperel = 0.0;
+    slopeglob = 0.01;
 
     // type="am" or "fm"
     // sinedc, ampl, freq, tdphase
@@ -132,18 +147,6 @@ instantiateIntrospection(DevISourceInstanceData);
 
 DevISourceInstanceData::DevISourceInstanceData() {
 }
-
-static Id typeSine = Id::createStatic("sine");
-static Id typePulse = Id::createStatic("pulse");
-static Id typeExp = Id::createStatic("exp");
-static Id typeDc = Id::createStatic("dc");
-static Id typePwl = Id::createStatic("pwl");
-static Id typeAm = Id::createStatic("am");
-static Id typeFm = Id::createStatic("fm");
-
-static Id valYes = Id::createStatic("yes");
-static Id valNo = Id::createStatic("no");
-static Id valAuto = Id::createStatic("auto");
 
 template<typename InstanceParams, typename InstanceData> 
 std::tuple<bool, bool, bool> sourceSetup(InstanceParams& params, InstanceData& data, Loc loc, Circuit& circuit, Status& s) { 
@@ -183,8 +186,8 @@ std::tuple<bool, bool, bool> sourceSetup(InstanceParams& params, InstanceData& d
     } else if (p.type == typePwl) {
         d.typeCode = IndependentSourceType::Pwl;
         // No points .. error
-        if (p.wave.size()==0) {
-            s.set(Status::BadArguments, "Pwl waveform needs at least one point.");
+        if (p.wave.size()<4) {
+            s.set(Status::BadArguments, "Pwl waveform needs at least two points.");
             s.extend(loc);
             return std::make_tuple(false, false, false);
         }
@@ -196,13 +199,101 @@ std::tuple<bool, bool, bool> sourceSetup(InstanceParams& params, InstanceData& d
             return std::make_tuple(false, false, false);
         }
         
-        // Check time scale monotonicity, extract endpoints and length
+        // Check stretch
+        if (p.stretch<=0) {
+            s.set(Status::BadArguments, "Waveform stretch must be >0.");
+            s.extend(loc);
+            return std::make_tuple(false, false, false);
+        }
 
-        // If there are at least 2 point, check scale, stretch, pwlperiod, twidth
+        // Check breakpoint mechanism
+        if (p.breakpt!=valAll && p.breakpt!=valNone && p.breakpt!=valAuto) {
+            s.set(Status::BadArguments, "parameter break must be all, none, or auto.");
+            s.extend(loc);
+            return std::make_tuple(false, false, false);
+        }
 
-        // Check slopetol and reltol
+        // Check slopetol
+        if (p.slopetol<0) {
+            s.set(Status::BadArguments, "Parameter slopetol must be >=0.");
+            s.extend(loc);
+            return std::make_tuple(false, false, false);
+        }
 
-        // Breakpoint handling mechanism
+        // Check sloperel
+        if (p.sloperel<0) {
+            s.set(Status::BadArguments, "Parameter sloperel must be >=0.");
+            s.extend(loc);
+            return std::make_tuple(false, false, false);
+        }
+
+        // Check slopeglob
+        if (p.slopeglob<0) {
+            s.set(Status::BadArguments, "Parameter slopeglob must be >=0.");
+            s.extend(loc);
+            return std::make_tuple(false, false, false);
+        }
+
+        // First point x must be >=0
+        if (p.wave[0]<0) {
+            s.set(Status::BadArguments, "First timepoint must be >=0");
+            s.extend(loc);
+            return std::make_tuple(false, false, false);
+        }
+
+        // Check period sanity, detect if the last point is equivalent to the first point
+        auto n = p.wave.size();
+        d.npts = n/2;
+        if (p.period>0) {
+            auto tfirst = p.wave[0];
+            auto tlast = p.wave[n-2];
+            if (tlast<p.period) {
+                s.set(Status::BadArguments, "Period ends before last point.");
+                s.extend(loc);
+                return std::make_tuple(false, false, false);
+            } else if (tlast==p.period) {
+                if (tfirst==0.0) {
+                    // If last point is equivalent to first point, last point is ignored
+                    d.npts = n/2-1;
+                    if (p.wave[1]!=p.wave[n-1]) {
+                        s.set(Status::BadArguments, "First and last timepoint must match if period transition time is 0.");
+                        s.extend(loc);
+                        return std::make_tuple(false, false, false);
+                    }
+                }
+            }
+        }
+
+        // Check time scale strict monotonicity, compute slopes, extract maximal slope
+        double maxSlope = 0;
+        double oldX = p.wave[0];
+        double oldY = p.wave[1];
+        d.slopes.resize(d.npts);
+        for(decltype(n) i=1; i<d.npts; i++) {
+            auto x = p.wave[2*i];
+            auto y = p.wave[2*i+1];
+            if (x<=oldX) {
+                s.set(Status::BadArguments, "Pwl scale is not strictly monotonic.");
+                s.extend(loc);
+                return std::make_tuple(false, false, false);
+            }
+            auto slope = (y-oldY)/(x-oldX);
+            if (std::abs(slope)>d.maxSlope) {
+                d.maxSlope = std::abs(slope);
+            }
+            d.slopes[i] = slope;
+            oldX = x;
+            oldY = y;
+        }
+        // If periodic, last slope (index d.npts-1) is the transition slope between last point and first point
+        if (p.period>0) {
+            // Distance from last point to period + time of first point
+            auto dx = p.period-oldX + p.wave[0];
+            auto slope = (oldY - p.wave[1])/dx;
+            d.slopes[d.npts-1] = slope;
+        } else {
+            d.slopes[d.npts-1] = 0.0;
+        }
     } else if (p.type == typeExp) {
         d.typeCode = IndependentSourceType::Exp;
         if (p.td2<=0) {

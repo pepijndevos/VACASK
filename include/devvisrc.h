@@ -16,46 +16,62 @@ struct DevSourceModelParams {
 
 struct DevSourceInstanceParams {
     // $mfactor is a real parameter in OSDI, therefore we also make it real
+    
+    // Common
     Real mfactor; // Number of parallel instances 
-    Id type;
-    Real delay;
+    Id type;      // waveform type (dc, pulse, exp, sine, am, fm, pwl)
+    Real delay;   // waveform delay for type=sine, am, fm, exp, pulse, pwl
+    Real tdphase; // initial waveform phase for type=sine, am, fm, pwl
+    Real period;  // waveform periods for type=pulse, pwl
+    
     // DC
-    Real dc;
+    Real dc;      // dc value for type=dc
+    
     // Pulse
-    Real val0;
-    Real val1;
-    Real period;
-    Real rise;
-    Real fall;
-    Real width;
+    Real val0;    // inital pulse value
+    Real val1;    // final pulse value
+    // delay      // pulse delay
+    Real rise;    // pulse rise time
+    Real fall;    // pulse fall time
+    Real width;   // pulse width
+    // period     // pulse period
+    
     // Sine
-    Real sinedc;
-    Real ampl;
-    Real freq;
-    Real tdphase; // degrees
-    Real theta;
+    // delay      // sine delay
+    Real sinedc;  // offset
+    Real ampl;    // amplitude
+    Real freq;    // frequency
+    // tdphase    // initial phase
+    Real theta;   // sine damping
+    
     // Exp
-    // val0, val1, delay
-    Real td2;
-    Real tau1;
-    Real tau2;
+    // val0, val1, delay .. same meaning as for type=pulse
+    Real td2;  // delay from start to beginning of decay
+    Real tau1; // rise time constant
+    Real tau2; // decay time constant
+    
     // Pwl
-    RealVector wave;
-    Real offset;
-    Real scale;
-    Real stretch;
-    Real pwlperiod;
-    Real twidth;
-    Id allbrkpts; // yes, no, auto
-    Real slopetol;
-    Real reltol;
+    RealVector wave; // waveform given as pairs of (x,y) points
+    Real offset;  // offset added to waveform
+    Real scale;   // vertical scaling factor
+    Real stretch; // horizontal stretch factor
+    // delay, period, tdphase
+    Id breakpt;     // yes, no, auto
+                    // aperiodic pwl waveforms in auto mode always generate 
+                    // a breakpoint at the first and the last point
+    Real slopetol;  // break=auto: absolute slope change tolerance, default=0
+    Real sloperel;  // break=auto: relative slope change tolerance, default=0
+    Real slopeglob; // break=auto: global relative slope change tolerance, default=0
+    
     // AM, FM
-    Real modfreq;
-    Real modphase;
-    Real modindex; 
-    // AC, DC incremental
-    Real mag;
-    Real phase; // degrees (only for AC)
+    // sinedc, ampl, freq, tdphase .. carrier sinusoidal, same as for type=sine
+    Real modfreq;  // modulation frequency
+    Real modphase; // modulation signal phase
+    Real modindex; // modulation index
+    
+    // small signal parameters
+    Real mag;   // magnitude (only for small-signal analyses)
+    Real phase; // phase in degrees (only for small-signal analyses)
 
     DevSourceInstanceParams();
 };
@@ -78,6 +94,10 @@ struct DevVSourceInstanceData {
     double v;  // Voltage across instance
     double i;  // Current of one parallel instances
 
+    RealVector slopes;
+    double maxSlope;
+    size_t npts;
+
     DevVSourceInstanceData();
 };
 
@@ -91,6 +111,10 @@ struct DevISourceInstanceData {
     
     double i;  // Current of one parallel instance
     double v;  // Voltage across instance
+
+    RealVector slopes;
+    double maxSlope;
+    size_t npts;
 
     DevISourceInstanceData();
 };
