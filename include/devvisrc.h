@@ -32,7 +32,7 @@ struct DevSourceInstanceParams {
     Real sinedc;
     Real ampl;
     Real freq;
-    Real sinephase; // degrees
+    Real tdphase; // degrees
     Real theta;
     // Exp
     // val0, val1, delay
