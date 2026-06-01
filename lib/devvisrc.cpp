@@ -292,6 +292,7 @@ std::tuple<bool, bool, bool> sourceSetup(InstanceParams& params, InstanceData& d
             auto slope = (oldY - p.wave[1])/dx;
             d.slopes[d.npts-1] = slope;
         } else {
+            // Not periodic, last slope is 0
             d.slopes[d.npts-1] = 0.0;
         }
     } else if (p.type == typeExp) {
@@ -458,6 +459,43 @@ std::tuple<double, double> sourceCompute(const InstanceParams& params, InstanceD
                 }
             }
         }
+        break;
+    case IndependentSourceType::Pwl: 
+        // Determine where in the waveform we are in terms of 
+        // unstretched time relative to period start (periodic) or 
+        // waveform start (aperiodic)
+        
+        // Stretched time within waveform
+        double tpos = time - params.delay;
+        if (tpos<0) {
+            // Before waveform start
+            tpos = 0.0;    
+        }
+
+        // Handle periodic pwl
+        if (params.period>0) {    
+            auto strectedPeriod = params.period*params.stretch;
+            // Remove integer number of stretched periods
+            tpos -= std::floor(tpos/strectedPeriod)*strectedPeriod;
+            // Add initial phase in terms of stretched period
+            tpos = params.tdphase*strectedPeriod/360;
+            // Remove integer number of stretched periods
+            tpos -= std::floor(tpos/strectedPeriod)*strectedPeriod;
+        } 
+        
+        // Unstretch to original time
+        tpos /= params.stretch;
+
+        // Get index of waveform point at or before tpos
+
+        // Index of next waveform point
+
+        // Breakpoint is at next waveform point
+
+        // Get slope before and after next waveform point
+
+        // Should the breakpoint be enforced? 
+
         break;
     }
     
