@@ -109,6 +109,12 @@ try:
     print(f"V_peak={V_peak:.4f} V  V_exact={V_exact:.4f} V  "
           f"rel_err={V_err:.4e}  {'PASS' if status2 else 'FAIL'}")
     tests.append(status2)
+
+    match = np.abs(v1[-1]-v1[0])/np.abs(v1).max()
+    ok = match<1e-6
+    print("Endpoint relative delta:", match, "PASS" if ok else "")
+    tests.append(ok)
+
 except FileNotFoundError:
     print("pss1.raw not found — PSS did not produce output")
     tests.append(False)

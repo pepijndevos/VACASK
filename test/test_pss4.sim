@@ -90,6 +90,11 @@ if pss_ok:
     freqs  = np.arange(len(fmag)) * f0      # harmonic frequencies in Hz
     vph = np.angle(np.fft.rfft(vp_uni)) * 180 / np.pi
 
+    match = np.abs(vp[-1]-vp[0])/np.abs(vp).max()
+    ok    = match<1e-6
+    print("Endpoint relative delta:", match, "PASS" if ok else "")
+    tests.append(ok)
+
 if isTest():
     sys.exit(not all(tests))
 elif pss_ok:

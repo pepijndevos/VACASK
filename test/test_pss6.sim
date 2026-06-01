@@ -143,6 +143,16 @@ try:
     diff_pp = float(np.max(vp - vm) - np.min(vp - vm))
     print(f"V(vm) p-p = {vm_pp:.4f} V,  V(vp)-V(vm) p-p = {diff_pp:.4f} V")
 
+    match = np.abs(vp[-1]-vp[0])/np.abs(vp).max()
+    ok    = match<1e-12
+    print("vp endpoint relative delta:", match, "PASS" if ok else "")
+    tests.append(ok)
+
+    match = np.abs(vm[-1]-vm[0])/np.abs(vm).max()
+    ok    = match<1e-12
+    print("vm endpoint relative delta:", match, "PASS" if ok else "")
+    tests.append(ok)
+    
     print()
     print(f"{'Simulator':<16} {'f0 [MHz]':>14}  {'|Gf| vs paper':>14}")
     Gf = abs(f0_sim - f0_paper) / f0_paper

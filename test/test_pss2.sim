@@ -90,6 +90,11 @@ f0    = 1.0 / T0
 vpp   = float(vp.max() - vp.min())
 print(f"PSS:  converged T0={T0:.4e} s  f0={f0/1e6:.1f} MHz  Vpp={vpp*1e3:.0f} mV")
 
+match = np.abs(vp[-1]-vp[0])/np.abs(vp).max()
+ok    = match<1e-9
+print("Endpoint relative delta:", match, "PASS" if ok else "")
+tests.append(ok)
+
 if isTest():
     sys.exit(not all(tests))
 else:

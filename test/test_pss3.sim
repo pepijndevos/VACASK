@@ -105,10 +105,17 @@ if pss_ok:
     N_fft  = 1024
     tp_uni = np.linspace(float(tp[0]), float(tp[0]) + T0, N_fft, endpoint=False)
     ip_uni = np.interp(tp_uni, tp, ip)
-    fmag   = np.abs(np.fft.rfft(ip_uni)) * (2.0 / N_fft)
-    fmag[0] /= 2                             # DC bin is one-sided already
+    fft_ip_uni = np.fft.rfft(ip_uni) / N_fft
+    if N_fft%2==0:
+        # Even
+        fft_ip_uni[1:-1] *= 2
+    else:
+        # Odd
+        fft_ip_uni[1:] *= 2
+
+    fmag   = np.abs(fft_ip_uni)
     freqs  = np.arange(len(fmag)) * f0      # harmonic frequencies in Hz
-    iph = np.angle(np.fft.rfft(ip_uni)) * 180 / np.pi
+    iph = np.angle(fft_ip_uni) * 180 / np.pi
 
     # Expected: DC=0.5, f0=0.75, 2f0=0, 3f0=0.25
     h1_amp = float(fmag[1])
@@ -116,6 +123,26 @@ if pss_ok:
     print(f"PSS:  H1 amplitude = {h1_amp:.4f} (expect 0.75)")
     print(f"PSS:  H3 amplitude = {h3_amp:.4f} (expect 0.25)")
 
+    exactmag = np.zeros(fmag.size)
+    exactph = np.zeros(fmag.size)
+    exactmag[0] = 0.5
+    exactmag[1] = 0.75
+    exactmag[3] = 0.25
+    exactph[1] = -90
+    exactph[3] = 90
+
+    exact = exactmag*(np.cos(exactph*np.pi/180)+1j*np.sin(exactph*np.pi/180))
+    delta = np.abs(fft_ip_uni-exact).max()
+    ok = delta<1e-4
+    print("Spectrum delta:", delta, "PASS" if ok else "")
+    tests.append(delta<1e-4)
+
+    match = np.abs(vp[-1]-vp[0])/np.abs(vp).max()
+    ok    = match<1e-9
+    print("Endpoint relative delta:", match, "PASS" if ok else "")
+    tests.append(ok)
+
+    
 if isTest():
     sys.exit(not all(tests))
 elif pss_ok:
