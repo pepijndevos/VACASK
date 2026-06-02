@@ -46,7 +46,7 @@ subckt sintest()
 ends
 
 subckt swtest()
-  vin (inp inb) v type="sine" sinedc=0 ampl=2m freq=50k spur={0.0} smag=[1]
+  vin (inp inb) v type="sine" sinedc=2m ampl=0m freq=50k spur={0.0} smag=[1] //2m
   ein (inn inb inp inb) vcvs gain=-1
   vlo (lop lob) v type="pulse" val0=-0.5 val1=0.5 delay=0 rise=10n fall=10n width=1u/2-10n period=1u
   elo (lon lob lop lob) vcvs gain=-1
@@ -70,13 +70,15 @@ control
   
   // Transient, 2-tone HB
   analysis tran1 tran step=1n stop=40u maxstep=2n 
-  options reltol=1e-9 abstol=1e-12 vntol=1e-10
-  analysis hb1 hb freq=[50k, 1M] truncate="box" nharm=[1, 25]
+  options reltol=1e-9 abstol=1e-12 vntol=1e-10 hb_debug=3
+  // analysis hb1 hb freq=[50k, 1M] truncate="box" nharm=[1, 25]
+  // analysis hb1 hb freq=[50k, 1M] truncate="box" nharm=[1, 10]
+  analysis hb1 hb freq=[1M] truncate="box" nharm=[40] samplefac=1 shift=0
 
   // HBAC, turn off vin so it does not disturb the HB periodic operating point
   alter instance("vin") ampl=0
   // Use only first 10 harmonics in HBAC
-  analysis hbac1 hbac freq=[1M] truncate="box" nharm=45 outspur={} from=1 to=500k mode="dec" points=10 maxharm=10 
+  // analysis hbac1 hbac freq=[1M] truncate="box" nharm=45 outspur={} from=1 to=500k mode="dec" points=10 maxharm=10 
 
   postprocess(PYTHON, "runme.py")
 endc
@@ -135,7 +137,23 @@ vin = plot['inp']-plot['inn']
 vout = plot['outp']-plot['outn']
 ax_dict["B"].plot(t, vlo*1e3)
 ax_dict["C"].plot(t, vin*1e3)
-ax_dict["D"].plot(t, vout*1e3)
+# ax_dict["D"].plot(t, vout*1e3)
+
+# FFT of vout(t):
+# interpolate onto a uniform 10 ns step grid spanning the transient window,
+# FFT it, and scale by 1/N so the result equals the complex Fourier-series
+# coefficients of vout under the assumption that the simulated window is
+# one period of a periodic signal.
+dt_fft = 10e-9
+t_s = plot["time"]
+t_fft = np.arange(t_s[0], t_s[-1], dt_fft)
+vout_fft = np.interp(t_fft, t_s, vout)
+N_fft = len(t_fft)
+Y_fft = np.fft.fft(vout_fft) / N_fft
+f_fft = np.fft.fftfreq(N_fft, d=dt_fft)
+pos = f_fft >= 0
+ax_dict["D"].semilogy(f_fft[pos]/1e6, np.abs(Y_fft[pos]), color='C1', linewidth=0.6, label='FFT', zorder=1)
+
 
 hb1 = rawread('hb1.raw').get()
 f = np.real(hb1['frequency'])
