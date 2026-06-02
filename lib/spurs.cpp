@@ -188,14 +188,14 @@ bool Spurs::build(const std::vector<double>& fundamentals, const std::vector<Int
                 } else {
                     // Same order
                     // Check harmonic
-                    if (nnzVec[i]<=1 && !nnzVec[j]<=1) {
+                    if (nnzVec[i]<=1 && !(nnzVec[j]<=1)) {
                         // i is harmonic, j is not, keep i, mark j as removed, continue
                         removed[j] = true;
                         conflict = true;
                         if (debug>0) {
                             Simulator::out() << "Removing #" << j << " (not harmonic)\n";
                         }
-                    } else if (!nnzVec[i]<=1 && nnzVec[j]<=1) {
+                    } else if (!(nnzVec[i]<=1) && nnzVec[j]<=1) {
                         // j is harmonic, i is not, keep j, mark i as removed, exit inner loop
                         removed[i] = true;
                         conflict = true;
