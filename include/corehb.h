@@ -169,6 +169,12 @@ private:
     DenseMatrix<double> APFT;
     // Inverse almost periodic Fourier transform
     DenseMatrix<double> IAPFT;
+    // Omega Gamma (APFT followed by differentiation in frequency domain), row major
+    DenseMatrix<double> OmegaGamma;
+    // IAPFT in co,umn major form
+    DenseMatrix<double> GammaInvColumnMajor;
+
+    // TODO: remove
     // Derivative wrt time operator for time-domain vectors
     // Results in a time domain vector
     // Computed as IAPFT Omega APFT

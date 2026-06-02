@@ -115,6 +115,30 @@ bool HBCore::buildAPFT(Status& s) {
         return false;
     }
 
+    // Compute Omega Gamma as row-major matrix (default)
+    OmegaGamma.resize(n, n);
+    for(decltype(n) i=0; i<n; i++) {
+        // Row
+        auto destRow = OmegaGamma.row(i);
+        auto srcRow = APFT.row(i);
+        // DC is 0
+        destRow[0] = 0.0;
+        // The rest
+        decltype(n) destNdx = 1;
+        for(decltype(m) j=1; j<m; j++) {
+            auto omega = 2*std::numbers::pi*spurs_.spectrum()[j];
+            destRow[destNdx]   = -omega*srcRow[destNdx+1];
+            destRow[destNdx+1] =  omega*srcRow[destNdx];
+            destNdx += 2;
+        }
+    }
+
+    // Form Gamma^-1 as column-major matrix
+    GammaInvColumnMajor.resize(n, n, DenseMatrix<double>::Major::Column);
+    for(decltype(n) i=0; i<n; i++) {
+        GammaInvColumnMajor.row(i) = IAPFT.row(i);
+    }
+
     // Construct Omega matrix (for computing the derivative wrt. time on a spectrum)
     // This matrix is the time derivative matrix that operates on frequency domain vectors.  
     // Assumes the first component is DC magnitude and the remaining ones are (cosine, -sine) 

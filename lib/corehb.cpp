@@ -57,7 +57,8 @@ HBCore::HBCore(
     OutputDescriptorResolver& parentResolver, HBParameters& params, Circuit& circuit, CommonData& commons, 
     KluBlockSparseRealMatrix& jacColoc, KluBlockSparseRealMatrix& jacobian, VectorRepository<double>& solution
 ) : AnalysisCore(parentResolver, circuit, commons), params(params), outfile(nullptr), jacColoc(jacColoc), 
-    nrSolver(circuit, commons, jacColoc, jacobian, solution, solutionFD, spurs_.spectrum(), timepoints, DDT, DDTcolMajor, APFT, IAPFT, nrSettings), 
+    nrSolver(circuit, commons, jacColoc, jacobian, solution, solutionFD, spurs_.spectrum(), timepoints, 
+    DDT, DDTcolMajor, APFT, IAPFT, OmegaGamma, GammaInvColumnMajor, nrSettings), 
     bsjac(jacobian), solution(solution), firstBuild(true), continueState(nullptr) {
 };
 

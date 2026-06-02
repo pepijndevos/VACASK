@@ -361,6 +361,20 @@ public:
         }
     };
 
+    // Multiply with vector, add to result
+    // Vector must be distinct from result
+    void multiplyAdd(const VectorView<T>& vector, VectorView<T>& result) const {
+        if (nCol_!=vector.n()) {
+            throw std::out_of_range("Matrix is not compatible with vector.");
+        }
+        if (nRow_!=result.n()) {
+            throw std::out_of_range("Result is not compatible with product.");
+        }
+        for(size_t i=0; i<nRow_; i++) {
+            result[i] += row(i).dot(vector);
+        }
+    };
+
     // Multiply with matrix, store result in result
     // Result must be distinct from this and other
     void multiply(const DenseMatrixView<T>& other, DenseMatrixView<T>& result) const {
@@ -402,6 +416,42 @@ public:
     // Result must be distinct from this and other
     void subtract(DenseMatrixView<T>& other, DenseMatrixView<T>& result) {
         addScaled(other, -1.0, result);
+    };
+
+    // Scale rows with values given by a vector, store in result
+    void scaleRows(const VectorView<T>& vector, DenseMatrixView<T>& result) {
+        if (nRow_!=vector.n()) {
+            throw std::out_of_range("Matrix is not compatible with vector.");
+        }
+        if (nRow_!=result.nRows() || nCol_!=result.nCols()) {
+            throw std::out_of_range("Result is not compatible with matrix.");
+        }
+        for(size_t i=0; i<nRow_; i++) {
+            auto src = row(i);
+            auto dest = result.row(i);
+            auto scl = vector[i];
+            for(size_t j=0; j<nCol_; j++) {
+                dest[j] = src[j]*scl;
+            }
+        }
+    };
+
+    // Scale rows with values given by a vector, add to result
+    void scaleRowsAdd(const VectorView<T>& vector, DenseMatrixView<T>& result) {
+        if (nRow_!=vector.n()) {
+            throw std::out_of_range("Matrix is not compatible with vector.");
+        }
+        if (nRow_!=result.nRows() || nCol_!=result.nCols()) {
+            throw std::out_of_range("Result is not compatible with matrix.");
+        }
+        for(size_t i=0; i<nRow_; i++) {
+            auto src = row(i);
+            auto dest = result.row(i);
+            auto scl = vector[i];
+            for(size_t j=0; j<nCol_; j++) {
+                dest[j] += src[j]*scl;
+            }
+        }
     };
 
     // Apply function to each element, put result in result

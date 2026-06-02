@@ -24,6 +24,8 @@ public:
         DenseMatrix<Real>& DDTcolMajor, 
         DenseMatrix<Real>& APFT, 
         DenseMatrix<Real>& IAPFT, 
+        DenseMatrix<Real>& OmegaGamma, 
+        DenseMatrix<Real>& GammaInvColumnMajor, 
         NRSettings& settings
     ); 
 
@@ -89,8 +91,13 @@ protected:
     DenseMatrix<double>& DDTcolMajor;
     DenseMatrix<double>& APFT;
     DenseMatrix<double>& IAPFT;
+    DenseMatrix<double>& OmegaGamma;
+    DenseMatrix<double>& GammaInvColumnMajor;
     Vector<Complex>& solutionFD; 
     Circuit& circuit;
+    Vector<Real> solutionTD;
+
+    DenseMatrix<Real> blockTmp;
 
     // Internal structures computed at t_k
     // These structures have a bucket because they communicate with 
@@ -107,35 +114,11 @@ protected:
     Vector<double> resistiveResidual;
     Vector<double> reactiveResidual;
     
-    // Internal structure for max residual contribution
-    // Has no bucket because it does not communicate with evalAndLoad(). 
-    Vector<double> maxResidualContribution_; // maximal residual contribution for each equation at each timepoint
-    
-    // What kind of tolerance reference to use
-    // We support only global/local reference
-    // Historic reference is not possible. 
-    // We always use point-wise reference. 
-    bool globalSolRef;
-    bool globalResRef;
-
-    // Global maxima
-    DenseMatrix<double> pointMaxResidualContribution_;  // at current solution, maximal value for each nature, each timepoint
-                                                        // rows are natures, columns are timepoints
-    
-    DenseMatrix<double> pointMaxSolution_;  // previous solution, maximal value for each nature, each timepoint
-                                            // rows are natures, columns are timepoints
-
     // Convergence check auxiliary results
-    double maxResidual; 
-    double maxNormResidual; 
-    double l2normResidual2;
-    Node* maxResidualNode;
-    size_t maxResidualTimepointIndex;
-    bool residualWithinTol;
     double maxDelta; 
     double maxNormDelta; 
     Node* maxDeltaNode;
-    size_t maxDeltaTimepointIndex;
+    size_t maxDeltaFreqIndex;
     bool deltaWithinTol;
 
     HBNRSolverError lastHBNRError;
