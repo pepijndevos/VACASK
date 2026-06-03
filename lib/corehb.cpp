@@ -58,7 +58,7 @@ HBCore::HBCore(
     KluBlockSparseRealMatrix& jacColoc, KluBlockSparseRealMatrix& jacobian, VectorRepository<double>& solution
 ) : AnalysisCore(parentResolver, circuit, commons), params(params), outfile(nullptr), jacColoc(jacColoc), 
     nrSolver(circuit, commons, jacColoc, jacobian, solution, solutionFD, spurs_.spectrum(), timepoints, 
-    DDT, DDTcolMajor, APFT, IAPFT, OmegaGamma, GammaInvColumnMajor, nrSettings), 
+    APFT, IAPFT, OmegaGamma, GammaInvColumnMajor, nrSettings), 
     bsjac(jacobian), solution(solution), firstBuild(true), continueState(nullptr) {
 };
 
@@ -143,7 +143,7 @@ bool HBCore::finalizeOutputs(Status& s) {
         outfile = nullptr;
     }
 
-    // Write DC solution to repository if analysis is OK
+    // Write solution to repository if analysis is OK
     if (converged_ && params.store.length()>0) {
         auto sol = circuit.newStoredSolution("hb", params.store);
         sol->setNames(circuit);
@@ -550,7 +550,7 @@ bool HBCore::rebuild(Status& s) {
     // Jacobian entries at colocation points, do not create structures for scalar access
     jacColoc.rebuild(circuit.sparsityMap(), circuit.unknownCount(), nt, 2, true);
 
-    // Build Jacobian only if we want to solve the HB problem
+    // Build these only if we want to solve the HB problem
     if (params.solve) {
         // HB Jacobian
         if (!bsjac.rebuild(circuit.sparsityMap(), circuit.unknownCount(), nt, nt)) {
@@ -559,6 +559,8 @@ bool HBCore::rebuild(Status& s) {
             bsjac.formatError(s, &nr);
             return false;
         }
+        // solutionFD - complex vector without bucket
+        solutionFD.resize(spurs_.spectrum().size());
     }
 
     // Bind resistive residuals to 0-based subelement (0,0) 
@@ -783,7 +785,7 @@ CoreCoroutine HBCore::coroutine(bool continuePrevious) {
             // No algorithm tried
             setError(HBError::NoAlgorithm);
         } else if (converged_) {
-            // Tried and converged, write results
+            // Tried and converged, fill solutionFD and outvec, write results
             if (outfile && params.write) {
                 // Collect results for one frequency, need a slot for ground
                 outputPhasors.upsize(1, n+1);
@@ -980,26 +982,6 @@ bool HBCore::test() {
                 break;
             }
         }
-
-        // Derivative of first nonzero frequency cosine wrt time
-        hb.DDT.multiply(vv, vvres);
-        norm = vvres.maxAbs();
-        std::cout << "APFT of DDT of cosine at f1\n";
-        auto spec = std::vector<double>(n, 0);
-        auto vspec = VectorView<double>(spec);
-        hb.APFT.multiply(vvres, vspec);
-        vspec.dump(std::cout);
-        std::cout << "\n";
-        for(size_t i=0; i<n; i++) {
-            auto t = hb.timepoints[i];
-            auto exact = -mag*2*std::numbers::pi*f*std::sin(2*std::numbers::pi*f*t);
-            if (std::abs(vvres[i] - exact)/norm>1e-12) {
-                ok = false;
-                std::cout << "DDT failed\n";
-                break;
-            }
-        }
-
     }
 
     if (!ok) {

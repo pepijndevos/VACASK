@@ -116,60 +116,33 @@ bool HBCore::buildAPFT(Status& s) {
     }
 
     // Compute Omega Gamma as row-major matrix (default)
+    // DC row is 0
+    // cos row x omega   -> -sin row
+    // -sin row x -omega -> cos row
     OmegaGamma.resize(n, n);
+    // DC row
+    auto destRow = OmegaGamma.row(0);
     for(decltype(n) i=0; i<n; i++) {
-        // Row
-        auto destRow = OmegaGamma.row(i);
-        auto srcRow = APFT.row(i);
-        // DC is 0
-        destRow[0] = 0.0;
-        // The rest
-        decltype(n) destNdx = 1;
-        for(decltype(m) j=1; j<m; j++) {
-            auto omega = 2*std::numbers::pi*spurs_.spectrum()[j];
-            destRow[destNdx]   = -omega*srcRow[destNdx+1];
-            destRow[destNdx+1] =  omega*srcRow[destNdx];
-            destNdx += 2;
-        }
+        destRow[i] = 0;
+    }
+    // cos and -sin row
+    for(decltype(n) i=1; i<m; i++) {
+        auto omega = 2*std::numbers::pi*spurs_.spectrum()[i];
+        auto baseNdx = 1+2*(i-1);
+        auto cosRow = APFT.row(baseNdx);
+        auto negSinRow = APFT.row(baseNdx+1);
+
+        auto destCosRow = OmegaGamma.row(baseNdx);
+        auto destNegSinRow = OmegaGamma.row(baseNdx+1);
+
+        destCosRow.writeScaled(negSinRow, -omega);
+        destNegSinRow.writeScaled(cosRow, omega);
     }
 
     // Form Gamma^-1 as column-major matrix
     GammaInvColumnMajor.resize(n, n, DenseMatrix<double>::Major::Column);
     for(decltype(n) i=0; i<n; i++) {
         GammaInvColumnMajor.row(i) = IAPFT.row(i);
-    }
-
-    // Construct Omega matrix (for computing the derivative wrt. time on a spectrum)
-    // This matrix is the time derivative matrix that operates on frequency domain vectors.  
-    // Assumes the first component is DC magnitude and the remaining ones are (cosine, -sine) 
-    // magnitudes, i,e, (Re, Im) parts of a phasor
-    // First 6 rows and columns are
-    //   0 0   0   0    0  .
-    //   0 0  -w_1 0    0  .
-    //   0 w_1 0   0    0  .
-    //   0 0   0   0   -w_2 .
-    //   0 0   0   w_2  0  .
-    //   . .  .  .   .  .
-    // where wi is (2 pi fi). 
-    DenseMatrix<double> Omega(n, n);
-    Omega.zero();
-    for(decltype(m) i=1; i<m; i++) {
-        auto base = 1+(i-1)*2;
-        auto omega = 2*std::numbers::pi*spurs_.spectrum()[i];
-        Omega.at(base, base+1) = -omega;
-        Omega.at(base+1, base) = omega;
-    }
-
-    // Compute DDT matrix as IAPFT * Omega * APFT
-    DDT.resize(n, n);
-    DenseMatrix<double> tmp(n, n);
-    IAPFT.multiply(Omega, tmp);
-    tmp.multiply(APFT, DDT);
-
-    // Reorganize DDT in column major form for better cache locality in solver
-    DDTcolMajor.resize(n, n, DenseMatrix<double>::Major::Column);
-    for(decltype(n) i=0; i<n; i++) {
-        DDTcolMajor.row(i) = DDT.row(i);
     }
 
     return true;

@@ -14,15 +14,13 @@ HBNRSolver::HBNRSolver(
         Vector<Complex>& solutionFD, 
         const Vector<Real>& frequencies, 
         const Vector<Real>& timepoints, 
-        DenseMatrix<Real>& DDT, 
-        DenseMatrix<Real>& DDTcolMajor, 
         DenseMatrix<double>& APFT, 
         DenseMatrix<double>& IAPFT, 
         DenseMatrix<Real>& OmegaGamma, 
         DenseMatrix<Real>& GammaInvColumnMajor, 
         NRSettings& settings
 ) : circuit(circuit), commons(commons), jacColoc(jacColoc), bsjac(bsjac), solutionFD(solutionFD), 
-    frequencies(frequencies), timepoints(timepoints), DDT(DDT), DDTcolMajor(DDTcolMajor), 
+    frequencies(frequencies), timepoints(timepoints), 
     APFT(APFT), IAPFT(IAPFT), OmegaGamma(OmegaGamma), GammaInvColumnMajor(GammaInvColumnMajor), 
     NRSolver(circuit.tables().accounting(), bsjac, solution, settings, 0) {
     // Bucket size is 0
@@ -120,8 +118,6 @@ bool HBNRSolver::setForces(Int ndx, const AnnotatedSolution& storedSolution, boo
         }
     }
 
-    bool error = false;
-
     // Go through annotated solution. fill APFT spectrum 
     // Use resistive residual vector for APFT spectrum
     auto& forcesFD = resistiveResidual;
@@ -147,8 +143,6 @@ bool HBNRSolver::setForces(Int ndx, const AnnotatedSolution& storedSolution, boo
         return false;
     }
 
-    // TODO from here
-
     // Go through all unknowns, skip the unknown corresponding to the bucket 
     for(decltype(n) i=1; i<=n; i++) {
         Node* node;
@@ -165,13 +159,14 @@ bool HBNRSolver::setForces(Int ndx, const AnnotatedSolution& storedSolution, boo
         }
         // Copy spectrum for one node
         auto ui = node->unknownIndex();
-        // Origin index in complex spectrum vector (no bucket)
+        // Spectrum origin index in complex spectrum vector (no bucket)
         auto srcOrigin = (ui-1)*nf;
-        // Origin index in destination vector of TD values (no bucket)
+        // Spectrum origin index in destination vector of TD values (no bucket)
         auto destOrigin = (ui-1)*blockSize;
         
         // Copy DC (one real value)
-        forcesFD[0] = solSpec[srcOrigin].real();
+        f.unknownValue_[destOrigin] = solSpec[srcOrigin].real();
+        f.unknownForced_[destOrigin] = true;
         // Scan all nonzero frequencies of solver's spectrum
         for(decltype(nf) k=1; k<nf; k++) {
             // Translate solver frequency into solution frequency
@@ -179,33 +174,23 @@ bool HBNRSolver::setForces(Int ndx, const AnnotatedSolution& storedSolution, boo
             // Index of real component (DC is stored as a single real number)
             auto ndx = 1+2*(k-1);
             if (xlf>=0) {
-                // Translation exists, copy solution component
-                forcesFD[ndx] = solSpec[srcOrigin+k].real();
-                forcesFD[ndx+1] = solSpec[srcOrigin+k].imag();
+                // Translation exists, copy solution component (cos, -sin)
+                f.unknownValue_[destOrigin+ndx] = solSpec[srcOrigin+k].real();
+                f.unknownValue_[destOrigin+ndx+1] = solSpec[srcOrigin+k].imag();
+                f.unknownForced_[destOrigin+ndx] = true;
+                f.unknownForced_[destOrigin+ndx+1] = true;
             } else {
                 // No translation, fill with zeros
-                forcesFD[ndx] = 0;
-                forcesFD[ndx+1] = 0;
+                f.unknownValue_[destOrigin+ndx] = 0;
+                f.unknownValue_[destOrigin+ndx+1] = 0;
             }
-        }
-        // Inverse APFT, store in forces vector
-        auto fd = VectorView<double>(forcesFD.data(), blockSize, 1);
-        auto td = VectorView<double>(f.unknownValue_.data()+destOrigin, blockSize, 1);
-        IAPFT.multiply(fd, td);
-        // After IAPFT the resulting timepoints are all valid forces, even if not all spectral components were copied
-        // Mark all forces for this unknown as set. 
-        for(decltype(nf) k=0; k<blockSize; k++) {
-            f.unknownForced_[destOrigin+k] = true;
         }
     }
 
     // std::cout << "Set forces:\n";
     // f.dump(circuit, std::cout);
     
-    // Ignore errors (conflicting forces are overwritten by newer value)
-    // Error checking makes sense in case of manual forces (nodeset, ic). 
-    // Therefore we ignore abortOnError. 
-    return !error; 
+    return true; 
 }
 
 bool HBNRSolver::rebuild(size_t nSolComp) {
@@ -259,7 +244,7 @@ bool HBNRSolver::initialize(bool continuePrevious) {
     // Number fo frequency components and timepoints
     auto nt = timepoints.size();
     
-    // DDT, APFT, and IAPFT are already set up
+    // APFT and IAPFT are already set up
 
     // Number of nodes
     auto n = circuit.unknownCount();
@@ -328,21 +313,17 @@ bool HBNRSolver::postRun(bool continuePrevious) {
         auto n = circuit.unknownCount();
         auto nf = frequencies.size();
         auto nt = timepoints.size();
-        solutionFD.resize(n*nf); // no bucket TODO: remove
+        solutionFD.resize(n*nf); // no bucket
         
         // Data
         for(decltype(n) i=0; i<n; i++) {
-            auto cxSpecPtr = solutionFD.data()+nf*i;
-            // APFT computes spectrum as complex values, with the exception of DC which is stored as a real value. 
-            // We write APFT output starting at the imaginary part of the DC complex magnitude. 
-            // This way all complex values will be in the right place, except for the DC value which 
-            // will be placed in the DC solution's imaginary part. 
-            auto inPtr = solution.data()+i*nt;
-            auto outPtr = reinterpret_cast<double*>(cxSpecPtr)+1;
-            auto outVec = VectorView<Real>(outPtr, nt, 1);
-            APFT.multiply(VectorView<Real>(inPtr, nt, 1), outVec);
-            // Move DC from imaginary to real part of DC complex magnitude. 
-            *cxSpecPtr = cxSpecPtr->imag();
+            auto srcOrigin = i*nt;
+            auto destOrigin = i*nf;
+            auto& data = solution.vector();
+            solutionFD[destOrigin] = data[srcOrigin];
+            for(decltype(nf) k=1; k<nf; k++) {
+                solutionFD[destOrigin+k] = *reinterpret_cast<Complex*>(&data[srcOrigin+1+(k-1)*2]);
+            }
         }
     }
     return true;
@@ -418,7 +399,7 @@ bool HBNRSolver::evaluate(bool continuePrevious) {
         zero(resistiveResidualAtTk);
         zero(reactiveResidualAtTk);
 
-        // Zero maximal residual contribution at timepoint TODO: remove
+        // Zero maximal residual contribution at timepoint
         zero(maxResidualContributionAtTk_);
         
         // Set time and offset
@@ -505,11 +486,11 @@ std::tuple<bool, bool> HBNRSolver::buildSystem(bool continuePrevious) {
 
         // blockTmp = Gamma Jrdiag Gamma^-1
         // Scale rows of Gamma with resistive Jacobian at colocation points
-        APFT.scaleRows(gCol, blockTmp);
+        APFT.scaleColumns(gCol, blockTmp);
         
         // blockTmp += Omega Gamma Jcdiag Gamma^-1
         // Scale rows of Omega Gamma with reactive Jacobian at colocation points
-        OmegaGamma.scaleRowsAdd(cCol, blockTmp);
+        OmegaGamma.scaleColumnsAdd(cCol, blockTmp);
         
         // blockTmp Gamma^-1 -> HB Jacobian block
         blockTmp.multiply(GammaInvColumnMajor, block);
@@ -542,7 +523,7 @@ std::tuple<bool, bool> HBNRSolver::buildSystem(bool continuePrevious) {
 
 bool HBNRSolver::loadForces(bool loadJacobian) {
     // Are any forces enabled? 
-    auto nf = forcesList.size();
+    auto nForces = forcesList.size();
     
     // Get row norms
     jac.rowMaxNorm(dataWithoutBucket(rowNorm, bucketSize_));
@@ -550,7 +531,7 @@ bool HBNRSolver::loadForces(bool loadJacobian) {
     // Load forces
     auto n = jac.nRow();
     double* xprev = solution.data();
-    for(decltype(nf) iForce=0; iForce<nf; iForce++) {
+    for(decltype(nForces) iForce=0; iForce<nForces; iForce++) {
         // Skip disabled force lists
         if (!forcesEnabled[iForce]) {
             continue;
@@ -560,11 +541,11 @@ bool HBNRSolver::loadForces(bool loadJacobian) {
         // First, handle forced unknowns
         auto& enabled = forcesList[iForce].unknownForced_;
         auto& force = forcesList[iForce].unknownValue_;
-        auto nForceNodes = force.size();
+        auto nForceEquations = force.size();
         // Load only if the number of forced unknowns matches 
-        // the number of unknowns in the circuit including ground
-        if (nForceNodes==n) {
-            for(decltype(nForceNodes) i=0; i<n; i++) {
+        // the number of equations
+        if (nForceEquations==n) {
+            for(decltype(nForceEquations) i=0; i<nForceEquations; i++) {
                 if (enabled[i]) {
                     double factor = rowNorm[i]*ff;
                     if (factor==0.0) {
@@ -638,7 +619,7 @@ std::tuple<bool, bool> HBNRSolver::checkDelta() {
             size_t baseI;
             double tolref;
             double deltaAbs;
-            if (j=0) {
+            if (j==0) {
                 // Handle DC (real)
                 baseI = (i-1)*nt;
                 tolref = std::abs(xold[baseI]);
@@ -729,10 +710,18 @@ bool HBNRSolver::formatError(Status& s, NameResolver* resolver) const {
 void HBNRSolver::dumpSolution(std::ostream& os, double* solution, const char* prefix) {
     auto n = circuit.unknownCount();
     auto nt = timepoints.size();
+    auto nf = frequencies.size();
     for(decltype(n) i=1; i<=n; i++) {
         auto rn = circuit.reprNode(i);
-        for(decltype(nt) k=0; k<nt; k++) {
-            os << prefix << rn->name() << "@t" << k << " : " << solution[(i-1)*nt+k] << "\n";
+        for(decltype(nf) k=0; k<nf; k++) {
+            Complex x;
+            if (k==0) {
+                x = solution[0];
+            } else {
+                auto ndx = (i-1)*nt+1+(k-1)*2;
+                x = Complex(solution[ndx], solution[ndx+1]);
+            }
+            os << prefix << rn->name() << "@f" << k << " : " << x << "\n";
         }
     }
 }

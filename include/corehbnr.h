@@ -20,8 +20,6 @@ public:
         Vector<Complex>& solutionFD,
         const Vector<Real>& frequencies, 
         const Vector<Real>& timepoints, 
-        DenseMatrix<Real>& DDT, 
-        DenseMatrix<Real>& DDTcolMajor, 
         DenseMatrix<Real>& APFT, 
         DenseMatrix<Real>& IAPFT, 
         DenseMatrix<Real>& OmegaGamma, 
@@ -87,8 +85,6 @@ protected:
     // Vectors and matrices without a bucket
     const std::vector<double>& frequencies;
     const Vector<double>& timepoints; 
-    DenseMatrix<double>& DDT;
-    DenseMatrix<double>& DDTcolMajor;
     DenseMatrix<double>& APFT;
     DenseMatrix<double>& IAPFT;
     DenseMatrix<double>& OmegaGamma;

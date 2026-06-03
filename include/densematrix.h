@@ -454,6 +454,40 @@ public:
         }
     };
 
+    // Scale columns with values given by a vector, store in result
+    void scaleColumns(const VectorView<T>& vector, DenseMatrixView<T>& result) {
+        if (nCol_!=vector.n()) {
+            throw std::out_of_range("Matrix is not compatible with vector.");
+        }
+        if (nRow_!=result.nRows() || nCol_!=result.nCols()) {
+            throw std::out_of_range("Result is not compatible with matrix.");
+        }
+        for(size_t i=0; i<nRow_; i++) {
+            auto src = row(i);
+            auto dest = result.row(i);
+            for(size_t j=0; j<nCol_; j++) {
+                dest[j] = src[j]*vector[j];
+            }
+        }
+    };
+
+    // Scale columns with values given by a vector, add to result
+    void scaleColumnsAdd(const VectorView<T>& vector, DenseMatrixView<T>& result) {
+        if (nCol_!=vector.n()) {
+            throw std::out_of_range("Matrix is not compatible with vector.");
+        }
+        if (nRow_!=result.nRows() || nCol_!=result.nCols()) {
+            throw std::out_of_range("Result is not compatible with matrix.");
+        }
+        for(size_t i=0; i<nRow_; i++) {
+            auto src = row(i);
+            auto dest = result.row(i);
+            for(size_t j=0; j<nCol_; j++) {
+                dest[j] += src[j]*vector[j];
+            }
+        }
+    };
+
     // Apply function to each element, put result in result
     void apply(T (*func)(T), DenseMatrixView<T>& result) const {
         for(size_t i=0; i<nRow_; i++) {

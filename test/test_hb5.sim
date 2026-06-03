@@ -25,7 +25,7 @@ control
   analysis tran1 tran stop=3m step=0.05u maxstep=0.05u
 
   options homotopy_debug=1 hb_debug=2 nr_debug=1
-  options hb_itl=100 homotopy_srcscale=2 // reltol=1e-8
+  options hb_itl=100 hb_skipinitial=1 // homotopy_srcscale=2 // reltol=1e-8
   analysis hb1 hb freq=[1.01k, 50k] truncate="box" nharm=[3, 12] 
   
   postprocess(PYTHON, "runme.py")

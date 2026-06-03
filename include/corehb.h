@@ -173,14 +173,6 @@ private:
     DenseMatrix<double> OmegaGamma;
     // IAPFT in co,umn major form
     DenseMatrix<double> GammaInvColumnMajor;
-
-    // TODO: remove
-    // Derivative wrt time operator for time-domain vectors
-    // Results in a time domain vector
-    // Computed as IAPFT Omega APFT
-    DenseMatrix<double> DDT;
-    // DDT operator in column-major order (for cache locality)
-    DenseMatrix<double> DDTcolMajor;
 };
 
 }
