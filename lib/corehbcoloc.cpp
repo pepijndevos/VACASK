@@ -49,7 +49,6 @@ bool HBCore::buildColocation(Status& s) {
         std::mt19937_64 gen;
         gen.seed(1);
         std::uniform_real_distribution dist(0.0, 1.0);
-        // Select across 3 periods of fmin
         if (debug>2) {
             Simulator::dbg() << "Generating pool of " << nsam << " random points, tmax=" << range << "\n" ;
         }

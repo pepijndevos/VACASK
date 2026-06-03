@@ -14,14 +14,14 @@ HBNRSolver::HBNRSolver(
         Vector<Complex>& solutionFD, 
         const Vector<Real>& frequencies, 
         const Vector<Real>& timepoints, 
-        DenseMatrix<double>& APFT, 
-        DenseMatrix<double>& IAPFT, 
+        DenseMatrix<double>& Gamma, 
+        DenseMatrix<double>& GammaInv, 
         DenseMatrix<Real>& OmegaGamma, 
         DenseMatrix<Real>& GammaInvColumnMajor, 
         NRSettings& settings
 ) : circuit(circuit), commons(commons), jacColoc(jacColoc), bsjac(bsjac), solutionFD(solutionFD), 
     frequencies(frequencies), timepoints(timepoints), 
-    APFT(APFT), IAPFT(IAPFT), OmegaGamma(OmegaGamma), GammaInvColumnMajor(GammaInvColumnMajor), 
+    Gamma(Gamma), GammaInv(GammaInv), OmegaGamma(OmegaGamma), GammaInvColumnMajor(GammaInvColumnMajor), 
     NRSolver(circuit.tables().accounting(), bsjac, solution, settings, 0) {
     // Bucket size is 0
     // Slot 0 is for sweep continuation and homotopy (set via CoreStateStorage object)
@@ -244,7 +244,7 @@ bool HBNRSolver::initialize(bool continuePrevious) {
     // Number fo frequency components and timepoints
     auto nt = timepoints.size();
     
-    // APFT and IAPFT are already set up
+    // Gamma and GammaInv are already set up
 
     // Number of nodes
     auto n = circuit.unknownCount();
@@ -380,7 +380,7 @@ bool HBNRSolver::evaluate(bool continuePrevious) {
     for(decltype(n) i=0; i<n; i++) {
         auto src = VectorView(solution.vector(), i*nb, nb, 1);
         auto dest = VectorView(solutionTD, i*nb, nb, 1);
-        IAPFT.multiply(src, dest);
+        GammaInv.multiply(src, dest);
     }
     
     // Clear Jacobian at colocation points
@@ -431,22 +431,28 @@ std::tuple<bool, bool> HBNRSolver::buildSystem(bool continuePrevious) {
     // After nt evalAndLoad() calls the two columns of each block in jacColoc 
     // are filled with Jr_ijk and Jc_ijk. 
     // 
-    // The unknowns and the equations are in time domain, i.e. we formulate 
-    // HB in time domain. Let Gij denote the diagonal nb x nb matrix holding 
+    // The unknowns and the equations are in frequency domain, i.e. we formulate 
+    // HB in frequency domain. Let Gij denote the diagonal nb x nb matrix holding 
     // the resistive Jacobian values for the block at position (i+1, j+1). 
     // Similarly Cij is the diagonal nb x nb matrix holding the reactive 
-    // Jacobian values for the block. The HB Jacobian block can then be 
-    // expressed as
-    //   Gij + Gamma^-1 Omega Gamma Cij
-    // where Gamma and Gamma^-1 are the APFT and inverse APFT matrices, 
+    // Jacobian values for the block. 
+    
+    // The HB Jacobian block can then be expressed as
+    //   Gamma Gij GammaInv + Omega Gamma Cij GammaInv
+    // where Gamma and GammaInv are the forward and the inverse Fourier transform, 
     // while Omega is the time-derivative operator in frequency domain. 
-    // Matrix DDT holds Gamma^-1 Omega Gamma. 
-    // The HB Jacobian block at (i+1, j+1) is constructed by scaling columns 
-    // of DDT with reactive Jacobian values Jc_ijk and then adding the 
-    // resistive Jacoban values Jr_ijk to the diagonal. 
+    // Matrix OmegaGamma holds Omega Gamma. 
+    // Matrix GammaInvColumnMajor is GammaInv in column-major order (better for caching), 
     // 
-    // Because blocks are stored in column major order the innermost loop 
-    // iterates over values of k. In this way good cache locality is achieved. 
+    // Gamma Gij GammaInv is computed by scaling columns of Gamma with 
+    // valuef of G at colocation points, followed by multiplying with GammaInvColumnMajor. 
+    // 
+    // Omega Gamma Cij GammaInv is computed by scaling columns of OmegaGamma with
+    // values of C at colocation points followed by  multiplying with GammaInvColumnMajor. 
+    
+    // Residual is computed as 
+    // Gamma f + OmegaGamma c
+    // where f and c are the resistive and the reactive residuals at colocation points. 
     
     // Get sizes
     auto n = circuit.unknownCount();
@@ -486,7 +492,7 @@ std::tuple<bool, bool> HBNRSolver::buildSystem(bool continuePrevious) {
 
         // blockTmp = Gamma Jrdiag Gamma^-1
         // Scale rows of Gamma with resistive Jacobian at colocation points
-        APFT.scaleColumns(gCol, blockTmp);
+        Gamma.scaleColumns(gCol, blockTmp);
         
         // blockTmp += Omega Gamma Jcdiag Gamma^-1
         // Scale rows of Omega Gamma with reactive Jacobian at colocation points
@@ -503,7 +509,7 @@ std::tuple<bool, bool> HBNRSolver::buildSystem(bool continuePrevious) {
         auto g = VectorView(resistiveResidual, i*nb, nb, 1);
         auto q = VectorView(reactiveResidual, i*nb, nb, 1);
         auto dest = VectorView(delta, i*nb, nb, 1);
-        APFT.multiply(g, dest);
+        Gamma.multiply(g, dest);
         OmegaGamma.multiplyAdd(q, dest);
     }
 

@@ -115,6 +115,21 @@ bool HBCore::buildAPFT(Status& s) {
         return false;
     }
 
+    // Gamma = APFT
+    // GammaInv = IAPFT
+    
+    // Omega .. derivative operator operating on frequency-domain vectors
+    // Assumes the first component is DC magnitude and the remaining ones are (cosine, -sine) 
+    // magnitudes, i,e, (Re, Im) parts of a phasor
+    // First 6 rows and columns are
+    //   0 0   0   0    0  .
+    //   0 0  -w_1 0    0  .
+    //   0 w_1 0   0    0  .
+    //   0 0   0   0   -w_2 .
+    //   0 0   0   w_2  0  .
+    //   . .  .  .   .  .
+    // where wi is (2 pi fi). 
+
     // Compute Omega Gamma as row-major matrix (default)
     // DC row is 0
     // cos row x omega   -> -sin row
@@ -139,7 +154,7 @@ bool HBCore::buildAPFT(Status& s) {
         destNegSinRow.writeScaled(cosRow, omega);
     }
 
-    // Form Gamma^-1 as column-major matrix
+    // Form GammaInv as column-major matrix
     GammaInvColumnMajor.resize(n, n, DenseMatrix<double>::Major::Column);
     for(decltype(n) i=0; i<n; i++) {
         GammaInvColumnMajor.row(i) = IAPFT.row(i);

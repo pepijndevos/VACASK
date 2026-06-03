@@ -85,8 +85,8 @@ protected:
     // Vectors and matrices without a bucket
     const std::vector<double>& frequencies;
     const Vector<double>& timepoints; 
-    DenseMatrix<double>& APFT;
-    DenseMatrix<double>& IAPFT;
+    DenseMatrix<double>& Gamma;
+    DenseMatrix<double>& GammaInv;
     DenseMatrix<double>& OmegaGamma;
     DenseMatrix<double>& GammaInvColumnMajor;
     Vector<Complex>& solutionFD; 
