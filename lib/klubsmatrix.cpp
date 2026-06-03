@@ -65,8 +65,7 @@ template<typename IndexType, typename ValueType>
 bool KluBlockSparseMatrixCore<IndexType, ValueType>::rebuild(SparsityMap& m, EquationIndex n, EquationIndex nbRow, UnknownIndex nbCol, bool storageOnly) {
     KluMatrixCore<IndexType, ValueType>::clearError();
     
-    this->~KluBlockSparseMatrixCore();
-    static_cast<KluMatrixCore<IndexType, ValueType>*>(this)->~KluMatrixCore();
+    KluMatrixCore<IndexType, ValueType>::deleteKluObjects();
 
     n_ = n;
     nbRow_ = nbRow;
