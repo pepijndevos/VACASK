@@ -18,7 +18,7 @@ In steady state, $x(t)$ is almost periodic with fundamental frequencies $f_1, \l
 
 $$\Gamma\, f(\Gamma^{-1} X) + \Omega\, \Gamma\, q(\Gamma^{-1} X) = 0$$
 
-where $\Gamma$ is the APFT (Almost Periodic Fourier Transform) mapping phasors to colocation timepoints, $\Gamma^{-1}$ is its inverse, and $\Omega$ is the frequency-domain time-derivative operator ($\Omega_{kk} = j\omega_k$). The Jacobian is assembled from the resistive and reactive circuit Jacobians evaluated at the colocation timepoints and is used by Newton-Raphson to converge to the solution.
+where $\Gamma$ is the APFT (Almost Periodic Fourier Transform) mapping phasors to colocation timepoints, $\Gamma^{-1}$ is its inverse, and $\Omega$ is the frequency-domain time-derivative operator. The Jacobian is assembled from the resistive and reactive circuit Jacobians evaluated at the colocation timepoints and is used by Newton-Raphson to converge to the solution.
 
 ### Spectrum truncation
 
