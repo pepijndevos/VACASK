@@ -229,19 +229,19 @@ bool KluBlockSparseMatrixCore<IndexType, ValueType>::rebuild(SparsityMap& m, Equ
     return true;
 }
 
-template<typename IndexType, typename ValueType> 
+template<typename IndexType, typename ValueType>
 void KluBlockSparseMatrixCore<IndexType, ValueType>::dumpBlockSparsity(std::ostream& os) {
    for(IndexType row=0; row<n_; row++) {
         for(IndexType col=0; col<n_; col++) {
             auto [_, found] = block(MatrixEntryPosition(row+1, col+1));
             if (found) {
-                std::cout << "x";
+                os << "x";
             } else {
-                std::cout << ".";
+                os << ".";
             }
         }
-        std::cout << "\n";
-    } 
+        os << "\n";
+    }
 }
 
 

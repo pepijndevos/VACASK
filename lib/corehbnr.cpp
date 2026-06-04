@@ -521,7 +521,7 @@ std::tuple<bool, bool> HBNRSolver::buildSystem(bool continuePrevious) {
         }
         lastHBNRError = HBNRSolverError::LoadForces;
         errorIteration = iteration;
-        std::make_tuple(false, evalSetup_.limitingApplied);
+        return std::make_tuple(false, evalSetup_.limitingApplied);
     }
     
     // OK, do not prevent convergence

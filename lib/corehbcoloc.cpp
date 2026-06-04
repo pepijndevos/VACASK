@@ -29,6 +29,7 @@ bool HBCore::buildColocation(Status& s) {
 
     if (params.samplefac<1.0) {
         s.set(Status::BadArguments, "samplefac must be >=1.");
+        return false;
     }
     
     // Number of samples

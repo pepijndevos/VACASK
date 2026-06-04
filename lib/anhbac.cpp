@@ -120,8 +120,8 @@ bool HBAC::resolveOutputDescriptors(bool strict, Status& s) {
 
 std::tuple<bool, bool> HBAC::requestsRebuild(Status& s) { 
     auto [ok1, hbRebuild] = hbCore.requestsRebuild(s);
-    auto [ok2, hbacRebuild] = requestsRebuild(s);
-    return std::make_tuple(ok1||ok2, hbRebuild||hbacRebuild);
+    auto [ok2, hbacRebuild] = hbacCore.requestsRebuild(s);
+    return std::make_tuple(ok1&&ok2, hbRebuild||hbacRebuild);
 };
 
 std::tuple<bool, bool> HBAC::preMapping(Status& s) {

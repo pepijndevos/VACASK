@@ -801,9 +801,9 @@ void HBACCore::dump(std::ostream& os) const {
     auto n = circuit.unknownCount();
     auto nf = spurs_.smsigFreq().size();
     for(decltype(n) i=1; i<=n; i++) {
+        auto rn = circuit.reprNode(i);
         for(decltype(nf) j=0; j<nf; j++) {
-            auto rn = circuit.reprNode(i);
-            auto c = acSolution.data()[i];
+            auto c = acSolution.data()[i*nf+j];
             os << "    " << rn->name() << ", spur=" << spurs_.smsigFreq()[j] <<  " : " << c.real();
             if (c.imag()>=0) {
                 os << "+";

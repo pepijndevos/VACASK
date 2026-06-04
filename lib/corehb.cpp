@@ -617,11 +617,10 @@ std::tuple<bool, bool> HBCore::runSolver(bool continuePrevious) {
     // Handle continuation
     if (continuePrevious) {
         // Continue mode
-        auto& storedSpurs = continueState->solution.hbSpurs();
         if (continueState &&
             continueState->valid && continueState->coherent &&
-            continueState->solution.cxValues().size()==circuit.unknownCount()*timepoints.size() && 
-            storedSpurs.spectrum().size()==spurs_.spectrum().size()
+            continueState->solution.cxValues().size()==circuit.unknownCount()*timepoints.size() &&
+            continueState->solution.hbSpurs().spectrum().size()==spurs_.spectrum().size()
         ) {
             // Continue a state
             // State is valid, coherent, and its lengths match those of the solver vectors
