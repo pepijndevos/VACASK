@@ -59,9 +59,20 @@ void SparsityMap::dump(int indent, std::ostream& os) const {
 }
 
 
-template<typename IndexType, typename ValueType> KluMatrixCore<IndexType, ValueType>::KluMatrixCore() 
-    : AN(0), numeric(nullptr), symbolic(nullptr),  
-      smap(nullptr), lastError(Error::OK), acct(nullptr) {
+template<typename IndexType, typename ValueType> KluMatrixCore<IndexType, ValueType>::KluMatrixCore()
+    : acct(nullptr),
+      isComplex_(std::is_same<ValueType, Complex>::value),
+      nnz_(0),
+      AN(0),
+      symbolic(nullptr),
+      numeric(nullptr),
+      common{},
+      smap(nullptr),
+      bucket_{},
+      lastError(Error::OK),
+      errorIndex(0),
+      errorRank_(0),
+      errorNan(false) {
     // Sanity check: IndexType can only be int32_t or int64_t
     static_assert(
         std::is_same<IndexType, int>::value || std::is_same<IndexType, int64_t>::value, 
@@ -260,12 +271,27 @@ template<typename IndexType, typename ValueType> bool KluMatrixCore<IndexType, V
         lastError = Error::Factorization;
         errorIndex = singularColumn();
         errorRank_ = numericalRank();
+        if (numeric) {
+            if constexpr(std::is_same<int32_t, IndexType>::value) {
+                klu_free_numeric(&numeric, &common);
+            } else {
+                klu_l_free_numeric(&numeric, &common);
+            }
+            numeric = nullptr;
+        }
         return false;
     }
     return true;
 }
 
 template<typename IndexType, typename ValueType> bool KluMatrixCore<IndexType, ValueType>::refactor() {
+    clearError();
+
+    if (!numeric) {
+        // Fall through to factor(); accounting is handled there.
+        return factor();
+    }
+
     auto t0 = Accounting::wclk();
     if (acct) {
         if constexpr(std::is_same<ValueType, Complex>::value) {
@@ -273,12 +299,6 @@ template<typename IndexType, typename ValueType> bool KluMatrixCore<IndexType, V
         } else {
             acct->acctNew.refactor++;
         }
-    }
-
-    clearError();
-
-    if (!numeric) {
-        return factor();
     }
     int st;
     if constexpr(std::is_same<ValueType, Complex>::value) {
@@ -307,6 +327,14 @@ template<typename IndexType, typename ValueType> bool KluMatrixCore<IndexType, V
     if (!st || isSingular || (nr>=0 && nr!=AN)) {
         lastError = Error::Refactorization;
         errorRank_ = numericalRank();
+        if (numeric) {
+            if constexpr(std::is_same<int32_t, IndexType>::value) {
+                klu_free_numeric(&numeric, &common);
+            } else {
+                klu_l_free_numeric(&numeric, &common);
+            }
+            numeric = nullptr;
+        }
         return false;
     }
     return true;

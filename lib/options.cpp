@@ -197,6 +197,7 @@ SimulatorOptions::SimulatorOptions() {
     hb_itlcont = 50; // >0, maximal number of iterations in continuation mode
     hb_skipinitial = 0; // 1 = no initial hb, go straight to homotopy
     hb_homotopy = { "src" }; // list of homotopy algorithms to apply in hb analysis
+    hb_nsiter = 1; // Number of iterations during which nodesets are applied
     
     rawfile = "binary"; // ascii or binary
     strictoutput = 2; // 0 = leave output files in place after error, 
@@ -306,6 +307,7 @@ template<> int Introspection<SimulatorOptions>::setup() {
     registerMember(hb_itlcont);
     registerMember(hb_skipinitial);
     registerMember(hb_homotopy);
+    registerMember(hb_nsiter);
     
     registerMember(rawfile);
     registerMember(strictoutput);

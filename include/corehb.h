@@ -138,17 +138,14 @@ protected:
     bool converged_;
     
 private:
-    NRSettings nrSettings;
-    HBNRSolver nrSolver;
-
     // Temporary structures for collecting the phasors at a single frequency
-    // before they are dumped. This vector has a bucket so that the output 
-    // source code is the same as with other analyses. 
+    // before they are dumped. This vector has a bucket so that the output
+    // source code is the same as with other analyses.
     VectorRepository<Complex> outputPhasors;
     Complex outputFreq;
 
     // Solution in frequency domain, nf phasors for each on of the n unknowns
-    // NR solver resizes this vector. This vector has no bucket. 
+    // NR solver resizes this vector. This vector has no bucket.
     Vector<Complex> solutionFD;
 
     // Previous HB parameters to check if we need to rebuild()
@@ -164,7 +161,7 @@ private:
 
     // Vectors and matrices without a bucket
     // Colocation timepoints (sorted)
-    Vector<double> timepoints; 
+    Vector<double> timepoints;
     // Almost periodic Fourier transform
     DenseMatrix<double> APFT;
     // Inverse almost periodic Fourier transform
@@ -173,6 +170,11 @@ private:
     DenseMatrix<double> OmegaGamma;
     // IAPFT in co,umn major form
     DenseMatrix<double> GammaInvColumnMajor;
+
+    // Declared last so spurs_, timepoints, and the transform matrices it
+    // captures by reference are fully constructed before its init list runs.
+    NRSettings nrSettings;
+    HBNRSolver nrSolver;
 };
 
 }

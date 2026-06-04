@@ -54,12 +54,21 @@ private:
 };
 
 HBCore::HBCore(
-    OutputDescriptorResolver& parentResolver, HBParameters& params, Circuit& circuit, CommonData& commons, 
+    OutputDescriptorResolver& parentResolver, HBParameters& params, Circuit& circuit, CommonData& commons,
     KluBlockSparseRealMatrix& jacColoc, KluBlockSparseRealMatrix& jacobian, VectorRepository<double>& solution
-) : AnalysisCore(parentResolver, circuit, commons), params(params), outfile(nullptr), jacColoc(jacColoc), 
-    nrSolver(circuit, commons, jacColoc, jacobian, solution, solutionFD, spurs_.spectrum(), timepoints, 
-    APFT, IAPFT, OmegaGamma, GammaInvColumnMajor, nrSettings), 
-    bsjac(jacobian), solution(solution), firstBuild(true), continueState(nullptr) {
+) : AnalysisCore(parentResolver, circuit, commons),
+    lastHbError(HBError::OK),
+    homotopySteps(0),
+    jacColoc(jacColoc),
+    bsjac(jacobian),
+    solution(solution),
+    continueState(nullptr),
+    outfile(nullptr),
+    converged_(false),
+    firstBuild(true),
+    params(params),
+    nrSolver(circuit, commons, jacColoc, jacobian, solution, solutionFD, spurs_.spectrum(), timepoints,
+             APFT, IAPFT, OmegaGamma, GammaInvColumnMajor, nrSettings) {
 };
 
 HBCore::~HBCore() {

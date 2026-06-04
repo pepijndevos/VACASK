@@ -44,12 +44,12 @@ bool HBCore::buildTransformMatrix(DenseMatrix<double>& XF, Status& s) {
     
     // Storage of (2 pi f t) factors for base frequencies
     auto nBase = spurs_.fundamentals().size();
-    double baseFac[nBase];
+    std::vector<double> baseFac(nBase);
 
     // Precompute reduced phase at tstart for each base frequency.
     // Use two-product via fma to get frac(f*tstart) with full precision,
     // avoiding catastrophic cancellation when f*tstart is large.
-    double basePhaseAtTstart[nBase];
+    std::vector<double> basePhaseAtTstart(nBase);
     for(decltype(nBase) k=0; k<nBase; k++) {
         auto f = spurs_.fundamentals()[k];
         auto prod = f * params.tstart;

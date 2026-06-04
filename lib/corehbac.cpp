@@ -56,15 +56,25 @@ private:
 };
 
 HBACCore::HBACCore(
-    OutputDescriptorResolver& parentResolver, HBACParameters& params, HBCore& hbCore, 
-    Circuit& circuit, CommonData& commons, 
-    KluBlockSparseComplexMatrix& jacSpec, 
-    VectorRepository<Complex>& hbSolution, 
+    OutputDescriptorResolver& parentResolver, HBACParameters& params, HBCore& hbCore,
+    Circuit& circuit, CommonData& commons,
+    KluBlockSparseComplexMatrix& jacSpec,
+    VectorRepository<Complex>& hbSolution,
     KluBlockSparseComplexMatrix& acMatrix, Vector<Complex>& acSolution
-) : AnalysisCore(parentResolver, circuit, commons), params(params), outfile(nullptr), hbCore_(hbCore), 
-    jacSpec(jacSpec), 
-    hbSolution(hbSolution), 
-    acMatrix(acMatrix), acSolution(acSolution), firstBuild(true) {
+) : AnalysisCore(parentResolver, circuit, commons),
+    hbCore_(hbCore),
+    outfile(nullptr),
+    lastHBACError(HBACError::OK),
+    errorFreq(-1.0),
+    errorInst(nullptr),
+    errorSpur(0),
+    hbSolution(hbSolution),
+    jacSpec(jacSpec),
+    acMatrix(acMatrix),
+    acSolution(acSolution),
+    firstBuild(true),
+    params(params),
+    frequency(0.0) {
 }
 
 HBACCore::~HBACCore() {
@@ -86,7 +96,10 @@ bool HBACCore::resolveOutputDescriptors(bool strict, Status& s) {
         case OutdSolComponent:
             for(decltype(nSpurs) i=0; i<nStoredSpurs; i++) {
                 Id name = std::string(it->id)+";"+suffixes[i];
-                ok = addComplexVarOutputSource(strict, it->id, acSolution, nSpurs, spurIndices[i], name, s);
+                if (!addComplexVarOutputSource(strict, it->id, acSolution, nSpurs, spurIndices[i], name, s)) {
+                    ok = false;
+                    break;
+                }
             }
             break;
         case OutdFrequency:
@@ -232,7 +245,7 @@ void HBACCore::fillDenseBlock(
         auto [start, end] = spurs_.rowRange(m);
         auto om = o + start;
         auto p1 = &block.at(start, m);
-        auto jacIndex = &stencil.at(start, m);;
+        auto jacIndex = &stencil.at(start, m);
         
         // TODO: remove
         // start=0;
@@ -502,6 +515,7 @@ CoreCoroutine HBACCore::coroutine(bool continuePrevious) {
     // Colect excitations
     if (!collectExcitations()) {
         co_yield CoreState::Aborted;
+        co_return;
     }
 
     // Make sure structures are large enough
@@ -519,12 +533,14 @@ CoreCoroutine HBACCore::coroutine(bool continuePrevious) {
         if (!hbOk) {
             setError(HBACError::HBError);
             co_yield CoreState::Aborted;
+            co_return;
         }
     } else {
         // Evaluate HB at nodeset
         if (!hbCore_.evaluateAtNodeset()) {
             setError(HBACError::HBError);
             co_yield CoreState::Aborted;
+            co_return;
         }
     }
 
@@ -538,6 +554,7 @@ CoreCoroutine HBACCore::coroutine(bool continuePrevious) {
             Simulator::dbg() << "A frequency-domain Jacobian matrix entry is not finite.\n";
         }
         co_yield CoreState::Aborted;
+        co_return;
     }
 
     if (debug>0) {
@@ -549,6 +566,7 @@ CoreCoroutine HBACCore::coroutine(bool continuePrevious) {
     if (!sweeper.setup(params, errorStatus)) {
         setError(HBACError::Sweeper);
         co_yield CoreState::Aborted;
+        co_return;
     }
     if (progressReporter) {
         progressReporter->setValueFormat(ProgressReporter::ValueFormat::Scientific, 6);

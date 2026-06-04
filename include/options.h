@@ -89,6 +89,7 @@ typedef struct SimulatorOptions  {
     Int hb_itlcont;
     Int hb_skipinitial;
     std::vector<Id> hb_homotopy;
+    Int hb_nsiter;
     Id rawfile;
     Int strictoutput;
     Int strictsave;

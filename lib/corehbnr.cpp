@@ -323,7 +323,8 @@ bool HBNRSolver::postRun(bool continuePrevious) {
             auto& data = solution.vector();
             solutionFD[destOrigin] = data[srcOrigin];
             for(decltype(nf) k=1; k<nf; k++) {
-                solutionFD[destOrigin+k] = *reinterpret_cast<Complex*>(&data[srcOrigin+1+(k-1)*2]);
+                auto base = srcOrigin + 1 + (k-1)*2;
+                solutionFD[destOrigin+k] = Complex(data[base], data[base+1]);
             }
         }
     }
@@ -460,7 +461,7 @@ std::tuple<bool, bool> HBNRSolver::buildSystem(bool continuePrevious) {
     auto nb = timepoints.size();
 
     // Remove forces originating from nodesets after nsiter iterations
-    auto nsiter = circuit.simulatorOptions().core().op_nsiter;
+    auto nsiter = circuit.simulatorOptions().core().hb_nsiter;
     // Do this only at nsiter+1 (first iteration has index 1)
     if (iteration==nsiter+1) {
         // Continuation nodesets
@@ -629,7 +630,7 @@ std::tuple<bool, bool> HBNRSolver::checkDelta() {
                 tolRef = mag;
             }
         }
-        
+
         // Scan frequencies
         for(decltype(nt) j=0; j<nf; j++) {
             // Index of component, tolerance reference, absolute delta

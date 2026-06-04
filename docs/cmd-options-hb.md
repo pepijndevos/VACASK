@@ -14,6 +14,12 @@
 | `hb_skipinitial` | boolean | 0 | 0, 1 | Skip the initial direct solve and go straight to homotopy. |
 | `hb_homotopy` | list | `["src"]` | - | Ordered list of homotopy algorithms to try when the initial solve fails. |
 
+## Nodesets
+
+| Name | Type | Default | Allowed | Description |
+|------|------|---------|---------|-------------|
+| `hb_nsiter` | int | 1 | ≥0 | Number of NR iterations during which nodeset constraints are enforced. |
+
 ## Debugging
 
 | Name | Type | Default | Allowed | Description |

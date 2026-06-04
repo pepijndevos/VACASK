@@ -78,7 +78,7 @@ Missing `return false;`. Function proceeds with the bad parameter and returns
 success at the end, leaving the caller with an inconsistent (status=error,
 retval=true) outcome.
 
-### 9. [ ] [corehbac.cpp:85-103](lib/corehbac.cpp#L85-L103) — Failures swallowed in output-source loop
+### 9. [x] [corehbac.cpp:85-103](lib/corehbac.cpp#L85-L103) — Failures swallowed in output-source loop
 ```cpp
 for (i=0; i<nStoredSpurs; i++) {
     ...
@@ -89,7 +89,7 @@ A failure on iteration k is overwritten by success on iteration k+1; the outer
 `if (!ok) break;` (line 100) sees only the last iteration. Track failures with
 `ok = ok && addComplex...` and break inside the loop.
 
-### 10. [ ] [corehb.cpp:56-63](lib/corehb.cpp#L56-L63) and [corehbac.cpp:64-67](lib/corehbac.cpp#L64-L67) — Uninitialized members + wrong-order init list
+### 10. [x] [corehb.cpp:56-63](lib/corehb.cpp#L56-L63) and [corehbac.cpp:64-67](lib/corehbac.cpp#L64-L67) — Uninitialized members + wrong-order init list
 In `HBCore`, the init list omits `lastHbError`, `homotopySteps`, `converged_`. In
 `HBACCore`, the init list omits `lastHBACError`, `errorFreq`, `errorInst`,
 `errorSpur`, `frequency`. If `formatError`/`finalizeOutputs` runs before the
@@ -98,7 +98,7 @@ The init lists are also written in an order that doesn't match the declaration
 order, which both produces warnings and obscures what is actually initialized
 first.
 
-### 11. [ ] [corehb.cpp:60-61](lib/corehb.cpp#L60-L61) — `spurs_.spectrum()` called before `spurs_` is constructed
+### 11. [x] [corehb.cpp:60-61](lib/corehb.cpp#L60-L61) — `spurs_.spectrum()` called before `spurs_` is constructed
 `nrSolver` is declared in the header before `spurs_`, so members are constructed in
 that order regardless of the init list. The nrSolver init list expression evaluates
 `spurs_.spectrum()` — a non-static member function call on an object whose lifetime
@@ -106,20 +106,20 @@ hasn't started ([basic.life]). Currently works because of standard layout, but i
 UB. Move `spurs_` above `nrSolver` in the class declaration (and pass the reference
 normally), or pass the spurs in via `rebuild()`.
 
-### 12. [ ] [klumatrix.cpp:62-74](lib/klumatrix.cpp#L62-L74) — `KluMatrixCore` constructor: scattered uninits
+### 12. [x] [klumatrix.cpp:62-74](lib/klumatrix.cpp#L62-L74) — `KluMatrixCore` constructor: scattered uninits
 Init list omits `nnz_`, `errorIndex`, `errorRank_`, `errorNan`, `isComplex_`,
 `bucket_`. `nnz_` is read in `zero()` and a number of `for` loops if `rebuild()`
 has not completed (or has failed mid-way). `bucket_` for `ValueType=double` is
 indeterminate; any code that takes `elementPtr` for an absent entry returns a
 pointer to that indeterminate scratch slot — fine for writes, but reads are UB.
 
-### 13. [ ] [klumatrix.cpp:259-265](lib/klumatrix.cpp#L259-L265) — `isFactored()` lies after rank-deficient factor
+### 13. [x] [klumatrix.cpp:259-265](lib/klumatrix.cpp#L259-L265) — `isFactored()` lies after rank-deficient factor
 On a rank-deficient outcome (KLU returns non-null `numeric` but
 `numerical_rank != AN`), `factor()` flags `Error::Factorization` but leaves
 `numeric` populated. `isFactored() { return numeric; }` then reports success.
 Either free `numeric` on this path or have `isFactored` consult `lastError`.
 
-### 14. [ ] [klumatrix.cpp:280-282](lib/klumatrix.cpp#L280-L282) — `refactor()` accounting wrong on fallback
+### 14. [x] [klumatrix.cpp:280-282](lib/klumatrix.cpp#L280-L282) — `refactor()` accounting wrong on fallback
 `refactor()` bumps `cxrefactor`/`refactor` counters at the top, then if `!numeric`
 it tail-calls `factor()` which bumps the factor counters again. Net effect: the
 single operation is counted as both refactor and factor, with timing accumulated to
@@ -127,16 +127,18 @@ refactor before the actual work happens.
 
 ## Moderate
 
-### 15. [ ] [corehbnr.cpp:326](lib/corehbnr.cpp#L326), corehbnr.cpp:629-638 — `double[]` ↔ `Complex` reinterpret_cast
+### 15. [x] [corehbnr.cpp:326](lib/corehbnr.cpp#L326) — `double[]` ↔ `Complex` reinterpret_cast
 ```cpp
 solutionFD[destOrigin+k] = *reinterpret_cast<Complex*>(&data[srcOrigin+1+(k-1)*2]);
 ```
 Reading a pair of `double`s through a `std::complex<double>*` violates strict
 aliasing (works in practice, formally UB). The `complex→double*` direction is
-blessed by [complex.numbers.general]; the reverse is not. Same pattern in
-`checkDelta`.
+blessed by [complex.numbers.general]; the reverse is not. Replaced with explicit
+`Complex(data[base], data[base+1])` construction. (The bug entry originally
+also pointed at lines 629-638 in `checkDelta`, but those read two doubles
+directly with no cast — not UB.)
 
-### 16. [ ] [corehbxform.cpp:47](lib/corehbxform.cpp#L47), [corehbxform.cpp:52](lib/corehbxform.cpp#L52) — Variable-length arrays
+### 16. [x] [corehbxform.cpp:47](lib/corehbxform.cpp#L47), [corehbxform.cpp:52](lib/corehbxform.cpp#L52) — Variable-length arrays
 ```cpp
 double baseFac[nBase];
 double basePhaseAtTstart[nBase];
@@ -144,12 +146,12 @@ double basePhaseAtTstart[nBase];
 VLAs are a GCC extension, not portable. Use `std::vector` (or a small `std::array`
 if `nBase` is bounded).
 
-### 17. [ ] [corehbcoloc.cpp:28](lib/corehbcoloc.cpp#L28) — Unguarded `spectrum()[1]`
+### 17. [x] [corehbcoloc.cpp:28](lib/corehbcoloc.cpp#L28) — Unguarded `spectrum()[1]`
 `auto fmin = spurs_.spectrum()[1];` requires `spectrum().size() >= 2`. There's a
 check earlier in `rebuild()` ([corehb.cpp:293](lib/corehb.cpp#L293)) but no guard
 here. If `buildColocation` is ever called via another path, this is OOB.
 
-### 18. [ ] [corehbnr.cpp:463-470](lib/corehbnr.cpp#L463-L470) — `op_nsiter` used for HB
+### 18. [x] [corehbnr.cpp:463-470](lib/corehbnr.cpp#L463-L470) — `op_nsiter` used for HB
 ```cpp
 auto nsiter = circuit.simulatorOptions().core().op_nsiter;
 if (iteration==nsiter+1) { enableForces(0,false); enableForces(1,false); }
@@ -157,13 +159,13 @@ if (iteration==nsiter+1) { enableForces(0,false); enableForces(1,false); }
 Re-using the OP setting for HB is suspicious; HB likely needs its own setting (or a
 documented reason for sharing).
 
-### 19. [ ] [corehbac.cpp:502-540](lib/corehbac.cpp#L502-L540) — `co_yield CoreState::Aborted` not followed by `co_return`
+### 19. [x] [corehbac.cpp:502-540](lib/corehbac.cpp#L502-L540) — `co_yield CoreState::Aborted` not followed by `co_return`
 Five places yield `Aborted` and then fall through to the next line. Works today
 because the only caller (`run`) destroys the coroutine handle on Aborted, but the
 fall-through statements (`acSolution.resize`, etc.) are reachable if anyone ever
 resumes the coroutine. Add `co_return;` after each abort.
 
-### 20. [ ] [corehbac.cpp:235](lib/corehbac.cpp#L235) — Double semicolon
+### 20. [x] [corehbac.cpp:235](lib/corehbac.cpp#L235) — Double semicolon
 `auto jacIndex = &stencil.at(start, m);;` — harmless typo.
 
 ## Minor / cosmetic
@@ -221,3 +223,49 @@ happen.
 
 The two I'd fix first: #1 (`HBAC::requestsRebuild` recursion) and #3 (`runSolver`
 null deref). Both are reachable and crash-class.
+
+## Fragile reference binds (project-wide audit triggered by #11)
+
+Scanned all 96 constructors in `lib/*.cpp` plus inline ctors in `include/*.h`.
+Only #11 was true UB (method call on a not-yet-constructed member). The entries
+below are the **legal-but-fragile pattern**: a constructor binds a reference to
+a sibling member that is declared *later* in the same class. Standard permits
+this so long as the constructor only stores the reference and never
+dereferences it before the referent's lifetime begins. None of these
+constructors dereference today — but the same misstep that produced #11 lives
+one edit away in each of them. Worth a project-wide cleanup pass: reorder the
+class members so all referents precede their consumer, the way #11 was fixed.
+
+### 33. [ ] [anhb.cpp:12-17](lib/anhb.cpp#L12-L17) — `HB::HB`
+`core(*this, params.core(), circuit, commons, jacColoc, jac, solution)` —
+`jacColoc`, `jac`, `solution` are declared after `core` in
+[anhb.h:70-75](include/anhb.h#L70-L75).
+
+### 34. [ ] [anhbac.cpp:7-11](lib/anhbac.cpp#L7-L11) — `HBAC::HBAC`
+`hbCore(...jacColoc, jac, solution)` and
+`hbacCore(...jacSpec, hbSolution, acMatrix, acSolution)` — every matrix/vector
+reference is declared after the core that captures it in
+[anhbac.h:68-78](include/anhbac.h#L68-L78).
+
+### 35. [ ] [anop.cpp:12-14](lib/anop.cpp#L12-L14) — `OperatingPoint::OperatingPoint`
+`core(*this, params.core(), circuit, commons, jac, solution, states)` —
+`jac`, `solution`, `states` are declared after `core` in
+[anop.h:69-74](include/anop.h#L69-L74).
+
+### 36. [ ] [antran.cpp:7-10](lib/antran.cpp#L7-L10) — `Tran::Tran`
+`opCore(...jac, solution, states)` and `tranCore(...jac, solution, states)` —
+`jac`, `solution`, `states` are declared after both cores in
+[antran.h:64-70](include/antran.h#L64-L70).
+
+### 37. [ ] [coretran.cpp:252-272](lib/coretran.cpp#L252-L272) — `TranCore::TranCore`
+`nrSolver(...nrSettings, integCoeffs)` — `integCoeffs` is declared after
+`nrSolver` in [coretran.h:177-179](include/coretran.h#L177-L179).
+(`nrSettings` precedes `nrSolver` and is fine.)
+
+### 38. [ ] HBCore residual pattern still in `nrSolver` init
+Even after the #11 fix, `HBCore`'s init list still passes `solutionFD`,
+`timepoints`, `APFT`, `IAPFT`, `OmegaGamma`, `GammaInvColumnMajor` to
+`nrSolver` by reference. All of these are now declared *before* `nrSolver`
+(post-fix), so this is no longer fragile — listed for completeness so a future
+header re-shuffle doesn't reintroduce the issue.
+

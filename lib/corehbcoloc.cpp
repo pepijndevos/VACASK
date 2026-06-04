@@ -20,10 +20,16 @@ bool HBCore::buildColocation(Status& s) {
     // Includes DC
     auto n = spurs_.spectrum().size();
 
+    // Need DC + at least one nonzero frequency to read fmin / fmax below
+    if (n<2) {
+        s.set(Status::BadArguments, "Spectrum must contain at least one nonzero frequency.");
+        return false;
+    }
+
     // Must have 2 timepoints for each nonzero frequency and one for DC
     auto nt = 2*n-1;
 
-    // Maximal frequency
+    // Maximal and minimal nonzero frequency
     auto fmax = spurs_.spectrum().back();
     auto fmin = spurs_.spectrum()[1];
 
