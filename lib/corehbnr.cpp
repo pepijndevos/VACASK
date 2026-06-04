@@ -620,26 +620,35 @@ std::tuple<bool, bool> HBNRSolver::checkDelta() {
     auto xdelta = delta.data();
     // Scan unknowns
     for(decltype(n) i=1; i<=n; i++) {
+        // Find maximal magnitude across frequencies to use as tolerance reference
+        double tolRef = std::abs(xold[(i-1)*nt]);
+        for(decltype(nt) j=1; j<nf; j++) {
+            auto baseI = (i-1)*nt+(j-1)*2+1;
+            double mag = std::sqrt(xold[baseI]*xold[baseI] + xold[baseI+1]*xold[baseI+1]);
+            if (mag>tolRef) {
+                tolRef = mag;
+            }
+        }
+        
         // Scan frequencies
         for(decltype(nt) j=0; j<nf; j++) {
             // Index of component, tolerance reference, absolute delta
             size_t baseI;
-            double tolref;
             double deltaAbs;
             if (j==0) {
                 // Handle DC (real)
                 baseI = (i-1)*nt;
-                tolref = std::abs(xold[baseI]);
+                // tolref = std::abs(xold[baseI]);
                 deltaAbs = std::abs(xdelta[baseI]);
             } else {
                 // Handle the rest (complex)
                 baseI = (i-1)*nt+(j-1)*2+1;
-                tolref = std::sqrt(xold[baseI]*xold[baseI] + xold[baseI+1]*xold[baseI+1]);
+                // tolref = std::sqrt(xold[baseI]*xold[baseI] + xold[baseI+1]*xold[baseI+1]);
                 deltaAbs = std::sqrt(xdelta[baseI]*xdelta[baseI] + xdelta[baseI+1]*xdelta[baseI+1]);
             }
             
             // Compute tolerance
-            double tol = std::max(std::fabs(tolref*options.reltol), commons.unknown_abstol[i]);
+            double tol = std::max(std::fabs(tolRef*options.reltol), commons.unknown_abstol[i]);
 
             if (computeNorms) {
                 double normDelta = deltaAbs/tol;
