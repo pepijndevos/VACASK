@@ -26,7 +26,7 @@ control
 
   // Initial HB with only 2 carrier harmonics, allow homotopy
   options homotopy_debug=1 hb_debug=1 nr_debug=0 hb_skipinitial=1 hb_homotopy=["src"] 
-  analysis hb0 hb freq=[1k, 50k] truncate="box" nharm=[2, 20] store="hbstart"
+  analysis hb0 hb freq=[1k, 50k] truncate="box" nharm=[1, 10] store="hbstart"
   // Actual HB with only 20 carrier harmonics, initial HB only, no homotopy
   // Use solution of initial HB as starting point
   options hb_skipinitial=0 hb_homotopy=[] nr_debug=0 // hb_itl=100 // nr_force=1e10

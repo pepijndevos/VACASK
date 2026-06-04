@@ -74,12 +74,11 @@ bool HBNRSolver::setForces(Int ndx, const AnnotatedSolution& storedSolution, boo
     auto n = circuit.unknownCount();
 
     // Number of components per unknown
-    auto nf = frequencies.size(); // number of frequencies per unknown
-    auto blockSize = 2*nf-1; // number of timepoints per unknown
+    auto blockSize = timepoints.size(); // number of timepoints per unknown
 
     // No bucket
     // Make space for variable forces
-    f.unknownValue_.resize(n*blockSize);
+    f.unknownValue_.resize(n*blockSize, 0.0);
     // By default turn off all forces
     f.unknownForced_.resize(n*blockSize, false);
     
@@ -160,7 +159,7 @@ bool HBNRSolver::setForces(Int ndx, const AnnotatedSolution& storedSolution, boo
         // Copy spectrum for one node
         auto ui = node->unknownIndex();
         // Spectrum origin index in complex spectrum vector (no bucket)
-        auto srcOrigin = (ui-1)*nf;
+        auto srcOrigin = (ui-1)*nfSolution;
         // Spectrum origin index in destination vector of TD values (no bucket)
         auto destOrigin = (ui-1)*blockSize;
         
@@ -168,15 +167,17 @@ bool HBNRSolver::setForces(Int ndx, const AnnotatedSolution& storedSolution, boo
         f.unknownValue_[destOrigin] = solSpec[srcOrigin].real();
         f.unknownForced_[destOrigin] = true;
         // Scan all nonzero frequencies of solver's spectrum
-        for(decltype(nf) k=1; k<nf; k++) {
+        for(decltype(nfSolver) k=1; k<nfSolver; k++) {
             // Translate solver frequency into solution frequency
             auto xlf = xlat[k];
             // Index of real component (DC is stored as a single real number)
             auto ndx = 1+2*(k-1);
             if (xlf>=0) {
                 // Translation exists, copy solution component (cos, -sin)
-                f.unknownValue_[destOrigin+ndx] = solSpec[srcOrigin+k].real();
-                f.unknownValue_[destOrigin+ndx+1] = solSpec[srcOrigin+k].imag();
+                // Solution is stored as all-complex vector
+                // Solver's first component is real, the rest is complex
+                f.unknownValue_[destOrigin+ndx] = solSpec[srcOrigin+xlf].real();
+                f.unknownValue_[destOrigin+ndx+1] = solSpec[srcOrigin+xlf].imag();
                 f.unknownForced_[destOrigin+ndx] = true;
                 f.unknownForced_[destOrigin+ndx+1] = true;
             } else {
