@@ -286,6 +286,7 @@ void HBACCore::fillMatrix() {
 std::tuple<bool, bool> HBACCore::requestsRebuild(Status& s) {
     // First build, nothing to compare to
     if (firstBuild) {
+        oldParams = params;
         return std::make_tuple(true, true);
     }
 

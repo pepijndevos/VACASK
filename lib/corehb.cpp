@@ -210,6 +210,7 @@ bool HBCore::restoreState(size_t ndx) {
 std::tuple<bool, bool> HBCore::requestsRebuild(Status& s) {
     // First build, nothing to compare to
     if (firstBuild) {
+        oldParams = params;
         return std::make_tuple(true, true);
     }
 
