@@ -50,6 +50,7 @@
             // "args": [ "-df", "-dt", "${workspaceFolder}/test/test_build.sim" ],
             // "args": [ "-df", "${workspaceFolder}/test/test_visrc.sim" ],
             // "args": [ "-df", "${workspaceFolder}/test/test_viwfm.sim" ],
+             "args": [ "-df", "${workspaceFolder}/test/test_vipwl.sim" ],
             // "args": [ "-df", "${workspaceFolder}/test/test_ctlsrc.sim" ],
             // "args": [ "-df", "${workspaceFolder}/test/test_resistor.sim" ],
             // "args": [ "-df", "${workspaceFolder}/test/test_capacitor.sim" ],

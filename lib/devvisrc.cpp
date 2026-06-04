@@ -1,4 +1,6 @@
 #include <numbers>
+#include <algorithm>
+#include <optional>
 #include "devvisrc.h"
 #include "simulator.h"
 #include "common.h"
@@ -185,9 +187,16 @@ std::tuple<bool, bool, bool> sourceSetup(InstanceParams& params, InstanceData& d
         }
     } else if (p.type == typePwl) {
         d.typeCode = IndependentSourceType::Pwl;
-        // No points .. error
+        // Not enough points .. error
         if (p.wave.size()<4) {
             s.set(Status::BadArguments, "Pwl waveform needs at least two points.");
+            s.extend(loc);
+            return std::make_tuple(false, false, false);
+        }
+
+        // Too many points
+        if (p.wave.size()>=SIM_SIZE_T_MAX/2-1) {
+            s.set(Status::BadArguments, "Pwl waveform too long.");
             s.extend(loc);
             return std::make_tuple(false, false, false);
         }
@@ -246,22 +255,29 @@ std::tuple<bool, bool, bool> sourceSetup(InstanceParams& params, InstanceData& d
         d.npts = n/2;
         if (p.period>0) {
             auto tfirst = p.wave[0];
-            auto tlast = p.wave[n-2];
-            if (tlast<p.period) {
+            auto tlast = p.wave[2*(d.npts-1)];
+            if (tlast>p.period) {
                 s.set(Status::BadArguments, "Period ends before last point.");
                 s.extend(loc);
                 return std::make_tuple(false, false, false);
             } else if (tlast==p.period) {
                 if (tfirst==0.0) {
                     // If last point is equivalent to first point, last point is ignored
-                    d.npts = n/2-1;
-                    if (p.wave[1]!=p.wave[n-1]) {
+                    if (p.wave[1]!=p.wave[2*(d.npts-1)+1]) {
                         s.set(Status::BadArguments, "First and last timepoint must match if period transition time is 0.");
                         s.extend(loc);
                         return std::make_tuple(false, false, false);
                     }
+                    d.npts = n/2-1;
                 }
             }
+        }
+
+        // Not enough points .. error
+        if (d.npts<2) {
+            s.set(Status::BadArguments, "Pwl waveform needs at least two points.");
+            s.extend(loc);
+            return std::make_tuple(false, false, false);
         }
 
         // Check time scale strict monotonicity, compute slopes, extract maximal slope
@@ -269,6 +285,9 @@ std::tuple<bool, bool, bool> sourceSetup(InstanceParams& params, InstanceData& d
         double oldX = p.wave[0];
         double oldY = p.wave[1];
         d.slopes.resize(d.npts);
+        d.breakEnabled.resize(d.npts);
+        d.nextBreakIndex.resize(d.npts);
+        // Iterate through second points of intervals
         for(decltype(n) i=1; i<d.npts; i++) {
             auto x = p.wave[2*i];
             auto y = p.wave[2*i+1];
@@ -278,23 +297,128 @@ std::tuple<bool, bool, bool> sourceSetup(InstanceParams& params, InstanceData& d
                 return std::make_tuple(false, false, false);
             }
             auto slope = (y-oldY)/(x-oldX);
-            if (std::abs(slope)>d.maxSlope) {
-                d.maxSlope = std::abs(slope);
+            if (std::abs(slope)>maxSlope) {
+                maxSlope = std::abs(slope);
             }
-            d.slopes[i] = slope;
+            d.slopes[i-1] = slope;
             oldX = x;
             oldY = y;
         }
-        // If periodic, last slope (index d.npts-1) is the transition slope between last point and first point
+        // Last slope is special
         if (p.period>0) {
-            // Distance from last point to period + time of first point
-            auto dx = p.period-oldX + p.wave[0];
+            // If periodic, last slope (beyond last point, index d.npts-1) is the transition slope 
+            // between the last point of a period and the first point of the next period
+            auto dx = p.period - (oldX - p.wave[0]) ;
+            // Sanity check: dx>0
+            DBGCHECK(dx<=0, "Pwl last period dx is not >0.");
+            // Slope
             auto slope = (oldY - p.wave[1])/dx;
-            d.slopes[d.npts-1] = slope;
+            d.slopes.back() = slope;
         } else {
-            // Not periodic, last slope is 0
-            d.slopes[d.npts-1] = 0.0;
+            // Not periodic, last slope (beyond last point) is 0
+            d.slopes.back() = 0.0;
         }
+        // Slope tolerance base (common part)
+        double slopeTolBase = 0.0;
+        // Absolute slope tolerance
+        if (p.slopetol>0) {
+            slopeTolBase = std::max(slopeTolBase, p.slopetol);
+        }
+        // Global relative slope tolerance
+        if (p.slopeglob>0) {
+            slopeTolBase = std::max(slopeTolBase, p.slopeglob*maxSlope);
+        }        
+        // Do we need a breakpoint? 
+        auto needsBreakpoint = false; // for "none"
+        size_t firstBreakIndex;
+        size_t lastBreakIndex;
+        bool hasBreakpoints;
+        if (p.breakpt==valAll) {
+            // For "all"
+            for(decltype(n) i=0; i<d.npts; i++) {
+                d.breakEnabled[i] = true;
+            }
+            hasBreakpoints = true;
+            firstBreakIndex = 0;
+            lastBreakIndex = d.npts-1;
+        } else if (p.breakpt==valNone) {
+            // For "none"
+            for(decltype(n) i=0; i<d.npts; i++) {
+                d.breakEnabled[i] = false;
+            }
+            hasBreakpoints = false;
+        } else {
+            // For "auto", determine if a breakpoint is needed at each point
+            // Initialize hasBreakpoints flag
+            hasBreakpoints = false;
+            for(decltype(n) i=0; i<d.npts; i++) {
+                // Decide when break=auto
+                double slopeBefore; 
+                auto slopeAfter = d.slopes[i];
+                // Slope before first point
+                if (i==0) {
+                    slopeBefore = p.period>0 ? d.slopes.back() : 0.0;
+                } else {
+                    slopeBefore = d.slopes[i-1];
+                }
+                // Local relative slope tolerance
+                auto slopeTolLocal = slopeTolBase;
+                if (p.sloperel>0) {
+                    slopeTolLocal = std::max(
+                        slopeTolLocal, 
+                        std::max(std::abs(slopeBefore), std::abs(slopeAfter))*p.sloperel
+                    );
+                }
+                // Do we need a breakpoint here (based on slope tolerance)
+                needsBreakpoint = std::abs(slopeAfter-slopeBefore)>slopeTolLocal;
+                // Handle special case (not periodic requires breakpoints at first and last point)
+                if (p.period<=0 && (i==0 || i==d.npts-1)) {
+                    needsBreakpoint = true;
+                }
+                if (needsBreakpoint) {
+                    // Set first breakpoint
+                    if (!hasBreakpoints) {
+                        firstBreakIndex = i;
+                        hasBreakpoints = true;
+                    }
+                    // Set last breakpoint
+                    lastBreakIndex = i;
+                }
+                // Store 
+                d.breakEnabled[i] = needsBreakpoint;
+                
+                // By default set the next breakpoint index to self... this is the correct value for 
+                // points at and beyond last breakpoint in aperiodic case. 
+                d.nextBreakIndex[i] = i;
+            }
+        }
+        // For each point set point index of next breakpoint via reverse iteration. 
+        // For aperiodic waveforms the last breakpoint and points following it have no next breakpoint. 
+        // For periodic waveforms the the last breakpoint and the points following it have a next breakpoint - 
+        // the first breakpoint. 
+        // Nothing to do if there are no breakpoints. 
+        if (hasBreakpoints) {
+            // Initial value of next breakpoint index, applied to tail waveform points
+            ssize_t nextBreakIndex;
+            if (p.period>0) {
+                // For periodic waveforms this is the first breakpoint
+                nextBreakIndex = firstBreakIndex;
+            } else {
+                // For aperiodic waveforms this is the last breakpoint
+                nextBreakIndex = lastBreakIndex;
+            }
+            // j is the index, i is the counter
+            auto j = d.npts;
+            for(decltype(n) i=0; i<d.npts; i++) {
+                j--;
+                d.nextBreakIndex[j] = nextBreakIndex;
+                if (d.breakEnabled[j]) {
+                    nextBreakIndex = j;
+                }
+            }
+        }
+        // Initialize lastPointIndex
+        d.lastPointIndex = 0;
     } else if (p.type == typeExp) {
         d.typeCode = IndependentSourceType::Exp;
         if (p.td2<=0) {
@@ -315,6 +439,248 @@ std::tuple<bool, bool, bool> sourceSetup(InstanceParams& params, InstanceData& d
     }
 
     return std::make_tuple(true, false, false); 
+}
+
+// Signed index type
+using ssize_t = typename std::make_signed<size_t>::type;
+
+// Search through a vector of PWL values for a timepoint, start at pwl point index start, 
+// look for first pwl timepoint where timepoint<=target. 
+// Assume target>=t[0]
+// Returns point index
+// Careful, n can be <=wave length (if last wave point is ignored in periodic case)
+size_t pwlIndexLookup(const RealVector& wave, size_t n, size_t start, double target) {
+    // Value at position start
+    auto atTime = wave[2*start];
+    // Step and direction
+    if (target==atTime) {
+        // Already there
+        return start;
+    } else if (target>wave[2*(n-1)]) {
+        // It is after last times
+        return n-1;
+    }
+    // We need to look it up
+    size_t step = 1;
+    bool forward = true;
+    if (target<atTime) {
+        // Backward
+        forward = false;
+    }
+    // At this point we are sure t[0]<=target<=t[n-1]
+    // Expand exponentially, until you find the bracket
+    // This catches small changes in index
+    ssize_t atIndex = start;
+    while (true) {
+        // Compute trial point
+        ssize_t tryIndex = forward ? atIndex+step : atIndex-step;
+        // Limit to 0<=tryIndex<n-1
+        if (tryIndex<0) {
+            tryIndex = 0;
+        } else if (tryIndex>=n) {
+            tryIndex = n-1;
+        }
+        // Get time
+        auto tryTime = wave[2*tryIndex];
+        // Check it
+        if (forward && tryTime>target) {
+            // Going forward, tryTime>target
+            atIndex = tryIndex;
+            break;
+        } else if (!forward && tryTime<=target) {
+            // Going backward, tryTime<=target
+            atIndex = tryIndex;
+            break;
+        }
+        // Increase step
+        step *= 2;
+    }
+    // Are we done (atIndex==start)
+    if (atIndex==start) {
+        return start;
+    }
+    // Bisection boundaries i1<i2
+    ssize_t i1, i2, imid;
+    if (forward) {
+        i1 = start;
+        i2 = atIndex;
+    } else {
+        i1 = atIndex;
+        i2 = start;
+    }
+    // Bisect to target
+    while (true) {
+        imid = (i1+i2)/2;
+        auto midTime = wave[imid*2];
+        if (midTime>target) {
+            // Take left interval
+            i2 = imid;
+        } else {
+            // Take right interval
+            i1 = imid;
+        }
+        if (i1-i2<=1) {
+            break;
+        }
+    }
+    // i1 is the point
+    return i1;
+}
+
+// Interpolate from pwl, return interpolated value, breakpoint time, and next breakpoint time
+template<typename InstanceParams, typename InstanceData> 
+std::tuple<double, double, double> pwlValue(InstanceParams& p, InstanceData& d, double tposper, double tposabs, double origin) {
+    auto n = d.npts;
+    double y;
+    std::optional<size_t> i1 = std::nullopt;
+    std::optional<size_t> i2 = std::nullopt;
+    size_t index;
+    const auto inf = std::numeric_limits<double>::infinity();
+    if (p.period<=0) {
+        // Aperiodic
+        if (tposper<p.wave[0]) {
+            // Before first
+            y = p.wave[1];
+        } else if (tposper>=p.wave[2*(n-1)]) {
+            // At or after last
+            y = p.wave[2*(n-1)+1];
+        } else {
+            // In between
+            index = pwlIndexLookup(p.wave, n, d.lastPointIndex, tposper);
+            d.lastPointIndex = index;
+            y = p.wave[2*index+1]+(tposper-p.wave[2*index])*d.slopes[index];
+        }
+        // Breakpoint handling
+        if (tposabs<0) {
+            // Waveform not started yet
+            if (tposper>=p.wave[2*(n-1)]) {
+                // At or after last, no breakpoint
+                i1 = std::nullopt;
+                i2 = std::nullopt;
+            } else if (tposper<=p.wave[0]) {
+                // Before or at first
+                if (d.breakEnabled[0]) {
+                    // First waveform point is a breakpoint, break there
+                    i1 = 0;
+                    i2 = d.nextBreakIndex[0];
+                } else {
+                    // First waveform point is not a breakpoint, look for first breakpoint
+                    i1 = d.nextBreakIndex[0];
+                    i2 = d.nextBreakIndex[i1.value()];
+                }
+            } else {
+                // All others (had index lookup), look for first breakpoint
+                i1 = d.nextBreakIndex[index];
+                i2 = d.nextBreakIndex[i1.value()];
+            }
+        } else {
+            // Waveform started
+            if (tposper>=p.wave[2*(n-1)]) {
+                // At or after last, no breakpoint
+                i1 = std::nullopt;
+                i2 = std::nullopt;
+            } else if (tposper<p.wave[0]) {
+                // Before first
+                if (d.breakEnabled[0]) {
+                    // First waveform point is a breakpoint, break there
+                    i1 = 0;
+                    i2 = d.nextBreakIndex[i1.value()];
+                } else {
+                    // First waveform point is not a breakpoint, look for first breakpoint
+                    i1 = d.nextBreakIndex[0];
+                    i2 = d.nextBreakIndex[i1.value()];
+                }
+            } else {
+                // All others (had index lookup), look for first breakpoint
+                i1 = d.nextBreakIndex[index];
+                i2 = d.nextBreakIndex[i1.value()];
+            }
+        }
+        // Breakpoint times
+        if (!i1.has_value()) {
+            return std::make_tuple(y, inf, inf);
+        } else {
+            double t1, t2;
+            if (d.breakEnabled[i1.value()]) {
+                t1 = origin + p.wave[2*i1.value()]*p.stretch;
+                t2 = origin + p.wave[2*i2.value()]*p.stretch;
+                return std::make_tuple(y, t1, t2);
+            } else {
+                return std::make_tuple(y, inf, inf);
+            }
+        }
+    } else {
+        // Periodic
+        if (tposper<p.wave[0] || tposper>=p.wave[2*(n-1)]) {
+            // Before/at first or at/after last
+            index = n-1;
+        } else {
+            // In between
+            index = pwlIndexLookup(p.wave, n, d.lastPointIndex, tposper);
+        }
+        d.lastPointIndex = index;
+        y = p.wave[2*index+1]+(tposper-p.wave[2*index])*d.slopes[index];
+        // Breakpoint handling
+        int i1Per = 0;
+        int i2Per = 0;
+        if (tposabs<0) {
+            // Waveform not started yet
+            if (tposper>=p.wave[2*(n-1)]) {
+                // At or after last
+                i1 = d.nextBreakIndex[n-1];
+                i1Per = i1.value() < n-1 ? 1 : 0;
+                i2 = d.nextBreakIndex[i1.value()];
+                i2Per = i1Per + (i2.value() < i1.value() ? 1 : 0);
+            } else if (tposper<=p.wave[0]) {
+                // Before or at first
+                i1 = d.nextBreakIndex[n-1];
+                i1Per = 0;
+                i2 = d.nextBreakIndex[i1.value()];
+                i2Per = i1Per + (i2.value() < i1.value() ? 1 : 0);
+            } else {
+                // All others (had index lookup), look for first breakpoint
+                i1 = d.nextBreakIndex[index];
+                i2Per = i1Per + (i1.value() < index ? 1 : 0);
+                i2 = d.nextBreakIndex[i1.value()];
+                i2Per = i1Per + (i2.value() < i1.value() ? 1 : 0);
+            }
+        } else {
+            // Waveform started
+            if (tposper>=p.wave[2*(n-1)]) {
+                // At or after last
+                i1 = d.nextBreakIndex[n-1];
+                i1Per = i1.value() < n-1 ? 1 : 0;
+                i2 = d.nextBreakIndex[i1.value()];
+                i2Per = i1Per + (i2.value() < i1.value() ? 1 : 0);
+            } else if (tposper<p.wave[0]) {
+                // Before first
+                i1 = d.nextBreakIndex[n-1];
+                i1Per = 0;
+                i2 = d.nextBreakIndex[i1.value()];
+                i2Per = i1Per + (i2.value() < i1.value() ? 1 : 0);
+            } else {
+                // All others (had index lookup), look for first breakpoint
+                i1 = d.nextBreakIndex[index];
+                i2Per = i1Per + (i1.value() < index ? 1 : 0);
+                i2 = d.nextBreakIndex[i1.value()];
+                i2Per = i1Per + (i2.value() < i1.value() ? 1 : 0);
+            }
+        }
+        // Breakpoint times
+        if (!i1.has_value()) {
+            // This should never happen
+            return std::make_tuple(y, inf, inf);
+        } else {
+            double t1, t2;
+            if (d.breakEnabled[i1.value()]) {
+                t1 = origin + (i1Per*p.period+p.wave[2*i1.value()])*p.stretch;
+                t2 = origin + (i2Per*p.period+p.wave[2*i2.value()])*p.stretch;
+                return std::make_tuple(y, t1, t2);
+            } else {
+                return std::make_tuple(y, inf, inf);
+            }
+        }
+    }
 }
 
 // A device model should not rely on tolerances. 
@@ -465,43 +831,84 @@ std::tuple<double, double> sourceCompute(const InstanceParams& params, InstanceD
         // unstretched time relative to period start (periodic) or 
         // waveform start (aperiodic)
         
-        // Stretched time within waveform
-        double tpos = time - params.delay;
-        if (tpos<0) {
-            // Before waveform start
-            tpos = 0.0;    
-        }
+        // Stretched time within waveform, zero at time=delay
+        double tposabs = time - params.delay;
+
+        // Stretched time within period (for aperiodic signals equals tposabs)
+        double tposper = tposabs;
+
+        // Origin for breakpoints (tpos=0 corresponds to delay)
+        double origin = params.delay;
 
         // Handle periodic pwl
-        if (params.period>0) {    
-            auto strectedPeriod = params.period*params.stretch;
-            // Remove integer number of stretched periods
-            tpos -= std::floor(tpos/strectedPeriod)*strectedPeriod;
-            // Add initial phase in terms of stretched period
-            tpos = params.tdphase*strectedPeriod/360;
-            // Remove integer number of stretched periods
-            tpos -= std::floor(tpos/strectedPeriod)*strectedPeriod;
-        } 
-        
+        if (params.period>0) { 
+            // Relative phase [0, 1) corresponds to [0, 360)
+            auto relphase = params.tdphase/360;
+
+            // Force into [0, 1)
+            relphase = relphase - floor(relphase);
+
+            auto stretchedPeriod = params.period*params.stretch;
+            if (tposabs<0) {
+                // Before waveform starts we are at the point of initial phase
+                tposper = stretchedPeriod*relphase;
+            } else {
+                // Waveform started, advance tposabs by phase to get tposper
+                tposper = tposabs + relphase*stretchedPeriod;
+                
+                // Remove integer number of stretched periods
+                auto nper = ssize_t(std::floor(tposper/stretchedPeriod));
+                tposper -= nper*stretchedPeriod;
+
+                // Make sure it is within stretched period 0<=tposper<stretchedPeriod (numerical errors can move it out)
+                if (tposper>=stretchedPeriod) {
+                    tposper -= stretchedPeriod;
+                }
+                if (tposper<0) {
+                    tposper = 0;
+                }
+
+                // Move origin
+                origin += nper*stretchedPeriod;
+            }
+            // Breakpoint origin concides with period start for phase=0
+            // Otherwise it is behind by initial phase
+            origin -= stretchedPeriod*relphase;
+        } else {
+            // For aperiodic signals make sure tposper>=0 
+            if (tposabs<0) {
+                tposper = 0;
+            }
+        }
+
         // Unstretch to original time
-        tpos /= params.stretch;
+        tposabs /= params.stretch;
+        tposper /= params.stretch;
 
-        // Get index of waveform point at or before tpos
+        // Compute y1, y2, x1, x2, dx
+        double y1, y2, x1, x2, dx;
+        double breakTime;
+        bool enforceBreakpoint;
+        ssize_t nextBreakIndex;
 
-        // Index of next waveform point
+        // Compute absolute time tolerance
+        auto timeTol = time*timeRelativeTolerance;
 
-        // Breakpoint is at next waveform point
+        // Get value, breakpoint, and next breakpoint
+        auto [y, tbr1, tbr2] = pwlValue(params, data, tposper, tposabs, origin);
 
-        // Get slope before and after next waveform point
-
-        // Should the breakpoint be enforced? 
-
+        // Apply scale, offset
+        val = y*params.scale + params.offset;
+        
+        // If tbr1 is within tolerance of current time use tbr2
+        auto tol = time*timeRelativeTolerance;
+        if (tbr1>=time-tol && tbr1<=time+tol) {
+            nextBreak = tbr2;
+        } else {
+            nextBreak = tbr1;
+        }
         break;
     }
-    
-    // Simulator::dbg() << "val=" << val << " next break=" << nextBreak << "\n";
-    // Simulator::dbg() << "t=" << time << " next break=" << nextBreak << "\n";
-    
     return std::make_tuple(val, nextBreak);
 }
 

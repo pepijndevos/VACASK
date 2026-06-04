@@ -1,0 +1,210 @@
+Independent sources - time-domain waveforms
+
+ground 0 
+
+load "resistor.osdi"
+
+model resistor resistor
+model vsource vsource
+model isource isource
+
+// Pwl, aperiodic
+i1 (0 1) isource ( type="pwl" 
+    delay=-3 offset=0 scale=1 stretch=2 break="all"
+    wave=[0.0, 2,  2, 3,  4, 4,  8, 1, 9.0, 2,  10, 2.0] 
+    period=0 tdphase=0
+)
+r1 (1 0) resistor r=1
+
+control
+  abort always
+
+  options rawfile="binary" op_debug=0 tran_debug=1
+
+  alter instance("i1") delay=-3 offset=0 scale=1 stretch=2.0 period=10 tdphase=0
+  analysis tran0 tran step=0.01 stop=40
+
+  alter instance("i1") delay=0 offset=0 scale=1 stretch=1 period=0 tdphase=0
+
+  // offset and scale
+  sweep offset instance="i1" parameter="offset" values=[-3, 0, 5]
+    sweep scale instance="i1" parameter="scale" values=[0.3, 1, 1.9]
+      analysis tran1 tran step=0.01 stop=40
+
+  // aperiodic
+  sweep delay instance="i1" parameter="delay" values=[-3, 0, 5]
+    sweep stretch instance="i1" parameter="stretch" values=[0.3, 1, 1.9]
+      analysis tran2 tran step=0.01 stop=40  
+
+  // periodic
+  sweep period instance="i1" parameter="period" values=[10]
+    sweep delay instance="i1" parameter="delay" values=[-3, 0, 5]
+      sweep stretch instance="i1" parameter="stretch" values=[0.3, 1, 1.9]
+        sweep phase instance="i1" parameter="tdphase" values=[-420, -60, 0, 60, 420]
+          analysis tran3 tran step=0.01 stop=40  
+
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+from runtest import *
+import numpy as np
+import sys
+
+def pwl_refval(wave, tstop, offset=0.0, scale=1.0, delay=0.0, stretch=1.0, period=0, phase=0.0, breaks="all"):
+    x = wave[0::2]
+    y = wave[1::2]
+    
+    xout = np.array([])
+    yout = np.array([])
+    
+    if period<=0:
+        # Aperiodic 
+        xout = np.concatenate((xout, delay+x*stretch))
+        yout = np.concatenate((yout, y*scale+offset))
+        breakpoints = xout
+    else:
+        # Periodic 
+        # First point at 0, last point at period, eliminate last point
+        if x[0]==x[-1] and x[-1]==period:
+            x=x[:-1]
+            y=y[:-1]
+
+        # Phase
+        # Find index where t=phase/360*period
+        phase = phase % 360
+        tph = phase/360*period
+        ndx = np.where(x>=tph)[0].min().item()
+        ytph = np.interp(tph, x, y)
+
+        # Rotate period
+        x = np.concatenate((x[ndx:]-tph, x[:ndx]+period-tph))
+        y = np.concatenate((y[ndx:], y[:ndx]))
+
+        # Extra period initial point is not an actual break point
+        period_breaks = x
+        breakpoints = None
+
+        # Add initial period point if not there yet
+        if (x[0]!=tph):
+            x = np.concatenate(([0.0], x))
+            y = np.concatenate(([ytph], y))
+
+        at = delay
+        while at<tstop:
+            xout = np.concatenate((xout, at+x*stretch))
+            yout = np.concatenate((yout, y*scale+offset))
+            extra = at+period_breaks*stretch
+            if breakpoints is None:
+                breakpoints = extra
+            else:
+                breakpoints = np.concatenate((breakpoints, extra))
+            at += period*stretch
+
+    # Fill with starting and ending point
+    width = xout[-1]-xout[0]
+    xout = np.concatenate(([xout[0]-width/4], xout, [xout[-1]+width/4]))
+    yout = np.concatenate(([yout[0]], yout, [yout[-1]]))
+    
+    return xout, yout, breakpoints
+
+def run_tests(tests, filename, ret=None):
+    rawfile = rawread(filename)
+    tran1 = rawfile.get(sweeps="time")
+
+    x = None
+    y = None
+    xref1 = None
+    yref1 = None
+    for ii in range(tran1.sweepGroups):
+        swp = tran1.sweepData(ii)
+        time = tran1[ii, 'time']
+        vpwl = tran1[ii, '1']
+        
+        xref, yref, breakpoints = pwl_refval(
+            np.array([0.0, 2,  2, 3,  4, 4,  8, 1, 9.0, 2,  10, 2.0]), 
+            1.1*time[-1], 
+            **swp
+        )
+
+        if ii==ret:
+            x = time
+            y = vpwl
+            xref1 = xref
+            yref1 = yref
+
+        # Check waveform
+        exact = np.interp(time, xref, yref)
+        status = (relDiff(vpwl, exact, 1e-6) < 1e-3).all()
+        print(filename, ii, ":", swp)
+        print("  Waveform:", status)
+        tests.append(status)
+
+        # Check breaks
+        timetol = time[-1]*1e-14
+        status = True
+        breakpoints = breakpoints[breakpoints>=time[0]]
+        breakpoints = breakpoints[breakpoints<=time[-1]]
+        print("  Breaks at", breakpoints)
+        for t in breakpoints:
+            delta = np.abs(time-t).min()
+            if delta>timetol: 
+                status = False
+                print("    failed:", t, "delta=", delta)
+                # break
+        print("  Breaks  :", status)
+        tests.append(status)
+
+    return x, y, xref1, yref1
+
+tests=[]
+
+print('Scaling and offset tests')
+run_tests(tests, 'tran1.raw')
+
+print('Aperiodic signal tests')
+time, vpwl, xref, yref = run_tests(tests, 'tran2.raw', ret=7)
+
+print('Periodic signal tests')
+ptime, pvpwl, pxref, pyref = run_tests(tests, 'tran3.raw', ret=0)
+
+print("Tests:", all(tests), len(tests))
+
+if isTest():
+    sys.exit(not all(tests))
+else:
+    import matplotlib.pyplot as plt 
+
+    fig1, ax1 = plt.subplots(3, 1, figsize=(6,6), dpi=100, constrained_layout=True)
+    fig1.suptitle("Transient PWL excitations")
+
+    fig1.axes[0].set_title('PWL, aperiodic')
+    fig1.axes[0].set_ylabel('V [V]')
+    fig1.axes[0].set_xlabel('time [s]')
+    fig1.axes[0].plot(xref, yref, "g")
+    fig1.axes[0].plot(time, vpwl, "r", marker=".")
+
+    fig1.axes[1].set_title('PWL, periodic')
+    fig1.axes[1].set_ylabel('V [V]')
+    fig1.axes[1].set_xlabel('time [s]')
+    fig1.axes[1].plot(pxref, pyref, "g")
+    fig1.axes[1].plot(ptime, pvpwl, "r", marker=".")
+
+    rawfile = rawread("tran0.raw").get()
+    xref, yref, breakpoints = pwl_refval(
+        np.array([0.0, 2,  2, 3,  4, 4,  8, 1, 9.0, 2,  10, 2.0]), 
+        1.1*time[-1], 
+        delay=-3.0, stretch=2.0, period=10
+    )
+    fig1.axes[2].set_title('PWL, manual test')
+    fig1.axes[2].set_ylabel('V [V]')
+    fig1.axes[2].set_xlabel('time [s]')
+    fig1.axes[2].plot(xref, yref, "g")
+    fig1.axes[2].plot(rawfile['time'], rawfile['1'], "r", marker=".")
+    
+    
+    plt.show()
+>>>FILE
+
+

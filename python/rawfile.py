@@ -21,7 +21,11 @@ class RawFile:
 		# Build name index
 		self.nameToIndex = { self.names[ii]: ii for ii in range(nvars) }
 
-		# Split sweeps
+		# Split sweeps, if sweeps is a string, all vectors before the one named sweeps are sweep scales
+		if isinstance(sweeps, str):
+			# Find vector with name sweeps
+			sweeps = self.names.index(sweeps)
+			
 		self.sweeps = sweeps
 		if sweeps>0:
 			allends = np.array([], dtype='int64')
@@ -34,13 +38,13 @@ class RawFile:
 			
 			# Drop duplicates from array
 			self.allends = np.unique(allends)
-
+			
 			# Sort
 			self.allends.sort()
 			
 			# Beginnings
-			self.allbegins = np.hstack([0, self.allends[:-1]]);
-
+			self.allbegins = np.hstack([0, self.allends[:-1]])
+			
 			# Sweep groups
 			self.sweepGroups = self.allbegins.size
 		else:

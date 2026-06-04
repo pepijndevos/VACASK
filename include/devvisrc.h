@@ -20,9 +20,9 @@ struct DevSourceInstanceParams {
     // Common
     Real mfactor; // Number of parallel instances 
     Id type;      // waveform type (dc, pulse, exp, sine, am, fm, pwl)
-    Real delay;   // waveform delay for type=sine, am, fm, exp, pulse, pwl
+    Real delay;   // waveform delay in unstretched time for type=sine, am, fm, exp, pulse, pwl
     Real tdphase; // initial waveform phase for type=sine, am, fm, pwl
-    Real period;  // waveform periods for type=pulse, pwl
+    Real period;  // waveform period in unstretched time for type=pulse, pwl
     
     // DC
     Real dc;      // dc value for type=dc
@@ -94,9 +94,11 @@ struct DevVSourceInstanceData {
     double v;  // Voltage across instance
     double i;  // Current of one parallel instances
 
-    RealVector slopes;
-    double maxSlope;
+    RealVector slopes; 
+    std::vector<bool> breakEnabled;
+    std::vector<size_t> nextBreakIndex;
     size_t npts;
+    size_t lastPointIndex; // Helps find waveform points faster
 
     DevVSourceInstanceData();
 };
@@ -113,8 +115,10 @@ struct DevISourceInstanceData {
     double v;  // Voltage across instance
 
     RealVector slopes;
-    double maxSlope;
+    std::vector<bool> breakEnabled;
+    std::vector<size_t> nextBreakIndex;
     size_t npts;
+    size_t lastPointIndex;
 
     DevISourceInstanceData();
 };
