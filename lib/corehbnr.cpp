@@ -12,15 +12,15 @@ HBNRSolver::HBNRSolver(
         KluBlockSparseRealMatrix& bsjac, 
         VectorRepository<double>& solution, 
         Vector<Complex>& solutionFD, 
-        const Vector<Real>& frequencies, 
-        const Vector<Real>& timepoints, 
+        const Vector<double>& timepoints, 
+        const Spurs& spurs,
         DenseMatrix<double>& Gamma, 
         DenseMatrix<double>& GammaInv, 
         DenseMatrix<Real>& OmegaGamma, 
         DenseMatrix<Real>& GammaInvColumnMajor, 
         NRSettings& settings
 ) : circuit(circuit), commons(commons), jacColoc(jacColoc), bsjac(bsjac), solutionFD(solutionFD), 
-    frequencies(frequencies), timepoints(timepoints), 
+    timepoints(timepoints), spurs_(spurs), 
     Gamma(Gamma), GammaInv(GammaInv), OmegaGamma(OmegaGamma), GammaInvColumnMajor(GammaInvColumnMajor), 
     NRSolver(circuit.tables().accounting(), bsjac, solution, settings, 0) {
     // Bucket size is 0
@@ -84,7 +84,7 @@ bool HBNRSolver::setForces(Int ndx, const AnnotatedSolution& storedSolution, boo
     
     // Number of frequencies in solution and solver
     auto nfSolution = storedSolution.hbSpurs().spectrum().size();
-    auto nfSolver = frequencies.size();
+    auto nfSolver = spurs_.spectrum().size();
 
     // Prepare frequency translator between solution and solver
     // Translator stores the solver frequency index for each solution frequency index
@@ -100,7 +100,7 @@ bool HBNRSolver::setForces(Int ndx, const AnnotatedSolution& storedSolution, boo
     decltype(nfSolver) ndxSolver = 0;
     decltype(nfSolution) ndxSolution = 0;
     for(; ndxSolver<nfSolver && ndxSolution<nfSolution;) {
-        auto fSolver = frequencies[ndxSolver];
+        auto fSolver = spurs_.spectrum()[ndxSolver];
         auto fSolution = storedSolution.hbSpurs().spectrum()[ndxSolution];
         if (std::abs(fSolver-fSolution)<=std::max(std::abs(fSolver), std::abs(fSolution))*1e-14) {
             // Frequencies are almost the same, store translator
@@ -312,7 +312,7 @@ bool HBNRSolver::postRun(bool continuePrevious) {
     if (converged) {
         // If converged, convert solution from TD to FD, store as complex spectrum
         auto n = circuit.unknownCount();
-        auto nf = frequencies.size();
+        auto nf = spurs_.spectrum().size();
         auto nt = timepoints.size();
         solutionFD.resize(n*nf); // no bucket
         
@@ -603,7 +603,7 @@ std::tuple<bool, bool> HBNRSolver::checkDelta() {
 
     // Number of timepoints and frequencies
     auto nt = timepoints.size();
-    auto nf = frequencies.size();
+    auto nf = spurs_.spectrum().size();
 
     maxDelta = 0.0;
     maxNormDelta = 0.0;
@@ -698,7 +698,7 @@ std::string HBNRSolver::formatConvergence() const {
             s += "~f";
             s += std::to_string(maxDeltaFreqIndex);
             s += "=";
-            s += std::to_string(frequencies[maxDeltaFreqIndex]);
+            s += std::to_string(spurs_.spectrum()[maxDeltaFreqIndex]);
         }
     }
 
@@ -727,7 +727,7 @@ bool HBNRSolver::formatError(Status& s, NameResolver* resolver) const {
 void HBNRSolver::dumpSolution(std::ostream& os, double* solution, const char* prefix) {
     auto n = circuit.unknownCount();
     auto nt = timepoints.size();
-    auto nf = frequencies.size();
+    auto nf = spurs_.spectrum().size();
     for(decltype(n) i=1; i<=n; i++) {
         auto rn = circuit.reprNode(i);
         for(decltype(nf) k=0; k<nf; k++) {

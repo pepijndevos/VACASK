@@ -18,8 +18,8 @@ public:
         KluBlockSparseRealMatrix& bsjac, 
         VectorRepository<double>& solution, 
         Vector<Complex>& solutionFD,
-        const Vector<Real>& frequencies, 
-        const Vector<Real>& timepoints, 
+        const Vector<double>& timepoints,  
+        const Spurs& spurs, 
         DenseMatrix<Real>& APFT, 
         DenseMatrix<Real>& IAPFT, 
         DenseMatrix<Real>& OmegaGamma, 
@@ -83,8 +83,8 @@ protected:
     KluBlockSparseRealMatrix& bsjac;
     
     // Vectors and matrices without a bucket
-    const std::vector<double>& frequencies;
     const Vector<double>& timepoints; 
+    const Spurs& spurs_;
     DenseMatrix<double>& Gamma;
     DenseMatrix<double>& GammaInv;
     DenseMatrix<double>& OmegaGamma;

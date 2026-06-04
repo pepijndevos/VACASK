@@ -67,7 +67,8 @@ HBCore::HBCore(
     converged_(false),
     firstBuild(true),
     params(params),
-    nrSolver(circuit, commons, jacColoc, jacobian, solution, solutionFD, spurs_.spectrum(), timepoints,
+    nrSolver(circuit, commons, jacColoc, jacobian, solution, solutionFD, 
+             timepoints, spurs_, 
              APFT, IAPFT, OmegaGamma, GammaInvColumnMajor, nrSettings) {
 };
 
