@@ -429,10 +429,12 @@ bool Spurs::buildMixingMap(Int debug, Status& s) {
     
     // Build a map from spur weights (key is VectorView<Int>) to indices in 
     // smsigFreq_
+    // After prune() smsigFreqWeightIndices_ is indexed by the (possibly pruned)
+    // smsigFreq_ index, so use the pruned index i directly here. Indexing it with
+    // fullSmsigFreqIndex_[i] would read past the pruned array (or the wrong entry).
     smsigFreqMap.clear();
     for(decltype(nf) i=0; i<nf; i++) {
-        auto fullI = fullSmsigFreqIndex_[i];
-        smsigFreqMap[spurWeights_.row(smsigFreqWeightIndices_[fullI])] = i;
+        smsigFreqMap[spurWeights_.row(smsigFreqWeightIndices_[i])] = i;
     }
 
     // Mapping from indices in smsigFreq_ to indices of weights is handled by 
@@ -460,12 +462,10 @@ bool Spurs::buildMixingMap(Int debug, Status& s) {
     // Default is no Jacobian index for (out, in)
     mixingStencil_.fill(noJacIndex);
     for(decltype(nf) inF=0; inF<nf; inF++) {
-        auto fullInF = fullSmsigFreqIndex_[inF];
-        auto inW = spurWeights_.row(smsigFreqWeightIndices_[fullInF]);
+        auto inW = spurWeights_.row(smsigFreqWeightIndices_[inF]);
         for(decltype(nf) jacF=0; jacF<nf; jacF++) {
-            auto fullJacF = fullSmsigFreqIndex_[jacF]; 
             // Compute output weigths
-            auto jacW = spurWeights_.row(smsigFreqWeightIndices_[fullJacF]);
+            auto jacW = spurWeights_.row(smsigFreqWeightIndices_[jacF]);
             for(decltype(n) k=0; k<n; k++) {
                 outW[k] = inW[k] + jacW[k];
             }
