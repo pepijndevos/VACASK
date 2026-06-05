@@ -75,11 +75,15 @@ control
   analysis tran2 tran step=0.1u stop=3m
   clear saves
 
-  // No excitation signal for HB, just clock
-  alter instance("v1") type="dc" dc=0.01
-  // save dv(in) dv(out) dv(out1)
-  options reltol=1e-6 abstol=1e-12 vntol=1e-8
-  analysis hbac1 hbac freq=[fclk] tstart=4/fclk nharm=50 maxharm=10 from=100 to=20k mode="dec" points=10
+  // For now HBAC does not work. APFT has an odd number of time samples. 
+  // Therefore even harmonics alias into odd harmonics and vice versa. 
+  // Once PAC is implemented, we will try again. 
+  // This should also improve if we switch to FFT. 
+  // // No excitation signal for HB, just clock
+  // alter instance("v1") type="dc" dc=0.01
+  // // save dv(in) dv(out) dv(out1)
+  // options reltol=1e-6 abstol=1e-12 vntol=1e-8
+  // analysis hbac1 hbac freq=[fclk] tstart=4/fclk nharm=50 maxharm=10 from=100 to=20k mode="dec" points=10
 
   postprocess(PYTHON, "runme.py")
 endc
@@ -115,26 +119,26 @@ fig1.axes[1].set_ylabel('Vout [V]')
 fig1.tight_layout()
 
 
-raw = rawread('hbac1.raw')
-plot = raw.get()
-f = np.real(plot["frequency"])
-vout = plot['out;0']
-
-
-fig1, ax1 = plt.subplots(2, 1, figsize=(6,6), dpi=100)
-fig1.suptitle('S-C filter frequency response')
-
-fig1.axes[0].set_title('Magnitude')
-fig1.axes[0].semilogx(f, 20*np.log10(np.abs(vout)))
-fig1.axes[0].set_xlabel('f [Hz]')
-fig1.axes[0].set_ylabel('H [dB]')
-
-
-raw = rawread('tran2.raw')
-plot = raw.get()
-#fig1.axes[1].plot(plot["time"], plot["xs11:m1:m.gds"], marker=".")
-fig1.axes[1].plot(plot["time"], plot["clk"])
-fig1.axes[1].plot(plot["time"], plot["clkn"])
+# raw = rawread('hbac1.raw')
+# plot = raw.get()
+# f = np.real(plot["frequency"])
+# vout = plot['out;0']
+# 
+# 
+# fig1, ax1 = plt.subplots(2, 1, figsize=(6,6), dpi=100)
+# fig1.suptitle('S-C filter frequency response')
+# 
+# fig1.axes[0].set_title('Magnitude')
+# fig1.axes[0].semilogx(f, 20*np.log10(np.abs(vout)))
+# fig1.axes[0].set_xlabel('f [Hz]')
+# fig1.axes[0].set_ylabel('H [dB]')
+# 
+# 
+# raw = rawread('tran2.raw')
+# plot = raw.get()
+# #fig1.axes[1].plot(plot["time"], plot["xs11:m1:m.gds"], marker=".")
+# fig1.axes[1].plot(plot["time"], plot["clk"])
+# fig1.axes[1].plot(plot["time"], plot["clkn"])
 
 fig1.tight_layout()
 
