@@ -46,7 +46,7 @@ subckt sintest()
 ends
 
 subckt swtest()
-  vin (inp inb) v type="sine" sinedc=2m ampl=0m freq=50k spur={0.0} smag=[1] //2m
+  vin (inp inb) v type="sine" sinedc=0 ampl=2m freq=50k spur={0.0} smag=[1] //2m
   ein (inn inb inp inb) vcvs gain=-1
   vlo (lop lob) v type="pulse" val0=-0.5 val1=0.5 delay=0 rise=10n fall=10n width=1u/2-10n period=1u
   elo (lon lob lop lob) vcvs gain=-1
@@ -68,7 +68,7 @@ control
   elaborate circuit("sintest")
   
   // Gilbert cell with upper quad in switching mode does not work. 
-  // APFT has an  odd number of time samples. Therefore odd harmonics 
+  // APFT has an odd number of time samples. Therefore odd harmonics 
   // alias into even harmonics which should be 0. 
   // Once PAC is implemented, we will try again. 
   // This should also improve if we switch to FFT. 
@@ -77,7 +77,7 @@ control
   // Transient, 2-tone HB
   analysis tran1 tran step=1n stop=40u maxstep=2n 
   options reltol=1e-9 abstol=1e-12 vntol=1e-10 hb_debug=0 hb_skipinitial=1
-  // analysis hb1 hb freq=[50k, 1M] truncate="box" nharm=[2, 10]
+  analysis hb1 hb freq=[50k, 1M] truncate="box" nharm=[2, 10]
   
   // HBAC, turn off vin so it does not disturb the HB periodic operating point
   alter instance("vin") ampl=0
@@ -131,6 +131,17 @@ for ii in range(plot.sweepGroups):
     vin = plot[ii, 'inp']-plot[ii, 'inn']
     ax_dict["A"].plot(vin, vout, label='vlo={:.2e}'.format(vlo))
 ax_dict["A"].legend(loc="lower right")
+
+
+raw = rawread('tran1.raw')
+plot = raw.get()
+t = plot["time"]*1e6
+vlo = plot['lop']-plot['lon']
+vin = plot['inp']-plot['inn']
+vout = plot['outp']-plot['outn']
+ax_dict["B"].plot(t, vlo*1e3)
+ax_dict["C"].plot(t, vin*1e3)
+ax_dict["D"].plot(t, vout*1e3)
 
 
 hb1 = rawread('hb1.raw').get()
