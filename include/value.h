@@ -144,6 +144,7 @@ public:
     inline Type type() const noexcept { return type_; };
     inline Type scalarType() const noexcept { return Type(type_ & ~Type::VectorBit); }; 
     inline bool isVector() const noexcept { return (type_ & Type::VectorBit) != 0; };
+    inline bool isNumeric() const noexcept { auto t = type_ & ~Type::VectorBit; return t==Type::Int || t==Type::Real; };
 
     // Swap value with other
     friend inline void swap(Value &a, Value &b) {

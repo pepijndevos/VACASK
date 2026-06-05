@@ -113,7 +113,7 @@ DevSourceInstanceParams::DevSourceInstanceParams() {
     scale = 1.0;
     stretch = 1.0;
     // delay, period, tdphase
-    breakpt = valAuto;
+    breakpt = valAll;
     slopetol = 0.0;
     sloperel = 0.0;
     slopeglob = 0.01;

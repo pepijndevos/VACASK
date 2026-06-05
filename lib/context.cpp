@@ -115,6 +115,10 @@ ContextStack::Builtins ContextStack::builtins = {
     { Id::createStatic("sgauss"),   { 3, 3, false, mcGenerator<FwSum, 3> } },
     { Id::createStatic("unif"),     { 2, 2, false, mcGenerator<FwSum, 2> } },
     { Id::createStatic("aunif"),    { 2, 2, false, mcGenerator<FwSum, 2> } },
+
+    { Id::createStatic("randunif"),   { 1, 1, false, vectorRandUnif } }, // length   type=real
+    { Id::createStatic("interleave"), { 2, Rpn::manyArgs, true, vectorInterleave } }, // vec1, vec2, ..., vecn   type=maxtype(vec1, .. vecn)
+    { Id::createStatic("separate"),   { 3, 3, true, vectorSeparate } }, // vec, n, i   
     
     // String
     /*

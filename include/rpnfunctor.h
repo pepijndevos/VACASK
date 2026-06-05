@@ -445,7 +445,7 @@ struct FwMinAggregate {
         using Tin = typename std::remove_reference<T>::type;
         if constexpr(Value::IsVectorType<Tin>::value) {
             Value::ScalarType<Tin> res = x[0];
-            for(auto it=x.begin(); it!=x.end(); ++it) {
+            for(auto it=x.begin()+1; it!=x.end(); ++it) {
                 if (*it < res) {
                     res = *it;
                 }

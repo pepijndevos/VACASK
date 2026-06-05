@@ -1,5 +1,6 @@
 #include "rpnbuiltin.h"
 #include <cmath>
+#include <random>
 #include "common.h"
 
 
@@ -96,8 +97,8 @@ bool vectorRange(RpnStack& stack, Rpn::Arity argc, Status& s) {
     
     // Check arguments, get maximal type
     for(Rpn::Arity i=0; i<argc; i++) {
-        if (args[i]->isVector() || args[i]->scalarType()==Value::Type::String) {
-            s.set(Status::BadArguments, std::string("Argument ")+std::to_string(i+1)+" must be a scalar numeric value."); 
+        if (args[i]->isVector() || !args[i]->isNumeric()) {
+            s.set(Status::BadArguments, std::string("Argument ")+std::to_string(i+1)+" must be a numeric vector."); 
             return false; 
         }
         if (args[i]->type()==Value::Type::Real) {
@@ -173,6 +174,178 @@ bool vectorRange(RpnStack& stack, Rpn::Arity argc, Status& s) {
     stack.pop(argc-1);
     return true;
 }
+
+std::mt19937_64 rng(0);
+
+// Arguments: length
+bool vectorRandUnif(RpnStack& stack, Rpn::Arity argc, Status& s) {
+    DBGCHECK(stack.size()<argc, "Internal error. Attempt to get value from empty stack."); 
+    // Collect arguments
+    auto t = Value::Type::Real;
+    Value* args[1];
+    args[0] = stack.get(0);
+    
+    // Check argument
+    if (args[0]->isVector() || !args[0]->isNumeric()) {
+        s.set(Status::BadArguments, std::string("Argument must be a scalar numeric value.")); 
+        return false; 
+    }
+    
+    // Convert to integer, check
+    args[0]->convertInPlace(Value::Type::Int);
+    auto n = args[0]->val<Int>();
+    if (n<0) {
+        s.set(Status::BadArguments, std::string("Argument must not be negative.")); 
+        return false; 
+    }
+
+    // Build vector
+    std::uniform_real_distribution<double> dist(0.0, 1.0);
+    auto vec = RealVector(n);
+    for(decltype(n) i=0; i<n; i++) {
+        vec[i] = dist(rng);
+    }
+    Value res = std::move(vec);
+
+    swap(*(args[0]), res);
+
+    // Nothing to pop, we replaced the argument with the result
+
+    return true;
+}
+
+// Arguments: vec1, vec2, ...
+bool vectorInterleave(RpnStack& stack, Rpn::Arity argc, Status& s) {
+    DBGCHECK(stack.size()<argc, "Internal error. Attempt to get value from empty stack."); 
+    // Get arguments, check them, get maximal type
+    auto n = 0;
+    auto args = std::vector<Value*>(argc);
+    auto t = Value::Type::Int;
+    for(decltype(argc) i=0; i<argc; i++) {
+        args[i] = stack.get(argc-1-i);
+        if (!args[i]->isVector() || !args[i]->isNumeric()) {
+            s.set(Status::BadArguments, std::string("Argument ")+std::to_string(i+1)+" must be a numeric vector."); 
+            return false; 
+        }
+        if (i==0) {
+            n = args[i]->size();
+        } else if (args[i]->size()!=n) {
+            s.set(Status::BadArguments, std::string("Arguments must be vectors of same length.")); 
+            return false; 
+        }
+        if (args[i]->scalarType()==Value::Type::Real) {
+            t = Value::Type::Real;
+        }
+    }
+    
+    // Convert to common type
+    for(Rpn::Arity i=0; i<argc; i++) {
+        args[i]->convertInPlace(t);
+    }
+
+    // Create resulting vector
+    Value res;
+    if (t==Value::Type::Int) {
+        IntVector vec(n*argc);
+        for(decltype(argc) j=0; j<argc; j++) {
+            decltype(n) pos = j;
+            auto& src = args[j]->val<IntVector>();
+            for(decltype(n) i=0; i<n; i++) {
+                vec[pos] = src[i];
+                pos += argc;
+            } 
+        }
+        res = std::move(vec);
+    } else if (t==Value::Type::Real) {
+        RealVector vec(n*argc);
+        for(decltype(argc) j=0; j<argc; j++) {
+            decltype(n) pos = j;
+            auto& src = args[j]->val<RealVector>();
+            for(decltype(n) i=0; i<n; i++) {
+                vec[pos] = src[i];
+                pos += argc;
+            } 
+        }
+        res = std::move(vec);
+    }
+    // TODO: interleave lists
+    
+    swap(*(args[0]), res);
+
+    // Pop all but the first argument
+    stack.pop(argc-1);
+    return true;
+
+    return true;
+}
+
+// Arguments: vec1, vec2, ...
+bool vectorSeparate(RpnStack& stack, Rpn::Arity argc, Status& s) {
+    DBGCHECK(stack.size()<argc, "Internal error. Attempt to get value from empty stack."); 
+    // Get argument 0
+    auto arg0 = stack.get(2);
+    if (!arg0->isVector() || !arg0->isNumeric()) {
+        s.set(Status::BadArguments, std::string("First argument must be a numeric vector.")); 
+        return false; 
+    }
+    auto t = arg0->type();
+
+    // Get argument 1
+    auto arg1 = stack.get(1);
+    if (!arg1->convertInPlace(Value::Type::Int)) {
+        s.set(Status::BadArguments, std::string("Failed to convert second argument to integer.")); 
+        return false;
+    }
+    auto n = arg1->val<Int>();
+    if (n<1) {
+        s.set(Status::BadArguments, std::string("Second argument (step) must be >=1.")); 
+        return false;
+    }
+
+    // Get argument 2
+    auto arg2 = stack.get(0);
+    if (!arg2->convertInPlace(Value::Type::Int)) {
+        s.set(Status::BadArguments, std::string("Failed to convert third argument to integer.")); 
+        return false;
+    }
+    auto offs = arg1->val<Int>();
+    if (offs<0 || offs>=n) {
+        s.set(Status::BadArguments, std::string("Third argument (offset) must be nonnegative and <step.")); 
+        return false;
+    }
+
+    // Compute destination size
+    auto srcSize = arg0->size();
+    auto nDest = (srcSize-offs) / n;
+
+    // Construct result
+    Value res;
+    decltype(nDest) pos = 0;
+    
+    if (t==Value::Type::Int) {
+        auto& src = arg0->val<IntVector>();
+        auto dest = IntVector(nDest);
+        for(decltype(nDest) i=offs; pos<nDest; i+=n, pos++) {
+            dest[pos] = src[i];
+        }
+        res = std::move(dest);
+    } else if (t==Value::Type::Real) {
+        auto& src = arg0->val<RealVector>();
+        auto dest = RealVector(nDest);
+        for(decltype(nDest) i=offs; pos<nDest; i+=n, pos++) {
+            dest[pos] = src[i];
+        }
+        res = std::move(dest);
+    }
+    // TODO: seoparate lists
+
+    swap(*arg0, res);
+
+    // Pop all but the first argument
+    stack.pop(2);
+    return true;
+}
+
 
 // Core of vectorPack preprocessing
 bool vectorPackPreprocess(Value& comp, Value::Type& t, size_t& j, bool& first, Status& s) {

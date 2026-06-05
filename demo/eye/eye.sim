@@ -1,0 +1,87 @@
+Eye diagram
+
+load "resistor.osdi"
+load "capacitor.osdi"
+
+model i isource
+model v vsource
+model r resistor
+model c capacitor
+
+vin (in 0) v type="pwl" wave=wave  break="all"
+r1 (in out) r r=100k
+c1 (out 0) c c=c
+
+control
+  var n = 5000
+  var fs = 100k
+  var trf = 0.1u
+  var tx = range(0, n/fs, 1/fs)
+  var val = 1.8*round(randunif(n))
+  var t = interleave(tx, tx+1/fs-trf)
+  var t = [0.0, trf+t]
+  var x = interleave(val, val)
+  var x = [0.0, x]
+  var wave = interleave(t, x)
+  
+  var bw = 8M
+  var c = 1/(2*M_PI*bw*1k)
+  
+  analysis tran1 tran step=1/fs/10 stop=max(t)
+  
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.signal import welch
+from scipy.signal import firwin, fftconvolve, filtfilt, hilbert
+
+fig1 = plt.figure(figsize=(8,8), dpi=100)
+fig1.suptitle('Eye diagram')
+ax_dict = fig1.subplot_mosaic("""
+A
+B
+C
+""")
+
+def eye(x, y, per, width):
+    x0 = np.arange(0, x.max()-2*width, per)
+    x1 = x0+width
+    ndx = np.arange(x.shape[0])
+    i1 = np.round(np.interp(x0, x, ndx)).astype(int)
+    i2 = np.round(np.interp(x1, x, ndx)).astype(int)
+    wfm = []
+    for ii1, ii2 in zip(i1, i2):
+        wfm.append([x[ii1:ii2+1]-x[ii1], y[ii1:ii2+1]])
+    
+    return wfm
+
+raw = rawread('tran1.raw')
+plot = raw.get()
+x = plot['time']
+y = plot['in']
+z = plot['out']
+
+ax_dict["A"].set_title('Input signal')
+ax_dict["A"].set_ylabel('[V]')
+ax_dict["A"].set_xlabel('time [s]')
+ax_dict["A"].plot(x, y, 'r')
+ax_dict["A"].plot(x, z, 'g')
+
+for xe, ye in eye(x, y, 10e-6, 20e-6):
+    ax_dict["B"].plot(xe, ye, 'b')
+
+
+for xe, ye in eye(x, z, 10e-6, 20e-6):
+    ax_dict["C"].plot(xe, ye, 'b')
+
+
+fig1.tight_layout()
+
+plt.show()
+>>>FILE
+
+

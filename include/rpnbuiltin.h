@@ -488,6 +488,15 @@ bool vectorBuild(RpnStack& stack, Rpn::Arity argc, Status& s);
 // Construct a vector holding a range of values
 bool vectorRange(RpnStack& stack, Rpn::Arity argc, Status& s);
 
+// Construct a vector holding uniformly distributed random numbers from [0,1)
+bool vectorRandUnif(RpnStack& stack, Rpn::Arity argc, Status& s);
+
+// Construct a vector by interleaving argument vectors with matching lengths
+bool vectorInterleave(RpnStack& stack, Rpn::Arity argc, Status& s);
+
+// Extract a vector holding components indexed n*k+i, where n and i are the second and the third argument
+bool vectorSeparate(RpnStack& stack, Rpn::Arity argc, Status& s);
+
 // Pack scalars and vectors in a vector [ 1, 2, 3 ]
 bool vectorPack(RpnStack& stack, Rpn::Arity argc, Status& s);
 

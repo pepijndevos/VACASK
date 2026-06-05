@@ -27,6 +27,9 @@ public:
     static const LocationIndex maxLocationIndex = std::numeric_limits<LocationIndex>::max() - 1;
     typedef RpnArity Arity;
     typedef RpnJumpOffset JumpOffset;
+
+    const static Arity manyArgs = std::numeric_limits<Arity>::max();
+    
     // 1+8 = 9 bytes
     typedef struct Op {
         OpCode code;
