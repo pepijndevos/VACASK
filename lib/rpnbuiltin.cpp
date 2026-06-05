@@ -183,7 +183,6 @@ std::mt19937_64 rng(0);
 bool vectorRandUnif(RpnStack& stack, Rpn::Arity argc, Status& s) {
     DBGCHECK(stack.size()<argc, "Internal error. Attempt to get value from empty stack."); 
     // Collect arguments
-    auto t = Value::Type::Real;
     Value* args[1];
     args[0] = stack.get(0);
     
@@ -222,7 +221,7 @@ bool vectorRandUnif(RpnStack& stack, Rpn::Arity argc, Status& s) {
 bool vectorInterleave(RpnStack& stack, Rpn::Arity argc, Status& s) {
     DBGCHECK(stack.size()<argc, "Internal error. Attempt to get value from empty stack."); 
     // Get arguments, check them, get maximal type
-    auto n = 0;
+    size_t n = 0;
     auto args = std::vector<Value*>(argc);
     auto t = Value::Type::Int;
     for(decltype(argc) i=0; i<argc; i++) {
@@ -279,8 +278,6 @@ bool vectorInterleave(RpnStack& stack, Rpn::Arity argc, Status& s) {
     // Pop all but the first argument
     stack.pop(argc-1);
     return true;
-
-    return true;
 }
 
 // separate(v, n, i): extract the elements of vector v at indices i, i+n, i+2n, ...
@@ -320,9 +317,18 @@ bool vectorSeparate(RpnStack& stack, Rpn::Arity argc, Status& s) {
         return false;
     }
 
-    // Compute destination size
+    // Compute destination size: number of selected indices offs, offs+n, offs+2n, ...
+    // that stay below srcSize. offs>=0 and n>=1 are guaranteed above.
     auto srcSize = arg0->size();
-    auto nDest = (srcSize-offs) / n;
+    size_t nDest;
+    if (size_t(offs) >= srcSize) {
+        // Offset is past the end of the vector, nothing to select
+        nDest = 0;
+    } else {
+        // Ceil division of the remaining length by the step
+        auto remaining = srcSize - size_t(offs);
+        nDest = (remaining + size_t(n) - 1) / size_t(n);
+    }
 
     // Construct result
     Value res;

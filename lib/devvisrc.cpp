@@ -7,6 +7,9 @@
 
 namespace NAMESPACE {
 
+// Signed index type
+using signed_size_t = typename std::make_signed<size_t>::type;
+
 static const double PI = std::numbers::pi;
 
 template<> int Introspection<DevSourceModelParams>::setup() {
@@ -309,8 +312,13 @@ std::tuple<bool, bool, bool> sourceSetup(InstanceParams& params, InstanceData& d
             // If periodic, last slope (beyond last point, index d.npts-1) is the transition slope 
             // between the last point of a period and the first point of the next period
             auto dx = p.period - (oldX - p.wave[0]) ;
-            // Sanity check: dx>0
-            DBGCHECK(dx<=0, "Pwl last period dx is not >0.");
+            // dx must be >0 (guaranteed by the earlier period/monotonicity checks,
+            // but guard against a division by zero/negative in release builds)
+            if (dx<=0) {
+                s.set(Status::BadArguments, "Pwl period is too short for the given waveform.");
+                s.extend(loc);
+                return std::make_tuple(false, false, false);
+            }
             // Slope
             auto slope = (oldY - p.wave[1])/dx;
             d.slopes.back() = slope;
@@ -399,7 +407,7 @@ std::tuple<bool, bool, bool> sourceSetup(InstanceParams& params, InstanceData& d
         // Nothing to do if there are no breakpoints. 
         if (hasBreakpoints) {
             // Initial value of next breakpoint index, applied to tail waveform points
-            ssize_t nextBreakIndex;
+            signed_size_t nextBreakIndex;
             if (p.period>0) {
                 // For periodic waveforms this is the first breakpoint
                 nextBreakIndex = firstBreakIndex;
@@ -441,9 +449,6 @@ std::tuple<bool, bool, bool> sourceSetup(InstanceParams& params, InstanceData& d
     return std::make_tuple(true, false, false); 
 }
 
-// Signed index type
-using ssize_t = typename std::make_signed<size_t>::type;
-
 // Search through a vector of PWL values for a timepoint, start at pwl point index start, 
 // look for first pwl timepoint where timepoint<=target. 
 // Assume target>=t[0]
@@ -456,8 +461,8 @@ size_t pwlIndexLookup(const RealVector& wave, size_t n, size_t start, double tar
     if (target==atTime) {
         // Already there
         return start;
-    } else if (target>wave[2*(n-1)]) {
-        // It is after last times
+    } else if (target>=wave[2*(n-1)]) {
+        // It is at or after the last timepoint
         return n-1;
     }
     // We need to look it up
@@ -470,10 +475,10 @@ size_t pwlIndexLookup(const RealVector& wave, size_t n, size_t start, double tar
     // At this point we are sure t[0]<=target<=t[n-1]
     // Expand exponentially, until you find the bracket
     // This catches small changes in index
-    ssize_t atIndex = start;
+    signed_size_t atIndex = start;
     while (true) {
         // Compute trial point
-        ssize_t tryIndex = forward ? atIndex+step : atIndex-step;
+        signed_size_t tryIndex = forward ? atIndex+step : atIndex-step;
         // Limit to 0<=tryIndex<n-1
         if (tryIndex<0) {
             tryIndex = 0;
@@ -500,7 +505,7 @@ size_t pwlIndexLookup(const RealVector& wave, size_t n, size_t start, double tar
         return start;
     }
     // Bisection boundaries i1<i2
-    ssize_t i1, i2, imid;
+    signed_size_t i1, i2, imid;
     if (forward) {
         i1 = start;
         i2 = atIndex;
@@ -519,7 +524,7 @@ size_t pwlIndexLookup(const RealVector& wave, size_t n, size_t start, double tar
             // Take right interval
             i1 = imid;
         }
-        if (i1-i2<=1) {
+        if (i2-i1<=1) {
             break;
         }
     }
@@ -640,7 +645,7 @@ std::tuple<double, double, double> pwlValue(InstanceParams& p, InstanceData& d, 
             } else {
                 // All others (had index lookup), look for first breakpoint
                 i1 = d.nextBreakIndex[index];
-                i2Per = i1Per + (i1.value() < index ? 1 : 0);
+                i1Per = i1Per + (i1.value() < index ? 1 : 0);
                 i2 = d.nextBreakIndex[i1.value()];
                 i2Per = i1Per + (i2.value() < i1.value() ? 1 : 0);
             }
@@ -661,7 +666,7 @@ std::tuple<double, double, double> pwlValue(InstanceParams& p, InstanceData& d, 
             } else {
                 // All others (had index lookup), look for first breakpoint
                 i1 = d.nextBreakIndex[index];
-                i2Per = i1Per + (i1.value() < index ? 1 : 0);
+                i1Per = i1Per + (i1.value() < index ? 1 : 0);
                 i2 = d.nextBreakIndex[i1.value()];
                 i2Per = i1Per + (i2.value() < i1.value() ? 1 : 0);
             }
@@ -857,7 +862,7 @@ std::tuple<double, double> sourceCompute(const InstanceParams& params, InstanceD
                 tposper = tposabs + relphase*stretchedPeriod;
                 
                 // Remove integer number of stretched periods
-                auto nper = ssize_t(std::floor(tposper/stretchedPeriod));
+                auto nper = signed_size_t(std::floor(tposper/stretchedPeriod));
                 tposper -= nper*stretchedPeriod;
 
                 // Make sure it is within stretched period 0<=tposper<stretchedPeriod (numerical errors can move it out)
@@ -885,21 +890,12 @@ std::tuple<double, double> sourceCompute(const InstanceParams& params, InstanceD
         tposabs /= params.stretch;
         tposper /= params.stretch;
 
-        // Compute y1, y2, x1, x2, dx
-        double y1, y2, x1, x2, dx;
-        double breakTime;
-        bool enforceBreakpoint;
-        ssize_t nextBreakIndex;
-
-        // Compute absolute time tolerance
-        auto timeTol = time*timeRelativeTolerance;
-
         // Get value, breakpoint, and next breakpoint
         auto [y, tbr1, tbr2] = pwlValue(params, data, tposper, tposabs, origin);
 
         // Apply scale, offset
         val = y*params.scale + params.offset;
-        
+
         // If tbr1 is within tolerance of current time use tbr2
         auto tol = time*timeRelativeTolerance;
         if (tbr1>=time-tol && tbr1<=time+tol) {
