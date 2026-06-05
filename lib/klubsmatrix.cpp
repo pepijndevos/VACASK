@@ -126,8 +126,7 @@ bool KluBlockSparseMatrixCore<IndexType, ValueType>::rebuild(SparsityMap& m, Equ
     atCol = 0;
     // Index of nonzero element
     atNz = 0;
-    // Number of dense blocks
-    auto blockCount = denseColumnBegin[n];
+
     // Iterate through columns of dense blocks
     // This also iterates throuh columns with no dense blocks
     for(decltype(n) blockColNdx=0; blockColNdx<n; blockColNdx++) {

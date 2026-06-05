@@ -68,11 +68,14 @@ protected:
     
 private:
     IStruct<HBParameters> params;
-    HBCore core;
 
+    // Declared before core so the references core binds in its init list
+    // (jacColoc, jac, solution) refer to fully-constructed members.
     KluBlockSparseRealMatrix jacColoc; // Jacobian entries at colocation points
     KluBlockSparseRealMatrix jac; // HB Jacobian
     VectorRepository<double> solution; // Solution history
+
+    HBCore core;
 };
 
 }

@@ -250,9 +250,6 @@ bool HBNRSolver::initialize(bool continuePrevious) {
     // Number of nodes
     auto n = circuit.unknownCount();
 
-    // Number of block rows
-    auto nb = circuit.unknownCount();
-
     // Old solution and derivative wrt time at all timepoints
     resistiveResidual.resize(n*nt);
     reactiveResidual.resize(n*nt);

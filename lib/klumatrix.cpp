@@ -36,8 +36,7 @@ void SparsityMap::enumerate() {
     // Traverse keys, enumerate entries
     MatrixEntryIndex num = 0;
     for(auto it=ordering.begin(); it!=ordering.end(); ++it) {
-        auto e = it->first;
-        auto u = it->second;
+        // first = equation, second = unknown
         smap[*it].index = num;
         num++;
     }
@@ -443,7 +442,8 @@ template<typename IndexType, typename ValueType> bool KluMatrixCore<IndexType, V
             if (nanCheck && (std::isnan(vec[i].real()) || std::isnan(vec[i].imag()))) {
                 // NaN found
                 gotNan = true;
-            } else if (infCheck && (std::isinf(vec[i].real()) || std::isinf(vec[i].imag()))) {
+            } 
+            if (infCheck && (std::isinf(vec[i].real()) || std::isinf(vec[i].imag()))) {
                 // Inf found
                 gotInf = true;
             }
@@ -451,7 +451,8 @@ template<typename IndexType, typename ValueType> bool KluMatrixCore<IndexType, V
             if (nanCheck && std::isnan(vec[i])) {
                 // NaN found
                 gotNan = true;
-            } else if (infCheck && std::isinf(vec[i])) {
+            } 
+            if (infCheck && std::isinf(vec[i])) {
                 // Inf found
                 gotInf = true;
             }
@@ -473,7 +474,6 @@ template<typename IndexType, typename ValueType> bool KluMatrixCore<IndexType, V
     }
 
     // Go through entries
-    IndexType col1, col2;
     for(IndexType i=0; i<nnz_; i++) {
         auto row = AI[i];
         double nrm;
@@ -540,10 +540,9 @@ template<typename IndexType, typename ValueType> bool KluMatrixCore<IndexType, V
     }
 
     // Go through entries
-    IndexType col1, col2;
     for(IndexType col=0; col<AN; col++) {
-        col1 = AP[col];
-        col2 = AP[col+1];
+        IndexType col1 = AP[col];
+        IndexType col2 = AP[col+1];
         for(IndexType i=col1; i<col2; i++) {
             auto row = AI[i];
             res[row] += Ax[i]*vec[col];

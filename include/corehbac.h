@@ -139,7 +139,10 @@ protected:
     bool evalOp();
 
     // Clear error
-    void clearError() { AnalysisCore::clearError(); lastHBACError = HBACError::OK; }; 
+    // errorFreq is read unconditionally by formatError() (outside the lastHBACError
+    // switch), so unlike the other auxiliary error fields it must be reset here to
+    // avoid a stale value leaking into errors raised before the frequency sweep.
+    void clearError() { AnalysisCore::clearError(); lastHBACError = HBACError::OK; errorFreq = -1.0; };
 
     void setError(HBACError e) { lastHBACError = e; lastError = Error::OK; };
     HBACError lastHBACError;

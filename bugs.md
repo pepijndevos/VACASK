@@ -170,102 +170,198 @@ resumes the coroutine. Add `co_return;` after each abort.
 
 ## Minor / cosmetic
 
-### 21. [ ] [klumatrix.cpp:38-43](lib/klumatrix.cpp#L38-L43) — Unused locals in `enumerate()`
-`auto e = it->first; auto u = it->second;` computed and never used.
+### 21. [x] [klumatrix.cpp:38-43](lib/klumatrix.cpp#L38-L43) — Unused locals in `enumerate()`
+`auto e = it->first; auto u = it->second;` computed and never used. Removed; the
+loop now indexes `smap[*it].index` directly with an explanatory comment.
 
-### 22. [ ] [klumatrix.cpp:448](lib/klumatrix.cpp#L448) and [klumatrix.cpp:515](lib/klumatrix.cpp#L515) — Outer-scope `col1, col2`
-Declared at outer scope, used only by inner reassignments. Move into the loop body.
+### 22. [x] [klumatrix.cpp:448](lib/klumatrix.cpp#L448) and [klumatrix.cpp:515](lib/klumatrix.cpp#L515) — Outer-scope `col1, col2`
+Declared at outer scope, used only by inner reassignments. In `product()` moved into
+the loop body (`IndexType col1 = AP[col];` etc.). In the `maxNorm` loop the outer
+declaration was entirely dead (never read) and was removed.
 
-### 23. [ ] [corehbnr.cpp:254](lib/corehbnr.cpp#L254) — Unused local
-`auto nb = circuit.unknownCount();` unused.
+### 23. [x] [corehbnr.cpp:254](lib/corehbnr.cpp#L254) — Unused local
+`auto nb = circuit.unknownCount();` unused. Removed.
 
-### 24. [ ] [klubsmatrix.cpp:130](lib/klubsmatrix.cpp#L130) — Unused local
-`auto blockCount = denseColumnBegin[n];` unused.
+### 24. [x] [klubsmatrix.cpp:130](lib/klubsmatrix.cpp#L130) — Unused local
+`auto blockCount = denseColumnBegin[n];` unused. Removed.
 
-### 25. [ ] [klumatrix.cpp:411-437](lib/klumatrix.cpp#L411-L437) — Asymmetric inf/nan reporting
+### 25. [x] [klumatrix.cpp:411-437](lib/klumatrix.cpp#L411-L437) — Asymmetric inf/nan reporting
 `isFinite(ValueType*, ...)` uses `nanCheck` then `else if (infCheck)` — if both are
 requested and a value is both inf and nan, the report is biased to the first check.
 Harmless but inconsistent with the matrix-side overload at line 365 which
-OR-accumulates.
+OR-accumulates. Fixed: the `else if (infCheck ...)` is now an independent
+`if (infCheck ...)` in both the Complex and double branches, so `gotInf` is set
+independently of `gotNan`, matching the matrix-side overload.
 
-### 26. [ ] [klubsmatrix.cpp:9-11](lib/klubsmatrix.cpp#L9-L11) — Init list order reverse of declaration order
-`(blockBucket_, largeBucket_)` — warning.
+### 26. [x] [klubsmatrix.cpp:9-11](lib/klubsmatrix.cpp#L9-L11) — Init list order reverse of declaration order
+`(blockBucket_, largeBucket_)` — warning. Fixed by reordering the member
+declarations in [klubsmatrix.h](include/klubsmatrix.h#L180-L181) so `blockBucket_`
+precedes `largeBucket_`, matching the init-list order.
 
-### 27. [ ] [klubsmatrix.h:105-118](include/klubsmatrix.h#L105-L118) — `elementPtr` not-found ignores `Component`
+### 27. [x] [klubsmatrix.h:105-118](include/klubsmatrix.h#L105-L118) — `elementPtr` not-found ignores `Component`
 For `Complex` matrices, an `Imaginary` request lands on the real half of the
 bucket. Bucket writes are discarded so it doesn't matter functionally, but it's
 inconsistent with the `found` branch which returns `+1` for imaginary.
+Won't fix: the bucket is a common scratch slot shared by real and imaginary
+components; its writes are never read back, so which half the pointer lands on is
+irrelevant. Intentional.
 
-### 28. [ ] [corehbac.cpp:464](lib/corehbac.cpp#L464) — Redundant `std::move` on rvalue
+### 28. [x] [corehbac.cpp:464](lib/corehbac.cpp#L464) — Redundant `std::move` on rvalue
 `excitations.push_back(std::move(Excitation(inst, {}, {})));` — `std::move` on an
-rvalue is redundant (and inhibits potential `emplace_back` improvements).
+rvalue is redundant (and inhibits potential `emplace_back` improvements). Fixed:
+now `excitations.push_back(Excitation(inst, {}, {}));`. `emplace_back` isn't
+applicable — `Excitation` is an aggregate and the `{}` arguments can't be deduced
+through `emplace_back`.
 
-### 29. [ ] [corehbcoloc.cpp:75](lib/corehbcoloc.cpp#L75) — Return value ignored
+### 29. [x] [corehbcoloc.cpp:75](lib/corehbcoloc.cpp#L75) — Return value ignored
 `buildTransformMatrix(IAPFT)` return value ignored (the function always returns
-true today, so latent).
+true today, so latent). Fixed: now guarded with
+`if (!buildTransformMatrix(IAPFT)) { s.set(Status::CreationFailed, ...); return false; }`.
 
-### 30. [ ] [corehb.cpp:977](lib/corehb.cpp#L977) — Hard-to-read predicate
+### 30. [x] [corehb.cpp:977](lib/corehb.cpp#L977) — Hard-to-read predicate
 The `i==1 && ... || i!=1 && ...` predicate works due to precedence but is hard to
-read; parenthesize.
+read; parenthesize. Fixed: each `&&` clause is now wrapped in parentheses
+(`(i==1 && ...) || (i!=1 && ...)`).
 
 ## Two patterns worth a project-wide pass
 
-### 31. [ ] References to references in constructor init lists
+### 31. [x] References to references in constructor init lists
 Several cores pass member references through the init list of a base/sibling that
 runs first (HBCore→HBNRSolver via `spurs_.spectrum()`, the bsjac/solution chain).
 These compile but are fragile — declaration order is what matters.
+Resolved. The one true-UB instance (`spurs_.spectrum()` on a not-yet-constructed
+member) was #11. The remaining legal-but-fragile binds were enumerated and fixed in
+the project-wide audit #33–#39 (analysis-level and core-internal member reorders, so
+referents precede their consuming core). No fragile init-list reference binds remain.
 
-### 32. [ ] `clearError()` doesn't reset auxiliary error fields
+### 32. [x] `clearError()` doesn't reset auxiliary error fields
 (`errorIndex`, `errorRank_`, `errorNan`, `errorFreq`, `errorInst`, `errorSpur`).
 Each `formatError` only reads them when its specific enum is set, so it's safe
 today; but adding a new error variant that reads more fields is a bug waiting to
 happen.
+
+Resolved. Audit showed `errorIndex`, `errorRank_`, `errorNan`, `errorInst`,
+`errorSpur` are each read **inside** the matching `switch(lastError)` case and are
+written at the same site that sets that enum — so the read is unreachable unless the
+field was just written. No reset needed for those (left as-is).
+
+`errorFreq` is the genuine exception: it is read **unconditionally** in
+`HBACCore::formatError` ([corehbac.cpp:808](lib/corehbac.cpp#L808)), outside the
+switch, so it is appended to *every* non-`default` error — including
+`MagLength`/`PhaseLength`/`SpurNotFound` raised in `collectExcitations()`, which runs
+before the old `errorFreq = -1` reset. Fixed by resetting `errorFreq` in
+`HBACCore::clearError()` ([corehbac.h:142](include/corehbac.h#L142)); the now-redundant
+reset before the sweep was removed.
 
 The two I'd fix first: #1 (`HBAC::requestsRebuild` recursion) and #3 (`runSolver`
 null deref). Both are reachable and crash-class.
 
 ## Fragile reference binds (project-wide audit triggered by #11)
 
-Scanned all 96 constructors in `lib/*.cpp` plus inline ctors in `include/*.h`.
+Scanned all constructors in `lib/*.cpp` plus inline ctors in `include/*.h`.
 Only #11 was true UB (method call on a not-yet-constructed member). The entries
 below are the **legal-but-fragile pattern**: a constructor binds a reference to
 a sibling member that is declared *later* in the same class. Standard permits
 this so long as the constructor only stores the reference and never
 dereferences it before the referent's lifetime begins. None of these
 constructors dereference today — but the same misstep that produced #11 lives
-one edit away in each of them. Worth a project-wide cleanup pass: reorder the
-class members so all referents precede their consumer, the way #11 was fixed.
+one edit away in each of them.
 
-### 33. [ ] [anhb.cpp:12-17](lib/anhb.cpp#L12-L17) — `HB::HB`
+Preferred resolution (project-wide pass): **eliminate the reference-to-sibling
+binds entirely** rather than relying on declaration order. The shared analysis
+data (`jac`, `solution`, `states`, the AC matrices, …) is owned by the analysis
+and handed to the cores by reference at construction; the cores store it as
+reference members (e.g. [coreop.h:110-112](include/coreop.h#L110-L112)). Decouple
+construction order from reference validity — e.g. hand the data to the cores
+after all members exist (a `bind()`/two-phase init), or change ownership so the
+referent is constructed before its consumer. Reordering members is only the
+fallback.
+
+The complete set of sites is below. **All cores only store these references; none
+dereferences during construction, so none is UB today** (post-#11).
+
+### 33. [x] [anhb.cpp:12-17](lib/anhb.cpp#L12-L17) — `HB::HB`
 `core(*this, params.core(), circuit, commons, jacColoc, jac, solution)` —
 `jacColoc`, `jac`, `solution` are declared after `core` in
 [anhb.h:70-75](include/anhb.h#L70-L75).
+Fixed by reordering the members in [anhb.h](include/anhb.h#L69-L78) so `jacColoc`,
+`jac`, `solution` are declared *before* `core`; the analysis keeps ownership of these
+(they may be used outside the core in future), so they are not moved into `HBCore`.
+The references `core` binds now refer to fully-constructed members.
 
-### 34. [ ] [anhbac.cpp:7-11](lib/anhbac.cpp#L7-L11) — `HBAC::HBAC`
+### 34. [x] [anhbac.cpp:7-11](lib/anhbac.cpp#L7-L11) — `HBAC::HBAC`
 `hbCore(...jacColoc, jac, solution)` and
 `hbacCore(...jacSpec, hbSolution, acMatrix, acSolution)` — every matrix/vector
 reference is declared after the core that captures it in
 [anhbac.h:68-78](include/anhbac.h#L68-L78).
+Fixed by reordering [anhbac.h](include/anhbac.h#L68-L82) so all seven data members
+precede `hbCore`/`hbacCore`; `hbCore` stays before `hbacCore` (hbacCore binds a
+reference to hbCore). Ownership stays with the analysis. The init-list order
+(`hbCore`, `hbacCore`) already matches the new declaration order.
 
-### 35. [ ] [anop.cpp:12-14](lib/anop.cpp#L12-L14) — `OperatingPoint::OperatingPoint`
+### 35. [x] [anop.cpp:12-14](lib/anop.cpp#L12-L14) — `OperatingPoint::OperatingPoint`
 `core(*this, params.core(), circuit, commons, jac, solution, states)` —
 `jac`, `solution`, `states` are declared after `core` in
 [anop.h:69-74](include/anop.h#L69-L74).
+Fixed by reordering [anop.h](include/anop.h#L68-L77) so `jac`, `solution`, `states`
+precede `core`. Ownership stays with the analysis.
 
-### 36. [ ] [antran.cpp:7-10](lib/antran.cpp#L7-L10) — `Tran::Tran`
+### 36. [x] [antran.cpp:7-10](lib/antran.cpp#L7-L10) — `Tran::Tran`
 `opCore(...jac, solution, states)` and `tranCore(...jac, solution, states)` —
 `jac`, `solution`, `states` are declared after both cores in
 [antran.h:64-70](include/antran.h#L64-L70).
+Fixed by reordering [antran.h](include/antran.h#L63-L74) so `jac`, `solution`,
+`states` precede both cores; `opCore` stays before `tranCore` (tranCore binds a
+reference to opCore). Ownership stays with the analysis.
 
-### 37. [ ] [coretran.cpp:252-272](lib/coretran.cpp#L252-L272) — `TranCore::TranCore`
+### 37. [x] [coretran.cpp:252-272](lib/coretran.cpp#L252-L272) — `TranCore::TranCore`
 `nrSolver(...nrSettings, integCoeffs)` — `integCoeffs` is declared after
 `nrSolver` in [coretran.h:177-179](include/coretran.h#L177-L179).
 (`nrSettings` precedes `nrSolver` and is fine.)
+Fixed by moving `integCoeffs` ahead of `nrSolver` in
+[coretran.h](include/coretran.h#L175-L182) so the reference `nrSolver` binds refers
+to a fully-constructed member. (`predictorCoeffs` stays after `nrSolver` — it is not
+referenced by the solver's init list.)
 
-### 38. [ ] HBCore residual pattern still in `nrSolver` init
+### 38. [x] HBCore residual pattern still in `nrSolver` init
 Even after the #11 fix, `HBCore`'s init list still passes `solutionFD`,
 `timepoints`, `APFT`, `IAPFT`, `OmegaGamma`, `GammaInvColumnMajor` to
 `nrSolver` by reference. All of these are now declared *before* `nrSolver`
 (post-fix), so this is no longer fragile — listed for completeness so a future
 header re-shuffle doesn't reintroduce the issue.
+Verified: `solutionFD`(149), `spurs_`(160), `timepoints`(164), `APFT`(166),
+`IAPFT`(168), `OmegaGamma`(170), `GammaInvColumnMajor`(172), `nrSettings`(176) all
+precede `nrSolver`(177) in [corehb.h](include/corehb.h#L149-L177). The remaining
+references (`jacColoc`, `jacobian`, `solution`) are constructor parameters bound to
+analysis-owned objects. No code change needed.
+
+### 39. [x] `SmallSignal<CoreClass, DataMixin>` family — `opCore`/`smsigCore` bind `jac`/`solution`/`states`
+Fixed by reordering [ansmsig.h](include/ansmsig.h#L102-L113) so `jac`, `solution`,
+`states` precede `opCore`/`smsigCore`; `opCore` stays before `smsigCore` (smsigCore
+binds a reference to opCore). One reorder in the shared base fixes all seven
+specializations. Ownership stays with the analysis. The mixin data is in the
+`DataMixin` base (constructed first) and was already safe.
+
+This was missed by the original #33–#38 scan. The `SmallSignal` template
+([ansmsig.h:103-108](include/ansmsig.h#L103-L108)) declares `opCore` and
+`smsigCore` *before* its own `jac`, `solution`, `states` members, yet every
+specialization's constructor passes `jac, solution, states` (and `jac` alone for
+the DC variants) by reference into both cores. The mixin data (`acMatrix`,
+`acSolution`, `incrementalSolution`, `tf`, …) lives in the `DataMixin` base, which
+is constructed *before* the `SmallSignal` members, so those references are safe —
+only the `SmallSignal`-owned `jac`/`solution`/`states` are the fragile binds.
+Seven specializations, all with the identical pattern:
+- [anac.cpp:1-5](lib/anac.cpp#L1-L5) — `SmallSignal<ACCore, AcData>`
+- [anacsp.cpp:1-5](lib/anacsp.cpp#L1-L5) — `SmallSignal<ACSPCore, ACSPData>`
+- [anacstb.cpp:1-5](lib/anacstb.cpp#L1-L5) — `SmallSignal<ACStbCore, ACStbData>`
+- [anacxf.cpp:1-5](lib/anacxf.cpp#L1-L5) — `SmallSignal<ACXFCore, ACXFData>`
+- [andcinc.cpp:1-5](lib/andcinc.cpp#L1-L5) — `SmallSignal<DCIncrementalCore, DCIncrementalData>` (binds `jac`; `incrementalSolution` is mixin/safe)
+- [andcxf.cpp:1-5](lib/andcxf.cpp#L1-L5) — `SmallSignal<DCXFCore, DCXFData>` (binds `jac`; rest mixin/safe)
+- [annoise.cpp:1-6](lib/annoise.cpp#L1-L6) — `SmallSignal<NoiseCore, NoiseData>`
+
+Note the `opCore` reference passed to `smsigCore` is *not* fragile: `opCore`
+([ansmsig.h:103](include/ansmsig.h#L103)) precedes `smsigCore`
+([ansmsig.h:104](include/ansmsig.h#L104)) and is fully constructed first. The
+smsig cores hold no value sub-solvers of their own (they reuse `opCore`), so there
+are no additional core-internal binds in this family.
 

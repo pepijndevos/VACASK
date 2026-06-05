@@ -79,7 +79,10 @@ bool HBCore::buildColocation(Status& s) {
     }
 
     // Build fd->td transform matrix from timepoints
-    buildTransformMatrix(IAPFT);
+    if (!buildTransformMatrix(IAPFT)) {
+        s.set(Status::CreationFailed, "Failed to build transform matrix.");
+        return false;
+    }
     
     // Number of cadidate rows
     auto ncand = IAPFT.nRows();

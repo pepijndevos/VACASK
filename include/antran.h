@@ -62,12 +62,16 @@ protected:
     
 private:
     IStruct<TranParameters> params;
-    OperatingPointCore opCore;
-    TranCore tranCore;
-    
+
+    // Declared before the cores so the references they bind in their init lists
+    // (jac, solution, states) refer to fully-constructed members. opCore precedes
+    // tranCore because tranCore binds a reference to opCore.
     KluRealMatrix jac; // Jacobian
     VectorRepository<double> solution; // Solution history
     VectorRepository<double> states; // Circuit states
+
+    OperatingPointCore opCore;
+    TranCore tranCore;
 };
 
 }

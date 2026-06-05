@@ -475,7 +475,7 @@ bool HBACCore::collectExcitations() {
                     continue;
                 }
 
-                excitations.push_back(std::move(Excitation(inst, {}, {})));
+                excitations.push_back(Excitation(inst, {}, {}));
                 for(decltype(nSpurs) i=0; i<nSpurs; i++) {
                     auto [ok, ndx] = spurs_.smsigFreqIndex(spurs[i]);
                     if (!ok) {
@@ -526,7 +526,7 @@ CoreCoroutine HBACCore::coroutine(bool continuePrevious) {
     omega.resize(nf);
     
     // Compute HB solution
-    errorFreq = -1;
+    // (errorFreq was already reset to -1 by clearError() at coroutine entry)
     if (params.hbParams.solve) {
         // Solve HB
         auto hbOk = hbCore_.run(continuePrevious);

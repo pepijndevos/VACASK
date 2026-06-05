@@ -66,9 +66,11 @@ protected:
     std::tuple<bool, bool> resolveHbSave(const PTSave& save, bool verify, Status& s=Status::ignore);
 
     IStruct<HBACParameters> params;
-    HBCore hbCore;
-    HBACCore hbacCore;
 
+    // Declared before the cores so the references they bind in their init lists
+    // (hbCore: jacColoc/jac/solution; hbacCore: jacSpec/hbSolution/acMatrix/acSolution)
+    // refer to fully-constructed members. hbCore precedes hbacCore because hbacCore
+    // binds a reference to hbCore.
     KluBlockSparseRealMatrix jacColoc;
     KluBlockSparseRealMatrix jac;
     VectorRepository<double> solution;
@@ -76,6 +78,9 @@ protected:
     VectorRepository<Complex> hbSolution;
     KluBlockSparseComplexMatrix acMatrix;
     Vector<Complex> acSolution;
+
+    HBCore hbCore;
+    HBACCore hbacCore;
 };
 
 }

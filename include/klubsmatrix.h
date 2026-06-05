@@ -177,8 +177,8 @@ protected:
 
     // TODO: make bucket static, resize when a larger one is requested
     // We need a block bucket because Jacobian load with offset could add an offset to bucket pointer
-    bool largeBucket_;
     ValueType* blockBucket_;
+    bool largeBucket_;
     Vector<ValueType> bucketStorage_;
     
 public:

@@ -984,8 +984,8 @@ bool HBCore::test() {
         std::cout << "\n";
         for(size_t i=0; i<n; i++) {
             if (
-                i==1 && std::abs(vvres[i]-mag)/norm>1e-12 ||
-                i!=1 && std::abs(vvres[i])/norm>1e-12
+                (i==1 && std::abs(vvres[i]-mag)/norm>1e-12) ||
+                (i!=1 && std::abs(vvres[i])/norm>1e-12)
             ) {
                 ok = false;
                 std::cout << "APFT failed\n";

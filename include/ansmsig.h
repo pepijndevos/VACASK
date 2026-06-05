@@ -100,12 +100,17 @@ protected:
     virtual void makeStateIncoherent(size_t ndx);
 
     IStruct<Parameters> params;
-    OperatingPointCore opCore;
-    CoreClass smsigCore;
-    
+
+    // Declared before the cores so the references they bind in their init lists
+    // (jac, solution, states) refer to fully-constructed members. opCore precedes
+    // smsigCore because smsigCore binds a reference to opCore. The DataMixin base
+    // members (acMatrix, acSolution, ...) are constructed before these and are safe.
     KluRealMatrix jac; // Resistive Jacobian
     VectorRepository<double> solution; // Solution history
     VectorRepository<double> states; // Circuit states
+
+    OperatingPointCore opCore;
+    CoreClass smsigCore;
 };
 
 template<typename CoreClass, typename DataMixin> 

@@ -174,10 +174,12 @@ private:
 
     OperatingPointCore& opCore_;
     NRSettings nrSettings;
+    // integCoeffs declared before nrSolver: nrSolver's init list binds a reference
+    // to it, so it must be fully constructed first.
+    IntegratorCoeffs integCoeffs;
     TranNRSolver nrSolver;
     CircularBuffer<double> pastTimesteps;
-    IntegratorCoeffs integCoeffs; 
-    IntegratorCoeffs predictorCoeffs; 
+    IntegratorCoeffs predictorCoeffs;
     CircularBuffer<double> breakPoints;
     double acceptedBoundStep;
     double acceptedHmax;
