@@ -177,7 +177,9 @@ bool vectorRange(RpnStack& stack, Rpn::Arity argc, Status& s) {
 
 std::mt19937_64 rng(0);
 
-// Arguments: length
+// randunif(n): real vector of length n filled with uniformly distributed
+// random numbers from [0, 1). Argument is a scalar, converted to a nonnegative
+// integer length.
 bool vectorRandUnif(RpnStack& stack, Rpn::Arity argc, Status& s) {
     DBGCHECK(stack.size()<argc, "Internal error. Attempt to get value from empty stack."); 
     // Collect arguments
@@ -214,7 +216,9 @@ bool vectorRandUnif(RpnStack& stack, Rpn::Arity argc, Status& s) {
     return true;
 }
 
-// Arguments: vec1, vec2, ...
+// interleave(v1, v2, ..., vn): interleave n numeric vectors of equal length into
+// one vector [v1[0], v2[0], ..., vn[0], v1[1], v2[1], ...]. Result length is
+// n*len. Element type is real if any argument is real, otherwise integer.
 bool vectorInterleave(RpnStack& stack, Rpn::Arity argc, Status& s) {
     DBGCHECK(stack.size()<argc, "Internal error. Attempt to get value from empty stack."); 
     // Get arguments, check them, get maximal type
@@ -279,7 +283,9 @@ bool vectorInterleave(RpnStack& stack, Rpn::Arity argc, Status& s) {
     return true;
 }
 
-// Arguments: vec1, vec2, ...
+// separate(v, n, i): extract the elements of vector v at indices i, i+n, i+2n, ...
+// (every n-th element starting at offset i). Requires n>=1 and 0<=i<n. The result
+// type matches v.
 bool vectorSeparate(RpnStack& stack, Rpn::Arity argc, Status& s) {
     DBGCHECK(stack.size()<argc, "Internal error. Attempt to get value from empty stack."); 
     // Get argument 0
@@ -308,7 +314,7 @@ bool vectorSeparate(RpnStack& stack, Rpn::Arity argc, Status& s) {
         s.set(Status::BadArguments, std::string("Failed to convert third argument to integer.")); 
         return false;
     }
-    auto offs = arg1->val<Int>();
+    auto offs = arg2->val<Int>();
     if (offs<0 || offs>=n) {
         s.set(Status::BadArguments, std::string("Third argument (offset) must be nonnegative and <step.")); 
         return false;

@@ -94,3 +94,6 @@ These functions operate on vectors. `min` and `max` also accept two scalar or ve
 | `range(to)` | Integer vector `[0, 1, ..., to-1]` |
 | `range(from, to)` | Integer vector `[from, from+1, ..., to-1]` |
 | `range(from, to, step)` | Vector from `from` to `to` (exclusive) with increment `step` |
+| `randunif(n)` | Real vector of length `n` filled with uniformly distributed random numbers from `[0, 1)` |
+| `interleave(v1, v2, ..., vn)` | Interleave `n` numeric vectors of equal length into `[v1[0], v2[0], ..., vn[0], v1[1], v2[1], ...]`. The result length is `n` times the input length; the element type is `real` if any input is `real`, otherwise `integer`. |
+| `separate(v, n, i)` | Extract the elements of vector `v` at indices `i, i+n, i+2n, ...` (every `n`-th element starting at offset `i`). Requires `n >= 1` and `0 <= i < n`. The result type matches `v`. |
