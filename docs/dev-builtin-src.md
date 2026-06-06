@@ -2,7 +2,7 @@
 
 Module names: `vsource`, `isource`
 
-`vsource` and `isource` are independent voltage and current sources. They share the same parameter set. The `type` parameter selects the transient waveform; `mag` and `phase` set the small-signal excitation used by AC and DC incremental analyses independently of the transient type.
+`vsource` and `isource` are independent voltage and current sources. They share the same parameter set. The `type` parameter selects the transient waveform. Small-signal excitation is set independently of the transient type.
 
 ## Terminals
 
@@ -23,9 +23,33 @@ Both devices have two terminals that must be connected: `p n`.
 |-----------|------|---------|-------------|
 | `type` | string | `"dc"` | Waveform type. One of `"dc"`, `"sine"`, `"pulse"`, `"exp"`, `"pwl"`, `"am"`, `"fm"`. |
 | `delay` | real | 0 | Start time (s). Before this time the source holds the value it would have at t = `delay`. |
-| `mag` | real | 0 | Small-signal excitation amplitude. For `vsource`: voltage in V. For `isource`: current per instance in A. |
-| `phase` | real | 0 | Small-signal excitation phase in degrees. |
 | `$mfactor` | real | 1 | Number of parallel instances. For `vsource` the voltage value is unaffected; for `isource` the total current scales with `$mfactor`. |
+
+## Small-Signal Excitation
+
+These parameters set the small-signal excitation for [DC incremental](cmd-analysis-dcinc.md) and
+[AC](cmd-analysis-ac.md) analyses, independently of the transient waveform type.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `mag` | real | 0 | Excitation amplitude. For `vsource`: voltage in V. For `isource`: current per instance in A. |
+| `phase` | real | 0 | Excitation phase in degrees. Used only in AC analysis; ignored by DC incremental. |
+
+## (Quasi)Periodic Small-Signal Excitation
+
+These parameters define the small-signal excitation injected by the source in
+[(quasi)periodic small-signal (hbac) analysis](cmd-analysis-hbac.md). They have no
+effect in AC or transient analysis.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `spur` | value list | `{}` | List of spurs at which the source injects excitation. Each entry is a real frequency (Hz) or an integer tone-weight vector $[k_1, k_2, \ldots]$. An empty list means no excitation. |
+| `smag` | real vector | `[]` | Excitation magnitudes, one per `spur` entry. If shorter than `spur`, missing entries default to 0. Extra entries are ignored. |
+| `sphase` | real vector | `[]` | Excitation phases in degrees, one per `spur` entry. If shorter than `spur`, missing entries default to 0. Extra entries are ignored. |
+
+For a single-tone circuit with one fundamental $f_1$, the entry `[1]` selects the first harmonic
+(i.e., $f_1$). For a two-tone circuit with fundamentals $f_1$ and $f_2$, the entry `[0,1]` selects
+the spur at $f_2$, and `[1,0]` selects $f_1$.
 
 ## Output variables
 

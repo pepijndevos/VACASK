@@ -21,59 +21,48 @@ analysis name hbac [parameters]
 3. At each small-signal input frequency $f$ it forms the conversion matrix. Each
    subblock $(n,m)$ couples unknown $m$ to circuit equation $n$ across all spurs:
 
-   $$H^{(nm)}_{kl}(f) = [G_{p(k,l)}]_{nm} + j\,\omega_k\,[C_{p(k,l)}]_{nm}, \qquad \omega_k = 2\pi(f + f_k)$$
+   $$H^{(nm)}_{kl}(f) = [G_{p(k,l)}]_{nm} + j\,(\omega_k + \omega)\,[C_{p(k,l)}]_{nm}, \qquad \omega_k = 2\pi f_k, \qquad \omega = 2 \pi f$$
 
    where $n$, $m$ are node indices, $k$, $l$ are spur (harmonic) indices,
    $f_k$ is the $k$-th spur frequency of the HB spectrum, and $G_{p(k,l)}$, $C_{p(k,l)}$
-   are the $p(k,l)$-th Fourier coefficients of the resistive and reactive Jacobians. $p(k,l)$ is the index of the Jacobian Fourier coefficient that converts input frequency $f_l$ to output frequency $f_k$. If no such index exists $G_{p(k,l)}$ and $C_{p(k,l)}$ are considered to be 0. 
+   are the Fourier coefficients of the resistive and reactive Jacobians. $p(k,l)$ is the index of the Jacobian Fourier coefficient that converts input frequency $f_l$ to output frequency $f_k$. If no such index exists $G_{p(k,l)}$ and $C_{p(k,l)}$ are considered to be 0. $f$ is the excitation's offset frequency. All small signal excitations share the same offset frequency. 
    
 4. It solves $H(f)\,X = U$, where $U$ is assembled from the `spur`, `smag`, and `sphase`
    parameters of independent sources.
 5. The selected output-spur rows of $X$ are written to the output file.
-6. Steps 3-5 are repeated across the frequency sweep.
+6. Steps 3-5 are repeated across the offset frequency sweep.
 
 ## Small-signal excitation
 
-Each independent source can inject small-signal excitation at one or more spur frequencies
-via the following instance parameters:
+Each independent source injects excitation at the spurs listed in its `spur` parameter,
+with magnitudes and phases given by `smag` and `sphase`. Sources with no `spur` entries
+contribute no excitation. See [(Quasi)Periodic Small-Signal Excitation](dev-builtin-src.md#quasiperiodic-small-signal-excitation)
+in the Independent Sources reference for the parameter details.
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `spur` | value list | `{}` | List of excitation spurs. Each entry is either a real spur frequency (Hz) or an integer vector of tone weights $[k_1, k_2, \ldots]$. |
-| `smag` | real vector | `[]` | Excitation magnitudes, one per entry in `spur`. Missing entries default to `0`. |
-| `sphase` | real vector | `[]` | Excitation phases in degrees, one per entry in `spur`. Missing entries default to `0`. |
-
-Sources with no `spur` entries contribute no small-signal excitation.
+The `mag` and `phase` parameters of independent sources are used by AC and DC incremental
+analyses and have no effect in `hbac`.
 
 ## Parameters
 
-`hbac` exposes all HB parameters and adds sweep and output control parameters.
+`hbac` exposes all HB parameters and adds output control parameters. Sweep parameters
+(`from`, `to`, `step`, `mode`, `points`, `values`) follow the same convention as in
+[AC Small-Signal Analysis](cmd-analysis-ac.md).
+
+The following parameters are inherited from [Harmonic Balance Analysis](cmd-analysis-hb.md)
+and have the same meaning: `freq`, `nharm`, `immax`, `truncate`,
+`samplefac`, `tstart`, `nper`, `sample`, `shift`, `nodeset`, `store`.
+When `hbsolve=1`, `freq` is required; the remaining inherited parameters have defaults.
+
+The following parameters are specific to `hbac`:
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `freq` | real vector | - | Fundamental frequencies (Hz). Required. |
-| `nharm` | integer or integer vector | `4` | Number of harmonics per fundamental. |
-| `immax` | integer | `0` | Maximum intermodulation order. If <= 0, defaults to the largest component of `nharm`. |
-| `truncate` | string | `"hybrid"` | Spectrum truncation: `"hybrid"`, `"diamond"`, `"box"`, or `"raw"`. |
-| `samplefac` | real | `5` | Oversampling factor for colocation timepoints. |
-| `tstart` | real | `0` | Starting time for the colocation point pool. Shifts the entire pool by this offset. |
-| `nper` | real | `1` | Number of lowest-frequency periods spanned by colocation timepoints. |
-| `sample` | string | `"uniform"` | Colocation sampling mode: `"uniform"`, `"random"`, or `"mixed"`. |
-| `shift` | real | `0.2` | Fractional shift between consecutive colocation points. |
-| `nodeset` | string | `""` | Name of a saved HB solution to use as the initial guess. |
-| `store` | string | `""` | Save the computed HB solution under the given name. |
 | `hbsolve` | boolean | `1` | Solve the HB operating point. Set to `0` to linearize at the nodeset without solving. |
 | `outspur` | real, integer vector, or list | `{}` | Output spur(s) to observe. Each list entry is a real frequency (Hz) or an integer tone-weight vector. Default `{}` selects all spurs. |
-| `from` | real | `0` | Start frequency (Hz). |
-| `to` | real | `0` | Stop frequency (Hz). |
-| `step` | real | `0` | Frequency step size (Hz) for a stepped linear sweep. |
-| `mode` | string | - | Sweep mode: `"lin"`, `"dec"`, or `"oct"`. |
-| `points` | integer | `0` | Number of points (total for `"lin"`, per decade for `"dec"`, per octave for `"oct"`). |
-| `values` | real vector | - | Explicit list of frequencies (Hz). Overrides `from`/`to`/`step`/`mode`/`points`. |
+| `maxharm` | integer or integer vector | `-1` | Truncate the conversion matrix to spurs whose tone weights satisfy $\lvert k_j \rvert \le \text{maxharm}_j$ for all $j$. Scalar applies to all tones. Negative: no truncation (use all spurs from the HB spectrum). |
+| `maxfreq` | real | `-1` | Truncate the conversion matrix to spurs whose absolute frequency does not exceed `maxfreq` (Hz). Negative: no truncation. |
 | `write` | boolean | `1` | Write the small-signal results to a file. |
 | `writehb` | boolean | `0` | Also write the HB operating point results to `<analysis>.hb.*`. |
-
-See [AC Small-Signal Analysis](cmd-analysis-ac.md) for a description of sweep modes.
 
 ## Save directives
 
@@ -99,16 +88,16 @@ operating point results and are written to `<analysis>.hb.*` when `writehb=1`.
 
 ## Output
 
-- A file `<analysis>.*` containing the small-signal results at each frequency point.
+- A file `<analysis>.*` containing the small-signal results at each offset frequency point.
 - If `writehb=1`, an additional `<analysis>.hb.*` file containing the HB operating point.
 
 | Variable | Description |
 |----------|-------------|
-| `frequency` | Small-signal input frequency sweep variable (Hz). Always present. |
+| `frequency` | Small-signal offset frequency sweep variable (Hz). Always present. |
 | `node;k1,k2,...` | Complex small-signal phasor at `node` for output spur with tone weights $[k_1, k_2, \ldots]$. One variable per saved node per output spur. |
 | `instance:flow(br);k1,k2,...` | Complex small-signal branch flow phasor for the output spur. |
 
-The actual frequency at which the response is observed for sweep frequency $f$ and output
+The actual frequency at which the response is observed for offset frequency $f$ and output
 spur with weights $[k_1, k_2, \ldots]$ is $f + k_1 f_1 + k_2 f_2 + \cdots$.
 
 ## Examples

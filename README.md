@@ -61,14 +61,13 @@ Yes we do. It is bundled with the binary packages. [The user's manual](docs/inde
 # What does VACASK offer? 
 
 - fully parameterized hierarchical circuit description with user defined global and ground nodes
-- conditional netlist blocks (@if-@elseif-@else-@end)
+- conditional netlist blocks (@if-@elseif-@else-@end) - can be used for implementing automated binning
 - RPN interpreter for parameterized expression evaluation
 - integer, real, and string data types; vectors (homogeneous containers) and lists (heterogeneous containers)
 - a library of [built-in functions and constants](lib/context.cpp) for use in parameterized expressions
 - all SPICE analyses + [many more](#supported-analyses)
 - [options](lib/options.cpp) for fine tuning the simulator
 - selection of what should be saved during simulation (save directives)
-- collection of output variables (OSDI opvars) computed by device models
 - [parametric sweep](include/answeep.h) of any analysis with arbitrary depth
 - almost anything can be swept (instance, model, and subcircuit parameters, options, and circuit variables)
 - anything that can be swept can also be modified without reloading the circuit (no need to build a new netlist and restart the simulator)
@@ -78,8 +77,8 @@ Yes we do. It is bundled with the binary packages. [The user's manual](docs/inde
 - inactive instances bypass in nonlinear solver (disabled by default, see the `nr_bypass`, `nr_convtol`, and `nr_bypasstol` options)
 - instance evaluation bypass in the first iteration of nonlinear solver running in continuation mode (enabled by default, see the `nr_contbypass` option)
 - several homotopy algorithms (SPICE3/adaptive gmin stepping and source stepping) for finding the operating point of problematic circuits
-- nodesets for improving convergence speed and selecting the operating point
-- analysis results can be used as nodesets for subsequent analyses (combined with circuit variable sweeps this feature can be used for implementing custom arc length homotopy algorithms at the netlist level)
+- nodesets for improving convergence speed and reusing/selecting the operating point
+- analysis results can be used as nodesets for subsequent analyses (combined with circuit variable sweeps this feature can be used for implementing custom homotopy algorithms at the netlist level)
 - setting initial conditions (Spectre style and legacy SPICE3 style)
 - backward Euler, trapezoidal, and Gear integration algorithms
 - predictor-corrector local truncation error control in transient analysis
@@ -116,6 +115,7 @@ VACASK is being developed by Árpád Bűrmen at the EDA Laboratory, University o
 |noise   |[small-signal noise analysis](docs/cmd-analysis-noise.md) |
 |tran    |[transient (time-domain) analysis](docs/cmd-analysis-tran.md) with optional [time-domain noise](docs/cmd-analysis-trannoise.md) |
 |hb      |[(multitone) harmonic balance analysis](docs/cmd-analysis-hb.md) |
+|hbac    |[(quasi)periodic small-signal analysis (harmonic balance-based)](docs/cmd-analysis-hbac.md) |
 
 
 # What about device models? 
