@@ -32,7 +32,7 @@ protected:
     virtual bool addCommonOutputDescriptor(const OutputDescriptor& desc);
     virtual bool addCoreOutputDescriptors(Status& s=Status::ignore);
     virtual bool resolveSave(const PTSave& save, bool verify, Status& s=Status::ignore);
-    virtual bool addDefaultOutputDescriptors();
+    virtual bool addDefaultOutputDescriptors(Status& s=Status::ignore);
     virtual void clearOutputDescriptors();
     virtual bool resolveOutputDescriptors(bool strict, Status& s=Status::ignore);
 

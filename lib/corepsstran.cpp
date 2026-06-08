@@ -540,15 +540,17 @@ static std::string pssIntegratorName(Id m) {
     return std::string(m);
 }
 
+// TODO: ????
 bool PssTranCore::addDefaultOutputDescriptors() {
+    Status s;
     if (Simulator::noOutput()) return true;
-    return addAllUnknowns(PTSave("default", Id(), Id()));
+    return addAllUnknowns(PTSave("default", Id(), Id()), s);
 }
 
 bool PssTranCore::initializeOutputs(Id name, Status& s) {
     if (!outfile) {
         outfile = new OutputRawfile(
-            std::string(name), outputDescriptors, outputSources,
+            std::string(name), outputSources,
             (circuit.simulatorOptions().core().rawfile == SimulatorOptions::rawfileBinary
                 ? OutputRawfile::Flags::Binary : OutputRawfile::Flags::None) |
             OutputRawfile::Flags::Padded);

@@ -37,8 +37,9 @@ bool Pss::addCommonOutputDescriptor(const OutputDescriptor& desc) {
     return pssCore_.addOutputDescriptor(desc);
 }
 
+// TODO: ???
 bool Pss::addCoreOutputDescriptors(Status& s) {
-    if (!pssCore_.addCoreOutputDescriptors()) {
+    if (!pssCore_.addCoreOutputDescriptors(s)) {
         pssCore_.formatError(s);
         return false;
     }
@@ -90,8 +91,8 @@ bool Pss::resolveSave(const PTSave& save, bool verify, Status& s) {
     return true;
 }
 
-bool Pss::addDefaultOutputDescriptors() {
-    return pssCore_.addDefaultOutputDescriptors();
+bool Pss::addDefaultOutputDescriptors(Status& s) {
+    return pssCore_.addDefaultOutputDescriptors(s);
 }
 
 bool Pss::initializeOutputs(Status& s) {

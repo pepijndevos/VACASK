@@ -140,6 +140,8 @@ public:
     // Format error, return false on error - this function is not cheap (works with strings)
     bool formatError(Status& s = Status::ignore) const;
     
+    bool addDefaultOutputDescriptors(Status& s);
+
     // Output descriptor proxy methods.
     // PSS output is produced by the shooting transient (pssTran_).  These
     // shadowing methods route all save directives directly to pssTran_ so

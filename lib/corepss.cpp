@@ -42,26 +42,32 @@ bool PssCore::addOutputDescriptor(const OutputDescriptor& desc) {
     return pssTran_.addOutputDescriptor(desc);
 }
 
+// TODO: remove
 bool PssCore::addAllUnknowns(const PTSave& save) {
-    return pssTran_.addAllUnknowns(save);
+    Status s;
+    return pssTran_.addAllUnknowns(save, s);
 }
 
 bool PssCore::addAllNodes(const PTSave& save) {
-    return pssTran_.addAllNodes(save);
+    Status s;
+    return pssTran_.addAllNodes(save, s);
 }
 
 bool PssCore::addNode(const PTSave& save) {
-    return pssTran_.addNode(save);
+    Status s;
+    return pssTran_.addNode(save, s);
 }
 
 bool PssCore::addFlow(const PTSave& save) {
-    return pssTran_.addFlow(save);
+    Status s;
+    return pssTran_.addFlow(save, s);
 }
 
 bool PssCore::addInstanceOutvar(const PTSave& save) {
-    return pssTran_.addInstanceOutvar(save);
+    Status s;
+    return pssTran_.addInstanceOutvar(save, s);
 }
-
+// end TODO remove
 
 PssCore::PssCore(
     OutputDescriptorResolver& parentResolver,
@@ -91,21 +97,28 @@ PssCore::~PssCore() {
     delete outfile;
 }
 
+// TODO: ??? 
 bool PssCore::rebuild(Status& s) {
     if (params.writestab) {
         params.stabilParams.write = 1;
-        stabilTran_.addCoreOutputDescriptors();
-        stabilTran_.addDefaultOutputDescriptors();
+        // stabilTran_.addCoreOutputDescriptors();
+        // stabilTran_.addDefaultOutputDescriptors();
         stabilTran_.resolveOutputDescriptors(false);
     }
     if (params.write) {
         params.shootParams.write = 1;
-        pssTran_.addCoreOutputDescriptors();
+        // pssTran_.addCoreOutputDescriptors();
         pssTran_.addDefaultOutputDescriptors();
         pssTran_.resolveOutputDescriptors(false);
         // Turn writing off for now, only write converged waveform
         params.shootParams.write = 0;
     }
+    return true;
+}
+
+// PSS core does not produce anything itself. 
+// This is just a dummy override sop this class is not abstract. 
+bool PssCore::addDefaultOutputDescriptors(Status& s) {
     return true;
 }
 
