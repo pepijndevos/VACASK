@@ -96,14 +96,14 @@ pss_ok = False
 
 # --- Stabilisation transient (always written) ---
 try:
-    stab = rawread('pssosc1_stabtran.raw').get()
+    stab = rawread('pssosc1.tran.raw').get()
     ts = np.real(stab['time'])
     vs = np.real(stab['vout'])
     V_final = np.max(np.abs(vs[-200:]))
     print(f"Stab: {len(ts)} points, final envelope ~{V_final:.4f} V "
           f"(expected ~{V_lc:.4f} V)")
 except FileNotFoundError:
-    print("pssosc1_stabtran.raw not found")
+    print("pssosc1.tran.raw not found")
 
 # --- PSS result ---
 try:

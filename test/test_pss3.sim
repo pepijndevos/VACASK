@@ -59,7 +59,7 @@ import sys
 # -------------------------------------------------------------------
 # Transient results
 # -------------------------------------------------------------------
-plot  = rawread('pss1_stabtran.raw').get()
+plot  = rawread('pss1.tran.raw').get()
 t     = plot['time']
 v1    = plot['1']
 i1    = -plot['v1:flow(br)']

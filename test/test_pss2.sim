@@ -65,7 +65,7 @@ import sys
 # -------------------------------------------------------------------
 # Transient results
 # -------------------------------------------------------------------
-plot  = rawread('pss1_stabtran.raw').get()
+plot  = rawread('pss1.tran.raw').get()
 t     = plot['time']
 vcol  = plot['col']
 

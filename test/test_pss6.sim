@@ -107,14 +107,14 @@ pss_ok = False
 
 # --- Stabilisation transient ---
 try:
-    stab = rawread('pss6_stabtran.raw').get()
+    stab = rawread('pss6.tran.raw').get()
     ts = np.real(stab['time'])
     vs = np.real(stab['vp'])
     last = vs[-200:]
     V_amp = 0.5 * (np.max(last) - np.min(last))
     print(f"Stab: {len(ts)} points, final amplitude V(vp) ~{V_amp:.4f} V")
 except FileNotFoundError:
-    print("pss6_stabtran.raw not found")
+    print("pss6.tran.raw not found")
     ts = vs = None
 
 # --- PSS result ---
