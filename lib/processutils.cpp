@@ -26,23 +26,32 @@ namespace bp2 = boost::process::v2;
 
 namespace NAMESPACE {
 
-bool findProgram(const std::string& prog, std::string& path) {
+bool findProgram(const std::string& prog, std::string& pathToProg) {
     static std::unordered_map<std::string, std::string> cache;
 
     // Try cache
     auto it = cache.find(prog);
     if (it!=cache.end()) {
-        path = it->second;
+        pathToProg = it->second;
         return true;
     } else {
-        // First look in the directory of the executable file
-        // Then look in the system path
-        if (findFile((std::filesystem::path(executableFile()).parent_path() / prog).string(), path)) {
-            cache.insert({prog, path});
+        // All calls to findFile() 
+        // - return original (not canonical) name 
+        // - do not check file size
+        if (std::filesystem::path(prog).is_absolute()) {
+            // Absolute path, check if the program exists
+            if (findFile(prog, pathToProg, false, false)) {
+                cache.insert({prog, pathToProg});
+                return true;
+            }
+        } else if (findFile((std::filesystem::path(executableFile()).parent_path() / prog).string(), pathToProg, false, false)) {
+            // Not absolute path, look in the directory of the simulator executable file
+            cache.insert({prog, pathToProg});
             return true;
-        } else if (auto [ok, sysPath] = findFileInSystemPath(prog); ok) {
-            path = std::move(sysPath);
-            cache.insert({prog, path});
+        } else if (auto [ok, sysPathToProg] = findFileInSystemPath(prog, false, false); ok) {
+            // Finally, look in the system path 
+            pathToProg = std::move(sysPathToProg);
+            cache.insert({prog, pathToProg});
             return true;
         } 
     }

@@ -9,17 +9,22 @@
 
 namespace NAMESPACE {
 
-// Try to find file only if absolute path to file is given
-bool findFile(const std::string& fileName, std::string& canonicalPath) {
+// Try to find file only if absolute path to file is given, used for sources
+// By default returns canonical file name. 
+// By default cheks file size if it is not too large. 
+bool findFile(const std::string& fileName, std::string& filePath, bool makeCanonical, bool checkSize) {
     try {
         // Absolute path to file given, ignore directory
         if (std::filesystem::path(fileName).is_absolute()) {
-            auto canonical = std::filesystem::canonical(fileName);
-            if (std::filesystem::exists(canonical)) {
-                if (std::filesystem::file_size(canonical)>std::numeric_limits<SourceColumnNumber>::max()) {
-                    throw std::length_error(std::string("Input file '")+canonical.string()+"' too big.");
+            if (std::filesystem::exists(fileName)) {
+                if (checkSize && std::filesystem::file_size(fileName)>std::numeric_limits<SourceColumnNumber>::max()) {
+                    throw std::length_error(std::string("Input file '")+fileName+"' too big.");
                 }
-                canonicalPath = std::move(canonical.string());
+                if (makeCanonical) {
+                    filePath = std::filesystem::canonical(fileName).string();
+                } else {
+                    filePath = fileName;
+                }
                 return true;
             } 
         } 
@@ -29,29 +34,33 @@ bool findFile(const std::string& fileName, std::string& canonicalPath) {
     }
 }
 
-bool findFile(const std::string& fileName, std::string& canonicalPath, const std::string& directory) {
+// Find file in given directory
+bool findFile(const std::string& fileName, std::string& filePath, const std::string& directory, bool makeCanonical, bool checkSize) {
     try {
         if (std::filesystem::path(fileName).is_absolute()) {
             // Absolute path to file given, ignore directory
-            return findFile(fileName, canonicalPath);
+            return findFile(fileName, filePath);
         } else {
             // Relative path, use given directory
             std::filesystem::path childPath;
             if (directory.size()>0) {
                 // Path has nonzero length, use it as starting point
-                childPath = std::filesystem::canonical(directory);
+                childPath = makeCanonical ? std::filesystem::canonical(directory) : std::filesystem::path(directory);
             } else {
                 // Zero length path, use current directory as starting point
-                auto childPath = std::filesystem::current_path();
+                childPath = std::filesystem::current_path();
             }
             // Add file name, see if it exists
             childPath /= fileName;
-            auto canonical = std::filesystem::canonical(childPath);
-            if (std::filesystem::exists(canonical)) {
-                if (std::filesystem::file_size(canonical)>std::numeric_limits<SourceColumnNumber>::max()) {
-                    throw std::length_error(std::string("Input file '")+canonical.string()+"' too big.");
+            if (std::filesystem::exists(childPath)) {
+                if (checkSize && std::filesystem::file_size(childPath)>std::numeric_limits<SourceColumnNumber>::max()) {
+                    throw std::length_error(std::string("Input file '")+childPath.string()+"' too big.");
                 }
-                canonicalPath = std::move(canonical.string());
+                if (makeCanonical) {
+                    filePath = std::filesystem::canonical(childPath).string();
+                } else {
+                    filePath = childPath.string();
+                }
                 return true;
             }
         }
@@ -61,20 +70,20 @@ bool findFile(const std::string& fileName, std::string& canonicalPath, const std
     }
 }
 
-std::tuple<bool, std::string> findFileInSystemPath(const std::string& fileName) {
+std::tuple<bool, std::string> findFileInSystemPath(const std::string& fileName, bool makeCanonical, bool checkSize) {
     for(auto& dir : LibPlatform::systemPath()) {
-        std::string canonicalPath;
-        if (findFile(fileName, canonicalPath, dir)) {
-            return std::make_tuple(true, canonicalPath);
+        std::string filePath;
+        if (findFile(fileName, filePath, dir, makeCanonical, checkSize)) {
+            return std::make_tuple(true, filePath);
         }
     }
     return std::make_tuple(false, "");
 }
 
 // Try list of directories, also handle absolute path
-bool findFile(const std::string& fileName, std::string& canonicalPath, const std::vector<std::string>& path) {
+bool findFile(const std::string& fileName, std::string& filePath, const std::vector<std::string>& path, bool makeCanonical, bool checkSize) {
     for(auto it=path.begin(); it!=path.end(); ++it) {
-        if (findFile(fileName, canonicalPath, *it))
+        if (findFile(fileName, filePath, *it, makeCanonical, checkSize))
             return true;
     }
     return false;

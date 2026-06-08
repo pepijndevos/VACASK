@@ -11,18 +11,18 @@
 namespace NAMESPACE {
 
 // Find file, try only if absolute path is given
-bool findFile(const std::string& fileName, std::string& canonicalPath);
+bool findFile(const std::string& fileName, std::string& canonicalPath, bool makeCanonical=true, bool checkSize=true);
 
 // Find file, return its canonical path
 // If absolute path is given try that (use previous function), else try to find file in given directory
 // Directory name of length 0 corresponds to current directory
-bool findFile(const std::string& fileName, std::string& canonicalPath, const std::string& directory);
+bool findFile(const std::string& fileName, std::string& canonicalPath, const std::string& directory, bool makeCanonical=true, bool checkSize=true);
 
 // Look for a file in a set of paths, use previous function to search one directory
-bool findFile(const std::string& fileName, std::string& canonicalPath, const std::vector<std::string>& path);
+bool findFile(const std::string& fileName, std::string& canonicalPath, const std::vector<std::string>& path, bool makeCanonical=true, bool checkSize=true);
 
 // Look for a file in system path
-std::tuple<bool, std::string> findFileInSystemPath(const std::string& fileName);
+std::tuple<bool, std::string> findFileInSystemPath(const std::string& fileName, bool makeCanonical=true, bool checkSize=true);
 
 // Read a specific line from a stream
 bool getLine(std::istream&, int line, std::string &destination);

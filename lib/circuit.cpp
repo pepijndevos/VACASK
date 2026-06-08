@@ -313,7 +313,8 @@ Circuit::Circuit(ParserTables& tab, SourceCompiler* compiler, Status& s)
 
             // Try current directory
             if (!found) {
-                found = findFile(fileName, canonicalPath, "");
+                // Call overload with string as 3rd argument, not bool
+                found = findFile(fileName, canonicalPath, std::string(""));
             }
 
             // Try osdi path if no success

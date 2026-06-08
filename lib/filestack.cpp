@@ -110,7 +110,8 @@ FileStackFileIndex FileStack::addFile(
         }
         
         // Try current directory (do not specify path)
-        if (findFile(fileName, canonical, "")) {
+        // Call overload with string as 3rd argument, not bool
+        if (findFile(fileName, canonical, std::string(""))) {
             stack.emplace_back(
                 fileName, 
                 "", 
