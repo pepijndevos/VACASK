@@ -540,20 +540,16 @@ static std::string pssIntegratorName(Id m) {
     return std::string(m);
 }
 
-// TODO: ????
-bool PssTranCore::addDefaultOutputDescriptors() {
-    Status s;
-    if (Simulator::noOutput()) return true;
-    return addAllUnknowns(PTSave("default", Id(), Id()), s);
-}
-
+// Override to change the output file name
 bool PssTranCore::initializeOutputs(Id name, Status& s) {
+    if (!params.write || Simulator::noOutput()) {
+        return true;
+    }
     if (!outfile) {
         outfile = new OutputRawfile(
-            std::string(name), outputSources,
-            (circuit.simulatorOptions().core().rawfile == SimulatorOptions::rawfileBinary
-                ? OutputRawfile::Flags::Binary : OutputRawfile::Flags::None) |
-            OutputRawfile::Flags::Padded);
+            name, outputSources,
+            (circuit.simulatorOptions().core().rawfile==SimulatorOptions::rawfileBinary ? OutputRawfile::Flags::Binary : OutputRawfile::Flags::None) |
+                OutputRawfile::Flags::Padded);
         outfile->setTitle(circuit.title());
         Id method = circuit.simulatorOptions().core().tran_method;
         outfile->setPlotname("Periodic Steady State " + pssIntegratorName(method));

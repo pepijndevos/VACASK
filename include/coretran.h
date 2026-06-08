@@ -170,6 +170,9 @@ protected:
     // Return false to abort the analysis.
     virtual bool onTimestepAccepted(double /*tSolve*/, double /*hk*/, Int /*order*/) { return true; }
 
+protected:
+    TranParameters& params;
+
 private:
     std::tuple<size_t, size_t, size_t> countNoiseSources() const;
     bool evalAndLoadWrapper(EvalSetup& evalSetup, LoadSetup& loadSetup);
@@ -193,8 +196,6 @@ private:
     double acceptedBoundStep;
     double acceptedHmax;
     
-    TranParameters& params;
-
     size_t nPoints;
     double tk;
     

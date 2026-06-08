@@ -28,28 +28,46 @@ Analysis* Pss::create(PTAnalysis& ptAnalysis, Circuit& circuit, Status& s) {
 void Pss::clearOutputDescriptors() {
     // Suppress operating-point output; the PSS trajectory is what is saved.
     params.core().opParams.write = 0;
+    opCore_.clearOutputDescriptors();
+    stabilTran_.clearOutputDescriptors();
+    pssTran_.clearOutputDescriptors();
     pssCore_.clearOutputDescriptors();
 }
 
 bool Pss::addCommonOutputDescriptor(const OutputDescriptor& desc) {
-    // Route common descriptors (e.g. from parameter sweeps) to pssCore_,
-    // which forwards them to the internal shooting transient.
-    return pssCore_.addOutputDescriptor(desc);
+    // Common output descriptor (i.e. sweep variables)
+    // opCore_ and pssCore_ output nothing
+    bool b2 = stabilTran_.addOutputDescriptor(desc);
+    bool b3 = pssTran_.addOutputDescriptor(desc);
+    return b2 && b3;
 }
 
-// TODO: ???
+// shootParams.write is not exposed directly because it is manipulated during shooting. 
+// Therefore it must be set to write so that descriptors are populated. 
+
 bool Pss::addCoreOutputDescriptors(Status& s) {
-    if (!pssCore_.addCoreOutputDescriptors(s)) {
-        pssCore_.formatError(s);
+    // Output descriptors that are specific to a core (i.e. time, frequency)
+    // opCore_ and pssCore_ output nothing
+    params.core().shootParams.write = params.core().write;
+    if (!stabilTran_.addCoreOutputDescriptors(s)) {
+        return false;
+    }
+    if (!pssTran_.addCoreOutputDescriptors(s)) {
         return false;
     }
     return true;
 }
 
 bool Pss::resolveOutputDescriptors(bool strict, Status& s) {
-    if (!pssCore_.resolveOutputDescriptors(strict, s)) {
+    // Resolve output descriptors into output sources
+    // opCore_ and pssCore_ output nothing
+    if (!stabilTran_.resolveOutputDescriptors(strict, s)) {
         if (strict) {
-            pssCore_.formatError(s);
+            return false;
+        }
+    }
+    if (!pssTran_.resolveOutputDescriptors(strict, s)) {
+        if (strict) {
             return false;
         }
     }
@@ -57,6 +75,8 @@ bool Pss::resolveOutputDescriptors(bool strict, Status& s) {
 }
 
 bool Pss::resolveSave(const PTSave& save, bool verify, Status& s) {
+    // Dispatch saves to cores - create output descriptors
+    // opCore_ and pssCore_ output nothing
     static const auto idDefault = Id("default");
     static const auto idFull    = Id("full");
     static const auto idV       = Id("v");
@@ -65,15 +85,20 @@ bool Pss::resolveSave(const PTSave& save, bool verify, Status& s) {
 
     bool st = true;
     if (save.typeName() == idDefault) {
-        st = pssCore_.addAllUnknowns(save);
+        st = stabilTran_.addAllUnknowns(save, s);
+        st = st && pssTran_.addAllUnknowns(save, s);
     } else if (save.typeName() == idFull) {
-        st = pssCore_.addAllNodes(save);
+        st = stabilTran_.addAllNodes(save, s);
+        st = st && stabilTran_.addAllNodes(save, s);
     } else if (save.typeName() == idV) {
-        st = pssCore_.addNode(save);
+        st = stabilTran_.addNode(save, s);
+        st = st && stabilTran_.addNode(save,s );
     } else if (save.typeName() == idI) {
-        st = pssCore_.addFlow(save);
+        st = stabilTran_.addFlow(save, s);
+        st = st && stabilTran_.addFlow(save, s);
     } else if (save.typeName() == idP) {
-        st = pssCore_.addInstanceOutvar(save);
+        st = stabilTran_.addInstanceOutvar(save, s);
+        st = st && stabilTran_.addInstanceOutvar(save, s);
     } else {
         if (verify) {
             s.set(Status::Save, std::string("Analysis does not support save directive."));
@@ -92,31 +117,36 @@ bool Pss::resolveSave(const PTSave& save, bool verify, Status& s) {
 }
 
 bool Pss::addDefaultOutputDescriptors(Status& s) {
-    return pssCore_.addDefaultOutputDescriptors(s);
+    // opCore_ and pssCore_ output nothing
+    params.core().shootParams.write = params.core().write;
+    auto s1 = stabilTran_.addDefaultOutputDescriptors(s);
+    auto s2 = pssTran_.addDefaultOutputDescriptors(s);
+    return s1 && s2;
 }
 
 bool Pss::initializeOutputs(Status& s) {
-    if (!pssCore_.initializeOutputs(name_, s)) {
-        pssCore_.formatError(s);
+    // opCore_ and pssCore_ output nothing
+    if (!stabilTran_.initializeOutputs(std::string(name_)+".tran", s)) {
+        return false;
+    }
+    if (!pssTran_.initializeOutputs(name_, s)) {
         return false;
     }
     return true;
 }
 
 bool Pss::finalizeOutputs(Status& s) {
-    auto ok = pssCore_.finalizeOutputs(s);
-    if (!ok) {
-        pssCore_.formatError(s);
-    }
-    return ok;
+    // opCore_ and pssCore_ output nothing
+    auto ok1 = stabilTran_.finalizeOutputs(s);
+    auto ok2 = pssTran_.finalizeOutputs(s);
+    return ok1 && ok2;
 }
 
 bool Pss::deleteOutputs(Status& s) {
-    auto ok = pssCore_.deleteOutputs(name_, s);
-    if (!ok) {
-        pssCore_.formatError(s);
-    }
-    return ok;
+    params.core().shootParams.write = params.core().write;
+    auto ok1 = stabilTran_.deleteOutputs(std::string(name_)+".tran", s);
+    auto ok2 = pssTran_.deleteOutputs(name_, s);
+    return ok1 && ok2;
 }
 
 std::tuple<bool, bool> Pss::preMapping(Status& s) {

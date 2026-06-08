@@ -13,7 +13,7 @@ Van der Pol LC oscillator - PSS convergence test
 //   f0 = 1 / (2*pi*sqrt(L*C)) = 1 / (2*pi*sqrt(1e-6*1e-9)) ~= 5.033 MHz
 //   T0 ~= 198.69 ns
 //
-// To kick the oscillation, ic=["1"; 0.9] sets V(1)=0.9 V at t=0.
+// To kick the oscillation, ic={"1", 0.9} sets V(1)=0.9 V at t=0.
 //
 // PSS parameters
 // --------------
@@ -57,14 +57,14 @@ control
   abort never
 
   options rawfile="binary" strictsave=1
-  options pss_debug=1
+  options pss_debug=2
   options pss_tolscale=1e-2
 
   save default
 
-  // ic=["1"; 0.9]: start stabilisation from V(1)=0.9V (away from the DC
+  // ic={"1", 0.9}: start stabilisation from V(1)=0.9V (away from the DC
   // fixed point at V=0) so the oscillation grows to the limit cycle.
-  analysis pss1 pss tper=200n tstab=5u ic=["1"; 0.9] writestab=1
+  analysis pss1 pss tper=200n tstab=5u ic={"1", 0.9} writestab=1
 
   postprocess(PYTHON, "runme.py")
 endc
@@ -80,7 +80,7 @@ V_exact  = np.sqrt(4.0 * 0.01 / (3.0 * 0.01))  # ~1.155 V
 T0_exact = 2 * np.pi * np.sqrt(1e-6 * 1e-9)
 
 # --- Stabilisation transient (always present) ---
-stab = rawread('pss1_stabtran.raw').get()
+stab = rawread('pss1.tran.raw').get()
 ts   = np.real(stab['time'])
 vs   = np.real(stab['1'])
 V_final = np.max(np.abs(vs[-200:]))

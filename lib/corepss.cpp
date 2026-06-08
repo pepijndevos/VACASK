@@ -19,55 +19,12 @@ template<> int Introspection<PssParameters>::setup() {
     registerMember(tstab);
     registerMember(maxacfreq);
     registerMember(write);
-    registerMember(writestab);
     registerMember(ic);
+    registerNamedMember(stabilParams.write, "writestab");
     registerNamedMember(opParams.nodeset, "nodeset");
     return 0;
 }
 instantiateIntrospection(PssParameters);
-
-
-// ----------------------------------------------------------------
-// PssCore output descriptor proxies
-// ----------------------------------------------------------------
-
-void PssCore::clearOutputDescriptors() {
-    AnalysisCore::clearOutputDescriptors();
-    opCore_.clearOutputDescriptors();
-    stabilTran_.clearOutputDescriptors();
-    pssTran_.clearOutputDescriptors();
-}
-
-bool PssCore::addOutputDescriptor(const OutputDescriptor& desc) {
-    return pssTran_.addOutputDescriptor(desc);
-}
-
-// TODO: remove
-bool PssCore::addAllUnknowns(const PTSave& save) {
-    Status s;
-    return pssTran_.addAllUnknowns(save, s);
-}
-
-bool PssCore::addAllNodes(const PTSave& save) {
-    Status s;
-    return pssTran_.addAllNodes(save, s);
-}
-
-bool PssCore::addNode(const PTSave& save) {
-    Status s;
-    return pssTran_.addNode(save, s);
-}
-
-bool PssCore::addFlow(const PTSave& save) {
-    Status s;
-    return pssTran_.addFlow(save, s);
-}
-
-bool PssCore::addInstanceOutvar(const PTSave& save) {
-    Status s;
-    return pssTran_.addInstanceOutvar(save, s);
-}
-// end TODO remove
 
 PssCore::PssCore(
     OutputDescriptorResolver& parentResolver,
@@ -97,22 +54,8 @@ PssCore::~PssCore() {
     delete outfile;
 }
 
-// TODO: ??? 
+// TODO: ??? this needs checking
 bool PssCore::rebuild(Status& s) {
-    if (params.writestab) {
-        params.stabilParams.write = 1;
-        // stabilTran_.addCoreOutputDescriptors();
-        // stabilTran_.addDefaultOutputDescriptors();
-        stabilTran_.resolveOutputDescriptors(false);
-    }
-    if (params.write) {
-        params.shootParams.write = 1;
-        // pssTran_.addCoreOutputDescriptors();
-        pssTran_.addDefaultOutputDescriptors();
-        pssTran_.resolveOutputDescriptors(false);
-        // Turn writing off for now, only write converged waveform
-        params.shootParams.write = 0;
-    }
     return true;
 }
 
@@ -206,6 +149,9 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
     // }
     // co_yield CoreState::Finished;
     clearError();
+
+    // Disable shooting transient output
+    params.shootParams.write = 0;
 
     auto& options = circuit.simulatorOptions().core();
     auto debug = options.pss_debug;
@@ -397,15 +343,9 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
         Simulator::dbg() << ss.str();
     }
 
-    // If write is enabled, write the obtained PSS solution
-    if (params.write && !Simulator::noOutput()) {
-        params.shootParams.write = 1;
-        if (!pssTran_.initializeOutputs(name_, s)) {
-            setError(PssError::OutputError);
-            // This is not a PSS failure, Core is finished, not aborted
-            co_yield CoreState::Finished;
-        }
-    }
+    // Enable writing for last run of shooting transient
+    params.shootParams.write = params.write;
+    
     solution.vector() = x0;
     pssTran_.setShootIC(x0);
     pssTran_.clearTrajectory(T0);
@@ -461,8 +401,7 @@ bool PssCore::runStabilisation(Status& s) {
         params.stabilParams.maxstep = hmax;
         params.stabilParams.step    = std::min(params.stabilParams.step, hmax);
     }
-    params.stabilParams.write   = params.writestab;
-
+    
     // icmode and ic were forwarded to stabilParams in Pss::preMapping().
     // If no IC was given, run the DC operating point now.
     bool hasIc = (params.ic.type() == Value::Type::ValueVec);
@@ -474,19 +413,9 @@ bool PssCore::runStabilisation(Status& s) {
         }
     }
 
-    bool writeStab = params.writestab && !Simulator::noOutput();
-    Id stabName = Id(std::string(name_) + "_stabtran");
-    if (writeStab) {
-        if (!stabilTran_.initializeOutputs(stabName, s)) {
-            return false;
-        }
-    }
     if (!stabilTran_.run(false)) {
         stabilTran_.formatError(s);
         return false;
-    }
-    if (writeStab) {
-        stabilTran_.finalizeOutputs(s);
     }
     return true;
 }

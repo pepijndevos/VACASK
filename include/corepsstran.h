@@ -82,7 +82,6 @@ public:
         VectorRepository<double>& states
     );
 
-    bool addDefaultOutputDescriptors();
     bool initializeOutputs(Id name, Status& s = Status::ignore);
 
     // Hides TranCore::rebuild().  Calls TranCore::rebuild() then rebuilds
