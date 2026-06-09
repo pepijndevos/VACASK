@@ -87,7 +87,7 @@ std::tuple<bool, bool> GminStepping::run() {
             }
 
             // Store point
-            core.storeState(stateNdx, false);
+            core.storeState(stateNdx);
             goodGmin = atGmin;
             
             // Solved with a few iterations

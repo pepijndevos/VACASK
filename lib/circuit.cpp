@@ -1439,25 +1439,23 @@ bool Circuit::evalAndLoad(CommonData& commons, EvalSetup* evalSetup, LoadSetup* 
     return retval;
 }
 
-AnnotatedSolution* Circuit::newStoredSolution(Id typeCode, Id name) {
+AnnotatedSolution& Circuit::newStoredSolution(Id name) {
     AnnotatedSolution* ptr;
-    auto it = solutionRepository.find({typeCode, name});
+    auto it = solutionRepository.find(name);
     if (it==solutionRepository.cend()) {
         // Not there, create
-        auto key = std::make_pair(typeCode, name);
-        auto [it, inserted] = solutionRepository.insert({key, AnnotatedSolution()});
-        ptr = &(it->second);
-    } else {
-        // Already there
-        ptr = &(it->second);
+        auto [it, inserted] = solutionRepository.insert({name, AnnotatedSolution()});
+        it->second.clear();
+        return it->second;
     }
-
-    return ptr;
+    // Already there
+    it->second.clear();
+    return it->second;
 }
 
-AnnotatedSolution* Circuit::storedSolution(Id typeCode, Id name) {
+AnnotatedSolution* Circuit::storedSolution(Id name) {
     AnnotatedSolution* ptr;
-    auto it = solutionRepository.find({typeCode, name});
+    auto it = solutionRepository.find({name});
     if (it==solutionRepository.cend()) {
         return nullptr;
     } else {

@@ -9,6 +9,8 @@
 
 namespace NAMESPACE {
 
+Id OperatingPointCore::solutionTag = Id::createStatic("op");
+
 // Default parameters
 OperatingPointParameters::OperatingPointParameters() {
 }
@@ -102,9 +104,11 @@ bool OperatingPointCore::finalizeOutputs(Status &s) {
 
     // Write DC solution to repository if analysis is OK
     if (converged_ && params.store.length()>0) {
-        auto sol = circuit.newStoredSolution("dc", params.store);
-        sol->setNames(circuit);
-        sol->setValues(solution.vector());
+        auto& sol = circuit.newStoredSolution(params.store);
+        sol.setTypeTag(solutionTag);
+        sol.setNames(circuit);
+        sol.setValues(solution.vector());
+        // Do not store states
     }
 
     return true;
@@ -122,18 +126,13 @@ bool OperatingPointCore::deleteOutputs(Id name, Status &s) {
     }
     return true;
 }
-    
-bool OperatingPointCore::storeState(size_t ndx, bool storeDetails) {
+
+bool OperatingPointCore::storeState(size_t ndx) {
     auto& repo = coreStates.at(ndx);
-    // Store current solution as annotated solution
-    if (storeDetails) {
-        repo.solution.setNames(circuit);
-    } else {
-        repo.solution.clearNames();
-    }
+    repo.solution.setTypeTag(solutionTag);
+    repo.solution.setNames(circuit);
     repo.solution.setValues(solution.vector());
-    // Store current state
-    repo.solution.setOpStates(states.vector());
+    repo.solution.setAuxRealVector(states.vector());
     // Stored state is coherent and valid
     repo.coherent = true;
     repo.valid = true;
@@ -141,6 +140,7 @@ bool OperatingPointCore::storeState(size_t ndx, bool storeDetails) {
 }
 
 bool OperatingPointCore::restoreState(size_t ndx) {
+    // States are op states for sure, no need to check
     auto& state = coreStates.at(ndx);
     if (state.valid) {
         // State is valid
@@ -237,8 +237,8 @@ bool OperatingPointCore::rebuild(Status& s) {
         String& solutionName = params.nodeset.val<String>();
         if (solutionName.length()>0) {
             // Get solution from repository
-            auto solPtr = circuit.storedSolution("dc", solutionName);
-            if (!solPtr) {
+            auto solPtr = circuit.storedSolution(solutionName);
+            if (!solPtr || solPtr->typeTag()!=solutionTag) {
                 // No nodesets
                 nrSolver.forces(1).clear();
                 Simulator::wrn() << "Warning, solution '"+solutionName+"' not found. No user nodesets applied.\n";
@@ -293,14 +293,15 @@ std::tuple<bool, bool> OperatingPointCore::runSolver(bool continuePrevious) {
         // Continue mode
         if (continueState &&
             continueState->valid && continueState->coherent &&
+            continueState->solution.typeTag()==solutionTag &&
             continueState->solution.values().size()==circuit.unknownCount()+1 &&
-            continueState->solution.opStates().size()==circuit.statesCount() 
+            continueState->solution.auxRealVector().size()==circuit.statesCount() 
         ) {
             // Continue a state
             // State is valid, coherent, and its lengths match those of the solver vectors
             // Restore current state
             solution.vector() = continueState->solution.values();
-            states.vector() = continueState->solution.opStates();
+            states.vector() = continueState->solution.auxRealVector();
             runInContinueMode = true;
             // No forces applied
             nrSolver.enableForces(0, false);
@@ -310,7 +311,10 @@ std::tuple<bool, bool> OperatingPointCore::runSolver(bool continuePrevious) {
             }
             // Use forced bypass if allowed
             commons.requestForcedBypass = commons.allowContinueStateBypass;
-        } else if (continueState && continueState->valid) {
+        } else if (
+            continueState && continueState->valid && 
+            continueState->solution.typeTag()==solutionTag
+        ) {
             // Stored analysis state is valid, but not coherent with current circuit, 
             // its lengths may not match those of the solver vectors. 
             // Use forces to continue, but set no initial states vector nor initial solution. 

@@ -468,10 +468,10 @@ public:
     void dumpDeviceCounts(int indent, std::ostream& os) const;
 
     // Create a new stored solution, if exists, return existing solution
-    AnnotatedSolution* newStoredSolution(Id typeCode, Id name);
+    AnnotatedSolution& newStoredSolution(Id name);
 
     // Return existing solution, if not found return nullptr
-    AnnotatedSolution* storedSolution(Id typeCode, Id name);
+    AnnotatedSolution* storedSolution(Id name);
     
     ParserTables& tables() { return tables_; };
 
@@ -586,7 +586,7 @@ private:
     IStruct<SimulatorOptions> simOptions;
 
     // Annotated solutions (for nodesets, ics, and hb-assisted hb)
-    std::unordered_map<std::pair<Id, Id>, AnnotatedSolution> solutionRepository;
+    std::unordered_map<Id, AnnotatedSolution> solutionRepository;
 
     template<typename T> bool singleSetterHelper(Id name, Id param, const Value& v, Status& s, const char* failMsg);
     template<typename T> bool groupSetterHelper(Id name, const PTParameters& params, Status& s, const char* failMsg);

@@ -427,8 +427,8 @@ bool TranCore::rebuild(Status& s) {
         String& solutionName = icParam.val<String>();
         if (solutionName.length()>0) {
             // Get solution from repository
-            auto solPtr = circuit.storedSolution("dc", solutionName);    
-            if (!solPtr) {
+            auto solPtr = circuit.storedSolution(solutionName);    
+            if (!solPtr || solPtr->typeTag()!=OperatingPointCore::solutionTag) {
                 // No initial conditions 
                 opCore_.solver().forces(2).clear();
                 if (params.icmode==icmodeOp) {
@@ -508,9 +508,10 @@ bool TranCore::finalizeOutputs(Status& s) {
     
     // Write DC solution to repository if analysis is OK
     if (finished && params.store.length()>0) {
-        auto sol = circuit.newStoredSolution("dc", params.store);
-        sol->setNames(circuit);
-        sol->setValues(solution.vector());
+        auto& sol = circuit.newStoredSolution(params.store);
+        sol.setTypeTag(OperatingPointCore::solutionTag);
+        sol.setNames(circuit);
+        sol.setValues(solution.vector());
     }
 
     return true;
@@ -861,8 +862,8 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
             String& solutionName = icParam.val<String>();
             if (solutionName.length()>0) {
                 // Get solution from repository
-                auto solPtr = circuit.storedSolution("dc", solutionName);    
-                if (solPtr) {
+                auto solPtr = circuit.storedSolution(solutionName);    
+                if (solPtr && solPtr->typeTag()==OperatingPointCore::solutionTag) {
                     if (!nrSolver.setForces(2, *solPtr, strictforce)) {
                         // Abort on error if strictforce is set
                         if (strictforce) {

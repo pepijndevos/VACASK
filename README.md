@@ -114,6 +114,7 @@ VACASK is being developed by Árpád Bűrmen at the EDA Laboratory, University o
 |acsp    |[small-signal AC S-parameter analysis](docs/cmd-analysis-acsp.md) |
 |noise   |[small-signal noise analysis](docs/cmd-analysis-noise.md) |
 |tran    |[transient (time-domain) analysis](docs/cmd-analysis-tran.md) with optional [time-domain noise](docs/cmd-analysis-trannoise.md) |
+|pss     |[periodic steady-state with shooting (Newton's method)]() |
 |hb      |[(multitone) harmonic balance analysis](docs/cmd-analysis-hb.md) |
 |hbac    |[(quasi)periodic small-signal analysis (harmonic balance-based)](docs/cmd-analysis-hbac.md) |
 

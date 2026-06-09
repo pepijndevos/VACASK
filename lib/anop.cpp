@@ -124,8 +124,8 @@ void OperatingPoint::deallocateAnalysisStateStorage(size_t n) {
     core.deallocateStateStorage(n);
 }
 
-bool OperatingPoint::storeState(size_t ndx, bool storeDetails) {
-    return core.storeState(ndx, storeDetails);
+bool OperatingPoint::storeState(size_t ndx) {
+    return core.storeState(ndx);
 }
 
 bool OperatingPoint::restoreState(size_t ndx) {

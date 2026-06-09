@@ -238,7 +238,7 @@ protected:
     
     // Store analysis state in internal repository 
     // Used for homotopy and sweeps
-    virtual bool storeState(size_t ndx, bool storeDetails=true) { return true; };
+    virtual bool storeState(size_t ndx) { return true; };
 
     // Restore analysis state from internal repository 
     // Used for homotopy and sweeps

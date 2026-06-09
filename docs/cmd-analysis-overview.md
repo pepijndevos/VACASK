@@ -37,3 +37,16 @@ where $x_0$ is the operating point. $J_r$ captures resistive behavior (conductan
 | [Transient noise](cmd-analysis-trannoise.md) | `tran` | Integrates the circuit equations over time, takes device noise into account. |
 | [Harmonic Balance](cmd-analysis-hb.md) | `hb` | Computes the periodic steady-state response in the frequency domain. |
 | [(Quasi)Periodic Small-Signal (Harmonic Balance-based)](cmd-analysis-hbac.md) | `hbac` | Sweeps frequency and computes the small-signal response around a harmonic balance operating point. |
+
+## Stored solutions
+
+Several analyses can save their computed solution under a name (the `store` parameter) so that a later analysis can reuse it as a nodeset or as initial conditions (the `nodeset` or `ic` parameter). Stored solutions live in a single namespace that is shared across the whole control block and keyed by name only; it is not partitioned per analysis.
+
+Because the namespace is shared and keyed by name, the same name can be used by different analyses, but it refers to one slot. Storing under a name that already exists overwrites the previous contents, regardless of which analysis wrote it. Pick distinct names when you need to keep several solutions available at once.
+
+Each stored solution carries a type tag identifying the analysis family that produced it, and an analysis accepts a stored solution only when the tag matches what it expects:
+
+- Time- and DC-domain analyses (operating point, transient, and the small-signal analyses that build on an operating point) produce and consume `op`-tagged solutions.
+- Harmonic balance produces `hb`-tagged solutions, consumed by harmonic balance and the harmonic-balance-based small-signal analysis.
+
+The two families are therefore not interchangeable: a harmonic balance solution cannot be used as the nodeset for an operating point, even if the names match. A name lookup that resolves to a solution with the wrong tag is rejected as if no stored solution were found.

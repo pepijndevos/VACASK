@@ -60,7 +60,7 @@ protected:
     virtual size_t analysisStateStorageSize() const;
     virtual size_t allocateAnalysisStateStorage(size_t n);
     virtual void deallocateAnalysisStateStorage(size_t n=0);
-    virtual bool storeState(size_t ndx, bool storeDetails=true);
+    virtual bool storeState(size_t ndx);
     virtual bool restoreState(size_t ndx);
     virtual void makeStateIncoherent(size_t ndx);
 

@@ -85,7 +85,7 @@ public:
     bool finalizeOutputs(Status& s=Status::ignore);
     bool deleteOutputs(Id name, Status& s=Status::ignore);
 
-    virtual bool storeState(size_t ndx, bool storeDetails=true);
+    virtual bool storeState(size_t ndx);
     virtual bool restoreState(size_t ndx);
     
     virtual std::tuple<bool, bool> runSolver(bool continuePrevious);
@@ -96,6 +96,8 @@ public:
     OpNRSolver& solver() { return nrSolver; }; 
 
     void dump(std::ostream& os) const;
+
+    static Id solutionTag;
 
 protected:
     // Clear error

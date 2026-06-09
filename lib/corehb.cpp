@@ -9,6 +9,8 @@
 
 namespace NAMESPACE {
 
+Id HBCore::solutionTag = Id::createStatic("hb");
+
 Id HBCore::truncateBox = Id::createStatic("box");
 Id HBCore::truncateDiamond = Id::createStatic("diamond");
 Id HBCore::truncateHybrid = Id::createStatic("hybrid");
@@ -155,10 +157,12 @@ bool HBCore::finalizeOutputs(Status& s) {
 
     // Write solution to repository if analysis is OK
     if (converged_ && params.store.length()>0) {
-        auto sol = circuit.newStoredSolution("hb", params.store);
-        sol->setNames(circuit);
-        sol->setCxValues(solutionFD);
-        sol->setHBAuxData(spurs_, timepoints);
+        auto& sol = circuit.newStoredSolution(params.store);
+        sol.setTypeTag(solutionTag);
+        sol.setNames(circuit);
+        sol.setCxValues(solutionFD);
+        sol.setSpurs(spurs_);
+        sol.setAuxRealVector(timepoints);
     }
     return true;
 }
@@ -176,20 +180,19 @@ bool HBCore::deleteOutputs(Id name, Status& s) {
     return true;
 }
 
-bool HBCore::storeState(size_t ndx, bool storeDetails) {
+bool HBCore::storeState(size_t ndx) {
     auto& repo = coreStates.at(ndx);
+    repo.solution.setTypeTag(solutionTag);
+
     // Store current solution as annotated solution
-    if (storeDetails) {
-        repo.solution.setNames(circuit);
-    } else {
-        repo.solution.clearNames();
-    }
+    repo.solution.setNames(circuit);
     
     // Store solution in frequency domain (complex spectrum)
     repo.solution.setCxValues(solutionFD);
     
     // Store frequencies
-    repo.solution.setHBAuxData(spurs_, timepoints);
+    repo.solution.setSpurs(spurs_);
+    repo.solution.setAuxRealVector(timepoints);
     
     // Stored state is coherent and valid
     repo.coherent = true;
@@ -518,7 +521,7 @@ bool HBCore::rebuild(Status& s) {
     String& solutionName = params.nodeset;
     if (solutionName.length()>0) {
         // Get solution from repository
-        solPtr = circuit.storedSolution("hb", solutionName);
+        solPtr = circuit.storedSolution(solutionName);
     }
 
     if (params.solve) {
@@ -538,16 +541,16 @@ bool HBCore::rebuild(Status& s) {
         }
     } else {
         // Assume grid, colocation, and APFT are obtained from nodeset
-        if (!solPtr) {
+        if (!solPtr || solPtr->typeTag()!=solutionTag) {
             s.set(Status::NotFound, "Nodeset not found.");
             return false;
         }
 
         // Copy spurs
-        spurs_ = Spurs(solPtr->hbSpurs());
+        spurs_ = Spurs(solPtr->spurs());
 
         // Copy colocation
-        timepoints = solPtr->hbTimepoints();
+        timepoints = solPtr->auxRealVector();
 
         // Need APFT for transforming time-domain Jacobian to frequency-domain Jacobian
         if (!buildAPFT(s)) {
@@ -630,8 +633,9 @@ std::tuple<bool, bool> HBCore::runSolver(bool continuePrevious) {
         // Continue mode
         if (continueState &&
             continueState->valid && continueState->coherent &&
+            continueState->solution.typeTag()==solutionTag &&
             continueState->solution.cxValues().size()==circuit.unknownCount()*spurs_.spectrum().size() &&
-            continueState->solution.hbSpurs().spectrum().size()==spurs_.spectrum().size()
+            continueState->solution.spurs().spectrum().size()==spurs_.spectrum().size()
         ) {
             // Continue a state
             // State is valid, coherent, and its lengths match those of the solver vectors
@@ -662,7 +666,10 @@ std::tuple<bool, bool> HBCore::runSolver(bool continuePrevious) {
             }
             // Forced bypass is not allowed
             commons.requestForcedBypass = false;
-        } else if (continueState && continueState->valid) {
+        } else if (
+            continueState && continueState->valid &&
+            continueState->solution.typeTag()==solutionTag
+        ) {
             // Continue a state
             // Stored analysis state is valid, but not coherent with current circuit, 
             // its lengths may not match those of the solver vectors. 

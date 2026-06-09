@@ -87,7 +87,7 @@ public:
     bool buildColocation(Status& s=Status::ignore);
     bool buildAPFT(Status& s=Status::ignore);
 
-    virtual bool storeState(size_t ndx, bool storeDetails=true);
+    virtual bool storeState(size_t ndx);
     virtual bool restoreState(size_t ndx);
     
     virtual std::tuple<bool, bool> runSolver(bool continuePrevious);
@@ -111,6 +111,8 @@ public:
     static bool test();
 
     Spurs& spurs() { return spurs_; };
+
+    static Id solutionTag;
 
 protected:
     // Clear error
