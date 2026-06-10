@@ -16,6 +16,7 @@ Options are organized into the following groups. Each is documented in its own s
 | [**Operating point**](cmd-options-op.md) | `op_*` options |
 | [**Small-signal analyses**](cmd-options-smsig.md) | `smsig_*` options |
 | [**Transient analysis**](cmd-options-tran.md) | `tran_*` options |
+| [**Periodic steady state**](cmd-options-pss.md) | `pss_*` options |
 | [**Harmonic balance**](cmd-options-hb.md) | `hb_*` options |
 | [**Output and sweep**](cmd-options-output.md) | `rawfile`, `strictoutput`, `strictsave`, `sweep_*`, `accounting` |
 

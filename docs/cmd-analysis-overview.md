@@ -13,7 +13,9 @@ where $x$ is the vector of circuit unknowns (node voltages and branch currents),
 - **Operating point** sets $\frac{d}{dt} q = 0$ and solves $g(x) = 0$.
 - **Transient** approximates $\frac{d}{dt} q$ with a numerical integration formula and solves the resulting algebraic system at each timestep.
 - **Harmonic balance** assumes $x(t)$ is almost periodic and solves for its complex spectrum directly in the frequency domain.
+- **Periodic steady state (shooting)** integrates the circuit equations over one period and solves $x(0) = x(T)$ with Newton iteration in the time domain.
 - **DC and AC Small-signal analyses** linearize $g$ and $q$ at the operating point to obtain the resistive and reactive Jacobians $J_r$ and $J_c$.
+- **(Quasi)periodic small-signal analysis** linearizes $g$ and $q$ along the (quasi)periodic steady state computed by harmonic balance and solves the resulting conversion matrix at each small-signal frequency.
 
 The Jacobian matrices are defined as
 
@@ -35,6 +37,7 @@ where $x_0$ is the operating point. $J_r$ captures resistive behavior (conductan
 | [Small-Signal Noise](cmd-analysis-noise.md) | `noise` | Computes small-signal noise spectral densities referred to a chosen output or input. |
 | [Transient](cmd-analysis-tran.md) | `tran` | Integrates the circuit equations over time. |
 | [Transient noise](cmd-analysis-trannoise.md) | `tran` | Integrates the circuit equations over time, takes device noise into account. |
+| [Periodic Steady-State](cmd-analysis-pss.md) | `pss` | Computes the periodic steady-state response in the time domain with the shooting Newton method; for autonomous circuits also finds the oscillation period. |
 | [Harmonic Balance](cmd-analysis-hb.md) | `hb` | Computes the periodic steady-state response in the frequency domain. |
 | [(Quasi)Periodic Small-Signal (Harmonic Balance-based)](cmd-analysis-hbac.md) | `hbac` | Sweeps frequency and computes the small-signal response around a harmonic balance operating point. |
 

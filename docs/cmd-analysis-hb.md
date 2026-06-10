@@ -151,6 +151,7 @@ plt.show()
 ## See also
 
 - [(Quasi)Periodic Small-Signal Analysis (Harmonic Balance-based)](cmd-analysis-hbac.md)
+- [Periodic Steady-State Analysis](cmd-analysis-pss.md) — time-domain (shooting) periodic steady-state analysis.
 
 ## Options
 
