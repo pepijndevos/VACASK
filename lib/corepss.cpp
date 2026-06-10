@@ -17,6 +17,7 @@ template<> int Introspection<PssParameters>::setup() {
     registerMember(driven);
     registerMember(tper);
     registerMember(tstab);
+    registerMember(stabstep);
     registerMember(maxacfreq);
     registerMember(write);
     registerMember(ic);
@@ -45,16 +46,10 @@ PssCore::PssCore(
     opCore_(opCore),
     stabilTran_(stabilTran),
     pssTran_(pssTran),
-    outfile(nullptr),
     T0_converged_(0.0)
 {
 }
 
-PssCore::~PssCore() {
-    delete outfile;
-}
-
-// TODO: ??? this needs checking
 bool PssCore::rebuild(Status& s) {
     return true;
 }
@@ -97,20 +92,40 @@ bool PssCore::formatError(Status& s) const {
                   "PSS failed to converge in " +
                   std::to_string(circuit.simulatorOptions().core().pss_itl) + " iterations.");
             return false;
-        case PssError::StabilisationFailed:
-            s.set(Status::Analysis, "PSS stabilisation transient failed.");
-            return false;
-        case PssError::ShootFailed:
-            s.set(Status::Analysis, "PSS shooting transient failed.");
-            return false;
         case PssError::SensitivityFailed:
-            s.set(Status::Analysis, "PSS sensitivity integration failed.");
+            // Format pssTran_ error, add message
+            pssTran_.formatError(s);
+            s.extend("PSS sensitivity integration failed.");
+            return false;
+        case PssError::AdjointFailed:
+            s.set(Status::Analysis, "Adjoint monodromy computation failed.");
             return false;
         case PssError::LinearSolveFailed:
             s.set(Status::Analysis, "PSS Newton linear solve failed.");
             return false;
         case PssError::OutputError:
             s.set(Status::Analysis, "PSS output error.");
+            return false;
+        case PssError::TperInvalid:
+            s.set(Status::Analysis, "Period should be >0.");
+            return false;
+        case PssError::SingularJacobian:
+            s.set(Status::Analysis, "Singular Jacobian.");
+            return false;
+        case PssError::StabstepInvalid:
+            s.set(Status::Analysis, "Stabilization timestep must be smaller than the period.");
+            return false;
+        case PssError::StabilisationTranFailed:
+            stabilTran_.formatError(s);
+            s.extend("PSS stabilisation transient failed.");
+            return false;
+        case PssError::OpFailed:
+            opCore_.formatError(s);
+            s.extend("PSS operating point failed.");
+            return false;
+        case PssError::ShootingTranFailed:
+            pssTran_.formatError(s);
+            s.extend("PSS transient failed.");
             return false;
         default:
             return true;
@@ -142,6 +157,26 @@ bool PssCore::run(bool continuePrevious) {
 
 }
 
+// Shooting always uses forces for establishing starting point
+// since it is so expensive that forces (only a few more OP iterations) 
+// compared to continueMode via soluton vector do not incur significant overhead
+
+// continuePrevious mode
+//   have continueState, valid, coherent
+//     OP with solution as nodeset
+//     shooting with transient/OP result as start
+//   have continueState, valid 
+//     OP with solution as nodeset
+//     shooting with transient/OP result as start
+
+// ordinary mode, with IC
+//   OP with IC as nodeset
+//   shooting with transient/OP result as start
+// ordinary mode, no IC
+//   tstab>0 - OP transient / UIC transient starting from IC=0
+//   tstab<=0 - OP
+//   shooting with transient/OP result as start
+
 CoreCoroutine PssCore::coroutine(bool continuePrevious) {
     // clearError();
     // if (!run(continuePrevious)) {
@@ -172,23 +207,31 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
 
     bool converged = false;
 
-    Status s;
     std::stringstream ss;
     ss << std::scientific << std::setprecision(4);
 
+    // For now require tper>0, later allow tper=0 and rely on nodeset
+    // TODO: switch all params.tper to some member, like T0 where the actually used period is stored
+
     // Check parameters
+    // Require tper>0
     if(params.tper <= 0) {
         setError(PssError::TperInvalid);
         co_yield CoreState::Aborted;
     }
 
-    if (params.tstab < 10.0 * params.tper) {
+    if (params.tstab>0 && params.tstab < 10.0 * params.tper) {
         Simulator::wrn() << "PSS: Tstab < 10 * Tper. Oscillator may not have settled.\n";
     }
 
+    // Stabilisation is run if tstab>0, stabstep if>0 must be <tstab
+    if (params.tstab>0 && params.stabstep>0 && params.stabstep>=params.tstab) {
+        setError(PssError::StabstepInvalid);
+        co_yield CoreState::Aborted;
+    }
+
     // Stabilisation transient.
-    if (!runStabilisation(s)) {
-        setError(PssError::StabilisationFailed);
+    if (!runStabilisation(params.tper)) {
         co_yield CoreState::Aborted;
     }
 
@@ -199,9 +242,12 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
     // Obtain x_T^(0) by running a transient simulation for T_0 seconds
     solution.vector() = x0;
     pssTran_.setShootIC(x0);
-    pssTran_.clearTrajectory(T0);
-    if (!runShoot(T0, s)) {
-        setError(PssError::ShootFailed);
+    if (!pssTran_.clearTrajectory(T0)) {
+        setError(PssError::ShootingTranFailed);
+        co_yield CoreState::Aborted;
+    }
+    if (!runShoot(T0)) {
+        // runShoot() sets the error code
         co_yield CoreState::Aborted;
     }
     xT = solution.vector();
@@ -225,8 +271,8 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
         }
 
         // Obtain sensitivity matrices
-        if (!runSensitivity(phiT_, PsiT, s)) {
-            setError(PssError::SensitivityFailed);
+        if (!runSensitivity(phiT_, PsiT)) {
+            // Error was set by runSensitivity()
             co_yield CoreState::Aborted;
         }
         if (debug>0) {
@@ -295,9 +341,12 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
         // Get new xT
         solution.vector() = x0;
         pssTran_.setShootIC(x0);
-        pssTran_.clearTrajectory(T0);
-        if (!runShoot(T0, s)) {
-            setError(PssError::ShootFailed);
+        if (!pssTran_.clearTrajectory(T0)) {
+            setError(PssError::ShootingTranFailed);
+            co_yield CoreState::Aborted;
+        }
+        if (!runShoot(T0)) {
+            // runShoot() sets the error code
             co_yield CoreState::Aborted;
         }
         xT = solution.vector();
@@ -335,8 +384,8 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
         co_yield CoreState::Aborted;
     }
 
-    Simulator::dbg() << "PSS analysis finshed.\n";
     if (debug>0) {
+        Simulator::dbg() << "PSS analysis finshed.\n";
         ss.str("");
         ss << "Converged in " << iterIndex + 1 << " iterations.\n";
         ss << "Final worst residual ratio = " << worstRatio << "\n";
@@ -348,10 +397,12 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
     
     solution.vector() = x0;
     pssTran_.setShootIC(x0);
-    pssTran_.clearTrajectory(T0);
+    if (!pssTran_.clearTrajectory(T0)) {
+        setError(PssError::ShootingTranFailed);
+        co_yield CoreState::Aborted;
+    }
     pssTran_.enableTrajectoryCapture();
-    if (!runShoot(T0, s)) {
-        setError(PssError::ShootFailed);
+    if (!runShoot(T0)) {
         co_yield CoreState::Aborted;
     }
 
@@ -390,13 +441,20 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
 // Stabilisation transient
 // ----------------------------------------------------------------
 
-bool PssCore::runStabilisation(Status& s) {
-    params.stabilParams.step    = params.tper / 1000.0;
+bool PssCore::runStabilisation(double period) {
+    if (params.stabstep>0) {
+        // stabstep given
+        params.stabilParams.step = params.stabstep;
+    } else {
+        // no stabstep
+        // TODO: 1000 is a bit excessive?
+        params.stabilParams.step = period / 1000.0;
+    }
     params.stabilParams.stop    = params.tstab;
-    params.stabilParams.maxstep = params.tper / 1000.0;
+    params.stabilParams.maxstep = params.stabilParams.step;
     params.stabilParams.start   = 0.0;
     if (params.maxacfreq > 0) {
-        double effMaxacfreq = std::max(params.maxacfreq, 40.0 / params.tper);
+        double effMaxacfreq = std::max(params.maxacfreq, 40.0 / period);
         double hmax = std::min(params.stabilParams.maxstep, 1.0 / (2.0 * effMaxacfreq));
         params.stabilParams.maxstep = hmax;
         params.stabilParams.step    = std::min(params.stabilParams.step, hmax);
@@ -408,13 +466,13 @@ bool PssCore::runStabilisation(Status& s) {
     if (!hasIc) {
         params.stabilParams.icmode = TranCore::icmodeOp;
         if (!opCore_.run(false)) {
-            opCore_.formatError(s);
+            setError(PssError::OpFailed);
             return false;
         }
     }
 
     if (!stabilTran_.run(false)) {
-        stabilTran_.formatError(s);
+        setError(PssError::StabilisationTranFailed);
         return false;
     }
     return true;
@@ -425,7 +483,7 @@ bool PssCore::runStabilisation(Status& s) {
 // One-period shoot
 // ----------------------------------------------------------------
 
-bool PssCore::runShoot(double T0, Status& s) {
+bool PssCore::runShoot(double T0) {
     params.shootParams.stop    = T0;
     params.shootParams.step    = T0 / 1e3;
     params.shootParams.maxstep = T0 / 1e3;
@@ -440,7 +498,7 @@ bool PssCore::runShoot(double T0, Status& s) {
     // write is left as-is: 0 during Newton iterations, 1 for the final output shoot.
 
     if (!pssTran_.run(false)) {
-        pssTran_.formatError(s);
+        setError(PssError::ShootingTranFailed);
         return false;
     }
     return true;
@@ -453,8 +511,7 @@ bool PssCore::runShoot(double T0, Status& s) {
 
 bool PssCore::runSensitivity(
     DenseMatrix<double>& PhiT,
-    Vector<double>&      PsiT,
-    Status& s
+    Vector<double>&      PsiT
 ) {
     auto n = circuit.unknownCount();
     if (!params.driven) {
@@ -462,12 +519,12 @@ bool PssCore::runSensitivity(
         for (int i=0; i < n; i++)
             x_laststep[i] = solution.pastVector()[i+1] - solution.vector()[i+1];
         if (!pssTran_.integrateAugmentedSensitivity(PhiT, PsiT, x_laststep)) {
-            s.set(Status::Analysis, "PSS sensitivity integration failed.");
+            setError(PssError::SensitivityFailed);
             return false;
         }
     } else {
         if (!pssTran_.integrateSensitivity(PhiT)) {
-            s.set(Status::Analysis, "PSS sensitivity integration failed.");
+            setError(PssError::SensitivityFailed);
             return false;
         }
     }
@@ -515,7 +572,9 @@ void PssCore::computePhaseConstraint(
             alpha[i] = PsiT[i] / norm;
         }
     } else {
-        Simulator::dbg() << "PsiT is zero\n";
+        if (circuit.simulatorOptions().core().pss_debug) {
+            Simulator::dbg() << "PsiT is zero\n";
+        }
         // PsiT is zero (purely resistive circuit or degenerate first step).
         // Fall back to pinning the first unknown.
         if (n >= 1) {

@@ -84,6 +84,7 @@ typedef struct PssParameters {
     Int  driven     {0};        // Non-autonomous (driven) circuit
     Real tper       {0.0};      // Initial period guess
     Real tstab      {0.0};      // Stabilization transient time
+    Real stabstep   {0.0};      // Stabilization transient timestep
     Real maxacfreq  {0.0};      // Max AC frequency to resolve; limits maxstep to 1/(2*maxacfreq). Clipped to 40/tper if below that.
     Int  write      {1};        // Write output datasets
     Value ic {Value("")};       // Initial conditions
@@ -106,14 +107,16 @@ public:
     enum class PssError {
         OK,
         NoConvergence,
-        StabilisationFailed,
-        ShootFailed,
         SensitivityFailed,
         AdjointFailed,
         LinearSolveFailed,
         OutputError,
         TperInvalid,
         SingularJacobian,
+        StabstepInvalid, 
+        StabilisationTranFailed,
+        OpFailed, 
+        ShootingTranFailed, 
     };
 
     PssCore(
@@ -128,8 +131,6 @@ public:
         TranCore& stabilTran,
         PssTranCore& pssTran
     );
-
-    ~PssCore();
 
     PssCore           (const PssCore&)  = delete;
     PssCore           (      PssCore&&) = delete;
@@ -174,8 +175,6 @@ protected:
     VectorRepository<double>& solution; // Solution history
     VectorRepository<double>& states;   // Circuit states
 
-    OutputRawfile* outfile;
-
     // Converged results. Populated on successful run().
     double         T0_converged_;
     Vector<double> x0_converged_;
@@ -197,20 +196,19 @@ private:
     // Run the DC operating point and the stabilisation transient.
     // On return, solution_.vector() holds the initial guess x0 for the
     // Newton loop.
-    bool runStabilisation(Status& s);
+    bool runStabilisation(double period);
 
     // Integrate one period T0 from the initial condition in solution_.vector().
     // On return, solution_.vector() holds xT, the endpoint of the shoot.
     // pssTran_.trajectory() is populated with G(t) and C(t) snapshots.
-    bool runShoot(double T0, Status& s);
+    bool runShoot(double T0);
 
     // Call pssTran_.integrateSensitivity() to produce PhiT and PsiT.
     // PhiT is the n x n sensitivity matrix dxT/dx0.
     // PsiT is the n x 1 period sensitivity vector -dxT/dT0.
     bool runSensitivity(
         DenseMatrix<double>& PhiT,
-        Vector<double>&      PsiT,
-        Status& s
+        Vector<double>&      PsiT
     );
 
     // Build the regular (driven) Newton system from PhiT, x0 and xT. 

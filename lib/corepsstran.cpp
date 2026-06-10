@@ -86,7 +86,7 @@ void PssTranCore::setShootIC(const Vector<double>& x0) {
 // clearTrajectory
 // ----------------------------------------------------------------
 
-void PssTranCore::clearTrajectory(double T0) {
+bool PssTranCore::clearTrajectory(double T0) {
     T0_ = T0;
 
     phiHist_.clear();
@@ -123,9 +123,9 @@ void PssTranCore::clearTrajectory(double T0) {
     ls.reactiveResidual       = qSnap.data();
 
     if (!circuit.evalAndLoad(commons, &es, &ls, nullptr)) {
-        Simulator::err() << "PssTranCore: evalAndLoad(C) failed for C(x_0) \n";
-        /// TODO: This function should return false so VACASK can abort
-        return;
+        setError(PssTranError::EvalCFailed);
+        pssErrorTime = 0;
+        return false;
     }
     // Snapshot C_0 and add it to history
     Vector<double> cSnap(jacobian.data(), jacobian.data() + jacobian.nnz());
@@ -137,6 +137,8 @@ void PssTranCore::clearTrajectory(double T0) {
     qHistData_.push_front(std::move(qSnap));
 
     captureTrajectory_= false;
+
+    return true;
 }
 
 
@@ -165,8 +167,8 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
     // Get Alr = G_k + alpha_k * C_k from the factored NR jacobian
     std::copy(jacobian.data(), jacobian.data() + nnz, lastAlr_.data());
     if (!lastAlr_.refactor()) {
-        Simulator::err() << "PssTranCore: Alr refactorisation failed at t="
-                         << tSolve << "\n";
+        setError(PssTranError::AlrFactorizationFailed);
+        pssErrorTime = tSolve;
         return false;
     }
 
@@ -190,8 +192,8 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
     ls.reactiveResidual       = qSnap.data();
 
     if (!circuit.evalAndLoad(commons, &es, &ls, nullptr)) {
-        Simulator::err() << "PssTranCore: evalAndLoad(C) failed at t="
-                        << tSolve << "\n";
+        setError(PssTranError::EvalCFailed);
+        pssErrorTime = tSolve;
         return false;
     }
     // Snapshot current C_k
@@ -232,8 +234,9 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
             for (decltype(n) i = 0; i < n; i++) phi_colbuf[i] = phi_col[i];
             double* rhs_col = rhs.data().data() + static_cast<size_t>(j) * n;
             if (!scratchC_.product(phi_colbuf.data(), rhs_colbuf.data())) {
-                Simulator::err() << "PssTranCore: C*Phi product failed at t="
-                                 << tSolve << ", column " << j << "\n";
+                setError(PssTranError::CPhiProductFailed);
+                pssErrorTime = tSolve;
+                pssErrorColumn = j;
                 return false;
             }
             for (decltype(n) i = 0; i < n; i++) rhs_col[i] += gammaC[p] * rhs_colbuf[i];
@@ -247,8 +250,9 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
                 for (decltype(n) i = 0; i < n; i++) phi_colbuf[i] = phi_col[i];
                 double* rhs_col = rhs.data().data() + static_cast<size_t>(j) * n;
                 if (!scratchC_.product(phi_colbuf.data(), rhs_colbuf.data())) {
-                    Simulator::err() << "PssTranCore: G*Phi product failed at t="
-                                     << tSolve << ", column " << j << "\n";
+                    setError(PssTranError::GPhiProductFailed);
+                    pssErrorTime = tSolve;
+                    pssErrorColumn = j;
                     return false;
                 }
                 for (decltype(n) i = 0; i < n; i++) rhs_col[i] += gammaG[p] * rhs_colbuf[i];
@@ -259,8 +263,8 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
     // Solve for Phi_k
     // Alr * Phi_k = sum_{i=1}^order (gamma_i * C_k-i * Phi_k-i)
     if (!lastAlr_.solveBlock(rhs.data().data(), static_cast<Int>(n))) {
-        Simulator::err() << "PssTranCore: block Alr solve failed at t="
-                         << tSolve << "\n";
+        setError(PssTranError::BlockAlrSolveFailed);
+        pssErrorTime = tSolve;
         return false;
     }
     phiCurrent_ = rhs;   // rhs now holds PhiT at this step
@@ -274,7 +278,8 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
         // C_{k-p} * psi_{k-p} contribution
         std::copy(cHistData_[p].begin(), cHistData_[p].end(), scratchC_.data());
         if (!scratchC_.product(psiHist_[p].data(), c_psi.data())) {
-            Simulator::err() << "PssTranCore: C*psi product failed at t=" << tSolve << "\n";
+            setError(PssTranError::CPsiProductFailed);
+            pssErrorTime = tSolve;
             return false;
         }
         for (decltype(n) i = 0; i < n; i++) psiRhs[i] += gammaC[p] * c_psi[i];
@@ -283,7 +288,8 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
         if (gammaG[p] != 0.0) {
             std::copy(gHistData_[p].begin(), gHistData_[p].end(), scratchC_.data());
             if (!scratchC_.product(psiHist_[p].data(), c_psi.data())) {
-                Simulator::err() << "PssTranCore: G*psi product failed at t=" << tSolve << "\n";
+                setError(PssTranError::GPsiProductFailed);
+                pssErrorTime = tSolve;
                 return false;
             }
             for (decltype(n) i = 0; i < n; i++) psiRhs[i] += gammaG[p] * c_psi[i];
@@ -300,7 +306,8 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
 
     // Solve for \psi_{k+1}
     if (!lastAlr_.solve(psiRhs.data())) {
-        Simulator::err() << "PssTranCore: psi solve failed at t=" << tSolve << "\n";
+        setError(PssTranError::PsiSolveFailed);
+        pssErrorTime = tSolve;
         return false;
     }
     psiCurrent_ = psiRhs;   // psiRhs now holds psi_{k+1}
@@ -353,8 +360,7 @@ bool PssTranCore::integrateSensitivity(
     DenseMatrix<double>& PhiT
 ) {
     if (!phiValid_) {
-        Simulator::err() << "PssTranCore: no accepted steps since clearTrajectory(); "
-                            "PhiT is not available.\n";
+        setError(PssTranError::NoAcceptedSteps);
         return false;
     }
     // PhiT: the inline-computed sensitivity matrix is ready.
@@ -373,8 +379,7 @@ bool PssTranCore::integrateAugmentedSensitivity(
     Vector<double>&      x_laststep
 ) {
     if (!phiValid_) {
-        Simulator::err() << "PssTranCore: no accepted steps since clearTrajectory(); "
-                            "PhiT is not available.\n";
+        setError(PssTranError::NoAcceptedSteps);
         return false;
     }
 
@@ -396,8 +401,7 @@ bool PssTranCore::integrateAugmentedSensitivity(
 // ----------------------------------------------------------------
 bool PssTranCore::integrateAdjointMonodromy(DenseMatrix<double>& Omega){
     if (trajectory_.empty()) {
-        Simulator::err() << "PssTranCore: no trajectory captured; "
-                            "call enableTrajectoryCapture() before the final shoot.\n";
+        setError(PssTranError::NoTrajectory);
         return false;
     }
 
@@ -417,15 +421,15 @@ bool PssTranCore::integrateAdjointMonodromy(DenseMatrix<double>& Omega){
     KluRealMatrix scratchC;
     KluRealMatrix scratchG;
     if (!scratchA.rebuild(circuit.sparsityMap(), n)) {
-        Simulator::err() << "PssTranCore: failed to rebuild scratchA for Omega integration.\n";
+        setError(PssTranError::ScratchRebuild);
         return false;
     }
     if (!scratchC.rebuild(circuit.sparsityMap(), n)) {
-        Simulator::err() << "PssTranCore: failed to rebuild scratchC for Omega integration.\n";
+        setError(PssTranError::ScratchRebuild);
         return false;
     }
     if (!scratchG.rebuild(circuit.sparsityMap(), n)) {
-        Simulator::err() << "PssTranCore: failed to rebuild scratchG for Omega integration.\n";
+        setError(PssTranError::ScratchRebuild);
         return false;
     }
 
@@ -453,8 +457,8 @@ bool PssTranCore::integrateAdjointMonodromy(DenseMatrix<double>& Omega){
         // Load A_k into scratchA and refactor for tsolve
         std::copy(acRec.aData.begin(), acRec.aData.end(), scratchA.data());
         if (!scratchA.refactor()) {
-            Simulator::err() << "PssTranCore: scratchA refactor failed at backward step k="
-                             << k << "\n";
+            setError(PssTranError::ScratchRefactorFailed);
+            pssErrorIndexK = k;
             return false;
         }
 
@@ -485,16 +489,18 @@ bool PssTranCore::integrateAdjointMonodromy(DenseMatrix<double>& Omega){
                 for (decltype(n) row = 0; row < n; row++) om_col[row] = Om.at(row, j);
                 if (gC != 0.0) {
                     if (!scratchC.tproduct(om_col.data(), rhs_col.data())) {
-                        Simulator::err() << "PssTranCore: C^T product failed at backward step k="
-                                         << k << " i=" << i << "\n";
+                        setError(PssTranError::CTProductFailed);
+                        pssErrorIndexK = k;
+                        pssErrorIndexI = i;
                         return false;
                     }
                     for (decltype(n) row = 0; row < n; row++) rhs.at(row, j) += gC * rhs_col[row];
                 }
                 if (gG != 0.0) {
                     if (!scratchG.tproduct(om_col.data(), rhs_col.data())) {
-                        Simulator::err() << "PssTranCore: G^T product failed at backward step k="
-                                         << k << " i=" << i << "\n";
+                        setError(PssTranError::GTProductFailed);
+                        pssErrorIndexK = k;
+                        pssErrorIndexI = i;
                         return false;
                     }
                     for (decltype(n) row = 0; row < n; row++) rhs.at(row, j) += gG * rhs_col[row];
@@ -504,8 +510,8 @@ bool PssTranCore::integrateAdjointMonodromy(DenseMatrix<double>& Omega){
 
         // Solve A_k^T * Omega_k = rhs (overwrites rhs with solution)
         if (!scratchA.tsolveBlock(rhs.data().data(), static_cast<Int>(n))) {
-            Simulator::err() << "PssTranCore: tsolveBlock failed at backward step k="
-                             << k << "\n";
+            setError(PssTranError::TSolveBlockFailed);
+            pssErrorIndexK = k;
             return false;
         }
 
@@ -525,20 +531,11 @@ bool PssTranCore::integrateAdjointMonodromy(DenseMatrix<double>& Omega){
 void PssTranCore::enableTrajectoryCapture() {
     captureTrajectory_ = true;
     trajectory_.clear();
-        }
+}
 
 // ----------------------------------------------------------------
 // PSS rawfile output
 // ----------------------------------------------------------------
-
-static std::string pssIntegratorName(Id m) {
-    if (m == TranCore::methodTrapezoidal)                          return "am1";
-    if (m == TranCore::methodBDF2 || m == TranCore::methodGear2)   return "bdf2";
-    if (m == TranCore::methodBDF  || m == TranCore::methodGear)    return "bdf";
-    if (m == TranCore::methodAM)                                   return "am";
-    if (m == TranCore::methodEuler)                                return "bdf1";
-    return std::string(m);
-}
 
 // Override to change the output file name
 bool PssTranCore::initializeOutputs(Id name, Status& s) {
@@ -551,11 +548,95 @@ bool PssTranCore::initializeOutputs(Id name, Status& s) {
             (circuit.simulatorOptions().core().rawfile==SimulatorOptions::rawfileBinary ? OutputRawfile::Flags::Binary : OutputRawfile::Flags::None) |
                 OutputRawfile::Flags::Padded);
         outfile->setTitle(circuit.title());
-        Id method = circuit.simulatorOptions().core().tran_method;
-        outfile->setPlotname("Periodic Steady State " + pssIntegratorName(method));
+        auto& options = circuit.simulatorOptions().core();
+        auto method = std::string(options.tran_method);
+        if (
+            options.tran_method==TranCore::methodGear || 
+            options.tran_method==TranCore::methodBDF ||
+            options.tran_method==TranCore::methodAM
+        ) {
+            method += std::to_string(options.tran_maxord);
+        }
+        outfile->setPlotname("Periodic Steady State " + method);
     }
     outfile->prologue(s);
     return true;
 }
+
+bool PssTranCore::formatError(Status& s) const {
+    // First, handle TranCore and AnalysisCore errors
+    if (lastTranError!=TranCore::TranError::OK || lastError!=Error::OK) {
+        TranCore::formatError(s);
+        return false;
+    }
+    
+    // Then handle PssTranCore errors
+    switch (lastPssTranError) {
+        case PssTranError::EvalCFailed:
+            s.set(Status::Analysis, "PssTranCore: evalAndLoad(C) failed at t="+std::to_string(pssErrorTime)+".");
+            break;
+        case PssTranError::AlrFactorizationFailed:
+            s.set(Status::Analysis, "PssTranCore: Alr refactorisation failed at t="+std::to_string(pssErrorTime)+".");
+            break;
+        case PssTranError::CPhiProductFailed:
+            s.set(Status::Analysis, 
+                "PssTranCore: C*Phi product failed at t="+std::to_string(pssErrorTime)+
+                ", column "+std::to_string(pssErrorColumn)+"."
+            );
+            break;   
+        case PssTranError::GPhiProductFailed:
+            s.set(Status::Analysis, 
+                "PssTranCore: G*Phi product failed at t="+std::to_string(pssErrorTime)+
+                ", column "+std::to_string(pssErrorColumn)+"."
+            );
+            break;
+        case PssTranError::BlockAlrSolveFailed:
+            s.set(Status::Analysis, "PssTranCore: block Alr solve failed at t="+std::to_string(pssErrorTime)+".");
+            break;
+        case PssTranError::CPsiProductFailed:
+            s.set(Status::Analysis, "PssTranCore: C*psi product failed at t="+std::to_string(pssErrorTime)+".");
+            break;
+        case PssTranError::GPsiProductFailed:
+            s.set(Status::Analysis, "PssTranCore: G*psi product failed at t="+std::to_string(pssErrorTime)+".");
+            break;
+        case PssTranError::PsiSolveFailed:
+            s.set(Status::Analysis, "PssTranCore: psi solve failed at t="+std::to_string(pssErrorTime)+".");
+            break;
+        case PssTranError::NoAcceptedSteps:
+            s.set(Status::Analysis, "PssTranCore: no accepted steps since clearTrajectory(). PhiT is not available.");
+            break;
+        case PssTranError::NoTrajectory:
+            s.set(Status::Analysis, "PssTranCore: no trajectory captured. Call enableTrajectoryCapture() before the final shoot.");
+            break;
+        case PssTranError::ScratchRebuild:
+            s.set(Status::Analysis, "PssTranCore: failed to rebuild scratch matrix for Omega integration.");
+            break;
+        case PssTranError::ScratchRefactorFailed:
+            s.set(Status::Analysis, "PssTranCore: scratchA refactor failed at backward step k="+std::to_string(pssErrorIndexK)+".");
+            break;
+        case PssTranError::CTProductFailed:
+            s.set(Status::Analysis, 
+                "PssTranCore: C^T product failed at backward step k="+std::to_string(pssErrorIndexK)+
+                " i="+std::to_string(pssErrorIndexI)+"."
+            );
+            break;
+        case PssTranError::GTProductFailed:
+            s.set(Status::Analysis, 
+                "PssTranCore: C^T product failed at backward step k="+std::to_string(pssErrorIndexK)+
+                " i="+std::to_string(pssErrorIndexI)+"."
+            );
+            break;
+        
+        case PssTranError::TSolveBlockFailed:
+            s.set(Status::Analysis, 
+                "PssTranCore: tsolveBlock failed at backward step k="+std::to_string(pssErrorIndexK)+"."
+            );
+            break;
+        default:
+            return true;
+    }
+    return false;
+}
+
 
 } // namespace NAMESPACE

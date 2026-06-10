@@ -71,6 +71,24 @@ namespace NAMESPACE {
 
 class PssTranCore : public TranCore {
 public:
+    enum class PssTranError {
+        OK, 
+        EvalCFailed, 
+        AlrFactorizationFailed, 
+        CPhiProductFailed, 
+        GPhiProductFailed, 
+        BlockAlrSolveFailed, 
+        CPsiProductFailed, 
+        GPsiProductFailed, 
+        PsiSolveFailed, 
+        NoAcceptedSteps, 
+        NoTrajectory, 
+        ScratchRebuild, 
+        ScratchRefactorFailed, 
+        CTProductFailed, 
+        GTProductFailed, 
+        TSolveBlockFailed, 
+    };
     PssTranCore(
         OutputDescriptorResolver& parentResolver,
         TranParameters& params,
@@ -82,6 +100,14 @@ public:
         VectorRepository<double>& states
     );
 
+    PssTranCore           (const PssTranCore&)  = delete;
+    PssTranCore           (      PssTranCore&&) = delete;
+    PssTranCore& operator=(const PssTranCore&)  = delete;
+    PssTranCore& operator=(      PssTranCore&&) = delete;
+
+    // Format error, return false on error - this function is not cheap (works with strings)
+    bool formatError(Status& s=Status::ignore) const; 
+
     bool initializeOutputs(Id name, Status& s = Status::ignore);
 
     // Hides TranCore::rebuild().  Calls TranCore::rebuild() then rebuilds
@@ -91,7 +117,7 @@ public:
     // Reset the sensitivity state before a new shooting iteration.
     // Sets phiCurrent_ = I and clears phiHist_.
     // Must be called by PssCore before each run().
-    void clearTrajectory(double T0);
+    bool clearTrajectory(double T0);
 
     // Populate preprocessedIc with all circuit unknowns from x0 so that
     // TranCore's UIC branch (nrSolver.setForces then solution = unknownValue_)
@@ -127,6 +153,16 @@ protected:
     // Evaluates C_k, advances phiCurrent_ through one BDF LMS step using
     // a block solve, and rotates phiHist_.
     virtual bool onTimestepAccepted(double tSolve, double hk, Int order);
+
+    // Clear error
+    void clearError() { TranCore::clearError(); lastPssTranError = PssTranError::OK; }; 
+
+    void setError(PssTranError e) { lastPssTranError = e; lastTranError = TranCore::TranError::OK; };
+    PssTranError lastPssTranError;
+    double pssErrorTime;
+    UnknownIndex pssErrorColumn;
+    Int pssErrorIndexK;
+    Int pssErrorIndexI;
 
 private:
     // Record of data needed for backward adjoint integration at each accepted step

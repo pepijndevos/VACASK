@@ -1728,8 +1728,9 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
             // 'newOrder' (the order chosen for the next step).  The PSS
             // sensitivity integrator must replay integCoeffs with the same
             // order that was in effect when this step was accepted.
+            // This is a customization function. 
+            // User is responsible for setting the error code and handling it during formatting. 
             if (!onTimestepAccepted(tSolve, hk, order)) {
-                setError(TranError::EvalAndLoad);
                 co_yield CoreState::Aborted;
             }
 
