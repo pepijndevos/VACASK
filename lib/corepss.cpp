@@ -157,13 +157,44 @@ bool PssCore::run(bool continuePrevious) {
 
 }
 
+bool PssCore::storeState(size_t ndx) {
+    auto& repo = coreStates.at(ndx);
+    repo.solution.setTypeTag(OperatingPointCore::solutionTag);
+
+    // Store current solution as annotated solution
+    repo.solution.setNames(circuit);
+    
+    // Store solution in frequency domain (complex spectrum)
+    repo.solution.setValues(solution.vector());
+    
+    // Store period
+    repo.solution.setAuxReal(T0_converged_);
+
+    // Stored state is coherent and valid
+    repo.coherent = true;
+    repo.valid = true;
+    return true;
+}
+
+bool PssCore::restoreState(size_t ndx) {
+    auto& state = coreStates.at(ndx);
+    if (state.valid) {
+        // State is valid
+        continueState = &state;
+        return true;
+    } else { 
+        // Nothing to restore, do not use continuation mode
+        return false;
+    }
+}
+
 // Shooting always uses forces for establishing starting point
-// since it is so expensive that forces (only a few more OP iterations) 
+// since PSS is so expensive that forces (only a few more OP iterations) 
 // compared to continueMode via soluton vector do not incur significant overhead
 
 // continuePrevious mode
 //   have continueState, valid, coherent
-//     OP with solution as nodeset
+//     OP with solution as nodeset, special because node names are not available is stored solution
 //     shooting with transient/OP result as start
 //   have continueState, valid 
 //     OP with solution as nodeset
@@ -185,6 +216,13 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
     // co_yield CoreState::Finished;
     clearError();
 
+    // Handle continue mode (sweep and homotopy)
+    if (continuePrevious) {
+
+    } else {
+        // Not in continue mode
+    }
+
     // Disable shooting transient output
     params.shootParams.write = 0;
 
@@ -205,6 +243,8 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
     Vector<double>  xT;
     double          T0;
 
+    T0_converged_ = 0.0;
+    x0_converged_.clear();
     bool converged = false;
 
     std::stringstream ss;
@@ -432,6 +472,8 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
         Simulator::dbg() << ss.str();
     }
     
+    x0_converged_ = x0;
+    T0_converged_ = T0;
     co_yield CoreState::Finished;
     
 }

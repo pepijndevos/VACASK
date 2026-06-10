@@ -149,6 +149,9 @@ public:
     bool finalizeOutputs(Status& s = Status::ignore);
     bool deleteOutputs(Id name, Status& s = Status::ignore);
 
+    virtual bool storeState(size_t ndx);
+    virtual bool restoreState(size_t ndx);
+    
     void dump(std::ostream& os) const;
 
     // Converged period in seconds. Valid after a successful run().
@@ -181,6 +184,8 @@ protected:
 
     // Analysis name stored at initializeOutputs() time, used by runStabilisation().
     Id name_;
+
+    CoreStateStorage* continueState;
 
 private:
     OperatingPointCore& opCore_;
