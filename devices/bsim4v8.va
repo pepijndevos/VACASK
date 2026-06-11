@@ -478,16 +478,16 @@ module bsim4(d, g, s, b);
     // based on modelcard type (but can be overridden by netlist).
     parameter integer verbose = `INT_NOT_GIVEN;  // debug flag to print DBG msg 
     parameter integer type = `INT_NOT_GIVEN;     // NMOS=1 PMOS=-1
-    parameter real l = `NOT_GIVEN;               // Length
-    parameter real w = `NOT_GIVEN;               // Width
-    parameter integer nf = `INT_NOT_GIVEN;       // Number of fingers
+    (*type = "instance"*) parameter real l = `NOT_GIVEN;    // Length
+    (*type = "instance"*) parameter real w = `NOT_GIVEN;    // Width
+    (*type = "instance"*) parameter integer nf = `INT_NOT_GIVEN; // Number of fingers
     parameter integer _min = `INT_NOT_GIVEN;     // Minimize either D or S
-    parameter real ad = `NOT_GIVEN;              // Drain area
-    parameter real as = `NOT_GIVEN;              // Source area
-    parameter real pd = `NOT_GIVEN;              // Drain perimeter
-    parameter real ps = `NOT_GIVEN;              // Source perimeter
-    parameter real nrd = `NOT_GIVEN;             // Number of squares in drain
-    parameter real nrs = `NOT_GIVEN;             // Number of squares in source
+    (*type = "instance"*) parameter real ad = `NOT_GIVEN;   // Drain area
+    (*type = "instance"*) parameter real as = `NOT_GIVEN;   // Source area
+    (*type = "instance"*) parameter real pd = `NOT_GIVEN;   // Drain perimeter
+    (*type = "instance"*) parameter real ps = `NOT_GIVEN;   // Source perimeter
+    (*type = "instance"*) parameter real nrd = `NOT_GIVEN;  // Number of squares in drain
+    (*type = "instance"*) parameter real nrs = `NOT_GIVEN;  // Number of squares in source
     parameter integer off = `INT_NOT_GIVEN;      // Device is initially off
     parameter integer trnqsmod = `INT_NOT_GIVEN; // Transient NQS model selector
     parameter integer acnqsmod = `INT_NOT_GIVEN; // AC NQS model selector
@@ -1105,9 +1105,9 @@ module bsim4(d, g, s, b);
    
    //  BSIM4.3
    
-    parameter real sa = `NOT_GIVEN;              // Distance between OD edge to Poly [m]
-    parameter real sb = `NOT_GIVEN;              // Distance between OD edge to Poly (other side) [m]
-    parameter real sd = `NOT_GIVEN;              // Distance between neighboring fingers [m]
+    (*type = "instance"*) parameter real sa = `NOT_GIVEN;   // Distance between OD edge to Poly [m]
+    (*type = "instance"*) parameter real sb = `NOT_GIVEN;   // Distance between OD edge to Poly (other side) [m]
+    (*type = "instance"*) parameter real sd = `NOT_GIVEN;   // Distance between neighboring fingers [m]
     parameter real saref = `NOT_GIVEN;           // Reference distance between OD and edge to poly of one side [m]
     parameter real sbref = `NOT_GIVEN;           // Reference distance between OD and edge to poly of the other side [m]
     parameter real wlod = `NOT_GIVEN;            // Width parameter for stress effect [m]
