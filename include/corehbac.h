@@ -101,7 +101,6 @@ public:
     bool addDefaultOutputDescriptors(Status& s);
     bool resolveOutputDescriptors(bool strict, Status& s=Status::ignore);
 
-    std::tuple<bool, bool> requestsRebuild(Status& s = Status::ignore);
     bool rebuild(Status& s=Status::ignore); 
     bool initializeOutputs(Id name, Status& s=Status::ignore);
     bool run(bool continuePrevious);

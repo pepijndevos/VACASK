@@ -212,36 +212,6 @@ bool HBCore::restoreState(size_t ndx) {
     }
 }
 
-// Analysis asks cores if they request a rebuild. 
-// HB core replies that it does 
-// - if this is the first build
-// - TODO: if previously it was used in evaluate mode
-// - if the set of frequencies changes. 
-// Along with changed set of frequencies this function recomputes
-// - colocation points
-// - transform matrices
-std::tuple<bool, bool> HBCore::requestsRebuild(Status& s) {
-    // First build, nothing to compare to
-    if (firstBuild) {
-        oldParams = params;
-        return std::make_tuple(true, true);
-    }
-
-    // Did parameters that affect the set of frequencies and the colocation timepoints change
-    bool needsRebuild = 
-        oldParams.freq != params.freq ||
-        oldParams.nharm != params.nharm ||
-        oldParams.immax != params.immax ||
-        oldParams.truncate != params.truncate || 
-        oldParams.samplefac != params.samplefac ||
-        oldParams.nper != params.nper || 
-        oldParams.sample != params.sample ||
-        oldParams.shift != params.shift ||
-        oldParams.solve != params.solve;
-    oldParams = params;
-    return std::make_tuple(true, needsRebuild);
-}
-
 bool HBCore::buildGrid(Status& s) {
     auto n = params.freq.size();
 

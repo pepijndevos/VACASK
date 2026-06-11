@@ -296,21 +296,6 @@ void HBACCore::fillMatrix() {
     }
 }
 
-std::tuple<bool, bool> HBACCore::requestsRebuild(Status& s) {
-    // First build, nothing to compare to
-    if (firstBuild) {
-        oldParams = params;
-        return std::make_tuple(true, true);
-    }
-
-    bool needsRebuild = oldParams.maxharm != params.maxharm ||
-                        oldParams.maxfreq != params.maxfreq || 
-                        oldParams.outspur != params.outspur;
-    
-    oldParams = params;
-    return std::make_tuple(true, needsRebuild);
-}
-
 bool HBACCore::rebuild(Status& s) {
     clearError();
 

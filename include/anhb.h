@@ -42,7 +42,6 @@ protected:
     virtual void clearOutputDescriptors();
     virtual bool resolveOutputDescriptors(bool strict, Status& s=Status::ignore);
 
-    virtual std::tuple<bool, bool> requestsRebuild(Status& s=Status::ignore) override;
     virtual std::tuple<bool, bool> preMapping(Status& s=Status::ignore);
     virtual bool populateStructures(Status& s=Status::ignore);
 

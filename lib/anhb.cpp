@@ -126,10 +126,6 @@ void HB::makeStateIncoherent(size_t ndx) {
     core.makeStateIncoherent(ndx);
 }
 
-std::tuple<bool, bool> HB::requestsRebuild(Status& s) { 
-    return core.requestsRebuild(s);
-};
-
 std::tuple<bool, bool> HB::preMapping(Status& s) {
     return core.preMapping(s);
 }
