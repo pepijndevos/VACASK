@@ -6,6 +6,11 @@ pat_siprefix = re.compile(r'\b(\d+\.\d*|\.\d+|\d+\.|\d+)(meg|g|t|mil)\b')
 
 pat_temper = re.compile(r"\btemper\b")
 
+# First '=' that is not part of a comparison operator (==, !=, <=, >=),
+# i.e. the name/value separator of a parameter assignment. Values can
+# contain comparison operators, e.g. lr='(d_sab==0)?1e-15:d_sab'.
+pat_assign_eq = re.compile(r"(?<![=!<>])=(?!=)")
+
 prefix_map = {
     "meg": "M", 
     "g": "G", 
@@ -165,12 +170,12 @@ class ParamsMixin:
         psplit = []
         mfact_index = None
         for ii, p in enumerate(params):
-            split = p.split("=")
-            if len(split)==1:
+            m = pat_assign_eq.search(p)
+            if m is None:
                 # Handle booleans
-                split = (split[0], "1")
-            elif len(split)!=2:
-                raise ConverterError("Malformed parameter '"+p+"'.")
+                split = (p, "1")
+            else:
+                split = (p[:m.start()], p[m.end():])
             
             # Handle mfactor
             if handle_m:
