@@ -320,14 +320,14 @@ module_path_prefix = [ "$(PDK_ROOT)/$(PDK)/libs.tech/vacask/osdi" ]
 
     symfiles = []
 
-    # All files in xschem_path_pfx/sg13g2_pr
+    # All .sym files in xschem_path_pfx/sg13g2_pr
     directory = Path(xschem_path_pfx) / "sg13g2_pr"
-    files = [str(p.resolve()) for p in directory.iterdir() if p.is_file()]
+    files = [str(p.resolve()) for p in directory.iterdir() if p.is_file() and p.suffix == ".sym"]
     symfiles += [[f, patch_analog] for f in files]
 
-    # All files in sg13g2_stdcells
+    # All .sym files in sg13g2_stdcells
     directory = Path(xschem_path_pfx) / "sg13g2_stdcells"
-    files = [str(p.resolve()) for p in directory.iterdir() if p.is_file()]
+    files = [str(p.resolve()) for p in directory.iterdir() if p.is_file() and p.suffix == ".sym"]
     symfiles += [[f, patch_dig] for f in files]
 
     print("Processing Xschem symbol files")
