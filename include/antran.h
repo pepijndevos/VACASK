@@ -58,7 +58,6 @@ protected:
     virtual bool storeState(size_t ndx);
     virtual bool restoreState(size_t ndx);
     virtual void makeStateIncoherent(size_t ndx);
-
     
 private:
     IStruct<TranParameters> params;

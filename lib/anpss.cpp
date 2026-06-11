@@ -89,16 +89,16 @@ bool Pss::resolveSave(const PTSave& save, bool verify, Status& s) {
         st = st && pssTran_.addAllUnknowns(save, s);
     } else if (save.typeName() == idFull) {
         st = stabilTran_.addAllNodes(save, s);
-        st = st && stabilTran_.addAllNodes(save, s);
+        st = st && pssTran_.addAllNodes(save, s);
     } else if (save.typeName() == idV) {
         st = stabilTran_.addNode(save, s);
-        st = st && stabilTran_.addNode(save,s );
+        st = st && pssTran_.addNode(save,s );
     } else if (save.typeName() == idI) {
         st = stabilTran_.addFlow(save, s);
-        st = st && stabilTran_.addFlow(save, s);
+        st = st && pssTran_.addFlow(save, s);
     } else if (save.typeName() == idP) {
         st = stabilTran_.addInstanceOutvar(save, s);
-        st = st && stabilTran_.addInstanceOutvar(save, s);
+        st = st && pssTran_.addInstanceOutvar(save, s);
     } else {
         if (verify) {
             s.set(Status::Save, std::string("Analysis does not support save directive."));
@@ -149,19 +149,6 @@ bool Pss::deleteOutputs(Status& s) {
     return ok1 && ok2;
 }
 
-std::tuple<bool, bool> Pss::preMapping(Status& s) {
-    // Forward IC and icmode to stabilParams so stabilTran_.preMapping()
-    // sees them and populates preprocessedIc before rebuild() is called.
-    auto& core = params.core();
-    bool hasIc = (core.ic.type() == Value::Type::ValueVec);
-    if (hasIc) {
-        core.stabilParams.ic     = core.ic;
-        core.stabilParams.icmode = TranCore::icmodeUic;
-    }
-    auto [ok, needsMapping] = stabilTran_.preMapping(s);
-    return std::make_tuple(ok, needsMapping);
-}
-
 bool Pss::rebuildCores(Status& s) {
     // Create Jacobian - it is common to PSS, Op and tran core, so we need to rebuild it here
     if (!jac_.rebuild(circuit.sparsityMap(), circuit.unknownCount())) {
@@ -184,6 +171,63 @@ bool Pss::rebuildCores(Status& s) {
         return false;
     }
     return true;
+}
+
+size_t Pss::analysisStateStorageSize() const { 
+    // Only op core has storage
+    return pssCore_.stateStorageSize();
+}
+
+size_t Pss::allocateAnalysisStateStorage(size_t n) { 
+    // Only op core has storage
+    return pssCore_.allocateStateStorage(n);
+}
+
+void Pss::deallocateAnalysisStateStorage(size_t n) { 
+    // Only op core has storage
+    pssCore_.deallocateStateStorage(n);
+}
+
+bool Pss::storeState(size_t ndx) {
+    // Only op core has storage
+    return pssCore_.storeState(ndx);
+}
+
+bool Pss::restoreState(size_t ndx) {
+    // Only op core has storage
+    return pssCore_.restoreState(ndx);
+}
+
+void Pss::makeStateIncoherent(size_t ndx) {
+    pssCore_.makeStateIncoherent(ndx);
+}
+
+
+std::tuple<bool, bool> Pss::preMapping(Status& s) {
+    // Forward IC and icmode to stabilParams so stabilTran_.preMapping()
+    // sees them and populates preprocessedIc before rebuild() is called.
+    auto& p = params.core();
+    bool hasIc = (p.ic.type() == Value::Type::ValueVec);
+    if (hasIc) {
+        p.stabilParams.ic     = p.ic;
+        p.stabilParams.icmode = TranCore::icmodeUic;
+    }
+    auto [ok1, needsMappingOp] = opCore_.preMapping(s);
+    auto [ok2, needsMappingStabil] = stabilTran_.preMapping(s);
+    auto [ok3, needsMappingPss] = pssTran_.preMapping(s);
+    return std::make_tuple(ok1 && ok2 && ok3, needsMappingOp || needsMappingStabil || needsMappingPss);
+}
+
+bool Pss::populateStructures(Status& s) {
+    auto ok1 = opCore_.populateStructures(s);
+    if (!ok1) {
+        return false;
+    }
+    auto ok2 = stabilTran_.populateStructures(s);
+    if (!ok2) {
+        return false;
+    }
+    return pssCore_.populateStructures(s);
 }
 
 void Pss::dump(std::ostream& os) const {
