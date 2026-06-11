@@ -141,7 +141,7 @@ public:
     bool formatError(Status& s = Status::ignore) const;
     
     bool addDefaultOutputDescriptors(Status& s);
-
+    
     bool rebuild(Status& s = Status::ignore);
     bool initializeOutputs(Id name, Status& s = Status::ignore);
     bool run(bool continuePrevious);
