@@ -33,10 +33,11 @@ def convert(fname, cvt=simple_patcher):
     format_spectre_line = None
     with open(origfile, "r") as f:
         for l in f:
-            # Look for format= and format_spectre=
-            if l.startswith("format="):
+            # Look for format= and format_spectre= (tolerate leading whitespace)
+            ls = l.lstrip()
+            if ls.startswith("format="):
                 format_line = len(orig_lines)
-            elif l.startswith("spectre_format="):
+            elif ls.startswith("spectre_format="):
                 format_spectre_line = len(orig_lines)
             
             orig_lines.append(l)
@@ -51,7 +52,7 @@ def convert(fname, cvt=simple_patcher):
         fstxt = "spectre_format=\""+cvt+"\""
     elif callable(cvt):
         # Convert automatically
-        ftxt = orig_lines[format_line]
+        ftxt = orig_lines[format_line].lstrip()
 
         # Wrap @pinlist in parentheses
         fstxt = cvt(ftxt)
