@@ -66,6 +66,7 @@ private:
     // (jac, solution, states) refer to fully-constructed members. opCore precedes
     // tranCore because tranCore binds a reference to opCore.
     KluRealMatrix jac; // Jacobian
+    VectorRepository<double> opSolution; // OP solution history
     VectorRepository<double> solution; // Solution history
     VectorRepository<double> states; // Circuit states
 

@@ -86,8 +86,10 @@ typedef struct PssParameters {
     Real tstab      {0.0};      // Stabilization transient time
     Real stabstep   {0.0};      // Stabilization transient timestep
     Real maxacfreq  {0.0};      // Max AC frequency to resolve; limits maxstep to 1/(2*maxacfreq). Clipped to 40/tper if below that.
+    String store    {""};       // Name of stored solution slot to write
     Int  write      {1};        // Write output datasets
-    Value ic {Value("")};       // Initial conditions
+                                // nodeset is mapped to opParams
+                                // ic is mapped to stabilParams
 
     // Parameters forwarded to subsidiary cores
     OperatingPointParameters opParams;
@@ -98,6 +100,8 @@ typedef struct PssParameters {
         opParams.write      = 0;
         stabilParams.write  = 0;
         shootParams.write   = 0;
+        stabilParams.icmode = TranCore::icmodeOp;
+        shootParams.icmode = TranCore::icmodeUic;
     }
 } PssParameters;
 
@@ -117,6 +121,7 @@ public:
         StabilisationTranFailed,
         OpFailed, 
         ShootingTranFailed, 
+        ForcesFailed, 
     };
 
     PssCore(
@@ -201,7 +206,7 @@ private:
     // Run the DC operating point and the stabilisation transient.
     // On return, solution_.vector() holds the initial guess x0 for the
     // Newton loop.
-    bool runStabilisation(double period);
+    bool runStabilisation(bool continuePrevious, double period);
 
     // Integrate one period T0 from the initial condition in solution_.vector().
     // On return, solution_.vector() holds xT, the endpoint of the shoot.

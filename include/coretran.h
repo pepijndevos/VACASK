@@ -98,7 +98,8 @@ public:
     TranCore(
         OutputDescriptorResolver& parentResolver, TranParameters& params, OperatingPointCore& opCore, 
         Circuit& circuit, CommonData& commons, 
-        KluRealMatrix& jacobian, VectorRepository<double>& solution, VectorRepository<double>& states
+        KluRealMatrix& jacobian, VectorRepository<double>& opSolution, VectorRepository<double>& solution, 
+        VectorRepository<double>& states
     ); 
     ~TranCore();
     
@@ -127,6 +128,8 @@ public:
 
     void dump(std::ostream& os) const;
 
+    TranNRSolver& solver() { return nrSolver; }
+
     static Id icmodeOp;
     static Id icmodeUic;
     static Id methodAM;
@@ -147,6 +150,7 @@ protected:
     TranError lastTranError;
     Id errorId;
     
+    VectorRepository<double>& opSolution; // Solution history
     KluRealMatrix& jacobian; // Resistive Jacobian
     VectorRepository<double>& solution; // Solution history
     VectorRepository<double>& states; // Circuit states
@@ -162,7 +166,6 @@ protected:
     // Forces uicForces;
 
     const IntegratorCoeffs& getIntegCoeffs() const { return integCoeffs; }
-    TranNRSolver& getNrSolver() { return nrSolver; }
     const CircularBuffer<double>& getPastTimesteps() const { return pastTimesteps; }
 
     // Called at every accepted timestep after pastTimesteps and tk are

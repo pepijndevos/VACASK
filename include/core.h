@@ -138,6 +138,8 @@ public:
     virtual bool restoreState(size_t ndx) { return true; };
     // Make state in slot ndx incoherent
     virtual void makeStateIncoherent(size_t ndx);
+    // Get core state
+    CoreStateStorage& coreState(size_t ndx) { return coreStates.at(ndx); };
 
     // Homotopy interface
     // Return value: coverged, abort

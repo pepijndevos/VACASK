@@ -252,9 +252,10 @@ instantiateIntrospection(TranParameters);
 TranCore::TranCore(
     OutputDescriptorResolver& parentResolver, TranParameters& params, OperatingPointCore& opCore, 
     Circuit& circuit, CommonData& commons, 
-    KluRealMatrix& jacobian, VectorRepository<double>& solution, VectorRepository<double>& states
+    KluRealMatrix& jacobian, VectorRepository<double>& opSolution, VectorRepository<double>& solution, 
+    VectorRepository<double>& states
 ) : AnalysisCore(parentResolver, circuit, commons), params(params), outfile(nullptr), opCore_(opCore), 
-    jacobian(jacobian), solution(solution), states(states), 
+    jacobian(jacobian), opSolution(opSolution), solution(solution), states(states), 
     nrSolver(circuit, commons, jacobian, states, solution, nrSettings, integCoeffs) { 
     // Slots 0 (current) and -1 (future) are used for the NR solver
     // Slots 1, 2, ... correspond to past values (at t_{k}, t_{k-1}, ...)
@@ -262,6 +263,9 @@ TranCore::TranCore(
     // preparePredictorHistory() and prepareDifferentiatorHistory(). 
     
     // Make another forces slot in opCore_'s solver
+    // Slot 0 is for continuation mode forces
+    // Slot 1 is for nodeset forces
+    // Slot 2 is for ic forces
     opCore_.solver().resizeForces(3);
 
     // Set analysis type for the initial operating point analysis
@@ -330,7 +334,7 @@ bool TranCore::addCoreOutputDescriptors(Status& s) {
 }
 
 std::tuple<bool, bool> TranCore::preMapping(Status& s) {
-    // Go through nodesets. Decode, set, and check delta part. 
+    // Go through ics. Decode, set, and check delta part. 
     // No need to check unknowns part because diagonal entries are
     // always allocated by Circuit. 
     auto& icParam = params.ic;
@@ -421,6 +425,8 @@ bool TranCore::rebuild(Status& s) {
     // and after that OperatingPointCore::rebuild() because the 
     // latter one requires slot 2 to be populated in order to gather 
     // pointers to matrix entries. 
+    // opCore_.solver() slot 2 is filled with IC forces collected in OP mode
+    // ({"1", "2", 5.0} is treated as a delta force). 
     auto strictforce = circuit.simulatorOptions().core().strictforce; 
     auto& icParam = params.ic;
     if (icParam.type()==Value::Type::String) {
@@ -446,6 +452,8 @@ bool TranCore::rebuild(Status& s) {
                         opCore_.solver().formatError(s, &nr);
                         return false;
                     }
+                    Simulator::wrn() << "Warning, setting IC forces from solution '"+solutionName+"' failed.\n";
+                    opCore_.solver().forces(2).clear();
                 }
             }
         } else {
@@ -455,6 +463,8 @@ bool TranCore::rebuild(Status& s) {
     } else if (icParam.type()==Value::Type::ValueVec) {
         // A list with possibly delta forces
         // Set slot 2, use op mode for setting up initial conditions
+        // opCore_ solver slot 2 holds IC forces treated in OP mode 
+        // ({"1", "2", 5.0} is treated as a delta force)
         bool uicMode = false;
         if (!opCore_.solver().setForces(2, preprocessedIc, uicMode, strictforce)) {
             // Abort on error if strictforce is set
@@ -463,6 +473,8 @@ bool TranCore::rebuild(Status& s) {
                 opCore_.solver().formatError(s, &nr);
                 return false;
             }
+            Simulator::wrn() << "Warning, setting IC forces failed.\n";
+            opCore_.solver().forces(2).clear();
         }
     } else {
         // Error
@@ -835,23 +847,49 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
         if (debug>0) {
             Simulator::dbg() << "Solving initial conditions with OP analysis.\n";
         }
+        // Assume we run op in continuePrevious mode
+        auto opContinuePrevious = continuePrevious;
         // Use the OP analysis logic to set up force slots 0 (continuation nodesets)
         // and 1 (user-specified nodesets). Slot 2 contains permanent forces (i.e. 
-        // initial condition). 
-        // If ic parameter is given, activate slot 2. 
-        // Forces in slot 2 were set during last call to rebuild(). 
-        opCore_.solver().enableForces(2, true);
-        
+        // initial condition).
+        // If there is at least one ic force, enable them, disable nodesets 
+        auto& icForces = opCore_.solver().forces(2);
+        if (icForces.empty()) {
+            // No ic forces, allow nodesets passed via nodeset parameter
+            // continuePrevious mode passed on from transient
+            opCore_.enableNodesets(true); 
+            // Disable ic forces in opCore_
+            opCore_.solver().enableForces(2, false);    
+        } else {
+            // Have ic forces, disable nodesets passed via nodeset parameter
+            opCore_.enableNodesets(false);
+            // No continuePrevious mode
+            opContinuePrevious = false;
+            // Enable ic forces in opCore_
+            opCore_.solver().enableForces(2, true);    
+        }
         // Run op analysis
-        if (!opCore_.run(continuePrevious)) {
+        if (!opCore_.run(opContinuePrevious)) {
             setError(TranError::OperatingPointError);
             co_yield CoreState::Aborted;
         }
+        // Copy solution to transient solution
+        solution.vector() = opSolution.vector();
     } else if (params.icmode==icmodeUic) {
+        // UIC mode does not invoke OP analysis
+        // It justs sets forcres wint uicMode=true and collects the initial solution
+        // from node forces. Forces slot 2 in transient core's solver is disabled by 
+        // default. 
         if (debug>0) {
             Simulator::dbg() << "Setting initial conditions.\n";
         }
         // Prepare RHS with values based on ic parameter
+        // First, fill slot 2 of transient core's solver with IC forces treated in UIC mode. 
+        // UIC mode creates no delta forces and checks for conflicts. 
+        // Have to do it here, beacuse ICs that are fine in OP mode may fail in UIC mode 
+        // and we don't want to fail in rebuild() if we are using OP mode. 
+        // Forces are set in UIC mode. 
+        // ({"1", "2", 5.0} is checked for conflicts and incorporated in node forces)
         bool uicMode = true;
         auto strictforce = circuit.simulatorOptions().core().strictforce; 
         
@@ -870,6 +908,8 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
                             setError(TranError::NRSolver);
                             co_yield CoreState::Aborted;
                         }
+                        Simulator::wrn() << "Warning, setting IC forces from solution '"+solutionName+"' failed.\n";
+                        nrSolver.forces(2).clear();
                     }
                 }
             }
@@ -881,13 +921,15 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
                     setError(TranError::NRSolver);
                     co_yield CoreState::Aborted;
                 }
+                Simulator::wrn() << "Warning, setting IC forces failed.\n";
+                nrSolver.forces(2).clear();
             }
         } else {
             // Zero initial condition
             nrSolver.forces(2).clear();
         }
         
-        // Copy values to RHS
+        // Copy node forces from transient core's solver slot 2 to solution vector
         solution.vector() = nrSolver.forces(2).unknownValue_;
     } else {
         setError(TranError::IcMode);

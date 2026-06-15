@@ -6,8 +6,8 @@ namespace NAMESPACE {
 
 Tran::Tran(Id name, Circuit& circuit, PTAnalysis& ptAnalysis) 
     : Analysis(name, circuit, ptAnalysis), 
-      opCore(*this, params.core().opParams, circuit, commons, jac, solution, states), 
-      tranCore(*this, params.core(), opCore, circuit, commons, jac, solution, states) { 
+      opCore(*this, params.core().opParams, circuit, commons, jac, opSolution, states), 
+      tranCore(*this, params.core(), opCore, circuit, commons, jac, opSolution, solution, states) { 
 }
 
 Analysis* Tran::create(PTAnalysis& ptAnalysis, Circuit& circuit, Status& s) {

@@ -16,7 +16,7 @@ namespace NAMESPACE {
 Pss::Pss(Id name, Circuit& circuit, PTAnalysis& ptAnalysis)
     : Analysis(name, circuit, ptAnalysis),
       opCore_(*this, params.core().opParams, circuit, commons, jac_, solution_, states_),
-      stabilTran_(*this, params.core().stabilParams, opCore_, circuit, commons, jac_, solution_, states_),
+      stabilTran_(*this, params.core().stabilParams, opCore_, circuit, commons, jac_, solution_, solution_, states_),
       pssTran_(*this, params.core().shootParams, opCore_, circuit, commons, jac_, solution_, states_),
       pssCore_(*this, params.core(), circuit, commons, jac_, solution_, states_, opCore_, stabilTran_, pssTran_) {
 }
@@ -156,17 +156,20 @@ bool Pss::rebuildCores(Status& s) {
         return false;
     }
 
-    // First rebuild the stabilTran core because its rebuild function stores ICs 
-    // in slot 2 of opCore's nrSolver's forces. 
-    if (!stabilTran_.rebuild(s)) {
-        return false;
-    }
-    if (!opCore_.rebuild(s)) {
-        return false;
-    }
+    // First rebuild the pssTran core because otherwise it will clear ic forces in
+    // opCore_. pssTran has not ic parameter!
     if (!pssTran_.rebuild(s)) {
         return false;
     }
+    // This one sets up ic forces in opCore_
+    if (!stabilTran_.rebuild(s)) {
+        return false;
+    }
+    // Rebuild opCore, now it has forces set up
+    if (!opCore_.rebuild(s)) {
+        return false;
+    }
+    // In the end rebuild top level core
     if (!pssCore_.rebuild(s)) {
         return false;
     }
@@ -179,11 +182,15 @@ size_t Pss::analysisStateStorageSize() const {
 }
 
 size_t Pss::allocateAnalysisStateStorage(size_t n) { 
-    // Only op core has storage
-    return pssCore_.allocateStateStorage(n);
+    // Op core need 1 storage slot for pss solution
+    auto ok1 = opCore_.allocateStateStorage(1);
+    // Only pss core has storage
+    auto ok2 = pssCore_.allocateStateStorage(n);
+    return ok1 && ok2;
 }
 
 void Pss::deallocateAnalysisStateStorage(size_t n) { 
+    opCore_.deallocateStateStorage(1);
     // Only op core has storage
     pssCore_.deallocateStateStorage(n);
 }
@@ -206,12 +213,12 @@ void Pss::makeStateIncoherent(size_t ndx) {
 std::tuple<bool, bool> Pss::preMapping(Status& s) {
     // Forward IC and icmode to stabilParams so stabilTran_.preMapping()
     // sees them and populates preprocessedIc before rebuild() is called.
-    auto& p = params.core();
-    bool hasIc = (p.ic.type() == Value::Type::ValueVec);
-    if (hasIc) {
-        p.stabilParams.ic     = p.ic;
-        p.stabilParams.icmode = TranCore::icmodeUic;
-    }
+    // auto& p = params.core();
+    // bool hasIc = (p.ic.type() == Value::Type::ValueVec);
+    // if (hasIc) {
+    //     p.stabilParams.ic     = p.ic;
+    //     p.stabilParams.icmode = TranCore::icmodeUic;
+    // }
     auto [ok1, needsMappingOp] = opCore_.preMapping(s);
     auto [ok2, needsMappingStabil] = stabilTran_.preMapping(s);
     auto [ok3, needsMappingPss] = pssTran_.preMapping(s);

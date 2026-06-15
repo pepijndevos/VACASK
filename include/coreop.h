@@ -41,6 +41,8 @@ typedef struct OperatingPointParameters {
 
     Int write {1};             // Write the results to a file
 
+    Int enableNodesets {1};    // enable nodesets (if given), not exposed, used by other analyses
+
     OperatingPointParameters(); 
 } OperatingPointParameters;
 
@@ -95,6 +97,8 @@ public:
     // Get solver
     OpNRSolver& solver() { return nrSolver; }; 
 
+    void enableNodesets(bool enable) { params.enableNodesets = enable; };
+    
     void dump(std::ostream& os) const;
 
     static Id solutionTag;

@@ -24,7 +24,7 @@ PssTranCore::PssTranCore(
     VectorRepository<double>& solution,
     VectorRepository<double>& states
 ) : TranCore(parentResolver, params, opCore, circuit, commons,
-             jacobian, solution, states),
+             jacobian, solution, solution, states),
     lastAlpha_(0.0),
     lastB1_(1.0),
     phiValid_(false),
@@ -108,7 +108,7 @@ bool PssTranCore::clearTrajectory(double T0) {
     // Get C_0 and q_0 by evaluating the reactive jacobian and residual at this point
     Vector<double> qSnap(n + 1, 0.0);
     jacobian.zero();
-    EvalSetup es = getNrSolver().evalSetup();
+    EvalSetup es = solver().evalSetup();
     es.evaluateResistiveJacobian = false;
     es.evaluateReactiveJacobian  = true;
     es.evaluateResistiveResidual = false;
@@ -177,7 +177,7 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
 
     // Get the current C_k and q(x_k) by using evalAndLoad. C_k will be saved to jacobian
     jacobian.zero();
-    EvalSetup es = getNrSolver().evalSetup();
+    EvalSetup es = solver().evalSetup();
     es.evaluateResistiveJacobian = false;
     es.evaluateReactiveJacobian  = true;
     es.evaluateResistiveResidual = false;

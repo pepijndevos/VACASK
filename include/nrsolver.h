@@ -57,6 +57,8 @@ public:
     void clear();
 
     void dump(Circuit& circuit, std::ostream& os) const;
+
+    bool empty() const { return unknownValue_.size()==0 && deltaValue_.size()==0; };
     
     Vector<double> unknownValue_;
     Vector<bool> unknownForced_;

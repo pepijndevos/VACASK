@@ -401,6 +401,8 @@ std::tuple<bool, bool> TranNRSolver::checkResidual() {
         //       and the contribution is close to 0. 
         //       This means that absolute tolerances may be too low and prevent convergence forever. 
         //       This is somehow remedied if relrefres is set to pointglobal or global. 
+        //       Possible solution: count number of connected devices to each node. 
+        //       If that number is >1 use it in residual tolerance check. 
 
         // Residual component
         double rescomp = fabs(delta[i]);

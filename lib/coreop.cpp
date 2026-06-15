@@ -354,7 +354,7 @@ std::tuple<bool, bool> OperatingPointCore::runSolver(bool continuePrevious) {
         nrSolver.enableForces(0, false);
 
         // Apply forces specified by user in slot 1
-        nrSolver.enableForces(1, true); 
+        nrSolver.enableForces(1, params.enableNodesets); 
         
         if (options.op_debug>1) {
             Simulator::dbg() << "OP using standard initial solution with forced nodesets.\n";

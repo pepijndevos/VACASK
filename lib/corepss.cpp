@@ -20,7 +20,7 @@ template<> int Introspection<PssParameters>::setup() {
     registerMember(stabstep);
     registerMember(maxacfreq);
     registerMember(write);
-    registerMember(ic);
+    registerNamedMember(stabilParams.ic, "ic");
     registerNamedMember(stabilParams.write, "writestab");
     registerNamedMember(opParams.nodeset, "nodeset");
     return 0;
@@ -128,40 +128,142 @@ bool PssCore::restoreState(size_t ndx) {
 // Stabilisation transient
 // ----------------------------------------------------------------
 
-bool PssCore::runStabilisation(double period) {
-    if (params.stabstep>0) {
-        // stabstep given
-        params.stabilParams.step = params.stabstep;
+// Shooting always uses forces for establishing starting point
+// since PSS is so expensive forces do not incur significant overhead
+// (only a few more NR iterations) compared to continueMode via soluton vector
+
+// nodeset is passed to opCore_, ic is passed to stabilTran_ 
+// Both are using the same Jacobian so preMapping()/populateStructutres() 
+// of these two cores will take care of all the reuqired entries. 
+
+// continuePrevious=1 (sweep, homotopy)
+// No stabilisaiton transient
+// - Use stored solution as nodeset in OP, use state slot 0 and continuePrevious=1
+// 
+// continuePrevious=0
+// Stabilisation transient enabled (tstab>0)
+// - Use ic parameter as IC in OP mode for stabilisation transient
+//   Since it is already passed to stabilTran_, just run with icmode=op. 
+// Stabilisation transient disabled, ic parameter given
+// - Use ic parameter as nodeset with opCore_. 
+//   Use it via state slot 0 and continuePrevious=1. 
+// Stabilisation transient disabled, no ic parameter given
+// - Ordinary opCore_ run with nodeset. 
+
+// If we ever allow homotopy, move part of this to runSolver()
+// TODO: collect period from stored solution and use it if no period is given as parameter
+bool PssCore::runStabilisation(bool continuePrevious, double period) {
+    if (continuePrevious) {
+        // Continue mode (sweep, homotopy)
+        auto& opSlot = opCore_.coreState(0);
+        if (
+            continueState && continueState->valid &&
+            continueState->solution.typeTag()==OperatingPointCore::solutionTag
+        ) {
+            // Valid state
+            // Fill slot 2 of opCore_ with stored solution
+            // Use abortOnError=true, any error is returned immediately
+            if (!opCore_.solver().setForces(2, continueState->solution, true)) {
+                setError(PssError::ForcesFailed);
+                return false;
+            }
+            // Continue state is spent after first use
+            continueState = nullptr;
+            // Disable nodesets. 
+            opCore_.enableNodesets(false);
+            // Enable UIC forces. 
+            opCore_.solver().enableForces(2, true);
+            // Run in continuePrevious=false mode. 
+            bool opContinuePrevious = false;
+            // Run operating point
+            if (!opCore_.run(opContinuePrevious)) {
+                setError(PssError::OpFailed);
+                return false;
+            }    
+        } else {
+            // No valid state, continue with whatever is in solution
+            // Nothing to do
+        }
     } else {
-        // no stabstep
-        // TODO: 1000 is a bit excessive?
-        params.stabilParams.step = period / 1000.0;
-    }
-    params.stabilParams.stop    = params.tstab;
-    params.stabilParams.maxstep = params.stabilParams.step;
-    params.stabilParams.start   = 0.0;
-    if (params.maxacfreq > 0) {
-        double effMaxacfreq = std::max(params.maxacfreq, 40.0 / period);
-        double hmax = std::min(params.stabilParams.maxstep, 1.0 / (2.0 * effMaxacfreq));
-        params.stabilParams.maxstep = hmax;
-        params.stabilParams.step    = std::min(params.stabilParams.step, hmax);
+        // Ordinary mode
+        if (params.tstab>0) {
+            // With stabiliation transient
+            if (params.stabstep>0) {
+                // stabstep given
+                params.stabilParams.step = params.stabstep;
+            } else {
+                // no stabstep
+                // TODO: 1000 is a bit excessive?
+                params.stabilParams.step = period / 1000.0;
+            }
+            params.stabilParams.stop    = params.tstab;
+            params.stabilParams.maxstep = params.stabilParams.step;
+            params.stabilParams.start   = 0.0;
+            if (params.maxacfreq > 0) {
+                double effMaxacfreq = std::max(params.maxacfreq, 40.0 / period);
+                double hmax = std::min(params.stabilParams.maxstep, 1.0 / (2.0 * effMaxacfreq));
+                params.stabilParams.maxstep = hmax;
+                params.stabilParams.step    = std::min(params.stabilParams.step, hmax);
+            }
+            // Disable nodesets in opCore_ so they don't interfere with ic forces
+            params.opParams.enableNodesets = 0;
+            // Disable nodesets (slot 1) if given. 
+            opCore_.enableNodesets(false);
+            // Enable IC forces. 
+            opCore_.solver().enableForces(2, true);
+            // Use stabilTran_ in icmode=op with given ic, continuePrevious=false
+            if (!stabilTran_.run(false)) {
+                setError(PssError::StabilisationTranFailed);
+                return false;
+            }
+        } else {
+            // No stabilisation transient
+            // Check opCore_ forces slot 2 (ic in icmode=op)
+            auto& icForces = opCore_.solver().forces(2);
+            if (!icForces.empty()) {
+                // ic parameter sets at least one force
+                // Do not run in continue mode (slot 0 disabled). 
+                auto opContinuePrevious = false;
+                // Disable nodesets (slot 1) if given. 
+                opCore_.enableNodesets(false);
+                // Enable IC forces. 
+                opCore_.solver().enableForces(2, true);
+                // run in continueMode=false
+                if (!opCore_.run(opContinuePrevious)) {
+                    setError(PssError::OpFailed);
+                    return false;
+                }
+            } else {
+                // ic parameter not given, ordinary op with nodesets
+                // Do not run in continue mode (slot 0 disabled). 
+                auto opContinuePrevious = false;
+                // Enable nodesets (slot 1) if given. 
+                opCore_.enableNodesets(true);
+                // Disable IC forces. 
+                opCore_.solver().enableForces(2, false);
+                if (!opCore_.run(opContinuePrevious)) {
+                    setError(PssError::OpFailed);
+                    return false;
+                }
+            }
+        }
     }
     
     // icmode and ic were forwarded to stabilParams in Pss::preMapping().
     // If no IC was given, run the DC operating point now.
-    bool hasIc = (params.ic.type() == Value::Type::ValueVec);
-    if (!hasIc) {
-        params.stabilParams.icmode = TranCore::icmodeOp;
-        if (!opCore_.run(false)) {
-            setError(PssError::OpFailed);
-            return false;
-        }
-    }
-
-    if (!stabilTran_.run(false)) {
-        setError(PssError::StabilisationTranFailed);
-        return false;
-    }
+    // bool hasIc = (params.ic.type() == Value::Type::ValueVec);
+    // if (!hasIc) {
+    //     params.stabilParams.icmode = TranCore::icmodeOp;
+    //     if (!opCore_.run(false)) {
+    //         setError(PssError::OpFailed);
+    //         return false;
+    //     }
+    // }
+// 
+    // if (!stabilTran_.run(false)) {
+    //     setError(PssError::StabilisationTranFailed);
+    //     return false;
+    // }
     return true;
 }
 
@@ -182,8 +284,7 @@ bool PssCore::runShoot(double T0) {
         params.shootParams.maxstep = hmax;
         params.shootParams.step    = std::min(params.shootParams.step, hmax);
     }
-    // write is left as-is: 0 during Newton iterations, 1 for the final output shoot.
-
+    
     if (!pssTran_.run(false)) {
         setError(PssError::ShootingTranFailed);
         return false;
@@ -274,26 +375,6 @@ void PssCore::computePhaseConstraint(
 // Main Newton loop
 // ----------------------------------------------------------------
 
-// Shooting always uses forces for establishing starting point
-// since PSS is so expensive that forces (only a few more OP iterations) 
-// compared to continueMode via soluton vector do not incur significant overhead
-
-// continuePrevious mode
-//   have continueState, valid, coherent
-//     OP with solution as nodeset, special because node names are not available is stored solution
-//     shooting with transient/OP result as start
-//   have continueState, valid 
-//     OP with solution as nodeset
-//     shooting with transient/OP result as start
-
-// ordinary mode, with IC
-//   OP with IC as nodeset
-//   shooting with transient/OP result as start
-// ordinary mode, no IC
-//   tstab>0 - OP transient / UIC transient starting from IC=0
-//   tstab<=0 - OP
-//   shooting with transient/OP result as start
-
 CoreCoroutine PssCore::coroutine(bool continuePrevious) {
     // clearError();
     // if (!run(continuePrevious)) {
@@ -357,9 +438,12 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
     }
 
     // Stabilisation transient.
-    if (!runStabilisation(params.tper)) {
+    if (!runStabilisation(continuePrevious, params.tper)) {
         co_yield CoreState::Aborted;
     }
+
+    // Disable nodesets in opCore_
+    params.opParams.enableNodesets = 0;
 
     // x_0^(0) is the state of the circuit after running the stabilisation transient
     x0 = solution.vector();
@@ -380,7 +464,6 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
 
     // PSS-SHOOT main loop (outer NR)
     while (iterIndex <= options.pss_itl) {
-
         if (debug>0){
             ss.str(""); 
             ss << "PSS: shoot l=" << iterIndex << "\n";
@@ -510,6 +593,14 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
         co_yield CoreState::Aborted;
     }
 
+    if (converged && params.store.length()>0) {
+        auto& sol = circuit.newStoredSolution(params.store);
+        sol.setTypeTag(OperatingPointCore::solutionTag);
+        sol.setNames(circuit);
+        sol.setValues(solution.vector());
+        sol.setAuxReal(T0);
+    }
+
     if (debug>0) {
         Simulator::dbg() << "PSS analysis finshed.\n";
         ss.str("");
@@ -619,6 +710,12 @@ bool PssCore::formatError(Status& s) const {
             pssTran_.formatError(s);
             s.extend("PSS transient failed.");
             return false;
+        case PssError::ForcesFailed: {
+            auto nr = UnknownNameResolver(circuit);
+            opCore_.solver().formatError(s, &nr);
+            s.extend("Failed to set forces.");
+            return false;
+        }
         default:
             return true;
     }
