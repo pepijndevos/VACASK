@@ -19,6 +19,7 @@ template<> int Introspection<PssParameters>::setup() {
     registerMember(tstab);
     registerMember(stabstep);
     registerMember(maxacfreq);
+    registerMember(store);
     registerMember(write);
     registerNamedMember(stabilParams.ic, "ic");
     registerNamedMember(stabilParams.write, "writestab");
@@ -146,13 +147,13 @@ bool PssCore::restoreState(size_t ndx) {
 //   Since it is already passed to stabilTran_, just run with icmode=op. 
 // Stabilisation transient disabled, ic parameter given
 // - Use ic parameter as nodeset with opCore_. 
-//   Use it via state slot 0 and continuePrevious=1. 
+//   Use it via state slot 2 and continuePrevious=1. 
 // Stabilisation transient disabled, no ic parameter given
 // - Ordinary opCore_ run with nodeset. 
 
 // If we ever allow homotopy, move part of this to runSolver()
-// TODO: collect period from stored solution and use it if no period is given as parameter
-bool PssCore::runStabilisation(bool continuePrevious, double period) {
+std::tuple<bool, double> PssCore::runStabilisation(bool continuePrevious) {
+    double period = 0;
     if (continuePrevious) {
         // Continue mode (sweep, homotopy)
         auto& opSlot = opCore_.coreState(0);
@@ -165,7 +166,13 @@ bool PssCore::runStabilisation(bool continuePrevious, double period) {
             // Use abortOnError=true, any error is returned immediately
             if (!opCore_.solver().setForces(2, continueState->solution, true)) {
                 setError(PssError::ForcesFailed);
-                return false;
+                return std::make_tuple(false, period);
+            }
+            // Extract period from continueState
+            period = continueState->solution.auxReal();
+            // Default to value of tper
+            if (period<=0) {
+                period = params.tper;
             }
             // Continue state is spent after first use
             continueState = nullptr;
@@ -178,16 +185,42 @@ bool PssCore::runStabilisation(bool continuePrevious, double period) {
             // Run operating point
             if (!opCore_.run(opContinuePrevious)) {
                 setError(PssError::OpFailed);
-                return false;
+                return std::make_tuple(false, period);
             }    
         } else {
             // No valid state, continue with whatever is in solution
+            // Set period to tper
+            period = params.tper;
             // Nothing to do
         }
     } else {
         // Ordinary mode
         if (params.tstab>0) {
             // With stabiliation transient
+            // Extract period from ic
+            if (params.stabilParams.ic.type()==Value::Type::String) {
+                String& solutionName = params.stabilParams.ic.val<String>();
+                if (solutionName.length()>0) {
+                    auto solPtr = circuit.storedSolution(solutionName);
+                    if (solPtr) {
+                        // Found solution
+                        period = solPtr->auxReal();
+                    }
+                }
+            }
+            // Default to value of tper
+            if (period<=0) {
+                period = params.tper;
+            }
+            // Check for valid period (we need it)
+            if (period<=0) {
+                setError(PssError::TperInvalid);
+                return std::make_tuple(false, period);
+            }
+            // Check parameters
+            if (params.tstab>0 && params.tstab < 10.0 * params.tper) {
+                Simulator::wrn() << "PSS: Tstab < 10 * Tper. Oscillator may not have settled.\n";
+            }
             if (params.stabstep>0) {
                 // stabstep given
                 params.stabilParams.step = params.stabstep;
@@ -214,10 +247,25 @@ bool PssCore::runStabilisation(bool continuePrevious, double period) {
             // Use stabilTran_ in icmode=op with given ic, continuePrevious=false
             if (!stabilTran_.run(false)) {
                 setError(PssError::StabilisationTranFailed);
-                return false;
+                return std::make_tuple(false, period);
             }
         } else {
             // No stabilisation transient
+            // Extract period from ic
+            if (params.stabilParams.ic.type()==Value::Type::String) {
+                String& solutionName = params.stabilParams.ic.val<String>();
+                if (solutionName.length()>0) {
+                    auto solPtr = circuit.storedSolution(solutionName);
+                    if (solPtr) {
+                        // Found solution
+                        period = solPtr->auxReal();
+                    }
+                }
+            }
+            // Default to tper
+            if (period<=0) {
+                period = params.tper;
+            }
             // Check opCore_ forces slot 2 (ic in icmode=op)
             auto& icForces = opCore_.solver().forces(2);
             if (!icForces.empty()) {
@@ -231,7 +279,7 @@ bool PssCore::runStabilisation(bool continuePrevious, double period) {
                 // run in continueMode=false
                 if (!opCore_.run(opContinuePrevious)) {
                     setError(PssError::OpFailed);
-                    return false;
+                    return std::make_tuple(false, period);
                 }
             } else {
                 // ic parameter not given, ordinary op with nodesets
@@ -243,28 +291,13 @@ bool PssCore::runStabilisation(bool continuePrevious, double period) {
                 opCore_.solver().enableForces(2, false);
                 if (!opCore_.run(opContinuePrevious)) {
                     setError(PssError::OpFailed);
-                    return false;
+                    return std::make_tuple(false, period);
                 }
             }
         }
     }
     
-    // icmode and ic were forwarded to stabilParams in Pss::preMapping().
-    // If no IC was given, run the DC operating point now.
-    // bool hasIc = (params.ic.type() == Value::Type::ValueVec);
-    // if (!hasIc) {
-    //     params.stabilParams.icmode = TranCore::icmodeOp;
-    //     if (!opCore_.run(false)) {
-    //         setError(PssError::OpFailed);
-    //         return false;
-    //     }
-    // }
-// 
-    // if (!stabilTran_.run(false)) {
-    //     setError(PssError::StabilisationTranFailed);
-    //     return false;
-    // }
-    return true;
+    return std::make_tuple(true, period);
 }
 
 
@@ -376,19 +409,7 @@ void PssCore::computePhaseConstraint(
 // ----------------------------------------------------------------
 
 CoreCoroutine PssCore::coroutine(bool continuePrevious) {
-    // clearError();
-    // if (!run(continuePrevious)) {
-    //     co_yield CoreState::Aborted;
-    // }
-    // co_yield CoreState::Finished;
     clearError();
-
-    // Handle continue mode (sweep and homotopy)
-    if (continuePrevious) {
-
-    } else {
-        // Not in continue mode
-    }
 
     // Disable shooting transient output
     params.shootParams.write = 0;
@@ -417,28 +438,20 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
     std::stringstream ss;
     ss << std::scientific << std::setprecision(4);
 
-    // For now require tper>0, later allow tper=0 and rely on nodeset
-    // TODO: switch all params.tper to some member, like T0 where the actually used period is stored
-
-    // Check parameters
-    // Require tper>0
-    if(params.tper <= 0) {
-        setError(PssError::TperInvalid);
-        co_yield CoreState::Aborted;
-    }
-
-    if (params.tstab>0 && params.tstab < 10.0 * params.tper) {
-        Simulator::wrn() << "PSS: Tstab < 10 * Tper. Oscillator may not have settled.\n";
-    }
-
     // Stabilisation is run if tstab>0, stabstep if>0 must be <tstab
     if (params.tstab>0 && params.stabstep>0 && params.stabstep>=params.tstab) {
         setError(PssError::StabstepInvalid);
         co_yield CoreState::Aborted;
     }
 
-    // Stabilisation transient.
-    if (!runStabilisation(continuePrevious, params.tper)) {
+    // Stabilisation transient, determine initial period from parameters and stored solution
+    auto [okStabil, period] = runStabilisation(continuePrevious);
+    if (!okStabil) {
+        co_yield CoreState::Aborted;
+    }
+    // Require tper>0
+    if(period <= 0) {
+        setError(PssError::TperInvalid);
         co_yield CoreState::Aborted;
     }
 
@@ -447,7 +460,16 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
 
     // x_0^(0) is the state of the circuit after running the stabilisation transient
     x0 = solution.vector();
-    T0 = params.tper;
+    T0 = period;
+
+    // Continue mode
+    //   Have stored solution
+    //     Take T0 from solution
+    //   No stored solution
+    //     Use whatever is in T0
+    // Ordinary mode
+    //   
+
 
     // Obtain x_T^(0) by running a transient simulation for T_0 seconds
     solution.vector() = x0;
@@ -563,8 +585,8 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
         // Convergence check: per-unknown shooting residual vs SPICE delta tolerance.
         // A (used): tol[i] = pss_tolscale * max(|x0[i]|*reltol, abstol[i]) -- matches OP/TRAN
         //   checkDelta; scales with signal magnitude so large/small nodes converge proportionally.
-        // B (alternative): tol[i] = pss_tolscale * abstol[i] -- purely absolute; simpler but
-        //   insensitive to signal magnitude, may over-converge large nodes or under-converge small ones.
+        // pss_tolscale should be >=1. One cannot expect stricter tolerance from PSS 
+        // than from underlying op/tran. 
         bool shootConverged = true;
         worstRatio = 0.0;
         for (decltype(n) i = 1; i <= n; i++) {

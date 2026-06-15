@@ -199,7 +199,7 @@ SimulatorOptions::SimulatorOptions() {
     hb_homotopy = { "src" }; // list of homotopy algorithms to apply in hb analysis
     hb_nsiter = 1; // Number of iterations during which nodesets are applied
     
-    pss_tolscale = 1.0;  // >0, PSS convergence tolerance scale relative to NR tolerances
+    pss_tolscale = 2.0;  // >=1, PSS convergence tolerance scale relative to NR tolerances
     pss_itl      = 50;   // >0, max outer NR iterations for PSS shooting loop
     pss_debug    = 0;    // >0 = enables debugging
 

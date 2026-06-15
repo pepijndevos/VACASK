@@ -206,7 +206,8 @@ private:
     // Run the DC operating point and the stabilisation transient.
     // On return, solution_.vector() holds the initial guess x0 for the
     // Newton loop.
-    bool runStabilisation(bool continuePrevious, double period);
+    // Return value: ok, period
+    std::tuple<bool, double> runStabilisation(bool continuePrevious);
 
     // Integrate one period T0 from the initial condition in solution_.vector().
     // On return, solution_.vector() holds xT, the endpoint of the shoot.
