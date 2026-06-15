@@ -239,7 +239,7 @@ std::tuple<bool, double> PssCore::runStabilisation(bool continuePrevious) {
                 params.stabilParams.step    = std::min(params.stabilParams.step, hmax);
             }
             // Disable nodesets in opCore_ so they don't interfere with ic forces
-            params.opParams.enableNodesets = 0;
+            opCore_.enableNodesets(false);
             // Disable nodesets (slot 1) if given. 
             opCore_.enableNodesets(false);
             // Enable IC forces. 
@@ -456,7 +456,7 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
     }
 
     // Disable nodesets in opCore_
-    params.opParams.enableNodesets = 0;
+    opCore_.enableNodesets(false);
 
     // x_0^(0) is the state of the circuit after running the stabilisation transient
     x0 = solution.vector();

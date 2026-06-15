@@ -38,10 +38,7 @@ typedef struct OperatingPointParameters {
     Value nodeset {Value("")}; // String specifying stored solution slot to read or
                                // list specifying nodesets
     String store {""};         // Name of stored solution slot to write
-
     Int write {1};             // Write the results to a file
-
-    Int enableNodesets {1};    // enable nodesets (if given), not exposed, used by other analyses
 
     OperatingPointParameters(); 
 } OperatingPointParameters;
@@ -97,7 +94,7 @@ public:
     // Get solver
     OpNRSolver& solver() { return nrSolver; }; 
 
-    void enableNodesets(bool enable) { params.enableNodesets = enable; };
+    void enableNodesets(bool enable) { nodesetsMasterSwitch = enable; };
     
     void dump(std::ostream& os) const;
 
@@ -133,6 +130,8 @@ private:
     OpNRSolver nrSolver;
 
     OperatingPointParameters& params;
+
+    bool nodesetsMasterSwitch;
 };
 
 }

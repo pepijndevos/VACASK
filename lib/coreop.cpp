@@ -32,7 +32,7 @@ OperatingPointCore::OperatingPointCore(
 ) : AnalysisCore(parentResolver, circuit, commons), params(params), outfile(nullptr), 
       nrSolver(circuit, commons, jacobian, states, solution, nrSettings), 
       jac(jacobian), solution(solution), states(states), 
-      converged_(false), continueState(nullptr) {
+      converged_(false), continueState(nullptr), nodesetsMasterSwitch(true) {
 }
 
 OperatingPointCore::~OperatingPointCore() {
@@ -354,7 +354,7 @@ std::tuple<bool, bool> OperatingPointCore::runSolver(bool continuePrevious) {
         nrSolver.enableForces(0, false);
 
         // Apply forces specified by user in slot 1
-        nrSolver.enableForces(1, params.enableNodesets); 
+        nrSolver.enableForces(1, nodesetsMasterSwitch); 
         
         if (options.op_debug>1) {
             Simulator::dbg() << "OP using standard initial solution with forced nodesets.\n";
