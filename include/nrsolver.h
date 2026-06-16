@@ -48,7 +48,7 @@ class Forces {
 public:
     Forces();
 
-    Forces           (const Forces&)  = delete;
+    explicit Forces  (const Forces&)  = default; // Allow explicit copy constructor
     Forces           (      Forces&&) = default;
     Forces& operator=(const Forces&)  = delete;
     Forces& operator=(      Forces&&) = default;

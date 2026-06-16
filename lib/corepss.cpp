@@ -18,11 +18,11 @@ template<> int Introspection<PssParameters>::setup() {
     registerMember(tper);
     registerMember(tstab);
     registerMember(stabstep);
+    registerMember(icmode);
     registerMember(maxacfreq);
     registerMember(store);
     registerMember(write);
     registerNamedMember(stabilParams.ic, "ic");
-    registerNamedMember(stabilParams.icmode, "icmode");
     registerNamedMember(stabilParams.write, "writestab");
     registerNamedMember(opParams.nodeset, "nodeset");
     return 0;
@@ -50,6 +50,9 @@ PssCore::PssCore(
     pssTran_(pssTran),
     T0_converged_(0.0)
 {
+    // Slot 3 is for ICs in continuation mode
+    opCore_.solver().resizeForces(4);
+    stabilTran_.solver().resizeForces(4);
 }
 
 // Don't need a destructor, outfile object is in other cores
@@ -67,6 +70,12 @@ bool PssCore::addDefaultOutputDescriptors(Status& s) {
 
 // TODO: place all resize() calls here
 bool PssCore::rebuild(Status& s) {
+    auto& options = circuit.simulatorOptions().core();
+    // Tran IC forces
+    stabilTran_.solver().setForcesFactor(3, options.nr_force);
+    // OP IC forces
+    opCore_.solver().setForcesFactor(3, options.nr_force);
+
     return true;
 }
 
@@ -102,7 +111,7 @@ bool PssCore::storeState(size_t ndx) {
     // Store current solution as annotated solution
     repo.solution.setNames(circuit);
     
-    // Store solution in frequency domain (complex spectrum)
+    // Store time domain solution
     repo.solution.setValues(solution.vector());
     
     // Store period
@@ -138,19 +147,26 @@ bool PssCore::restoreState(size_t ndx) {
 // Both are using the same Jacobian so preMapping()/populateStructutres() 
 // of these two cores will take care of all the reuqired entries. 
 
-// continuePrevious=1 (sweep, homotopy)
-// No stabilisaiton transient
-// - Use stored solution as nodeset in OP, use state slot 0 and continuePrevious=1
-// 
-// continuePrevious=0
-// Stabilisation transient enabled (tstab>0)
-// - Use ic parameter as IC in OP mode for stabilisation transient
-//   Since it is already passed to stabilTran_, just run with icmode=op. 
-// Stabilisation transient disabled, ic parameter given
-// - Use ic parameter as nodeset with opCore_. 
-//   Use it via state slot 2 and continuePrevious=1. 
-// Stabilisation transient disabled, no ic parameter given
-// - Ordinary opCore_ run with nodeset. 
+void PssCore::prepareStabilisation(double period) {
+    auto& options = circuit.simulatorOptions().core();
+    if (params.stabstep>0) {
+        // stabstep given
+        params.stabilParams.step = params.stabstep;
+    } else {
+        // no stabstep
+        params.stabilParams.step = period / options.pss_minpts;
+    }
+    params.stabilParams.stop    = params.tstab;
+    params.stabilParams.maxstep = params.stabilParams.step;
+    params.stabilParams.start   = 0.0;
+    
+    if (params.maxacfreq > 0) {
+        double effMaxacfreq = std::max(params.maxacfreq, 40.0 / period);
+        double hmax = std::min(params.stabilParams.maxstep, 1.0 / (2.0 * effMaxacfreq));
+        params.stabilParams.maxstep = hmax;
+        params.stabilParams.step    = std::min(params.stabilParams.step, hmax);
+    }
+}
 
 // If we ever allow homotopy, move part of this to runSolver()
 std::tuple<bool, double> PssCore::runStabilisation(bool continuePrevious) {
@@ -159,36 +175,67 @@ std::tuple<bool, double> PssCore::runStabilisation(bool continuePrevious) {
     if (continuePrevious) {
         // Continue mode (sweep, homotopy)
         auto& opSlot = opCore_.coreState(0);
+        // Stored solution has no delta forces. 
         if (
-            continueState && continueState->valid &&
-            continueState->solution.typeTag()==OperatingPointCore::solutionTag
+            continueState && 
+            continueState->valid && continueState->coherent &&
+            continueState->solution.typeTag()==OperatingPointCore::solutionTag &&
+            continueState->solution.values().size()==circuit.unknownCount()+1
         ) {
-            // Valid state
-            // Fill slot 2 of opCore_ with stored solution
-            // Use abortOnError=true, any error is returned immediately
-            if (!opCore_.solver().setForces(2, continueState->solution, true)) {
-                setError(PssError::ForcesFailed);
-                return std::make_tuple(false, period);
-            }
-            // Extract period from continueState
+            // Valid coherent state
+            // Extract period
             period = continueState->solution.auxReal();
             // Default to value of tper
             if (period<=0) {
                 period = params.tper;
             }
-            // Continue state is spent after first use
-            continueState = nullptr;
-            // Disable nodesets. 
-            opCore_.enableNodesets(false);
-            // Enable UIC forces. 
-            opCore_.solver().enableForces(2, true);
-            // Run in continuePrevious=false mode. 
-            bool opContinuePrevious = false;
-            // Run operating point
-            if (!opCore_.run(opContinuePrevious)) {
-                setError(PssError::OpFailed);
+            // Put it in forces slot 3 of stabilTran_
+            if (!stabilTran_.solver().setForces(3, continueState->solution, options.strictforce)) {
+                // Abort on error if strictforce is set
+                if (options.strictforce) {
+                    setError(PssError::ForcesFailed);
+                    return std::make_tuple(false, period);
+                }
+                Simulator::wrn() << "Warning, setting IC forces from previous state failed.\n";
+                stabilTran_.solver().forces(3).clear();
+            }
+            // Write it to solution
+            solution.vector() = stabilTran_.solver().forces(3).unknownValue_;
+        } else if (
+            continueState && continueState->valid && 
+            continueState->solution.typeTag()==OperatingPointCore::solutionTag
+        ) {
+            // Valid state, not coherent
+            // Extract period
+            period = continueState->solution.auxReal();
+            // Default to value of tper
+            if (period<=0) {
+                period = params.tper;
+            }
+            // Put it in forces slot 3 of opCore_, op mode
+            if (!opCore_.solver().setForces(3, continueState->solution, options.strictforce)) {
+                // Abort on error if strictforce is set
+                if (options.strictforce) {
+                    setError(PssError::ForcesFailed);
+                    return std::make_tuple(false, period);
+                }
+                Simulator::wrn() << "Warning, setting IC forces from previous state failed.\n";
+                opCore_.solver().forces(3).clear();
+            }
+            // Set ic foces slot to 3
+            stabilTran_.setIcForcesSlot(3);
+            // Do a stabilisation transient using icmode=op
+            params.stabilParams.icmode = TranCore::icmodeOp;
+            prepareStabilisation(period);
+            // Run stabilTran_ with continuePrevious=false
+            if (!stabilTran_.run(false)) {
+                setError(PssError::StabilisationTranFailed);
                 return std::make_tuple(false, period);
-            }    
+            }
+            // Set ic forces slot to 2 (back to normal)
+            stabilTran_.setIcForcesSlot(2);
+            // Disable slot 3
+            stabilTran_.solver().enableForces(3, false); 
         } else {
             // No valid state, continue with whatever is in solution
             // Set period to tper
@@ -221,24 +268,9 @@ std::tuple<bool, double> PssCore::runStabilisation(bool continuePrevious) {
         if (params.tstab>0 && params.tstab < 10.0 * params.tper) {
             Simulator::wrn() << "PSS: Tstab < 10 * Tper. Oscillator may not have settled.\n";
         }
-        if (params.stabstep>0) {
-            // stabstep given
-            params.stabilParams.step = params.stabstep;
-        } else {
-            // no stabstep
-            // TODO: 1000 is a bit excessive?
-            params.stabilParams.step = period / options.pss_minpts;
-        }
-        params.stabilParams.stop    = params.tstab;
-        params.stabilParams.maxstep = params.stabilParams.step;
-        params.stabilParams.start   = 0.0;
-        if (params.maxacfreq > 0) {
-            double effMaxacfreq = std::max(params.maxacfreq, 40.0 / period);
-            double hmax = std::min(params.stabilParams.maxstep, 1.0 / (2.0 * effMaxacfreq));
-            params.stabilParams.maxstep = hmax;
-            params.stabilParams.step    = std::min(params.stabilParams.step, hmax);
-        }
-        // Use stabilTran_ with continuePrevious=false
+        params.stabilParams.icmode = params.icmode;
+        prepareStabilisation(period);
+        // Run stabilTran_ with continuePrevious=false
         if (!stabilTran_.run(false)) {
             setError(PssError::StabilisationTranFailed);
             return std::make_tuple(false, period);

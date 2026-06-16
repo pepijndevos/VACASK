@@ -256,7 +256,8 @@ TranCore::TranCore(
     VectorRepository<double>& states
 ) : AnalysisCore(parentResolver, circuit, commons), params(params), outfile(nullptr), opCore_(opCore), 
     jacobian(jacobian), opSolution(opSolution), solution(solution), states(states), 
-    nrSolver(circuit, commons, jacobian, states, solution, nrSettings, integCoeffs) { 
+    nrSolver(circuit, commons, jacobian, states, solution, nrSettings, integCoeffs), 
+    icForcesSlot(2) { 
     // Slots 0 (current) and -1 (future) are used for the NR solver
     // Slots 1, 2, ... correspond to past values (at t_{k}, t_{k-1}, ...)
     // Therefore historyOffset needs to be set to 1 when calling 
@@ -854,20 +855,22 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
         // and 1 (user-specified nodesets). Slot 2 contains permanent forces (i.e. 
         // initial condition).
         // If there is at least one ic force, enable them, disable nodesets 
-        auto& icForces = opCore_.solver().forces(2);
+        auto& icForces = opCore_.solver().forces(icForcesSlot);
         if (icForces.empty()) {
             // No ic forces, allow nodesets passed via nodeset parameter
             // continuePrevious mode passed on from transient
             opCore_.enableNodesets(true); 
             // Disable ic forces in opCore_
             opCore_.solver().enableForces(2, false);    
+            opCore_.solver().enableForces(icForcesSlot, false);    
         } else {
             // Have ic forces, disable nodesets passed via nodeset parameter
             opCore_.enableNodesets(false);
             // No continuePrevious mode
             opContinuePrevious = false;
             // Enable ic forces in opCore_
-            opCore_.solver().enableForces(2, true);    
+            opCore_.solver().enableForces(2, false);    
+            opCore_.solver().enableForces(icForcesSlot, true);    
         }
         // Run op analysis
         if (!opCore_.run(opContinuePrevious)) {

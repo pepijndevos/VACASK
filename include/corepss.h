@@ -85,12 +85,12 @@ typedef struct PssParameters {
     Real tper       {0.0};  // Initial period guess
     Real tstab      {0.0};  // Stabilization transient time
     Real stabstep   {0.0};  // Stabilization transient timestep
+    Id   icmode     {Id()}; // IC mode for stabilisation transient (op by default)
     Real maxacfreq  {0.0};  // Max AC frequency to resolve; limits maxstep to 1/(2*maxacfreq). Clipped to 40/tper if below that.
     String store    {""};   // Name of stored solution slot to write
     Int  write      {1};    // Write output datasets
                             // nodeset is mapped to opParams
                             // ic is mapped to stabilParams
-                            // icmode is mapped to stabilParams
 
     // Parameters forwarded to subsidiary cores
     OperatingPointParameters opParams;
@@ -98,12 +98,11 @@ typedef struct PssParameters {
     TranParameters shootParams;
 
     PssParameters() {
+        icmode = TranCore::icmodeOp;
         opParams.write      = 0;
         stabilParams.write  = 0;
         shootParams.write   = 0;
-        // Default stabilisation transient icmode is op
-        stabilParams.icmode = TranCore::icmodeOp;
-        // Default shooting icmode is uic
+        // Shooting icmode is always uic
         shootParams.icmode = TranCore::icmodeUic;
     }
 } PssParameters;
@@ -175,6 +174,9 @@ public:
     const DenseMatrix<double>& convergedAdjointMonodromy() const { return omegaT_; }
 
 protected:
+    // Prepare stabilisation transient
+    void prepareStabilisation(double period);
+
     // Clear error
     void clearError() { AnalysisCore::clearError(); lastPssError = PssError::OK; }
 

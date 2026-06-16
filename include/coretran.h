@@ -129,6 +129,10 @@ public:
     void dump(std::ostream& os) const;
 
     TranNRSolver& solver() { return nrSolver; }
+    // Slot number used for ic forces, by default 2 
+    // Analysies like PSS, use slot 3 in continue mode
+    // TranCore writes only slot 2
+    void setIcForcesSlot(size_t n) { icForcesSlot = n; };
 
     static Id icmodeOp;
     static Id icmodeUic;
@@ -201,6 +205,7 @@ private:
     
     size_t nPoints;
     double tk;
+    size_t icForcesSlot;
     
     // Transient noise
     std::mt19937_64 randomGenerator;
