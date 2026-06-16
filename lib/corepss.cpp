@@ -403,9 +403,6 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
         co_yield CoreState::Aborted;
     }
 
-    // Disable nodesets in opCore_
-    opCore_.enableNodesets(false);
-
     // x_0^(0) is the state of the circuit after running the stabilisation transient
     x0 = solution.vector();
     T0 = period;

@@ -15,9 +15,9 @@ namespace NAMESPACE {
 
 Pss::Pss(Id name, Circuit& circuit, PTAnalysis& ptAnalysis)
     : Analysis(name, circuit, ptAnalysis),
-      opCore_(*this, params.core().opParams, circuit, commons, jac_, solution_, states_),
-      stabilTran_(*this, params.core().stabilParams, opCore_, circuit, commons, jac_, solution_, solution_, states_),
-      pssTran_(*this, params.core().shootParams, opCore_, circuit, commons, jac_, solution_, states_),
+      opCore_(*this, params.core().opParams, circuit, commons, jac_, opSolution_, states_),
+      stabilTran_(*this, params.core().stabilParams, opCore_, circuit, commons, jac_, opSolution_, solution_, states_),
+      pssTran_(*this, params.core().shootParams, opCore_, circuit, commons, jac_, opSolution_, solution_, states_),
       pssCore_(*this, params.core(), circuit, commons, jac_, solution_, states_, opCore_, stabilTran_, pssTran_) {
 }
 

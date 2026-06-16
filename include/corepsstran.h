@@ -96,6 +96,7 @@ public:
         Circuit& circuit,
         CommonData& commons,
         KluRealMatrix& jacobian,
+        VectorRepository<double>& opSolution,
         VectorRepository<double>& solution,
         VectorRepository<double>& states
     );

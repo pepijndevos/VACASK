@@ -21,10 +21,11 @@ PssTranCore::PssTranCore(
     Circuit& circuit,
     CommonData& commons,
     KluRealMatrix& jacobian,
+    VectorRepository<double>& opSolution,
     VectorRepository<double>& solution,
     VectorRepository<double>& states
 ) : TranCore(parentResolver, params, opCore, circuit, commons,
-             jacobian, solution, solution, states),
+             jacobian, opSolution, solution, states),
     lastAlpha_(0.0),
     lastB1_(1.0),
     phiValid_(false),
