@@ -637,12 +637,13 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
     ss << std::scientific << std::setprecision(15);
 
     // Check parameters
-    if (params.stop<=0) {
+    if (params.stop<0) {
         setError(TranError::Tstop);
         co_yield CoreState::Aborted;
     }
 
-    if (params.start>=params.stop) {
+    // Recording start must be before stop, unless stop is 0
+    if (params.start>=params.stop && params.stop>0) {
         setError(TranError::Tstart);
         co_yield CoreState::Aborted;
     }
@@ -1012,6 +1013,14 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
         co_yield CoreState::Finished;
     } else if (stopFlag) {
         co_yield CoreState::Stopped;
+    }
+
+    // tstop=0, exit now
+    if (params.stop<=0) {
+        if (debug) {
+            Simulator::dbg() << "Transient analysis finished.\n";
+        }
+        co_yield CoreState::Finished;
     }
 
     // Clear Converged, Bypassed, and HasDeviceHistory flags
@@ -1852,7 +1861,6 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
     } // while
 
     if (debug) {
-        
         if (tSolve>=params.stop) {
             Simulator::dbg() << "Transient analysis finished.\n";
         }
@@ -1899,7 +1907,7 @@ bool TranCore::formatError(Status& s) const {
             nrSolver.formatError(s, &nr);
             break;
         case TranError::Tstop: 
-            s.set(Status::Analysis, "Transient stop time must be greater than zero.");
+            s.set(Status::Analysis, "Transient stop time must not be negative.");
             break;
         case TranError::Tstart: 
             s.set(Status::Analysis, "Transient recording start time is after stop time.");
