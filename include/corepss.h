@@ -208,6 +208,11 @@ private:
     DenseMatrix<double> phiT_;
     DenseMatrix<double> omegaT_;    // adjoint
 
+    Vector<double>      PsiT;
+    Vector<double>      Fp;
+    Vector<double>      alpha;
+    DenseMatrix<double> Jp;
+
     // Run the DC operating point and the stabilisation transient.
     // On return, solution_.vector() holds the initial guess x0 for the
     // Newton loop.

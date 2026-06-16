@@ -68,7 +68,6 @@ bool PssCore::addDefaultOutputDescriptors(Status& s) {
 
 // Don't need preMapping() and populateStructures()
 
-// TODO: place all resize() calls here
 bool PssCore::rebuild(Status& s) {
     auto& options = circuit.simulatorOptions().core();
     // Tran IC forces
@@ -76,6 +75,12 @@ bool PssCore::rebuild(Status& s) {
     // OP IC forces
     opCore_.solver().setForcesFactor(3, options.nr_force);
 
+    auto n = circuit.unknownCount();    
+    PsiT.resize(n+1);
+    Fp.resize(n+1);
+    alpha.resize(n+1);
+    Jp.resize(n+1, n+1);
+    
     return true;
 }
 
@@ -399,11 +404,9 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
 
     auto n = circuit.unknownCount();
 
-    /// TODO: Move to private class members. Size correctly during rebuild.
-    Vector<double>      PsiT;
-    Vector<double>      Fp(n + 1, 0.0);
-    Vector<double>      alpha(n + 1, 0.0);
-    DenseMatrix<double> Jp(n + 1, n + 1);
+    zero(Fp);
+    zero(alpha);
+    Jp.zero();
 
     Int    iterIndex  = 0;
     double worstRatio = 0.0;
