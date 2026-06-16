@@ -22,6 +22,7 @@ template<> int Introspection<PssParameters>::setup() {
     registerMember(store);
     registerMember(write);
     registerNamedMember(stabilParams.ic, "ic");
+    registerNamedMember(stabilParams.icmode, "icmode");
     registerNamedMember(stabilParams.write, "writestab");
     registerNamedMember(opParams.nodeset, "nodeset");
     return 0;
@@ -153,6 +154,7 @@ bool PssCore::restoreState(size_t ndx) {
 
 // If we ever allow homotopy, move part of this to runSolver()
 std::tuple<bool, double> PssCore::runStabilisation(bool continuePrevious) {
+    auto& options = circuit.simulatorOptions().core();
     double period = 0;
     if (continuePrevious) {
         // Continue mode (sweep, homotopy)
@@ -194,106 +196,52 @@ std::tuple<bool, double> PssCore::runStabilisation(bool continuePrevious) {
             // Nothing to do
         }
     } else {
-        // Ordinary mode
-        if (params.tstab>0) {
-            // With stabiliation transient
-            // Extract period from ic
-            if (params.stabilParams.ic.type()==Value::Type::String) {
-                String& solutionName = params.stabilParams.ic.val<String>();
-                if (solutionName.length()>0) {
-                    auto solPtr = circuit.storedSolution(solutionName);
-                    if (solPtr) {
-                        // Found solution
-                        period = solPtr->auxReal();
-                    }
+        // Ordinary mode, use stabiliation transient for determining first point of shooting
+        // Extract period from ic
+        if (params.stabilParams.ic.type()==Value::Type::String) {
+            String& solutionName = params.stabilParams.ic.val<String>();
+            if (solutionName.length()>0) {
+                auto solPtr = circuit.storedSolution(solutionName);
+                if (solPtr) {
+                    // Found solution
+                    period = solPtr->auxReal();
                 }
             }
-            // Default to value of tper
-            if (period<=0) {
-                period = params.tper;
-            }
-            // Check for valid period (we need it)
-            if (period<=0) {
-                setError(PssError::TperInvalid);
-                return std::make_tuple(false, period);
-            }
-            // Check parameters
-            if (params.tstab>0 && params.tstab < 10.0 * params.tper) {
-                Simulator::wrn() << "PSS: Tstab < 10 * Tper. Oscillator may not have settled.\n";
-            }
-            if (params.stabstep>0) {
-                // stabstep given
-                params.stabilParams.step = params.stabstep;
-            } else {
-                // no stabstep
-                // TODO: 1000 is a bit excessive?
-                params.stabilParams.step = period / 1000.0;
-            }
-            params.stabilParams.stop    = params.tstab;
-            params.stabilParams.maxstep = params.stabilParams.step;
-            params.stabilParams.start   = 0.0;
-            if (params.maxacfreq > 0) {
-                double effMaxacfreq = std::max(params.maxacfreq, 40.0 / period);
-                double hmax = std::min(params.stabilParams.maxstep, 1.0 / (2.0 * effMaxacfreq));
-                params.stabilParams.maxstep = hmax;
-                params.stabilParams.step    = std::min(params.stabilParams.step, hmax);
-            }
-            // Disable nodesets in opCore_ so they don't interfere with ic forces
-            opCore_.enableNodesets(false);
-            // Disable nodesets (slot 1) if given. 
-            opCore_.enableNodesets(false);
-            // Enable IC forces. 
-            opCore_.solver().enableForces(2, true);
-            // Use stabilTran_ in icmode=op with given ic, continuePrevious=false
-            if (!stabilTran_.run(false)) {
-                setError(PssError::StabilisationTranFailed);
-                return std::make_tuple(false, period);
-            }
+        }
+        // Default to value of tper
+        if (period<=0) {
+            period = params.tper;
+        }
+        // Check for valid period (we need it)
+        if (period<=0) {
+            setError(PssError::TperInvalid);
+            return std::make_tuple(false, period);
+        }
+        // Check parameters
+        if (params.tstab>0 && params.tstab < 10.0 * params.tper) {
+            Simulator::wrn() << "PSS: Tstab < 10 * Tper. Oscillator may not have settled.\n";
+        }
+        if (params.stabstep>0) {
+            // stabstep given
+            params.stabilParams.step = params.stabstep;
         } else {
-            // No stabilisation transient
-            // Extract period from ic
-            if (params.stabilParams.ic.type()==Value::Type::String) {
-                String& solutionName = params.stabilParams.ic.val<String>();
-                if (solutionName.length()>0) {
-                    auto solPtr = circuit.storedSolution(solutionName);
-                    if (solPtr) {
-                        // Found solution
-                        period = solPtr->auxReal();
-                    }
-                }
-            }
-            // Default to tper
-            if (period<=0) {
-                period = params.tper;
-            }
-            // Check opCore_ forces slot 2 (ic in icmode=op)
-            auto& icForces = opCore_.solver().forces(2);
-            if (!icForces.empty()) {
-                // ic parameter sets at least one force
-                // Do not run in continue mode (slot 0 disabled). 
-                auto opContinuePrevious = false;
-                // Disable nodesets (slot 1) if given. 
-                opCore_.enableNodesets(false);
-                // Enable IC forces. 
-                opCore_.solver().enableForces(2, true);
-                // run in continueMode=false
-                if (!opCore_.run(opContinuePrevious)) {
-                    setError(PssError::OpFailed);
-                    return std::make_tuple(false, period);
-                }
-            } else {
-                // ic parameter not given, ordinary op with nodesets
-                // Do not run in continue mode (slot 0 disabled). 
-                auto opContinuePrevious = false;
-                // Enable nodesets (slot 1) if given. 
-                opCore_.enableNodesets(true);
-                // Disable IC forces. 
-                opCore_.solver().enableForces(2, false);
-                if (!opCore_.run(opContinuePrevious)) {
-                    setError(PssError::OpFailed);
-                    return std::make_tuple(false, period);
-                }
-            }
+            // no stabstep
+            // TODO: 1000 is a bit excessive?
+            params.stabilParams.step = period / options.pss_minpts;
+        }
+        params.stabilParams.stop    = params.tstab;
+        params.stabilParams.maxstep = params.stabilParams.step;
+        params.stabilParams.start   = 0.0;
+        if (params.maxacfreq > 0) {
+            double effMaxacfreq = std::max(params.maxacfreq, 40.0 / period);
+            double hmax = std::min(params.stabilParams.maxstep, 1.0 / (2.0 * effMaxacfreq));
+            params.stabilParams.maxstep = hmax;
+            params.stabilParams.step    = std::min(params.stabilParams.step, hmax);
+        }
+        // Use stabilTran_ with continuePrevious=false
+        if (!stabilTran_.run(false)) {
+            setError(PssError::StabilisationTranFailed);
+            return std::make_tuple(false, period);
         }
     }
     
@@ -306,11 +254,11 @@ std::tuple<bool, double> PssCore::runStabilisation(bool continuePrevious) {
 // ----------------------------------------------------------------
 
 bool PssCore::runShoot(double T0) {
+    auto& options = circuit.simulatorOptions().core();
     params.shootParams.stop    = T0;
-    params.shootParams.step    = T0 / 1e3;
-    params.shootParams.maxstep = T0 / 1e3;
+    params.shootParams.step    = T0 / options.pss_minpts;
+    params.shootParams.maxstep = T0 / options.pss_minpts;
     params.shootParams.start   = 0.0;
-    params.shootParams.icmode  = TranCore::icmodeUic;
     if (params.maxacfreq > 0) {
         double effMaxacfreq = std::max(params.maxacfreq, 40.0 / T0);
         double hmax = std::min(params.shootParams.maxstep, 1.0 / (2.0 * effMaxacfreq));

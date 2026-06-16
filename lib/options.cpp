@@ -199,6 +199,7 @@ SimulatorOptions::SimulatorOptions() {
     hb_homotopy = { "src" }; // list of homotopy algorithms to apply in hb analysis
     hb_nsiter = 1; // Number of iterations during which nodesets are applied
     
+    pss_minpts   = 1000;  // >=50, minimal number of points per period
     pss_tolscale = 2.0;  // >=1, PSS convergence tolerance scale relative to NR tolerances
     pss_itl      = 50;   // >0, max outer NR iterations for PSS shooting loop
     pss_debug    = 0;    // >0 = enables debugging
@@ -313,6 +314,7 @@ template<> int Introspection<SimulatorOptions>::setup() {
     registerMember(hb_homotopy);
     registerMember(hb_nsiter);
 
+    registerMember(pss_minpts);
     registerMember(pss_tolscale);
     registerMember(pss_itl);
     registerMember(pss_debug);

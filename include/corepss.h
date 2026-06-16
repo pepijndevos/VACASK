@@ -81,15 +81,16 @@
 namespace NAMESPACE {
 
 typedef struct PssParameters {
-    Int  driven     {0};        // Non-autonomous (driven) circuit
-    Real tper       {0.0};      // Initial period guess
-    Real tstab      {0.0};      // Stabilization transient time
-    Real stabstep   {0.0};      // Stabilization transient timestep
-    Real maxacfreq  {0.0};      // Max AC frequency to resolve; limits maxstep to 1/(2*maxacfreq). Clipped to 40/tper if below that.
-    String store    {""};       // Name of stored solution slot to write
-    Int  write      {1};        // Write output datasets
-                                // nodeset is mapped to opParams
-                                // ic is mapped to stabilParams
+    Int  driven     {0};    // Non-autonomous (driven) circuit
+    Real tper       {0.0};  // Initial period guess
+    Real tstab      {0.0};  // Stabilization transient time
+    Real stabstep   {0.0};  // Stabilization transient timestep
+    Real maxacfreq  {0.0};  // Max AC frequency to resolve; limits maxstep to 1/(2*maxacfreq). Clipped to 40/tper if below that.
+    String store    {""};   // Name of stored solution slot to write
+    Int  write      {1};    // Write output datasets
+                            // nodeset is mapped to opParams
+                            // ic is mapped to stabilParams
+                            // icmode is mapped to stabilParams
 
     // Parameters forwarded to subsidiary cores
     OperatingPointParameters opParams;
@@ -100,7 +101,9 @@ typedef struct PssParameters {
         opParams.write      = 0;
         stabilParams.write  = 0;
         shootParams.write   = 0;
+        // Default stabilisation transient icmode is op
         stabilParams.icmode = TranCore::icmodeOp;
+        // Default shooting icmode is uic
         shootParams.icmode = TranCore::icmodeUic;
     }
 } PssParameters;
