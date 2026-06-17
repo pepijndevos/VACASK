@@ -189,12 +189,17 @@ OsdiFile::OsdiFile(void* handle_, std::string file_, Status& s)
         OsdiDescriptor* desc = descriptors[i];
         // Check if device allows bypass. Bypass is not allowed if
         // - device uses $bound_step
-        // - device uses $abstime (TODO)
+        // - device uses $abstime
         // - uses $discontinuity with an argument >=0 (not supported by OpenVAF)
         // - device sets breakpoints (not supported by OpenVAF)
-        allowsBypass_[i] = (
-            desc->bound_step_offset==UINT32_MAX
-        );
+        bool allowBypass = true;
+        if (desc->bound_step_offset!=UINT32_MAX) {
+            allowBypass = false;
+        }
+        if (desc->module_flags & MODULEFLAG_ABSTIME) {
+            allowBypass = false;
+        }
+        allowsBypass_[i] = allowBypass;
 
         auto& translator = paramOsdiIdTranslators[i];
         osdiIdSimInstIdLists[i].resize(desc->num_params+desc->num_opvars);
