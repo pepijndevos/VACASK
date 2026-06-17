@@ -8,11 +8,17 @@ These options control the outer Newton (shooting) loop of the [periodic steady-s
 |------|------|---------|---------|-------------|
 | `pss_itl` | int | 50 | >0 | Maximum number of shooting (outer Newton) iterations. |
 
+## Timestep
+
+| Name | Type | Default | Allowed | Description |
+|------|------|---------|---------|-------------|
+| `pss_minpts` | int | 1000 | ≥50 | Minimum number of steps per period. Sets the initial and maximum timestep of both the shooting and stabilization transients to `T`/`pss_minpts`, where `T` is the current period estimate. |
+
 ## Convergence
 
 | Name | Type | Default | Allowed | Description |
 |------|------|---------|---------|-------------|
-| `pss_tolscale` | real | 1.0 | >0 | Scale factor for the shooting residual tolerance. The per-unknown tolerance is `pss_tolscale * max(reltol*|x|, abstol)`. Values below 1 tighten the periodicity requirement, values above 1 relax it. |
+| `pss_tolscale` | real | 2.0 | >0 | Scale factor for the shooting residual tolerance. The per-unknown tolerance is `pss_tolscale * max(reltol*|x|, abstol)`. Values below 1 tighten the periodicity requirement, values above 1 relax it. |
 
 ## Debugging
 

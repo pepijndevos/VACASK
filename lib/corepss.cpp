@@ -189,10 +189,16 @@ std::tuple<bool, double> PssCore::runStabilisation(bool continuePrevious) {
         ) {
             // Valid coherent state
             // Extract period
-            period = continueState->solution.auxReal();
-            // Default to value of tper
+            period = params.tper;
+            // Default to value from stored solution
             if (period<=0) {
-                period = params.tper;
+                // Default to value from stored solution
+                period = continueState->solution.auxReal();    
+            }
+            // Check for valid period (we need it)
+            if (period<=0) {
+                setError(PssError::TperInvalid);
+                return std::make_tuple(false, period);
             }
             // Put it in forces slot 3 of stabilTran_
             if (!stabilTran_.solver().setForces(3, continueState->solution, options.strictforce)) {
@@ -212,10 +218,16 @@ std::tuple<bool, double> PssCore::runStabilisation(bool continuePrevious) {
         ) {
             // Valid state, not coherent
             // Extract period
-            period = continueState->solution.auxReal();
+            period = params.tper;
             // Default to value of tper
             if (period<=0) {
-                period = params.tper;
+                // Default to value from stored solution
+                period = continueState->solution.auxReal();    
+            }
+            // Check for valid period (we need it)
+            if (period<=0) {
+                setError(PssError::TperInvalid);
+                return std::make_tuple(false, period);
             }
             // Put it in forces slot 3 of opCore_, op mode
             if (!opCore_.solver().setForces(3, continueState->solution, options.strictforce)) {
@@ -245,24 +257,26 @@ std::tuple<bool, double> PssCore::runStabilisation(bool continuePrevious) {
             // No valid state, continue with whatever is in solution
             // Set period to tper
             period = params.tper;
+            // Check for valid period (we need it)
+            if (period<=0) {
+                setError(PssError::TperInvalid);
+                return std::make_tuple(false, period);
+            }
             // Nothing to do
         }
     } else {
         // Ordinary mode, use stabiliation transient for determining first point of shooting
         // Extract period from ic
+        period = params.tper;
         if (params.stabilParams.ic.type()==Value::Type::String) {
             String& solutionName = params.stabilParams.ic.val<String>();
             if (solutionName.length()>0) {
                 auto solPtr = circuit.storedSolution(solutionName);
-                if (solPtr) {
-                    // Found solution
+                if (solPtr && period<=0) {
+                    // Default to value from stored solution
                     period = solPtr->auxReal();
                 }
             }
-        }
-        // Default to value of tper
-        if (period<=0) {
-            period = params.tper;
         }
         // Check for valid period (we need it)
         if (period<=0) {
@@ -421,8 +435,10 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
     std::stringstream ss;
     ss << std::scientific << std::setprecision(4);
 
-    // Stabilisation is run if tstab>0, stabstep if>0 must be <tstab
-    if (params.tstab>0 && params.stabstep>0 && params.stabstep>=params.tstab) {
+    // Stabilisation is run if tstab>0, if stabstep>0 it must be <tstab
+    if (params.stabstep<0 ||
+        (params.tstab>0 && params.stabstep>0 && params.stabstep>=params.tstab)
+    ) {
         setError(PssError::StabstepInvalid);
         co_yield CoreState::Aborted;
     }

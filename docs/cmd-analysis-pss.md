@@ -22,7 +22,7 @@ with Newton-Raphson iteration. The analysis proceeds in three stages:
 
 1. **Operating point.** Unless initial conditions are given with `ic`, the DC operating point is computed (honoring `nodeset`) and used as the starting state.
 
-2. **Stabilization transient.** A plain transient of length `tstab` lets the initial transients decay (driven circuits) or lets the oscillation build up toward the limit cycle (oscillators). Its endpoint becomes the initial guess $x_0$ for the Newton loop. A warning is printed when `tstab` is shorter than 10 periods because the circuit may not have settled close enough to the steady state.
+2. **Stabilization transient.** A plain transient of length `tstab` lets the initial transients decay (driven circuits) or lets the oscillation build up toward the limit cycle (oscillators). Its endpoint becomes the initial guess $x_0$ for the Newton loop. 
 
 3. **Shooting Newton loop.** Each iteration integrates the circuit over one period with the ordinary transient integrator. Alongside the circuit, the variational (linearized) system
 
@@ -44,7 +44,7 @@ $$\begin{pmatrix} I - \Phi_T & \Psi_T \\ \alpha^T & 0 \end{pmatrix} \begin{pmatr
 
 where $\Psi_T = -dx_T/dT$ is the period sensitivity vector and $\alpha$ is a phase constraint vector. The phase constraint removes the underdetermination caused by time-shift invariance (any time-shifted copy of a periodic solution is also a solution); $\alpha$ is chosen proportional to the circuit velocity $\dot{x}(t_0)$ so the Newton correction does not move along the orbit.
 
-The DC operating point of an oscillator is itself a valid (but unstable) periodic solution. The circuit must be kicked away from it, either with `ic` or with a one-shot pulse source that fires during the stabilization transient. Otherwise the stabilization transient stays at the operating point and the analysis converges to the degenerate DC solution.
+The DC operating point of an oscillator is itself a valid (but unstable) periodic solution. The circuit must be kicked away from it, with `ic`. Otherwise the stabilization transient stays at the operating point and the analysis converges to the degenerate DC solution.
 
 ### Convergence
 
@@ -56,7 +56,7 @@ The tolerance can be tightened or relaxed with the `pss_tolscale` option. The lo
 
 ### Timestep control
 
-The shooting transient uses an initial and maximum timestep of `tper`/1000. The stabilization transient uses `stabstep` (or `tper`/1000 when not given). When `maxacfreq` is positive, the maximum timestep of both transients is additionally limited to $1/(2 \cdot \mathrm{maxacfreq})$; values of `maxacfreq` below 40/`tper` are raised to 40/`tper`. The integration method and maximum order are selected with the `tran_method` and `tran_maxord` simulator options (see [Transient Analysis Options](cmd-options-tran.md)).
+The shooting transient uses an initial and maximum timestep of `T`/`pss_minpts`, where `T` is the current period estimate. The stabilization transient uses `stabstep` (or `tper`/`pss_minpts` when not given). `pss_minpts` defaults to 1000; see [Periodic Steady-State Options](cmd-options-pss.md). When `maxacfreq` is positive, the maximum timestep of both transients is additionally limited to $1/(2 \cdot \mathrm{maxacfreq})$; values of `maxacfreq` below 40/`tper` are raised to 40/`tper`. The integration method and maximum order are selected with the `tran_method` and `tran_maxord` simulator options (see [Transient Analysis Options](cmd-options-tran.md)).
 
 ## Parameters
 
@@ -65,10 +65,12 @@ The shooting transient uses an initial and maximum timestep of `tper`/1000. The 
 | `tper` | real | `0` | Period (s). For driven circuits the exact excitation period; for autonomous circuits the initial period guess. Required, must be > 0. |
 | `driven` | boolean | `0` | Set to 1 for driven (non-autonomous) circuits; the period is then fixed at `tper`. With 0 the circuit is treated as autonomous and the period is solved for. |
 | `tstab` | real | `0` | Length of the stabilization transient (s). With 0 no stabilization is performed and the operating point (or `ic`) is used directly as the initial guess. |
-| `stabstep` | real | `0` | Timestep of the stabilization transient (s). If 0, `tper`/1000 is used. Must be smaller than `tstab`. |
+| `stabstep` | real | `0` | Timestep of the stabilization transient (s). If 0, `tper`/`pss_minpts` is used. If given, it must be smaller than `tstab`. |
 | `maxacfreq` | real | `0` | Highest frequency to resolve (Hz). Limits the maximum timestep to $1/(2 \cdot \mathrm{maxacfreq})$. Values below 40/`tper` are raised to 40/`tper`. 0 disables the limit. |
-| `ic` | string or list | `""` | Initial conditions for the stabilization transient (applied in `uic` mode, skipping the operating point). A stored solution name or a list of node/value pairs. See [Transient Analysis](cmd-analysis-tran.md). |
+| `icmode` | string | `"op"` | Initial condition mode for the stabilization transient: `"op"` solves an operating point first with `ic` applied as forced constraints; `"uic"` skips the operating point and applies `ic` directly. |
+| `ic` | string or list | `""` | Initial conditions for the stabilization transient. A stored solution name or a list of node/value pairs. How the values are applied is governed by `icmode`. When a stored PSS solution name is given, the saved period is used as the initial period estimate, if `tper` is not given. See [Transient Analysis](cmd-analysis-tran.md). |
 | `nodeset` | string or list | `""` | Nodeset for the operating point solve. See [Operating Point Analysis](cmd-analysis-op.md). |
+| `store` | string | `""` | Save the converged PSS solution and period under the given name. The stored entry can be passed back as `ic` to a subsequent PSS analysis to warm-start from the previous result, supplying both the initial state vector and the converged period. |
 | `writestab` | boolean | `0` | Write the stabilization transient results to a separate file. |
 | `write` | boolean | `1` | Write the steady-state waveform (one period) to a file. |
 
