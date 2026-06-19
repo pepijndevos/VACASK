@@ -88,6 +88,7 @@ typedef struct PssParameters {
     Id   icmode     {Id()}; // IC mode for stabilisation transient (op by default)
     Real maxacfreq  {0.0};  // Max AC frequency to resolve; limits maxstep to 1/(2*maxacfreq). Clipped to 40/tper if below that.
     String store    {""};   // Name of stored solution slot to write
+    Int adjunct     {0};    // Enable adjunct monodromy computation
     Int  write      {1};    // Write output datasets
                             // nodeset is mapped to opParams
                             // ic is mapped to stabilParams

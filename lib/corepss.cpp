@@ -636,33 +636,40 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
         setError(PssError::ShootingTranFailed);
         co_yield CoreState::Aborted;
     }
-    pssTran_.enableTrajectoryCapture();
+    // Only capture trajectory if we intend to calculate the adjoint monodromy matrix
+    if (params.adjunct) {
+        pssTran_.enableTrajectoryCapture();
+    }
     if (!runShoot(T0)) {
         co_yield CoreState::Aborted;
     }
 
     // Integrate Omega backward using captured trajectory
-    if (!pssTran_.integrateAdjointMonodromy(omegaT_)) {
-        setError(PssError::AdjointFailed);
-        co_yield CoreState::Aborted;
-    
+    if (params.adjunct) {
+        if ( !pssTran_.integrateAdjointMonodromy(omegaT_)) {
+            setError(PssError::AdjointFailed);
+            co_yield CoreState::Aborted;
+        
+        }
     }
 
     if (debug>0) {
         ss.str(""); 
         auto n = circuit.unknownCount();
-        ss << "-- Monodromy matrices --\n";
+        ss << "-- Monodromy --\n";
         ss << "\tPhi(T,0) =\n";
         for (decltype(n) i = 0; i < n; i++) {
             ss << "\t  [ ";
             for (decltype(n) j = 0; j < n; j++) ss << phiT_.at(i, j) << " ";
             ss << "]\n";
         }
-        ss << "\tOmega(T,0) =\n";
-        for (decltype(n) i = 0; i < n; i++) {
-            ss << "\t  [ ";
-            for (decltype(n) j = 0; j < n; j++) ss << omegaT_.at(i, j) << " ";
-            ss << "]\n";
+        if (params.adjunct) {
+            ss << "\tOmega(T,0) =\n";
+            for (decltype(n) i = 0; i < n; i++) {
+                ss << "\t  [ ";
+                for (decltype(n) j = 0; j < n; j++) ss << omegaT_.at(i, j) << " ";
+                ss << "]\n";
+            }
         }
         Simulator::dbg() << ss.str();
     }
