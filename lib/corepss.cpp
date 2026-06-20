@@ -693,6 +693,15 @@ bool PssCore::run(bool continuePrevious) {
 
 }
 
+bool PssCore::convergedAdjointMonodromy(DenseMatrix<double>& Omega) {
+    if (!params.adjunct) {
+        setError(PssError::AdjointDisabled);
+        return false;
+    }
+    Omega = omegaT_;
+    return true;
+}
+
 bool PssCore::formatError(Status& s) const {
     switch (lastPssError) {
         case PssError::NoConvergence:
@@ -707,6 +716,9 @@ bool PssCore::formatError(Status& s) const {
             return false;
         case PssError::AdjointFailed:
             s.set(Status::Analysis, "Adjoint monodromy computation failed.");
+            return false;
+        case PssError::AdjointDisabled:
+            s.set(Status::Analysis, "Adjoint monodromy was not computed. Set adjunct=1 before running PSS.");
             return false;
         case PssError::LinearSolveFailed:
             s.set(Status::Analysis, "PSS Newton linear solve failed.");

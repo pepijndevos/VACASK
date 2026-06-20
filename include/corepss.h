@@ -116,6 +116,7 @@ public:
         NoConvergence,
         SensitivityFailed,
         AdjointFailed,
+        AdjointDisabled,
         LinearSolveFailed,
         OutputError,
         TperInvalid,
@@ -171,8 +172,10 @@ public:
     // Converged monodromy matrix Phi. Valid after a successful run().
     const DenseMatrix<double>& convergedMonodromy() const { return phiT_; }
 
-    // Converged adjoint monodromy matrix Omega. Valid after a successful run().
-    const DenseMatrix<double>& convergedAdjointMonodromy() const { return omegaT_; }
+    // Converged adjoint monodromy matrix Omega. Valid after a successful run()
+    // with adjunct enabled. Returns false and sets the error (formattable via
+    // formatError()) if adjunct monodromy was not computed (params.adjunct==0).
+    bool convergedAdjointMonodromy(DenseMatrix<double>& Omega);
 
 protected:
     // Prepare stabilisation transient
