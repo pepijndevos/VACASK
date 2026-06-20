@@ -65,18 +65,20 @@ embed "runme.py" <<<FILE
 from rawfile import rawread
 import numpy as np
 import matplotlib.pyplot as plt
+import skrf  # registers the 'smith' matplotlib projection
 
 raw = rawread('op1.raw')
 plot = raw.get()
 print("Ic=", plot["l3:flow(br)"])
 
 
-fig1 = plt.figure(figsize=(10,5), dpi=100)
+fig1 = plt.figure(figsize=(10,8), dpi=100)
 fig1.suptitle('RF amplifier')
 ax_dict = fig1.subplot_mosaic("""
 AB
-CB
-""", per_subplot_kw={"B": {"projection": "polar"}})
+CD
+""", per_subplot_kw={"D": {"projection": "polar"}},
+    gridspec_kw={"width_ratios": [1, 1.2]})
 
 raw = rawread('ac1.raw')
 plot = raw.get()
@@ -105,11 +107,18 @@ ax_dict["C"].semilogx(np.real(plot['frequency'])/1e6, 20*np.log10(np.abs(s22)), 
 ax_dict["C"].legend(loc="lower left", framealpha=1)
 ax_dict["C"].set_ylim(-70, 30)
 
-ax_dict["B"].plot(np.angle(s11), 10*np.abs(s11), "r-", label="10x s11")
-ax_dict["B"].plot(np.angle(s21), np.abs(s21), "b-", label="s21")
-ax_dict["B"].plot(np.angle(s12), 100*np.abs(s12), "r--", label="100x s12")
-ax_dict["B"].plot(np.angle(s22), 10*np.abs(s22), "b--", label="10x s22")
-ax_dict["B"].legend(loc="upper left", framealpha=1)
+skrf.plotting.smith(ax=ax_dict["B"], draw_labels=True)
+ax_dict["B"].plot(s11.real, s11.imag, "r-", label="s11")
+ax_dict["B"].plot(s22.real, s22.imag, "b--", label="s22")
+ax_dict["B"].set_aspect('equal')
+ax_dict["B"].set_xlim(-1.0, 1.0)
+ax_dict["B"].set_ylim(-1.0, 1.0)
+ax_dict["B"].legend(loc="lower right", framealpha=1)
+
+ax_dict["D"].plot(np.angle(s21), np.abs(s21), "b-", label="s21")
+ax_dict["D"].plot(np.angle(s12), 100*np.abs(s12), "r--", label="100x s12")
+ax_dict["D"].yaxis.set_major_locator(plt.MaxNLocator(4))
+ax_dict["D"].legend(loc="upper left", framealpha=1)
 
 fig1.tight_layout()
 
