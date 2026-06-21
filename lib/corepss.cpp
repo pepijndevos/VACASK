@@ -637,7 +637,7 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
         co_yield CoreState::Aborted;
     }
     // Only capture trajectory if we intend to calculate the adjoint monodromy matrix
-    if (params.adjunct) {
+    if (params.adjoint) {
         pssTran_.enableTrajectoryCapture();
     }
     if (!runShoot(T0)) {
@@ -645,7 +645,7 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
     }
 
     // Integrate Omega backward using captured trajectory
-    if (params.adjunct) {
+    if (params.adjoint) {
         if ( !pssTran_.integrateAdjointMonodromy(omegaT_)) {
             setError(PssError::AdjointFailed);
             co_yield CoreState::Aborted;
@@ -663,7 +663,7 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
             for (decltype(n) j = 0; j < n; j++) ss << phiT_.at(i, j) << " ";
             ss << "]\n";
         }
-        if (params.adjunct) {
+        if (params.adjoint) {
             ss << "\tOmega(T,0) =\n";
             for (decltype(n) i = 0; i < n; i++) {
                 ss << "\t  [ ";
@@ -694,7 +694,7 @@ bool PssCore::run(bool continuePrevious) {
 }
 
 bool PssCore::convergedAdjointMonodromy(DenseMatrix<double>& Omega) {
-    if (!params.adjunct) {
+    if (!params.adjoint) {
         setError(PssError::AdjointDisabled);
         return false;
     }
@@ -718,7 +718,7 @@ bool PssCore::formatError(Status& s) const {
             s.set(Status::Analysis, "Adjoint monodromy computation failed.");
             return false;
         case PssError::AdjointDisabled:
-            s.set(Status::Analysis, "Adjoint monodromy was not computed. Set adjunct=1 before running PSS.");
+            s.set(Status::Analysis, "Adjoint monodromy was not computed. Set adjoint=1 before running PSS.");
             return false;
         case PssError::LinearSolveFailed:
             s.set(Status::Analysis, "PSS Newton linear solve failed.");
