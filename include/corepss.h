@@ -175,7 +175,8 @@ public:
     // Converged adjoint monodromy matrix Omega. Valid after a successful run()
     // with adjoint enabled. Returns false and sets the error (formattable via
     // formatError()) if adjoint monodromy was not computed (params.adjoint==0).
-    bool convergedAdjointMonodromy(DenseMatrix<double>& Omega);
+    // Return value: ok, adjont monodromy matrix reference
+    std::tuple<bool, const DenseMatrix<double>&> convergedAdjointMonodromy();
 
 protected:
     // Prepare stabilisation transient

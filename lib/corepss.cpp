@@ -693,13 +693,12 @@ bool PssCore::run(bool continuePrevious) {
 
 }
 
-bool PssCore::convergedAdjointMonodromy(DenseMatrix<double>& Omega) {
+std::tuple<bool, const DenseMatrix<double>&> PssCore::convergedAdjointMonodromy() {
     if (!params.adjoint) {
         setError(PssError::AdjointDisabled);
-        return false;
+        return std::make_tuple(false, omegaT_);
     }
-    Omega = omegaT_;
-    return true;
+    return std::make_tuple(true, omegaT_);;
 }
 
 bool PssCore::formatError(Status& s) const {
