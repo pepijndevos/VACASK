@@ -72,13 +72,14 @@ plot = raw.get()
 print("Ic=", plot["l3:flow(br)"])
 
 
-fig1 = plt.figure(figsize=(10,8), dpi=100)
+fig1 = plt.figure(figsize=(12,5), dpi=100)
 fig1.suptitle('RF amplifier')
 ax_dict = fig1.subplot_mosaic("""
-AB
-CD
+ABD
+CBD
 """, per_subplot_kw={"D": {"projection": "polar"}},
-    gridspec_kw={"width_ratios": [1, 1.2]})
+    # gridspec_kw={"width_ratios": [1, 1.2]}
+)
 
 raw = rawread('ac1.raw')
 plot = raw.get()
