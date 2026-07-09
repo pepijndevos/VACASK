@@ -5,7 +5,8 @@ set(python_files
     sg13g2tovc.py
     xschem2vc.py
     sg13g2xschem.tcl
-    ng2vc.py 
+    ts2vc.py
+    ng2vc.py
     ng2vclib/__init__.py 
     ng2vclib/converter.py 
     ng2vclib/dfl.py 
