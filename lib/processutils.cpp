@@ -61,7 +61,8 @@ bool findProgram(const std::string& prog, std::string& pathToProg) {
 // TODO: replace this with something better
 std::tuple<bool, std::string, std::string> runProcess(
     const std::string& prog, const std::vector<std::string>& args, 
-    const std::string* pythonPath, bool collect, bool debugFiles, Status& s
+    const std::string* pythonPath, const std::string* parentFilePath, 
+    bool collect, bool debugFiles, Status& s
 ) {
     
     bool ok;
@@ -81,8 +82,6 @@ std::tuple<bool, std::string, std::string> runProcess(
     }
 
     // Make a copy of the environment in form of a map of key-value string pairs
-    auto procEnv = bp2::environment::current();
-
     std::map<std::string, std::string> customEnv;
     for (const auto& kv : bp2::environment::current()) {
         if (kv.key().empty()) {
@@ -97,6 +96,11 @@ std::tuple<bool, std::string, std::string> runProcess(
     // Add pythonPath to PATHONPATH environmental variable
     if (pythonPath) {
         customEnv["PYTHONPATH"] += pathSeparator()+(*pythonPath);
+    }
+    
+    // Add source file parent directory to environment under SIM_PARENT_FILE_DIR
+    if (parentFilePath) {
+        customEnv["SIM_PARENT_FILE_DIR"] = *parentFilePath;
     }
 
     if (collect) {
@@ -115,8 +119,7 @@ std::tuple<bool, std::string, std::string> runProcess(
             ios.get_executor(), 
             path, 
             args, 
-            // bp2::process_environment(customEnv),
-            bp2::process_environment(procEnv), 
+            bp2::process_environment(customEnv),
             bp2::process_stdio{
                 .out = rp_out, 
                 .err = rp_err

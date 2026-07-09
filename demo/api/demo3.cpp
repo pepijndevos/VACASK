@@ -201,7 +201,7 @@ plt.show()
     delete dc1, dc2;
 
     // Run postprocessing
-    runProcess(pythonBinary, {"runme.py"}, &pythonLibraryPath, false, false);
+    runProcess(pythonBinary, {"runme.py"}, &pythonLibraryPath, nullptr, false, false);
 
     return 0;
 }

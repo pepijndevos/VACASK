@@ -9,6 +9,7 @@
 #include "common.h"
 #include <type_traits>
 #include <chrono>
+#include <filesystem>
 
 
 namespace NAMESPACE {
@@ -366,6 +367,18 @@ InterpreterExitStatus cmd_postprocess(CommandInterpreter& interpreter, PTCommand
     std::string prog;
     std::vector<std::string> args;
 
+    // Check if location is valid and extract name of file where the command is located
+    std::string parentFilePath;
+    const std::string* parentFilePathPtr = nullptr;
+    if (cmd.location()!=Loc::bad) {
+        auto [fs, pos, line, offset] = cmd.location().data();
+        if (pos!=FileStack::badFileId) {
+            // get parent directory
+            parentFilePath = std::filesystem::path(fs->canonicalName(pos)).parent_path().string();
+            parentFilePathPtr = &parentFilePath;
+        }
+    }
+
     bool first = true;
     RpnEvaluationNetlistContext ctx;
     for(auto& it : cmd.expressions()) {
@@ -389,8 +402,12 @@ InterpreterExitStatus cmd_postprocess(CommandInterpreter& interpreter, PTCommand
         }
     }
 
-    auto [ok, out, err] = runProcess(prog, args, &(Platform::pythonPath()), false, Simulator::fileDebug(), s);
-    return ok ? InterpreterExitStatus::OK : InterpreterExitStatus::Error;
+    auto [ok, out, err] = runProcess(prog, args, &(Platform::pythonPath()), parentFilePathPtr, true, Simulator::fileDebug(), s);
+    Simulator::out() << out;
+    if (!err.empty()) {
+        Simulator::err() << err;
+    }
+    return InterpreterExitStatus::OK;
 }
 
 InterpreterExitStatus cmd_abort(CommandInterpreter& interpreter, PTCommand& cmd, Status& s) {

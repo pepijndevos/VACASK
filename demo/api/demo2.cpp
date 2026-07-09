@@ -174,7 +174,7 @@ print("Expected: [2, 8]")
     delete dc;
 
     // Run postprocessing
-    runProcess(pythonBinary, {"runme.py"}, &pythonLibraryPath, false, false);
+    runProcess(pythonBinary, {"runme.py"}, &pythonLibraryPath, nullptr, false, false);
 
     return 0;
 }

@@ -44,8 +44,10 @@ embed "runme.py" <<<FILE
 from rawfile import rawread
 from runtest import *
 import numpy as np
-import sys
+import sys, os
 import diocalc
+
+print("Parent file directory:", os.getenv("SIM_PARENT_FILE_DIR"))
 
 tests = []
 

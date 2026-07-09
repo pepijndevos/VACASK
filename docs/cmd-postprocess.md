@@ -62,6 +62,15 @@ plt.show()
 
 The script is embedded in the netlist using the `embed` directive (see [Embedded Files](input-embed.md)), so no separate file needs to be maintained.
 
+## The SIM_PARENT_FILE_DIR environment variable
+
+VACASK sets the `SIM_PARENT_FILE_DIR` environment variable to the directory of the file containing the `postprocess` command before launching the program. If the netlist is split across files with `include` (see [Including a File](input-include.md)), this is the directory of the file where the `postprocess` command itself appears, not the top-level netlist file. Use it to locate files relative to the netlist rather than relative to the simulator's working directory:
+
+```text
+import os
+netlist_dir = os.environ["SIM_PARENT_FILE_DIR"]
+```
+
 ## Skipping postprocessing
 
 Pass the `-sp` / `--skip-postprocess` flag to the simulator to skip all `postprocess` commands. This is useful for batch runs where plotting is not needed:

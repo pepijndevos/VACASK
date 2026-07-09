@@ -74,7 +74,7 @@ std::tuple<bool, bool> OpenvafCompiler::compile(const std::string& loadDirective
             args.push_back("-o");
             args.push_back(std::move(outputPath.string()));
             args.push_back(std::move(vaFile.string()));
-            auto [ok, out, err] = runProcess(compiler.has_value() ? *compiler : defaultOpenVafBinaryName(), args, nullptr, true, Simulator::fileDebug(), s);
+            auto [ok, out, err] = runProcess(compiler.has_value() ? *compiler : defaultOpenVafBinaryName(), args, nullptr, nullptr, true, Simulator::fileDebug(), s);
             if (!ok) {
                 // Failure, error
                 s.extend("Failed to compile file '"+vaFile.string()+"'.");

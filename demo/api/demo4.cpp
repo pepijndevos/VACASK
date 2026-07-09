@@ -159,7 +159,7 @@ print("Sum (should be 10):", dc1["2"]+dc2["2"])
     delete dc1, dc2;
 
     // Run postprocessing
-    runProcess(pythonBinary, {"runme.py"}, &pythonLibraryPath, false, false);
+    runProcess(pythonBinary, {"runme.py"}, &pythonLibraryPath, nullptr, false, false);
 
     return 0;
 }
