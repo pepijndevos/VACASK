@@ -31,7 +31,7 @@ from rawfile import rawread
 
 # The Touchstone file sits next to this netlist, not necessarily in the
 # simulator's working directory, so locate it via SIM_PARENT_FILE_DIR.
-s2pPath = os.path.join(os.environ["SIM_PARENT_FILE_DIR"], "inductor.s2p")
+s2pPath = os.path.join(os.environ.get("SIM_PARENT_FILE_DIR", "."), "inductor.s2p")
 network = rf.Network(s2pPath)
 
 plot = rawread('sp1.raw').get()
