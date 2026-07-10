@@ -6,7 +6,7 @@
 
 namespace NAMESPACE {
 
-bool vectorCheck(RpnStack& stack, Rpn::Arity argc, Status& s) {
+bool vectorCheck(RpnStack& stack, Rpn::Arity argc, RpnEvaluationContext& ctx, Status& s) {
     Value* vp = stack.get(); 
     DBGCHECK(!vp, "Internal error. Attempt to get value from empty stack."); 
     // Is it a vector type, but not a list
@@ -14,7 +14,7 @@ bool vectorCheck(RpnStack& stack, Rpn::Arity argc, Status& s) {
     return true;
 }
 
-bool listCheck(RpnStack& stack, Rpn::Arity argc, Status& s) {
+bool listCheck(RpnStack& stack, Rpn::Arity argc, RpnEvaluationContext& ctx, Status& s) {
     Value* vp = stack.get(); 
     DBGCHECK(!vp, "Internal error. Attempt to get value from empty stack."); 
     // Is it a list
@@ -22,7 +22,7 @@ bool listCheck(RpnStack& stack, Rpn::Arity argc, Status& s) {
     return true;
 }
 
-bool len(RpnStack& stack, Rpn::Arity argc, Status& s) {
+bool len(RpnStack& stack, Rpn::Arity argc, RpnEvaluationContext& ctx, Status& s) {
     Value* vp = stack.get(); 
     DBGCHECK(!vp, "Internal error. Attempt to get value from empty stack."); 
     if (!vp->isVector()) {
@@ -35,7 +35,7 @@ bool len(RpnStack& stack, Rpn::Arity argc, Status& s) {
 }
 
 // Variable argument count, possible counts: 1, 2
-bool vectorBuild(RpnStack& stack, Rpn::Arity argc, Status& s) {
+bool vectorBuild(RpnStack& stack, Rpn::Arity argc, RpnEvaluationContext& ctx, Status& s) {
     // Number of values
     Value* np = stack.get(argc-1); 
     DBGCHECK(!np, "Internal error. Attempt to get value from empty stack."); 
@@ -82,7 +82,7 @@ bool vectorBuild(RpnStack& stack, Rpn::Arity argc, Status& s) {
 }
 
 // Variable argument count, possible counts: 1, 2, 3
-bool vectorRange(RpnStack& stack, Rpn::Arity argc, Status& s) {
+bool vectorRange(RpnStack& stack, Rpn::Arity argc, RpnEvaluationContext& ctx, Status& s) {
     DBGCHECK(stack.size()<argc, "Internal error. Attempt to get value from empty stack."); 
     // Collect arguments
     auto t = Value::Type::Int;
@@ -180,7 +180,7 @@ std::mt19937_64 rng(0);
 // randunif(n): real vector of length n filled with uniformly distributed
 // random numbers from [0, 1). Argument is a scalar, converted to a nonnegative
 // integer length.
-bool vectorRandUnif(RpnStack& stack, Rpn::Arity argc, Status& s) {
+bool vectorRandUnif(RpnStack& stack, Rpn::Arity argc, RpnEvaluationContext& ctx, Status& s) {
     DBGCHECK(stack.size()<argc, "Internal error. Attempt to get value from empty stack."); 
     // Collect arguments
     Value* args[1];
@@ -218,7 +218,7 @@ bool vectorRandUnif(RpnStack& stack, Rpn::Arity argc, Status& s) {
 // interleave(v1, v2, ..., vn): interleave n numeric vectors of equal length into
 // one vector [v1[0], v2[0], ..., vn[0], v1[1], v2[1], ...]. Result length is
 // n*len. Element type is real if any argument is real, otherwise integer.
-bool vectorInterleave(RpnStack& stack, Rpn::Arity argc, Status& s) {
+bool vectorInterleave(RpnStack& stack, Rpn::Arity argc, RpnEvaluationContext& ctx, Status& s) {
     DBGCHECK(stack.size()<argc, "Internal error. Attempt to get value from empty stack."); 
     // Get arguments, check them, get maximal type
     size_t n = 0;
@@ -283,7 +283,7 @@ bool vectorInterleave(RpnStack& stack, Rpn::Arity argc, Status& s) {
 // separate(v, n, i): extract the elements of vector v at indices i, i+n, i+2n, ...
 // (every n-th element starting at offset i). Requires n>=1 and 0<=i<n. The result
 // type matches v.
-bool vectorSeparate(RpnStack& stack, Rpn::Arity argc, Status& s) {
+bool vectorSeparate(RpnStack& stack, Rpn::Arity argc, RpnEvaluationContext& ctx, Status& s) {
     DBGCHECK(stack.size()<argc, "Internal error. Attempt to get value from empty stack."); 
     // Get argument 0
     auto arg0 = stack.get(2);
@@ -452,7 +452,7 @@ void vectorPackCore(Value& res, Value& comp, size_t& j) {
 }
 
 // Variable argument count, possible counts >=0
-bool vectorPack(RpnStack& stack, Rpn::Arity argc, Status& s) {
+bool vectorPack(RpnStack& stack, Rpn::Arity argc, RpnEvaluationContext& ctx, Status& s) {
     // Check argument count
     DBGCHECK(stack.size()<argc, "Internal error. Attempt to get value from empty stack."); 
     
@@ -504,7 +504,7 @@ bool vectorPack(RpnStack& stack, Rpn::Arity argc, Status& s) {
     return true;
 }
 
-bool listPack(RpnStack& stack, Rpn::Arity argc, Status& s) {
+bool listPack(RpnStack& stack, Rpn::Arity argc, RpnEvaluationContext& ctx, Status& s) {
     // Create empty list
     Value res{std::move(ValueVector())};
 
@@ -530,7 +530,7 @@ bool listPack(RpnStack& stack, Rpn::Arity argc, Status& s) {
     return true;
 }
 
-bool listMerge(RpnStack& stack, Rpn::Arity argc, Status& s) {
+bool listMerge(RpnStack& stack, Rpn::Arity argc, RpnEvaluationContext& ctx, Status& s) {
     // Create empty list
     Value res{std::move(ValueVector())};
 
@@ -567,23 +567,23 @@ bool listMerge(RpnStack& stack, Rpn::Arity argc, Status& s) {
     return true;
 }
 
-bool minWrapper(RpnStack& stack, Rpn::Arity argc, Status& s) {
+bool minWrapper(RpnStack& stack, Rpn::Arity argc, RpnEvaluationContext& ctx, Status& s) {
     if (argc==2) {
         // Two arguments, component-wise
-        return mathFuncComp2<FwMin>(stack, argc, s);
+        return mathFuncComp2<FwMin>(stack, argc, ctx, s);
     } else {
         // Single argument, aggregation across vector/scalar
-        return mathAggregateNumFunc1<FwMinAggregate>(stack, argc, s);
+        return mathAggregateNumFunc1<FwMinAggregate>(stack, argc, ctx, s);
     }
 }
 
-bool maxWrapper(RpnStack& stack, Rpn::Arity argc, Status& s) {
+bool maxWrapper(RpnStack& stack, Rpn::Arity argc, RpnEvaluationContext& ctx, Status& s) {
     if (argc==2) {
         // Two arguments, component-wise
-        return mathFuncComp2<FwMax>(stack, argc, s);
+        return mathFuncComp2<FwMax>(stack, argc, ctx, s);
     } else {
         // Single argument, aggregation across vector/scalar
-        return mathAggregateNumFunc1<FwMaxAggregate>(stack, argc, s);
+        return mathAggregateNumFunc1<FwMaxAggregate>(stack, argc, ctx, s);
     }
 }
 

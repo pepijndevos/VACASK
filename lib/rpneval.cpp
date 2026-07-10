@@ -39,6 +39,7 @@ void RpnEvaluator::appendLocation(Status& s, const Loc& p) {
 bool RpnEvaluator::evaluate(const Rpn& rpn, Value& result, Status& s) {
     stack_.clear();
     Value *v1p, *v2p;
+    RpnEvaluationContext ctx;
     // Increment manually at the end of the loop
     for(auto e=rpn.cbegin(); e!=rpn.cend(); ) {
         const Loc& loc = rpn.location(*e);
@@ -65,43 +66,43 @@ bool RpnEvaluator::evaluate(const Rpn& rpn, Value& result, Status& s) {
                     bool coreSt = false;
                     switch (op.code) {
                         case Rpn::OpUMinus:
-                            coreSt = mathFuncComp1<FwUminus>(stack(), 1, s); break;
+                            coreSt = mathFuncComp1<FwUminus>(stack(), 1, ctx, s); break;
                         case Rpn::OpPlus:
-                            coreSt = mathFuncComp2<FwPlus>(stack(), 2, s); break;
+                            coreSt = mathFuncComp2<FwPlus>(stack(), 2, ctx, s); break;
                         case Rpn::OpMinus:
-                            coreSt = mathFuncComp2<FwMinus>(stack(), 2, s); break;
+                            coreSt = mathFuncComp2<FwMinus>(stack(), 2, ctx, s); break;
                         case Rpn::OpTimes:
-                            coreSt = mathFuncComp2<FwTimes>(stack(), 2, s); break;
+                            coreSt = mathFuncComp2<FwTimes>(stack(), 2, ctx, s); break;
                         case Rpn::OpDivide:
-                            coreSt = mathFuncComp2<FwDivide>(stack(), 2, s); break;
+                            coreSt = mathFuncComp2<FwDivide>(stack(), 2, ctx, s); break;
                         case Rpn::OpPower:
-                            coreSt = mathFuncComp2<FwPower>(stack(), 2, s); break;
+                            coreSt = mathFuncComp2<FwPower>(stack(), 2, ctx, s); break;
                         case Rpn::OpEqual:
-                            coreSt = mathRelOpComp2<FwEqual>(stack(), 2, s); break;
+                            coreSt = mathRelOpComp2<FwEqual>(stack(), 2, ctx, s); break;
                         case Rpn::OpNotEqual:
-                            coreSt = mathRelOpComp2<FwNotEqual>(stack(), 2, s); break;
+                            coreSt = mathRelOpComp2<FwNotEqual>(stack(), 2, ctx, s); break;
                         case Rpn::OpLess:
-                            coreSt = mathRelOpComp2<FwLess>(stack(), 2, s); break;
+                            coreSt = mathRelOpComp2<FwLess>(stack(), 2, ctx, s); break;
                         case Rpn::OpLessEq:
-                            coreSt = mathRelOpComp2<FwLessEq>(stack(), 2, s); break;
+                            coreSt = mathRelOpComp2<FwLessEq>(stack(), 2, ctx, s); break;
                         case Rpn::OpGreater:
-                            coreSt = mathRelOpComp2<FwGreater>(stack(), 2, s); break;
+                            coreSt = mathRelOpComp2<FwGreater>(stack(), 2, ctx, s); break;
                         case Rpn::OpGreaterEq:
-                            coreSt = mathRelOpComp2<FwGreaterEq>(stack(), 2, s); break;
+                            coreSt = mathRelOpComp2<FwGreaterEq>(stack(), 2, ctx, s); break;
                         case Rpn::OpBitAnd:
-                            coreSt = mathBitOpComp2<FwBitAnd>(stack(), 2, s); break;
+                            coreSt = mathBitOpComp2<FwBitAnd>(stack(), 2, ctx, s); break;
                         case Rpn::OpBitOr:
-                            coreSt = mathBitOpComp2<FwBitOr>(stack(), 2, s); break;
+                            coreSt = mathBitOpComp2<FwBitOr>(stack(), 2, ctx, s); break;
                         case Rpn::OpBitExor:
-                            coreSt = mathBitOpComp2<FwBitExor>(stack(), 2, s); break;
+                            coreSt = mathBitOpComp2<FwBitExor>(stack(), 2, ctx, s); break;
                         case Rpn::OpBitShiftR:
-                            coreSt = mathBitOpComp2<FwBitShiftRight>(stack(), 2, s); break;
+                            coreSt = mathBitOpComp2<FwBitShiftRight>(stack(), 2, ctx, s); break;
                         case Rpn::OpBitShiftL:
-                            coreSt = mathBitOpComp2<FwBitShiftLeft>(stack(), 2, s); break;
+                            coreSt = mathBitOpComp2<FwBitShiftLeft>(stack(), 2, ctx, s); break;
                         case Rpn::OpBitNot:
-                            coreSt = mathBitOpComp1<FwBitNot>(stack(), 1, s); break;
+                            coreSt = mathBitOpComp1<FwBitNot>(stack(), 1, ctx, s); break;
                         case Rpn::OpNot:
-                            coreSt = mathLogicOp1<FwNot>(stack(), 1, s); break;
+                            coreSt = mathLogicOp1<FwNot>(stack(), 1, ctx, s); break;
                         case Rpn::OpAnd:
                         case Rpn::OpOr:
                         case Rpn::OpQuestion:
@@ -154,7 +155,7 @@ bool RpnEvaluator::evaluate(const Rpn& rpn, Value& result, Status& s) {
                     return false;
                 }
                 // Call
-                if (!builtinPtr->func(stack_, f.arity, s)) {
+                if (!builtinPtr->func(stack_, f.arity, ctx, s)) {
                     appendLocation(s, loc);
                     return false;
                 }
@@ -163,7 +164,7 @@ bool RpnEvaluator::evaluate(const Rpn& rpn, Value& result, Status& s) {
             case Rpn::TPackVec: {
                 auto& p = e->get<Rpn::PackVec>();
                 // Call
-                if (!vectorPack(stack_, p.arity, s)) {
+                if (!vectorPack(stack_, p.arity, ctx, s)) {
                     appendLocation(s, loc);
                     return false;
                 }
@@ -172,7 +173,7 @@ bool RpnEvaluator::evaluate(const Rpn& rpn, Value& result, Status& s) {
             case Rpn::TPackList: {
                 auto& p = e->get<Rpn::PackList>();
                 // Call
-                if (!listPack(stack_, p.arity, s)) {
+                if (!listPack(stack_, p.arity, ctx, s)) {
                     appendLocation(s, loc);
                     return false;
                 }
@@ -181,7 +182,7 @@ bool RpnEvaluator::evaluate(const Rpn& rpn, Value& result, Status& s) {
             case Rpn::TMergeList: {
                 auto& p = e->get<Rpn::MergeList>();
                 // Call
-                if (!listMerge(stack_, p.arity, s)) {
+                if (!listMerge(stack_, p.arity, ctx, s)) {
                     appendLocation(s, loc);
                     return false;
                 }

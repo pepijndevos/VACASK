@@ -51,6 +51,7 @@ add_library(simlib STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/rpnbuiltin.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/context.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/rpnstack.h 
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include/rpnevalctx.h
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/rpneval.h
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/options.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/comdata.h 
