@@ -28,7 +28,7 @@
 //   load "spice/capacitor.osdi"
 //
 subckt inductor (p1 p1_ref p2 p2_ref)
-  model resistor resistor
+  model resistor resistor noisy=0
   model capacitor capacitor
   model vsource vsource
   model vccs vccs

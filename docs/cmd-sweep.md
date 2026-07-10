@@ -33,10 +33,11 @@ Specify the range with one of these forms:
 sweep s instance="vgs" parameter="dc" from=0 to=3 step=0.5
 ```
 
-**Linear (fixed number of points):**
+**Linear (fixed number of intervals):**
 ```text
 sweep s instance="vgs" parameter="dc" from=0 to=3 mode="lin" points=100
 ```
+`points` is the number of intervals, so this produces 101 values from `from` to `to`.
 
 **Logarithmic (points per decade or octave):**
 ```text

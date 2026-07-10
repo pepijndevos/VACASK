@@ -48,7 +48,7 @@ Set the probe's `dc` parameter to `0` so it does not disturb the operating point
 | `to` | real | `0` | Stop frequency (Hz). |
 | `step` | real | `0` | Frequency step size (Hz) for a stepped linear sweep. |
 | `mode` | string | — | Sweep mode: `"lin"`, `"dec"`, or `"oct"`. |
-| `points` | integer | `0` | Number of points (total for `"lin"`, per decade for `"dec"`, per octave for `"oct"`). |
+| `points` | integer | `0` | Number of intervals for `"lin"` (yields `points+1` frequencies), per decade for `"dec"`, per octave for `"oct"`. |
 | `values` | real vector | — | Explicit list of frequencies (Hz). Overrides `from`/`to`/`step`/`mode`/`points`. |
 | `write` | boolean | `1` | Write the analysis results to a file. |
 | `writeop` | boolean | `0` | Also write the operating point results to `<analysis>.op.*`. |

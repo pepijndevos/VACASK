@@ -42,7 +42,7 @@ Port impedances may differ between ports.
 | `to` | real | `0` | Stop frequency (Hz) for stepped or mode-based sweeps. |
 | `step` | real | `0` | Frequency step size (Hz) for a linear stepped sweep. |
 | `mode` | string | - | Sweep mode: `"lin"` (linear), `"dec"` (logarithmic per decade), or `"oct"` (logarithmic per octave). |
-| `points` | integer | `0` | Number of points (total for `"lin"`, per decade for `"dec"`, per octave for `"oct"`). |
+| `points` | integer | `0` | Number of intervals for `"lin"` (yields `points+1` frequencies), per decade for `"dec"`, per octave for `"oct"`. |
 | `values` | real vector | - | Explicit vector of frequencies (Hz). Overrides `from`/`to`/`step`/`mode`/`points`. |
 | `write` | boolean | `1` | Write the analysis results to a file. |
 | `writeop` | boolean | `0` | Also write the operating point results to `<analysis>.op.*`. |
