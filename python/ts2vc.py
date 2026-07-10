@@ -333,6 +333,9 @@ Arguments:
   -rp --reference-pins    give the subcircuit a separate reference pin
                            per port (p1 p1_ref p2 p2_ref ...) instead of
                            tying all port references to node 0
+  -sp --spice             write a generic SPICE subcircuit with scikit-rf's
+                           own write_spice_subcircuit_s() instead of a
+                           VACASK-syntax subcircuit
 
 Options passed to scikit-rf's VectorFitting.auto_fit() (see its
 documentation for details, defaults are auto_fit's own):
@@ -363,6 +366,7 @@ for details, defaults are passivity_enforce's own):
     name = None
     plot = False
     referencePins = False
+    spice = False
     targets = {"autoFit": {}, "passivityEnforce": {}}
     while ndx<len(sys.argv):
         arg = sys.argv[ndx]
@@ -381,6 +385,8 @@ for details, defaults are passivity_enforce's own):
                 plot = True
             elif arg == "-rp" or arg == "--reference-pins":
                 referencePins = True
+            elif arg == "-sp" or arg == "--spice":
+                spice = True
             else:
                 for short, long, dest, value, target in flagOptions:
                     if arg == short or arg == long:
@@ -485,9 +491,12 @@ where the fit deviates.""")
         fig.tight_layout()
         plt.show()
 
-    with open(toFile, "w") as toFileObj:
-        write_vacask_subcircuit_s(vf, qualif, toFileObj, fitted_model_name=name,
-                                   create_reference_pins=referencePins,
-                                   auto_fit_options=autoFitResolved,
-                                   passivity_enforce_options=passivityEnforceResolved,
-                                   command_line=format_command_line(sys.argv))
+    if spice:
+        vf.write_spice_subcircuit_s(toFile, fitted_model_name=name, create_reference_pins=referencePins)
+    else:
+        with open(toFile, "w") as toFileObj:
+            write_vacask_subcircuit_s(vf, qualif, toFileObj, fitted_model_name=name,
+                                       create_reference_pins=referencePins,
+                                       auto_fit_options=autoFitResolved,
+                                       passivity_enforce_options=passivityEnforceResolved,
+                                       command_line=format_command_line(sys.argv))
