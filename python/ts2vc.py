@@ -58,6 +58,19 @@ flagOptions = [
 ]
 
 
+def format_command_line(argv):
+    """Format argv as a shell-style command line string: arguments containing
+    whitespace are wrapped in double quotes, with any double quotes in the
+    argument escaped."""
+    parts = []
+    for arg in argv:
+        if re.search(r"\s", arg):
+            parts.append('"' + arg.replace('"', '\\"') + '"')
+        else:
+            parts.append(arg)
+    return " ".join(parts)
+
+
 def fit_quality(vf):
     """Compare the fitted model in vf against its original touchstone network.
 
@@ -96,7 +109,7 @@ def fit_quality(vf):
 
 
 def write_vacask_subcircuit_s(vf, qualif, f, fitted_model_name="s_equivalent", create_reference_pins=False,
-                               auto_fit_options=None, passivity_enforce_options=None):
+                               auto_fit_options=None, passivity_enforce_options=None, command_line=None):
     """Write a VACASK subcircuit equivalent to the vector fitted S-matrix in vf to
     the open file f. This follows the same state-space circuit synthesis as
     skrf.VectorFitting.write_spice_subcircuit_s(), translated to VACASK's netlist
@@ -109,6 +122,9 @@ def write_vacask_subcircuit_s(vf, qualif, f, fitted_model_name="s_equivalent", c
     reproducibility. passivity_enforce_options should be left None if the fit was
     already passive and passivity_enforce() was not called.
 
+    command_line, if given, is a preformatted command line string (see
+    format_command_line()) recorded in the file header as a comment.
+
     The enclosing circuit must load the resistor, capacitor (and, if the fit has
     proportional terms, inductor) OSDI modules before this subcircuit is used,
     since a "load" directive cannot appear inside a subckt definition.
@@ -118,8 +134,10 @@ def write_vacask_subcircuit_s(vf, qualif, f, fitted_model_name="s_equivalent", c
 
     modelOrder, _, _, _, maxMagErrDb, maxMagErrFreq = qualif
 
-    f.write("// EQUIVALENT CIRCUIT FOR VECTOR FITTED S-MATRIX\n")
+    f.write("// Equivalent circuit for vector fitted s-matrix\n")
     f.write(f"// Created using scikit-rf {rf.__version__} vectorFitting.py\n")
+    if command_line is not None:
+        f.write(f"// Command line: {command_line}\n")
     f.write(f"//\n")
     f.write("// auto_fit options:\n")
     for optName, optValue in (auto_fit_options or {}).items():
@@ -153,7 +171,7 @@ def write_vacask_subcircuit_s(vf, qualif, f, fitted_model_name="s_equivalent", c
 
     f.write(f"subckt {fitted_model_name} ({pins})\n")
 
-    f.write("  model resistor resistor\n")
+    f.write("  model resistor resistor noisy=0\n")
     f.write("  model capacitor capacitor\n")
     if build_e:
         f.write("  model inductor inductor\n")
@@ -471,4 +489,5 @@ where the fit deviates.""")
         write_vacask_subcircuit_s(vf, qualif, toFileObj, fitted_model_name=name,
                                    create_reference_pins=referencePins,
                                    auto_fit_options=autoFitResolved,
-                                   passivity_enforce_options=passivityEnforceResolved)
+                                   passivity_enforce_options=passivityEnforceResolved,
+                                   command_line=format_command_line(sys.argv))
