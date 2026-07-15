@@ -16,7 +16,7 @@ namespace NAMESPACE {
 
 class RpnEvaluator {
 public:
-    RpnEvaluator() {};
+    RpnEvaluator() : mcData_(nullptr) {};
 
     RpnEvaluator           (const RpnEvaluator&)  = delete;
     RpnEvaluator           (      RpnEvaluator&&) = default;
@@ -36,6 +36,8 @@ public:
 
     void appendLocation(Status& s, const Loc& id);
 
+    inline void setMCData(MCData* data) { mcData_ = data; };
+
 protected:
     // OK, condition
     std::tuple<bool, bool> checkCondition(Status& s=Status::ignore) {
@@ -46,6 +48,7 @@ protected:
 private:
     RpnStack stack_;
     ContextStack contextStack_;
+    MCData* mcData_;
 };
 
 }
