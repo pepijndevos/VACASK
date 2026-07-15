@@ -36,10 +36,10 @@ void RpnEvaluator::appendLocation(Status& s, const Loc& p) {
     s.extend(p);
 }
 
-bool RpnEvaluator::evaluate(const Rpn& rpn, Value& result, Status& s) {
+bool RpnEvaluator::evaluate(const Rpn& rpn, Value& result, RpnEvaluationNetlistContext& ctx, Status& s) {
     stack_.clear();
     Value *v1p, *v2p;
-    RpnEvaluationContext ctx;
+    
     // Increment manually at the end of the loop
     for(auto e=rpn.cbegin(); e!=rpn.cend(); ) {
         const Loc& loc = rpn.location(*e);

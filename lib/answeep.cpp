@@ -226,6 +226,7 @@ bool ParameterSweeper::setup(Status& s) {
     // If during sweep a variable changes the change is applied to all inner sweeps 
     // relative to the sweep causing the variable change. 
     double extent = 1;
+    RpnEvaluationNetlistContext ctx;
     for(decltype(n) i=0; i<n; i++) {
         auto& ptcomp = ptSweeps[i];
         auto& comp = settings[i];
@@ -234,7 +235,7 @@ bool ParameterSweeper::setup(Status& s) {
         IStruct<SweepSettings> sw;
         sw.core().name = ptcomp.name();
         sw.core().location = ptcomp.location();
-        auto [ok, changed] = sw.setParameters(ptSweeps[i].parameters(), circuit.variableEvaluator(), s);
+        auto [ok, changed] = sw.setParameters(ptSweeps[i].parameters(), circuit.variableEvaluator(), ctx, s);
         if (!ok) {
             s.extend("Error in settings evaluation for sweep '"+std::string(ptcomp.name())+"'.");
             s.extend(ptcomp.location());
@@ -296,12 +297,13 @@ bool ParameterSweeper::setup(Status& s) {
 }
 
 bool ParameterSweeper::update(int advancedSweepIndex, Status& s) {
-     // Loop from advancedSweepIndex+1 to end of sweeps
+    // Loop from advancedSweepIndex+1 to end of sweeps
+    RpnEvaluationNetlistContext ctx;
     for(Int i=advancedSweepIndex+1; i<settings.size(); i++) {
         // Recompute expressions, update settings structure
         IStruct<SweepSettings> sw;
         sw.core() = settings[i];
-        auto [ok, changed] = sw.setParameters(ptSweeps[i].parameters().expressions(), circuit.variableEvaluator(), s);
+        auto [ok, changed] = sw.setParameters(ptSweeps[i].parameters().expressions(), circuit.variableEvaluator(), ctx, s);
         if (!ok) {
             return false;
         }

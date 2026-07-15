@@ -51,7 +51,8 @@ Model* OsdiDevice::createModel(Circuit& circuit, Instance* parentInstance, RpnEv
     }
 
     // Set model's parameters, use the evaluator whose latest context is the parent instance's context
-    auto [ok, changed] = model->setParameters(parsedModel.parameters(), evaluator, s);
+    RpnEvaluationNetlistContext ctx(MCData::CtxType::Model, model->name());
+    auto [ok, changed] = model->setParameters(parsedModel.parameters(), evaluator, ctx, s);
     if (!ok) {
         return nullptr;
     }

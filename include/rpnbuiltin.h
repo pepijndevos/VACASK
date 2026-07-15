@@ -15,7 +15,7 @@
 namespace NAMESPACE {
 
 // General RPN builtin function/operator
-typedef bool (*RpnBuiltinFunc)(RpnStack& stack, Rpn::Arity argc, RpnEvaluationContext& ctx, Status& s);
+typedef bool (*RpnBuiltinFunc)(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContext& ctx, Status& s);
 
 // Unary operator / single argument function
 // Applied in the same way to all vector components
@@ -204,7 +204,7 @@ template<typename Tin, typename F> bool rpnAggregateFunc1(Value* arg, Status& s=
 }
 
 // Math function with 1 argument, applied component-wise
-template<typename F> inline bool mathFuncComp1(RpnStack& stack, Rpn::Arity argc, RpnEvaluationContext& ctx, Status& s) { 
+template<typename F> inline bool mathFuncComp1(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContext& ctx, Status& s) { 
     Value* vp = stack.get(); 
     DBGCHECK(!vp, "Internal error. Attempt to get value from empty stack."); 
     bool coreSt = false;
@@ -224,7 +224,7 @@ template<typename F> inline bool mathFuncComp1(RpnStack& stack, Rpn::Arity argc,
 }
 
 // Math function with 2 arguments, applied component-wise
-template<typename F> inline bool mathFuncComp2(RpnStack& stack, Rpn::Arity argc, RpnEvaluationContext& ctx, Status& s) { 
+template<typename F> inline bool mathFuncComp2(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContext& ctx, Status& s) { 
     Value* v1p = stack.get(1); 
     DBGCHECK(!v1p, "Internal error. Attempt to get value from empty stack."); 
     Value* v2p = stack.get(); 
@@ -266,7 +266,7 @@ template<typename F> inline bool mathFuncComp2(RpnStack& stack, Rpn::Arity argc,
 bool mathFuncSelector2(RpnStack& stack, Rpn::Arity argc, Status& s);
 
 // Aggregates scalars/vectors into a numeric value
-template<typename F> inline bool mathAggregateFunc1(RpnStack& stack, Rpn::Arity argc, RpnEvaluationContext& ctx, Status& s) { 
+template<typename F> inline bool mathAggregateFunc1(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContext& ctx, Status& s) { 
     Value* vp = stack.get(); 
     DBGCHECK(!vp, "Internal error. Attempt to get value from empty stack."); 
     bool coreSt = false;
@@ -290,7 +290,7 @@ template<typename F> inline bool mathAggregateFunc1(RpnStack& stack, Rpn::Arity 
 }
 
 // Aggregates numerical scalars/vectors into a numeric value
-template<typename F> inline bool mathAggregateNumFunc1(RpnStack& stack, Rpn::Arity argc, RpnEvaluationContext& ctx, Status& s) { 
+template<typename F> inline bool mathAggregateNumFunc1(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContext& ctx, Status& s) { 
     Value* vp = stack.get(); 
     DBGCHECK(!vp, "Internal error. Attempt to get value from empty stack."); 
     bool coreSt = false;
@@ -312,7 +312,7 @@ template<typename F> inline bool mathAggregateNumFunc1(RpnStack& stack, Rpn::Ari
 }
 
 // Relational operator with 2 arguments, applied component-wise
-template<typename F> inline bool mathRelOpComp2(RpnStack& stack, Rpn::Arity argc, RpnEvaluationContext& ctx, Status& s) { 
+template<typename F> inline bool mathRelOpComp2(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContext& ctx, Status& s) { 
     Value* v1p = stack.get(1); 
     DBGCHECK(!v1p, "Internal error. Attempt to get value from empty stack."); 
     Value* v2p = stack.get(); 
@@ -356,7 +356,7 @@ template<typename F> inline bool mathRelOpComp2(RpnStack& stack, Rpn::Arity argc
 }
 
 // Bitwise operator with 1 argument, applied component-wise
-template<typename F> inline bool mathBitOpComp1(RpnStack& stack, Rpn::Arity argc, RpnEvaluationContext& ctx, Status& s) { 
+template<typename F> inline bool mathBitOpComp1(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContext& ctx, Status& s) { 
     Value* vp = stack.get(); 
     DBGCHECK(!vp, "Internal error. Attempt to get value from empty stack."); 
     bool coreSt = false;
@@ -374,7 +374,7 @@ template<typename F> inline bool mathBitOpComp1(RpnStack& stack, Rpn::Arity argc
 }
 
 // Bitwise operator with 2 arguments, applied component-wise
-template<typename F> inline bool mathBitOpComp2(RpnStack& stack, Rpn::Arity argc, RpnEvaluationContext& ctx, Status& s) { 
+template<typename F> inline bool mathBitOpComp2(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContext& ctx, Status& s) { 
     Value* v1p = stack.get(1); 
     DBGCHECK(!v1p, "Internal error. Attempt to get value from empty stack."); 
     Value* v2p = stack.get(); 
@@ -398,7 +398,7 @@ template<typename F> inline bool mathBitOpComp2(RpnStack& stack, Rpn::Arity argc
 }
 
 // Logical operator with 1 argument, applied only to scalars
-template<typename F> inline bool mathLogicOp1(RpnStack& stack, Rpn::Arity argc, RpnEvaluationContext& ctx, Status& s) { 
+template<typename F> inline bool mathLogicOp1(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContext& ctx, Status& s) { 
     Value* vp = stack.get(); 
     DBGCHECK(!vp, "Internal error. Attempt to get value from empty stack."); 
     bool coreSt = false;
@@ -418,7 +418,7 @@ template<typename F> inline bool mathLogicOp1(RpnStack& stack, Rpn::Arity argc, 
 }
 
 // Relational operator with 2 arguments, applied only to scalars
-template<typename F> inline bool mathLogicOp2(RpnStack& stack, Rpn::Arity argc, RpnEvaluationContext& ctx, Status& s) { 
+template<typename F> inline bool mathLogicOp2(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContext& ctx, Status& s) { 
     Value* v1p = stack.get(1); 
     DBGCHECK(!v1p, "Internal error. Attempt to get value from empty stack."); 
     Value* v2p = stack.get(); 
@@ -449,7 +449,7 @@ template<typename F> inline bool mathLogicOp2(RpnStack& stack, Rpn::Arity argc, 
 }
 
 // Type checking function
-template<Value::Type typeCode> inline bool scalarTypeCheck(RpnStack& stack, Rpn::Arity argc, RpnEvaluationContext& ctx, Status& s) {
+template<Value::Type typeCode> inline bool scalarTypeCheck(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContext& ctx, Status& s) {
     Value* vp = stack.get(); 
     DBGCHECK(!vp, "Internal error. Attempt to get value from empty stack."); 
     // Get type code, remove vector bit
@@ -458,13 +458,13 @@ template<Value::Type typeCode> inline bool scalarTypeCheck(RpnStack& stack, Rpn:
 }
 
 // Vector checking function
-bool vectorCheck(RpnStack& stack, Rpn::Arity argc, RpnEvaluationContext& ctx, Status& s);
+bool vectorCheck(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContext& ctx, Status& s);
 
 // Vector checking function
-bool listCheck(RpnStack& stack, Rpn::Arity argc, RpnEvaluationContext& ctx, Status& s);
+bool listCheck(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContext& ctx, Status& s);
 
 // Conversion function
-template<Value::Type typeCode> inline bool typeConversion(RpnStack& stack, Rpn::Arity argc, RpnEvaluationContext& ctx, Status& s) {
+template<Value::Type typeCode> inline bool typeConversion(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContext& ctx, Status& s) {
     Value* vp = stack.get(); 
     DBGCHECK(!vp, "Internal error. Attempt to get value from empty stack."); 
     // Need conversion?
@@ -481,39 +481,39 @@ template<Value::Type typeCode> inline bool typeConversion(RpnStack& stack, Rpn::
 }
 
 // Vector/list length function
-bool len(RpnStack& stack, Rpn::Arity argc, RpnEvaluationContext& ctx, Status& s);
+bool len(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContext& ctx, Status& s);
 
 // Construct a vector with n components that have the same value
-bool vectorBuild(RpnStack& stack, Rpn::Arity argc, RpnEvaluationContext& ctx, Status& s);
+bool vectorBuild(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContext& ctx, Status& s);
 
 // Construct a vector holding a range of values
-bool vectorRange(RpnStack& stack, Rpn::Arity argc, RpnEvaluationContext& ctx, Status& s);
+bool vectorRange(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContext& ctx, Status& s);
 
 // Construct a vector holding uniformly distributed random numbers from [0,1)
-bool vectorRandUnif(RpnStack& stack, Rpn::Arity argc, RpnEvaluationContext& ctx, Status& s);
+bool vectorRandUnif(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContext& ctx, Status& s);
 
 // Construct a vector by interleaving argument vectors with matching lengths
-bool vectorInterleave(RpnStack& stack, Rpn::Arity argc, RpnEvaluationContext& ctx, Status& s);
+bool vectorInterleave(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContext& ctx, Status& s);
 
 // Extract a vector holding components indexed n*k+i, where n and i are the second and the third argument
-bool vectorSeparate(RpnStack& stack, Rpn::Arity argc, RpnEvaluationContext& ctx, Status& s);
+bool vectorSeparate(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContext& ctx, Status& s);
 
 // Pack scalars and vectors in a vector [ 1, 2, 3 ]
-bool vectorPack(RpnStack& stack, Rpn::Arity argc, RpnEvaluationContext& ctx, Status& s);
+bool vectorPack(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContext& ctx, Status& s);
 
 // Pack scalars, vectors, and lists in a list [ 1; 2; 3 ]
-bool listPack(RpnStack& stack, Rpn::Arity argc, RpnEvaluationContext& ctx, Status& s);
+bool listPack(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContext& ctx, Status& s);
 
 // Concatenate lists [ a : b : c ]
-bool listMerge(RpnStack& stack, Rpn::Arity argc, RpnEvaluationContext& ctx, Status& s);
+bool listMerge(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContext& ctx, Status& s);
 
 // Min and max wrapper (1 or 2 arguments)
-bool minWrapper(RpnStack& stack, Rpn::Arity argc, RpnEvaluationContext& ctx, Status& s);
-bool maxWrapper(RpnStack& stack, Rpn::Arity argc, RpnEvaluationContext& ctx, Status& s);
+bool minWrapper(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContext& ctx, Status& s);
+bool maxWrapper(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContext& ctx, Status& s);
 
 // Monte-Carlo
 template<typename F, int narg>
-bool mcGenerator(RpnStack& stack, Rpn::Arity argc, RpnEvaluationContext& ctx, Status& s) { 
+bool mcGenerator(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContext& ctx, Status& s) { 
     Value* v1p = stack.get(2); 
     DBGCHECK(!v1p, "Internal error. Attempt to get value from empty stack."); 
     Value* v2p = stack.get(1); 

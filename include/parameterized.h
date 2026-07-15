@@ -41,9 +41,9 @@ public:
     
     // Set parameters from parsed netlist
     std::tuple<bool,bool> setParameters(const std::vector<PTParameterValue>& params, Status& s=Status::ignore);
-    std::tuple<bool,bool> setParameters(const std::vector<PTParameterExpression>& params, RpnEvaluator& eval, Status& s=Status::ignore);
-    std::tuple<bool,bool> setParameters(const PTParameters& params, RpnEvaluator& eval, Status& s=Status::ignore);
-    std::tuple<bool,bool> setParameters(const PTParameterMap& params, RpnEvaluator& eval, Write what=Write::All, Status& s=Status::ignore);
+    std::tuple<bool,bool> setParameters(const std::vector<PTParameterExpression>& params, RpnEvaluator& eval, RpnEvaluationNetlistContext& ctx, Status& s=Status::ignore);
+    std::tuple<bool,bool> setParameters(const PTParameters& params, RpnEvaluator& eval, RpnEvaluationNetlistContext& ctx, Status& s=Status::ignore);
+    std::tuple<bool,bool> setParameters(const PTParameterMap& params, RpnEvaluator& eval, RpnEvaluationNetlistContext& ctx, Write what=Write::All, Status& s=Status::ignore);
 
     void dump(std::ostream& os, const char* prefix="") const;
 };

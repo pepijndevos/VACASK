@@ -823,7 +823,8 @@ parameter_list
     $$.locations[$1.id] = $1.loc;
     if (evaluator.isConstant($1.expr)) {
         Value v;
-        if (!evaluator.evaluate($1.expr, v, status)) {
+        RpnEvaluationNetlistContext ctx;
+        if (!evaluator.evaluate($1.expr, v, ctx, status)) {
             YYERROR;
         }
         $$.params.add(PTParameterValue($1.id, std::move(v), @1.loc()));
@@ -844,7 +845,8 @@ parameter_list
     $$.locations[$2.id] = $2.loc;
     if (evaluator.isConstant($2.expr)) {
         Value v;
-        if (!evaluator.evaluate($2.expr, v, status)) {
+        RpnEvaluationNetlistContext ctx;
+        if (!evaluator.evaluate($2.expr, v, ctx, status)) {
             YYERROR;
         }
         $$.params.add(PTParameterValue($2.id, std::move(v), @2.loc()));

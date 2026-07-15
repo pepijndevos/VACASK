@@ -34,7 +34,8 @@ Analysis* Analysis::create(
     }
 
     // Set analysis parameters based on global circuit context
-    auto [ok, changed] = an->parameters().setParameters(ptAnalysis.parameters(), circuit.variableEvaluator(), s);
+    RpnEvaluationNetlistContext ctx;
+    auto [ok, changed] = an->parameters().setParameters(ptAnalysis.parameters(), circuit.variableEvaluator(), ctx, s);
     if (!ok) {
         delete an;
         return nullptr;
@@ -120,7 +121,8 @@ AnalysisCoroutine Analysis::coroutine(Status& s) {
     simOptions.core() = originalSimOptions.core();
 
     // Update with options map
-    if (auto [ok, changed] = simOptions.setParameters(analysisOptions, circuit.variableEvaluator(), Parameterized::Write::All, s); !ok) {
+    RpnEvaluationNetlistContext ctx;
+    if (auto [ok, changed] = simOptions.setParameters(analysisOptions, circuit.variableEvaluator(), ctx, Parameterized::Write::All, s); !ok) {
         s.extend("Failed to set initial options.");
         co_yield AnalysisState::Aborted;
     }
@@ -651,7 +653,8 @@ std::tuple<bool, bool> Analysis::run(Status& s) {
 }
 
 std::tuple<bool, bool> Analysis::updateParameterExpressions(Status& s) {
-    return parameters().setParameters(ptAnalysis.parameters().expressions(), circuit.variableEvaluator(), s);
+    RpnEvaluationNetlistContext ctx;
+    return parameters().setParameters(ptAnalysis.parameters().expressions(), circuit.variableEvaluator(), ctx, s);
 }
 
 void Analysis::dump(std::ostream& os) const {

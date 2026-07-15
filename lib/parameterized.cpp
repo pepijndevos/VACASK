@@ -60,12 +60,13 @@ std::tuple<bool,bool> Parameterized::setParameters(const std::vector<PTParameter
     return std::make_tuple(true, changed);
 }
 
-std::tuple<bool,bool> Parameterized::setParameters(const std::vector<PTParameterExpression>& params, RpnEvaluator& eval, Status& s) {
+std::tuple<bool,bool> Parameterized::setParameters(const std::vector<PTParameterExpression>& params, RpnEvaluator& eval, RpnEvaluationNetlistContext& ctx, Status& s) {
     // Assume the context is already set up in evaluator
     bool changed = false;
     for(auto it=params.cbegin(); it!=params.cend(); ++it) {
         Value res;
-        if (!eval.evaluate(it->rpn(), res, s)) {
+        ctx.setParameterId(it->name());
+        if (!eval.evaluate(it->rpn(), res, ctx, s)) {
             return std::make_tuple(false, changed);
         }
         auto [ok, ch] = setParameter(it->name(), res, s);
@@ -78,12 +79,12 @@ std::tuple<bool,bool> Parameterized::setParameters(const std::vector<PTParameter
     return std::make_tuple(true, changed);
 }
 
-std::tuple<bool,bool> Parameterized::setParameters(const PTParameters& params, RpnEvaluator& eval, Status& s) {
+std::tuple<bool,bool> Parameterized::setParameters(const PTParameters& params, RpnEvaluator& eval, RpnEvaluationNetlistContext& ctx, Status& s) {
     auto [ok1, changed] = setParameters(params.values(), s);
     if (!ok1) {
         return std::make_tuple(false, changed);
     }
-    auto [ok2, ch] = setParameters(params.expressions(), eval, s);
+    auto [ok2, ch] = setParameters(params.expressions(), eval, ctx, s);
     changed = changed | ch;
     if (!ok2) {
         return std::make_tuple(false, changed);
@@ -91,7 +92,7 @@ std::tuple<bool,bool> Parameterized::setParameters(const PTParameters& params, R
     return std::make_tuple(true, changed);
 }
 
-std::tuple<bool,bool> Parameterized::setParameters(const PTParameterMap& params, RpnEvaluator& eval, Write what, Status& s) {
+std::tuple<bool,bool> Parameterized::setParameters(const PTParameterMap& params, RpnEvaluator& eval, RpnEvaluationNetlistContext& ctx, Write what, Status& s) {
     // Go through parameter map, set values
     bool changed = false;
     for(auto& it : params) {
@@ -121,7 +122,8 @@ std::tuple<bool,bool> Parameterized::setParameters(const PTParameterMap& params,
                 std::get<const PTParameterExpression*>(it.second) 
                 : std::get<std::unique_ptr<const PTParameterExpression>>(it.second).get();
             Value res;
-            if (!eval.evaluate(pe->rpn(), res, s)) {
+            ctx.setParameterId(it.first);
+            if (!eval.evaluate(pe->rpn(), res, ctx, s)) {
                 return std::make_tuple(false, changed);
             }
             auto [ok, ch] = setParameter(it.first, res, s);

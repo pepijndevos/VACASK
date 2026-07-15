@@ -7,6 +7,7 @@
 #include "context.h"
 #include "rpnexpr.h"
 #include "rpnstack.h"
+#include "rpnevalctx.h"
 #include "parseroutput.h"
 #include "common.h"
 
@@ -23,7 +24,7 @@ public:
     RpnEvaluator& operator=(      RpnEvaluator&&) = default;
 
     bool isConstant(const Rpn& expr) const;
-    bool evaluate(const Rpn& rpn, Value& result, Status& s=Status::ignore);
+    bool evaluate(const Rpn& rpn, Value& result, RpnEvaluationNetlistContext& ctx, Status& s=Status::ignore);
 
     RpnStack& stack() { return stack_; };
 

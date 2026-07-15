@@ -77,7 +77,8 @@ std::tuple<bool, bool> Circuit::setOptions(const PTParameters& params, Status& s
     auto& e = variableEvaluator();
     for(auto& it : params.expressions()) {
         Value v;
-        if (!e.evaluate(it.rpn(), v, s)) {
+        RpnEvaluationNetlistContext ctx;
+        if (!e.evaluate(it.rpn(), v, ctx, s)) {
             return std::make_tuple(false, changed);
         }
         auto [ok, ch] = setOption(it.name(), v, s); 

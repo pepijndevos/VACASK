@@ -300,7 +300,8 @@ std::tuple<bool, bool, bool> Circuit::elaborateChanges(
         
         // Options map (expressions only) -> options in optPtr
         if (optionsMap && optionsMap->size()>0) {
-            if (auto [ok, changed] = optPtr->setParameters(*optionsMap, variableEvaluator_, Parameterized::Write::Expressions, s); !ok) {
+            RpnEvaluationNetlistContext ctx;
+            if (auto [ok, changed] = optPtr->setParameters(*optionsMap, variableEvaluator_, ctx, Parameterized::Write::Expressions, s); !ok) {
                 s.extend("Failed to apply options map.");
                 tables_.accounting().acctNew.tchgelab += Accounting::wclkDelta(t0);
                 return std::make_tuple(false, false, false);
@@ -543,7 +544,14 @@ template<typename T> bool Circuit::groupSetterHelper(Id name, const PTParameters
         s.set(Status::NotFound, failMsg);
         return false;
     }
-    auto [ok, changed] = obj->setParameters(params, paramEvaluator(), s); 
+    RpnEvaluationNetlistContext ctx;
+    if constexpr(std::is_same_v<T, Instance>) {
+        ctx = RpnEvaluationNetlistContext(MCData::CtxType::Instance, name);
+    } else {
+        ctx = RpnEvaluationNetlistContext(MCData::CtxType::Model, name);
+    }
+    
+    auto [ok, changed] = obj->setParameters(params, paramEvaluator(), ctx, s); 
     if (!ok) {
         return false;
     }

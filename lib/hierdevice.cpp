@@ -237,7 +237,8 @@ Instance* HierarchicalModel::createInstance(Circuit& circuit, Instance* parentIn
 
     // Set instance's parameters, use the evaluator whose latest context is the parent instance's context
     // Note that toplevel instance has no context
-    auto [ok1, changed] = instance->setParameters(parsedInstance.parameters(), evaluator, s);
+    RpnEvaluationNetlistContext ctx(MCData::CtxType::Instance, instance->name());
+    auto [ok1, changed] = instance->setParameters(parsedInstance.parameters(), evaluator, ctx, s);
     if (!ok1) {
         return nullptr;
     }
@@ -453,9 +454,11 @@ std::tuple<bool, size_t> HierarchicalInstance::enterContext(Circuit& circuit, Co
         }
         // Load expression parameters, compute them from subcircuit definition
         auto& ep = parsedSubcircuit.parameters().expressions();
+        RpnEvaluationNetlistContext ctx(MCData::CtxType::Parameters, name());
         for(auto it=ep.cbegin(); it!=ep.cend(); ++it) {
             Value res;
-            if (!evaluator.evaluate(it->rpn(), res, s)) {
+            ctx.setParameterId(it->name());
+            if (!evaluator.evaluate(it->rpn(), res, ctx, s)) {
                 revertContext(circuit, stackMarker);
                 return std::make_tuple(false, stackMarker);
             }
@@ -477,10 +480,11 @@ std::tuple<bool, bool> HierarchicalInstance::recomputeBlockConditionsWorker(Circ
 
     // Evaluate and add to newBlocks if result is true
     Value res;
+    RpnEvaluationNetlistContext ctx(MCData::CtxType::Condition, name());
     if (expr.size()==0) {
         // Else, true by default
         res = 1;
-    } else if (!evaluator.evaluate(expr, res, s)) {
+    } else if (!evaluator.evaluate(expr, res, ctx, s)) {
         // Evaluation failed, add location
         s.extend(loc);
         return std::make_tuple(false, false);
@@ -572,13 +576,12 @@ std::tuple<bool, bool> HierarchicalInstance::subhierarchyChanged(Circuit& circui
 bool HierarchicalInstance::propagateParameters(Circuit& circuit, RpnEvaluator& evaluator, Status& s) {
     // We already have an established context
 
-    // TODO: reevaluate block conditions, check for topology change
-    
     // Propagate parameters to submodels
     for(auto subModelPtr : childModels_) {
         auto& parsedSubmodel = subModelPtr->parsedModel();
         // Propagate only expressions
-        auto [ok, changed] = subModelPtr->setParameters(parsedSubmodel.parameters().expressions(), evaluator, s);
+        RpnEvaluationNetlistContext ctx(MCData::CtxType::Model, subModelPtr->name());
+        auto [ok, changed] = subModelPtr->setParameters(parsedSubmodel.parameters().expressions(), evaluator, ctx, s);
         if (!ok) {
             return false;
         }
@@ -591,7 +594,8 @@ bool HierarchicalInstance::propagateParameters(Circuit& circuit, RpnEvaluator& e
     for(auto subInstancePtr : childInstances_) {
         auto& parsedSubinstance = subInstancePtr->parsedInstance();
         // Propagate only expressions
-        auto [ok, changed] = subInstancePtr->setParameters(parsedSubinstance.parameters().expressions(), evaluator, s);
+        RpnEvaluationNetlistContext ctx(MCData::CtxType::Instance, subInstancePtr->name());
+        auto [ok, changed] = subInstancePtr->setParameters(parsedSubinstance.parameters().expressions(), evaluator, ctx, s);
         if (!ok) {
             return false;
         }

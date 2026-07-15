@@ -174,10 +174,14 @@ Node* Instance::getInternalNode(Circuit& circuit, const std::string& name, Node:
 }
 
 std::tuple<bool, size_t> Instance::enterContext(Circuit& circuit, Context* externalContext, bool addToPath, bool rebuild, Status& s) { 
+    // By default do nothing, just return current stack position marker
+    // so that revertContext() can return to that marker
+    // Simple instances have no context. They keep the parent device's context. 
     return std::make_tuple(true, circuit.paramEvaluator().contextMarker()); 
 }
 
 bool Instance::revertContext(Circuit& circuit, size_t contextMarker) { 
+    // By default do nothing, just return to given stack position marker
     return circuit.paramEvaluator().revertContext(contextMarker); 
 }
 

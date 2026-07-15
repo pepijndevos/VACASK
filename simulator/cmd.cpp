@@ -100,7 +100,8 @@ bool CommandInterpreter::elaborate(const std::vector<Id>& names, const std::stri
     // Elaborate circuit
     // TODO: for now ignore devReq and Abort, Finish, Stop
     IStruct<SimulatorOptions> opt;
-    if (auto [ok, changed] = opt.setParameters(userOptions_, circuit_.variableEvaluator(), Parameterized::Write::All, s); !ok) {
+    RpnEvaluationNetlistContext ctx;
+    if (auto [ok, changed] = opt.setParameters(userOptions_, circuit_.variableEvaluator(), ctx, Parameterized::Write::All, s); !ok) {
         return false;
     }
     circuit_.setOptions(opt);
@@ -255,12 +256,12 @@ void CommandInterpreter::addUserOption(const PTParameterExpression& pe) {
 }
 
 
-template<typename T> bool evaluateExpressions(RpnEvaluator& e, const PTCommand& cmd, std::vector<T>& out, Status& s) {
+template<typename T> bool evaluateExpressions(RpnEvaluator& e, RpnEvaluationNetlistContext& ctx, const PTCommand& cmd, std::vector<T>& out, Status& s) {
     out.clear();
     size_t i=0;
     for(auto& it : cmd.expressions()) {
         Value v;
-        if (!e.evaluate(it, v, s)) {
+        if (!e.evaluate(it, v, ctx, s)) {
             return false;
         }
         Value::Type t;
@@ -321,14 +322,14 @@ void CommandInterpreter::dumpOptionsMap(int indent, std::ostream& os) const {
     }
 }
 
-bool evaluateArgs(const PTCommand& cmd, RpnEvaluator& evaluator, std::unordered_map<Id, Value>& out, Status& s=Status::ignore) {
+bool evaluateArgs(const PTCommand& cmd, RpnEvaluator& evaluator, RpnEvaluationNetlistContext& ctx, std::unordered_map<Id, Value>& out, Status& s=Status::ignore) {
     out.clear();
     for(auto& it : cmd.args().values()) {
         out[it.name()] = it.val();
     }
     for(auto& it : cmd.args().expressions()) {
         Value v;
-        if (!evaluator.evaluate(it.rpn(), v, s)) {
+        if (!evaluator.evaluate(it.rpn(), v, ctx, s)) {
             return false;
         }
         out[it.name()] = std::move(v);
@@ -346,9 +347,10 @@ bool cmd_postprocess(CommandInterpreter& interpreter, PTCommand& cmd, Status& s)
     std::vector<std::string> args;
 
     bool first = true;
+    RpnEvaluationNetlistContext ctx;
     for(auto& it : cmd.expressions()) {
         Value v;
-        if (!interpreter.variableEvaluator().evaluate(it, v, s)) {
+        if (!interpreter.variableEvaluator().evaluate(it, v, ctx, s)) {
             return false;
         }
         if (v.type()!=Value::Type::String) {
@@ -440,8 +442,9 @@ bool cmd_var(CommandInterpreter& interpreter, PTCommand& cmd, Status& s) {
     std::vector<Value> ve(n);
 
     // Go through keywords, evaluate expressions
+    RpnEvaluationNetlistContext ctx;
     for(decltype(n) i=0; i<n; i++) { 
-        if (!interpreter.variableEvaluator().evaluate(ex[i].rpn(), ve[i], s)) {
+        if (!interpreter.variableEvaluator().evaluate(ex[i].rpn(), ve[i], ctx, s)) {
             return false;
         }
     }
@@ -504,9 +507,10 @@ bool cmd_alter(CommandInterpreter& interpreter, PTCommand& cmd, Status& s) {
     }
 
     std::vector<std::string> objNames;
+    RpnEvaluationNetlistContext ctx;
     for(auto& it : cmd.expressions()) {
         Value v;
-        if (!ev.evaluate(it, v, s)) {
+        if (!ev.evaluate(it, v, ctx, s)) {
             return false;
         }
         if (v.type()!=Value::Type::String) {
@@ -539,16 +543,16 @@ bool cmd_elaborate(CommandInterpreter& interpreter, PTCommand& cmd, Status& s) {
     // Get keyword
     auto what = cmd.keywords()[0].name();
     if (what==idCircuit) {
-
         // Get definition names as ids
         std::vector<Id> names;
-        if (!evaluateExpressions(interpreter.variableEvaluator(), cmd, names, s)) {
+        RpnEvaluationNetlistContext ctx;
+        if (!evaluateExpressions(interpreter.variableEvaluator(), ctx, cmd, names, s)) {
             return false;
         }
         
         // Get topdef and topinst
         std::unordered_map<Id, Value> args;
-        if (!evaluateArgs(cmd, interpreter.variableEvaluator(), args, s)) {
+        if (!evaluateArgs(cmd, interpreter.variableEvaluator(), ctx, args, s)) {
             return false;
         }
 
@@ -613,7 +617,8 @@ bool cmd_print(CommandInterpreter& interpreter, PTCommand& cmd, Status& s) {
         } else if (what=="device_file") {
             // Evaluate arguments list
             std::vector<String> sVec;
-            if (!evaluateExpressions(interpreter.variableEvaluator(), cmd, sVec, s)) {
+            RpnEvaluationNetlistContext ctx;
+            if (!evaluateExpressions(interpreter.variableEvaluator(), ctx, cmd, sVec, s)) {
                 return false;
             }
             // Go through strings
@@ -674,7 +679,8 @@ bool cmd_print(CommandInterpreter& interpreter, PTCommand& cmd, Status& s) {
             circuit.dumpSparsity(2, Simulator::out());
         } else if (what=="instance" || what=="model" || what=="device") {
             std::vector<Id> idVec;
-            if (!evaluateExpressions(interpreter.variableEvaluator(), cmd, idVec, s)) {
+            RpnEvaluationNetlistContext ctx;
+            if (!evaluateExpressions(interpreter.variableEvaluator(), ctx, cmd, idVec, s)) {
                 return false;
             }
             for(auto id : idVec) {
@@ -740,7 +746,8 @@ bool cmd_print(CommandInterpreter& interpreter, PTCommand& cmd, Status& s) {
         std::string separatorString = " ";
         if (cmd.args().count()>0) {
             std::unordered_map<Id, Value> args;
-            if (!evaluateArgs(cmd, interpreter.variableEvaluator(), args, s)) {
+            RpnEvaluationNetlistContext ctx;
+            if (!evaluateArgs(cmd, interpreter.variableEvaluator(), ctx, args, s)) {
                 return false;
             }
             for (const auto& [id, value] : args) {
@@ -764,7 +771,8 @@ bool cmd_print(CommandInterpreter& interpreter, PTCommand& cmd, Status& s) {
             }
         }
         std::vector<Value> values;
-        if (!evaluateExpressions(interpreter.variableEvaluator(), cmd, values, s)) {
+        RpnEvaluationNetlistContext ctx;
+        if (!evaluateExpressions(interpreter.variableEvaluator(), ctx, cmd, values, s)) {
             return false;
         }
         for(auto& v : values) {

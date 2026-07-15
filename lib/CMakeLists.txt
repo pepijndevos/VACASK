@@ -135,6 +135,7 @@ add_library(simlib STATIC
     rpnbuiltin.cpp
     context.cpp
     rpnstack.cpp
+    rpnevalctx.cpp
     rpneval.cpp
     introspection.cpp
     options.cpp 

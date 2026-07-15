@@ -324,7 +324,8 @@ public:
             // Apply optionsMap now. elaborateChanges() applies it only if variables changed 
             // but we must apply it always. Apply to default set of circuit oiptions. 
             IStruct<SimulatorOptions> opt;
-            if (auto [ok, changed] = opt.setParameters(*optionsMap, variableEvaluator_, Parameterized::Write::All, s); !ok) {
+            RpnEvaluationNetlistContext ctx;
+            if (auto [ok, changed] = opt.setParameters(*optionsMap, variableEvaluator_, ctx, Parameterized::Write::All, s); !ok) {
                 return std::make_tuple(false, false, false);
             }
 
