@@ -900,6 +900,16 @@ InterpreterExitStatus cmd_mc(CommandInterpreter& interpreter, PTCommand& cmd, St
 
         // Propagate parameters. In first iteration this populates the list of generators 
         // and implicitly generates a sample. 
+        // Force global propagation by setting VariablesChanged flag
+        interpreter.circuit().setFlags(Circuit::Flags::VariablesChanged);
+        // Elaborate changes
+        if (!interpreter.minimalElaboration(s)) {
+            // Abort on error
+            interpreter.circuit().paramEvaluator().setMCData(nullptr);
+            s.set(Status::Syntax, "Elaboration failed, Monte Carlo loop aborted.");
+            return InterpreterExitStatus::HardFault;
+        }
+
         
         // Run loop body
         auto exitStatus = interpreter.run(loopStart, s);
