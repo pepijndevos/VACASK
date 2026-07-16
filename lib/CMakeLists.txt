@@ -53,6 +53,7 @@ add_library(simlib STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/rpnstack.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/rpnevalctx.h
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/rpneval.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include/asa241.h
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/options.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/comdata.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/natures.h 
@@ -137,6 +138,7 @@ add_library(simlib STATIC
     rpnstack.cpp
     rpnevalctx.cpp
     rpneval.cpp
+    asa241.cpp
     introspection.cpp
     options.cpp 
     comdata.cpp

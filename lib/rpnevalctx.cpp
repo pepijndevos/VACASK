@@ -13,9 +13,8 @@ void MCData::clear() {
 }
 
 void MCData::advance() {
-    std::uniform_real_distribution<double> dist(0.0, 1.0);;
     for(auto& v : value) {
-        v = dist(randomGenerator);
+        v = gen();
     }
 }
 
@@ -26,8 +25,7 @@ double MCData::retrieveOrAdd(const MCGeneratorId& genId) {
         ndx = it->second;
     } else {
         ndx = value.size();
-        std::uniform_real_distribution<double> dist(0.0, 1.0);
-        value.push_back(dist(randomGenerator));
+        value.push_back(gen());
         generatorIndexMap.emplace(genId, ndx);
     }
     return value[ndx];

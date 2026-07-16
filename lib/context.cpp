@@ -110,12 +110,11 @@ ContextStack::Builtins ContextStack::builtins = {
     { Id::createStatic("range"),    { 1, 3, true, vectorRange } }, // to | from, to | from, to, step,   type=maxtype(from, to, step)
 
     // Monte-Carlo, these functions are not pure
-    // Provide some dummy functor
-    { Id::createStatic("agauss"),   { 3, 3, false, mcGenerator<FwSum, 3> } },
-    { Id::createStatic("sgauss"),   { 3, 3, false, mcGenerator<FwSum, 3> } },
-    { Id::createStatic("unif"),     { 2, 2, false, mcGenerator<FwSum, 2> } },
-    { Id::createStatic("aunif"),    { 2, 2, false, mcGenerator<FwSum, 2> } },
-
+    { Id::createStatic("agauss"),   { 3, 3, false, mcGenerator<FwAgauss, 3> } },
+    { Id::createStatic("gauss"),    { 3, 3, false, mcGenerator<FwGauss, 3> } },
+    { Id::createStatic("aunif"),    { 2, 2, false, mcGenerator<FwAunif, 2> } },
+    { Id::createStatic("unif"),     { 2, 2, false, mcGenerator<FwUnif, 2> } },
+    
     { Id::createStatic("randunif"),   { 1, 1, false, vectorRandUnif } }, // length   type=real
     { Id::createStatic("interleave"), { 2, Rpn::manyArgs, true, vectorInterleave } }, // vec1, vec2, ..., vecn   type=maxtype(vec1, .. vecn)
     { Id::createStatic("separate"),   { 3, 3, true, vectorSeparate } }, // vec, n, i   

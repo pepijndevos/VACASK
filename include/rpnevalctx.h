@@ -60,6 +60,16 @@ public:
     size_t count() const; 
 
 private:
+    // Make generator return numbers from (0,1) so we avoid +-inf in Gaussian distribution
+    double gen() {
+        std::uniform_real_distribution<double> dist(0.0, 1.0);
+        double v;
+        do {
+            v = dist(randomGenerator);
+        } while (v==0 || v==1);
+        return v;
+    };
+
     // Map from MCGeneratorId to generator index
     // Maps a generator identifier to its index in the set of MC generators seen so far
     std::unordered_map<GeneratorId, size_t, GeneratorIdHash> generatorIndexMap;
@@ -92,20 +102,21 @@ private:
 struct RpnEvaluationNetlistContext {
 public:
     RpnEvaluationNetlistContext(MCData::CtxType cxType=MCData::CtxType::NoContext, Id obj=Id())
-        : cxType(cxType), obj(obj), param(Id()), callIndex(0), mcData_(nullptr) {};
+        : cxType_(cxType), obj(obj), param(Id()), callIndex(0), mcData_(nullptr) {};
 
     void setParameterId(Id id) { param = id; };
     void setCallIndex(RpnArity ndx) { callIndex = ndx; };
     void setMCData(MCData* data) { mcData_ = data; };
     MCData* mcData() { return mcData_; };
+    MCData::CtxType ctxType() const { return cxType_; };
 
     // Return the GeneratorId for current context
     MCData::GeneratorId generatorId() const {
-        return MCData::GeneratorId(cxType, obj, param, callIndex);
+        return MCData::GeneratorId(cxType_, obj, param, callIndex);
     };
 
 private:
-    MCData::CtxType cxType;
+    MCData::CtxType cxType_;
     Id obj;
     Id param;
     RpnArity callIndex;

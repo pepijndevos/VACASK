@@ -514,12 +514,15 @@ bool maxWrapper(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContext& c
 // Monte-Carlo
 template<typename F, int narg>
 bool mcGenerator(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContext& ctx, Status& s) { 
-    Value* v1p = stack.get(2); 
+    Value* v1p = stack.get(narg-1); 
     DBGCHECK(!v1p, "Internal error. Attempt to get value from empty stack."); 
-    Value* v2p = stack.get(1); 
+    Value* v2p = stack.get(narg-2); 
     DBGCHECK(!v2p, "Internal error. Attempt to get value from empty stack."); 
-    Value* v3p = stack.get(); 
-    DBGCHECK(!v3p, "Internal error. Attempt to get value from empty stack."); 
+    Value* v3p;
+    if constexpr(narg>2) {
+        v3p = stack.get(narg-3); 
+        DBGCHECK(!v3p, "Internal error. Attempt to get value from empty stack."); 
+    }
 
     // Nominal value
     if (v1p->isVector()) {
@@ -544,23 +547,50 @@ bool mcGenerator(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContext& 
     }
 
     // Sigma
-    if (v3p->isVector()) {
-        s.set(Status::BadArguments, "Sigma must be scalar."); 
-        return false; 
-    }
+    if constexpr(narg>2) {
+        if (v3p->isVector()) {
+            s.set(Status::BadArguments, "Sigma must be scalar."); 
+            return false; 
+        }
 
-    if (!v3p->convertInPlace(Value::Type::Real)) {
-        s.set(Status::BadArguments, "Sigma must be real.");
-        return false;
+        if (!v3p->convertInPlace(Value::Type::Real)) {
+            s.set(Status::BadArguments, "Sigma must be real.");
+            return false;
+        }
     }
 
     auto nom = v1p->val<Real>();
     auto delta = v2p->val<Real>();
     auto sigma = v3p->val<Real>();
 
-    // TODO: Apply functor to get result
-    auto result = nom;
-
+    // Compute result
+    double result;
+    // Do we have MC data
+    if (ctx.mcData()) {
+        // Yes, check the MC generator's context. 
+        // Generate random numbers only in Instance, Model, and Parameters
+        auto c = ctx.ctxType();
+        if (c==MCData::CtxType::Instance || c==MCData::CtxType::Model || c==MCData::CtxType::Parameters) {
+            // Retrieve uniformly distributed random number from (0,1)
+            auto r = ctx.mcData()->retrieveOrAdd(ctx.generatorId());
+            // Apply functor to shape distribution
+            F functor;
+            if constexpr(narg>2) {
+                // 3 arguments, Gaussian distribution
+                result = functor(nom, delta, sigma, r);
+            } else {
+                // 2 arguments, uniform distribution
+                result = functor(nom, delta, r);
+            }
+        } else {
+            // Not the right context, return nominal
+            result = nom;
+        }
+    } else {
+        // No MC data, return nominal
+        result = nom;
+    }
+    
     // Return result, pop all but the first argument
     stack.pop(narg-1);
     

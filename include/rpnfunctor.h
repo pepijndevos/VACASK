@@ -7,6 +7,7 @@
 #include <type_traits>
 #include <numbers>
 #include "libplatform.h"
+#include "asa241.h"
 #include "common.h"
 
 
@@ -511,6 +512,56 @@ struct FwSelector {
             s.set(Status::Range, "Selector out of range.");
             return false;
         }
+        return true;
+    };
+};
+
+struct FwGauss {
+    Real operator()(Real nom, Real rvar, Real sigma, Real unif) {
+        double std;
+        if (rvar<=0 || sigma<=0) {
+        return nom;
+        }
+        std = nom * rvar / sigma;
+        return nom + std * r8_normal_01_cdf_inverse(unif);
+    };
+
+    bool ok(Real nom, Real rvar, Real sigma) {
+        return true;
+    };
+};
+
+struct FwAgauss {
+    Real operator()(Real nom, Real avar, Real sigma, Real unif) {
+        double std;
+        if (avar<=0 || sigma<=0) {
+        return nom;
+        }
+        std = avar / sigma;
+        return nom + std * r8_normal_01_cdf_inverse(unif);
+    };
+
+    bool ok(Real nom, Real avar, Real sigma) {
+        return true;
+    };
+};
+
+struct FwUnif {
+    Real operator()(Real nom, Real rvar, Real unif) {
+        return nom + nom * rvar * (2*unif-1);
+    };
+
+    bool ok(Real nom, Real rvar) {
+        return true;
+    };
+};
+
+struct FwAunif {
+    Real operator()(Real nom, Real avar, Real unif) {
+        return nom + avar * (2*unif-1);
+    };
+    
+    bool ok(Real nom, Real avar) {
         return true;
     };
 };

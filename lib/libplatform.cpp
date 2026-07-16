@@ -4,6 +4,8 @@
 #include "common.h"
 #include <tuple>
 #include <cstdlib>
+#include <cmath>
+#include <limits>
 
 namespace NAMESPACE {
 
@@ -115,7 +117,5 @@ const char* defaultOpenVafBinaryName() {
 #endif
     return binary;
 }
-
-
 
 }
