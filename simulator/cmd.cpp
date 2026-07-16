@@ -31,7 +31,7 @@ static const std::string defaultTopDefName = "__topdef__";
 static const std::string defaultTopInstName = "__topinst__";
 
 CommandInterpreter::CommandInterpreter(ParserTables& tables, PTControl& control, Circuit& circuit) 
-    : printProgress_(true), runPostprocess_(true), 
+    : at_(0), printProgress_(true), runPostprocess_(true), 
       abortOnMatch(false), tables_(tables), control_(control), circuit_(circuit) {
     abortCommands.insert(idAnalysis);
     clearVariables();
@@ -110,8 +110,8 @@ bool CommandInterpreter::elaborate(const std::vector<Id>& names, const std::stri
 }
 
 InterpreterExitStatus CommandInterpreter::run(size_t from, Status& s) {
-    for(size_t at = from; at<control_.size(); at++) {
-        auto& entry = control_[at];
+    for(at_ = from; at_<control_.size(); at_++) {
+        auto& entry = control_[at_];
         if (std::holds_alternative<PTAnalysis>(entry)) {
             if (!minimalElaboration(s)) {
                 return InterpreterExitStatus::Error;
@@ -133,6 +133,9 @@ InterpreterExitStatus CommandInterpreter::run(size_t from, Status& s) {
                     return InterpreterExitStatus::Error;
                 }
             }
+
+            // Set file name prefix
+            an->setFileNamePrefix(analysisNamePrefix_);
 
             // Add options (expressions)
             an->add(userOptions_);
@@ -238,9 +241,13 @@ InterpreterExitStatus CommandInterpreter::run(size_t from, Status& s) {
             if (retStatus==InterpreterExitStatus::HardFault) {
                 return retStatus;
             }
-            // Exit requested
-            if (retStatus==InterpreterExitStatus::RequestExit) {
-                return InterpreterExitStatus::OK;
+            // Exit requested by endmc
+            if (retStatus==InterpreterExitStatus::RequestMCExit) {
+                // Here we should look for first statement after the loop.
+                // Because endmc is the statement that triggered the exit and 
+                // also the last statement, we simply advance by one command
+                at_++;
+                return retStatus;
             }
             // Other faults can be masked
             if (retStatus!=InterpreterExitStatus::OK) {
@@ -808,16 +815,125 @@ static auto idMc = Id::createStatic("mc");
 static auto idEndmc = Id::createStatic("endmc");
 
 InterpreterExitStatus cmd_mc(CommandInterpreter& interpreter, PTCommand& cmd, Status& s) {
-    // Verify loop sanity
-    // Look for endmc, mc
-    // mc found, hard fault
-    // End reached and endmc not found, hard fault
+    // Are we inside a mc loop
+    if (interpreter.circuit().paramEvaluator().mcData()!=nullptr) {
+        s.set(Status::Syntax, "Nested Monte Carlo loops are not allowed.");
+        return InterpreterExitStatus::HardFault;
+    }
+
+    // Need command index to know where to start the mc loop
+    auto loopStart = interpreter.at() + 1;
+
+    // Get mc name
+    auto mcName = cmd.keywords()[0].name();
+
+    // Check uniqueness
+    if (!interpreter.isUniqueMc(mcName)) {
+        s.set(Status::Syntax, "Monte Carlo loops must have unique names.");
+        return InterpreterExitStatus::HardFault;
+    }
+
+    // Evaluate arguments
+    std::unordered_map<Id, Value> args;
+    RpnEvaluationNetlistContext ctx;
+    if (!evaluateArgs(cmd, interpreter.variableEvaluator(), ctx, args, s)) {
+        return InterpreterExitStatus::Error;
+    }
+
+    // Prepare MC data
+    MCData mcData;
+
+    // Set seed
+    auto it1 = args.find("seed");
+    if (it1!=args.end()) {
+        auto seed = it1->second;
+        if (!seed.convertInPlace(Value::Type::Int, s)) {
+            s.extend("Seed must be an integer.");
+            return InterpreterExitStatus::HardFault;
+        }
+        mcData.setSeed(seed.val<IntegerValue>());
+    } else {
+        // Default seed
+        mcData.setSeed(0);
+    }
     
+    // Get number of samples
+    auto it2 = args.find("samples");
+    if (it2==args.end()) {
+        s.extend("Need number of samples.");
+        return InterpreterExitStatus::HardFault;
+    }
+    auto nsv = it2->second;
+    if (!nsv.convertInPlace(Value::Type::Int, s)) {
+        s.extend("Seed must be an integer.");
+        return InterpreterExitStatus::HardFault;
+    }
+    auto nsamples = nsv.val<IntegerValue>();
+    if (nsamples<=0) {
+        s.extend("Number of samples must be greater than zero.");
+        return InterpreterExitStatus::HardFault;
+    }
+
+    // Put paramEvaluator into MC mode
+    interpreter.circuit().paramEvaluator().setMCData(&mcData);
+
+    if (interpreter.printProgress()) {
+        Simulator::dbg() << "Starting MC analysis '"+std::string(mcName)+"'.\n";
+    }
+
+    // Main loop
+    for(decltype(nsamples) i=0; i<nsamples; i++) {
+        if (interpreter.printProgress()) {
+            Simulator::dbg() << "MC sample #"+std::to_string(i+1)+".\n";
+        }
+        
+        // Set variables
+        interpreter.circuit().setVariable("MCSAMPLE", i+1);
+
+        // Set analysis name prefix
+        interpreter.setAnalysisNamePrefix(std::string(mcName)+"."+std::to_string(i+1)+".");
+    
+        // Generate new sample if this is not the first iteration
+        if (i>0) {
+            mcData.advance();
+        }
+
+        // Propagate parameters. In first iteration this populates the list of generators 
+        // and implicitly generates a sample. 
+        
+        // Run loop body
+        auto exitStatus = interpreter.run(loopStart, s);
+        // Hard faults abort
+        if (exitStatus==InterpreterExitStatus::HardFault) {
+            // Leave MC mode
+            interpreter.circuit().paramEvaluator().setMCData(nullptr);
+            return exitStatus;
+        }
+        // Errors abort. If needed they were ignored in the nested interpreter loop. 
+        // Exit status other than RequestMCExit mean that we reached the end without an endmc
+        if (exitStatus!=InterpreterExitStatus::RequestMCExit) {
+            // Leave MC mode
+            interpreter.circuit().paramEvaluator().setMCData(nullptr);
+            s.set(Status::Syntax, "Monte Carlo loop without endmc.");
+            return InterpreterExitStatus::HardFault;
+        }
+    }
+
+    if (interpreter.printProgress()) {
+        Simulator::dbg() << "MC analysis '"+std::string(mcName)+"' finished.\n";
+    }
+
+    // Interpreter pointer is now after the endmc command
+    interpreter.circuit().paramEvaluator().setMCData(nullptr);
     return InterpreterExitStatus::OK;
 }
 
 InterpreterExitStatus cmd_endmc(CommandInterpreter& interpreter, PTCommand& cmd, Status& s) {
-    return InterpreterExitStatus::RequestExit;
+    if (interpreter.circuit().paramEvaluator().mcData()==nullptr) {
+        s.set(Status::Syntax, "endmc outside Monte Carlo loop.");
+        return InterpreterExitStatus::HardFault;
+    }
+    return InterpreterExitStatus::RequestMCExit;
 }
 
 std::unordered_map<Id, CommandInterpreter::CmdDesc> CommandInterpreter::commandDescriptors = {

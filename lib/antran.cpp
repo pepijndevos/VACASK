@@ -113,11 +113,11 @@ bool Tran::addDefaultOutputDescriptors() {
 
 bool Tran::initializeOutputs(Status& s) {
     // Any error exits immediately
-    if (!opCore.initializeOutputs(std::string(name_)+".op")) {
+    if (!opCore.initializeOutputs(prefixedName_+".op", s)) {
         opCore.formatError(s);
         return false;
     }
-    if (!tranCore.initializeOutputs(name_)) {
+    if (!tranCore.initializeOutputs(prefixedName_, s)) {
         tranCore.formatError(s);
         return false;
     }
@@ -126,28 +126,30 @@ bool Tran::initializeOutputs(Status& s) {
 
 bool Tran::finalizeOutputs(Status& s) {
     // Finalization has to be performed on all cores, regardless of errors
-    auto ok1 = opCore.finalizeOutputs();
-    auto ok2 = tranCore.finalizeOutputs();
+    Status s1, s2;
+    auto ok1 = opCore.finalizeOutputs(s1);
+    auto ok2 = tranCore.finalizeOutputs(s2);
     if (!ok1) {
-        opCore.formatError(s);
+        s.set(s1);
     }
     if (!ok2) {
         // Error in tranCore will mask the error in op core
-        tranCore.formatError(s);
+        s.set(s2);
     }
     return ok1 && ok2;
 }
 
 bool Tran::deleteOutputs(Status& s) {
     // Output needs to be deleted for all cores
-    auto ok1 = opCore.deleteOutputs(std::string(name_)+".op");
-    auto ok2 = tranCore.deleteOutputs(name_);
+    Status s1, s2;
+    auto ok1 = opCore.deleteOutputs(prefixedName_+".op", s1);
+    auto ok2 = tranCore.deleteOutputs(prefixedName_, s2);
     if (!ok1) {
-        opCore.formatError(s);
+        s.set(s1);
     }
     if (!ok2) {
         // Error in tranCore will mask the error in op core
-        tranCore.formatError(s);
+        s.set(s2);
     }
     return ok1 && ok2;
 }

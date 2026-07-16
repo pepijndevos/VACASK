@@ -14,6 +14,8 @@
 
 namespace NAMESPACE {
 
+// TODO: name_ -> prefixedName_ in output init/finalize/delete in all analyses in other branches
+
 // Default value is Uninitialized
 enum class AnalysisState { Uninitilized=0, Aborted, Stopped, Finished, SweepPoint };
 
@@ -34,6 +36,8 @@ public:
     Analysis& operator=(      Analysis&&) = delete;
 
     Id name() const { return name_; };
+
+    void setFileNamePrefix(const std::string& pfx);
 
     // Inherited from OutputDescriptorResolver, overide it
     // Converts an output descriptor to output source and stores it in the given output sources list
@@ -137,6 +141,7 @@ public:
 
 protected:
     std::string name_;
+    std::string prefixedName_;
     Circuit& circuit;
     CommonData commons;
     ParameterSweeper sweeper;

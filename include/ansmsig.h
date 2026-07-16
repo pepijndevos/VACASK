@@ -249,11 +249,11 @@ bool SmallSignal<CoreClass, DataMixin>::rebuildCores(Status& s) {
 template<typename CoreClass, typename DataMixin> 
 bool SmallSignal<CoreClass, DataMixin>::initializeOutputs(Status& s) {
     // Any error exits immediately
-    if (!opCore.initializeOutputs(std::string(name_)+".op")) {
+    if (!opCore.initializeOutputs(prefixedName_+".op", s)) {
         opCore.formatError(s);
         return false;
     }
-    if (!smsigCore.initializeOutputs(name_)) {
+    if (!smsigCore.initializeOutputs(prefixedName_, s)) {
         smsigCore.formatError(s);
         return false;
     }
@@ -263,14 +263,14 @@ bool SmallSignal<CoreClass, DataMixin>::initializeOutputs(Status& s) {
 template<typename CoreClass, typename DataMixin> 
 bool SmallSignal<CoreClass, DataMixin>::finalizeOutputs(Status& s) {
     // Finalization has to be performed on all cores, regardless of errors
-    auto ok1 = opCore.finalizeOutputs();
-    auto ok2 = smsigCore.finalizeOutputs();
+    Status s1, s2;
+    auto ok1 = opCore.finalizeOutputs(s1);
+    auto ok2 = smsigCore.finalizeOutputs(s2);
     if (!ok1) {
-        opCore.formatError(s);
+        s.set(s1);
     }
     if (!ok2) {
-        // Error in smsigCore will mask the error in op core
-        smsigCore.formatError(s);
+        s.set(s2);
     }
     return ok1 && ok2;
 }
@@ -278,14 +278,14 @@ bool SmallSignal<CoreClass, DataMixin>::finalizeOutputs(Status& s) {
 template<typename CoreClass, typename DataMixin> 
 bool SmallSignal<CoreClass, DataMixin>::deleteOutputs(Status& s) {
     // Output needs to be deleted for all cores
-    auto ok1 = opCore.deleteOutputs(std::string(name_)+".op");
-    auto ok2 = smsigCore.deleteOutputs(name_);
+    Status s1, s2;
+    auto ok1 = opCore.deleteOutputs(prefixedName_+".op", s1);
+    auto ok2 = smsigCore.deleteOutputs(prefixedName_, s2);
     if (!ok1) {
-        opCore.formatError(s);
+        s.set(s1);
     }
     if (!ok2) {
-        // Error in smsigCore will mask the error in op core
-        smsigCore.formatError(s);
+        s.set(s2);
     }
     return ok1 && ok2;
 }

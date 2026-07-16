@@ -86,7 +86,7 @@ bool OperatingPoint::addDefaultOutputDescriptors() {
 }
 
 bool OperatingPoint::initializeOutputs(Status& s) {
-    return core.initializeOutputs(name_, s);
+    return core.initializeOutputs(prefixedName_, s);
 }
 
 bool OperatingPoint::finalizeOutputs(Status& s) {
@@ -94,7 +94,7 @@ bool OperatingPoint::finalizeOutputs(Status& s) {
 }
 
 bool OperatingPoint::deleteOutputs(Status& s) {
-    return core.deleteOutputs(name_, s);
+    return core.deleteOutputs(prefixedName_, s);
 }
 
 bool OperatingPoint::rebuildCores(Status& s) {

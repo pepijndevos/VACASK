@@ -87,7 +87,7 @@ bool HB::addDefaultOutputDescriptors() {
 }
 
 bool HB::initializeOutputs(Status& s) {
-    return core.initializeOutputs(name_, s);
+    return core.initializeOutputs(prefixedName_, s);
 }
 
 bool HB::finalizeOutputs(Status& s) {
@@ -95,7 +95,7 @@ bool HB::finalizeOutputs(Status& s) {
 }
 
 bool HB::deleteOutputs(Status& s) {
-    return core.deleteOutputs(name_, s);
+    return core.deleteOutputs(prefixedName_, s);
 }
 
 bool HB::rebuildCores(Status& s) {

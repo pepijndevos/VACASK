@@ -37,6 +37,7 @@ public:
     void appendLocation(Status& s, const Loc& id);
 
     inline void setMCData(MCData* data) { mcData_ = data; };
+    inline MCData* mcData() { return mcData_; };
 
 protected:
     // OK, condition

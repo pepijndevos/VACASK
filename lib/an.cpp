@@ -8,7 +8,12 @@ namespace NAMESPACE {
 Analysis::Analysis(const std::string& name, Circuit& circuit, PTAnalysis& ptAnalysis) 
     : name_(name), circuit(circuit), sweeper(circuit, ptAnalysis.sweeps()), 
       ptAnalysis(ptAnalysis), progressReporter(nullptr) {
+    prefixedName_ = name_;
 }
+
+void Analysis::setFileNamePrefix(const std::string& pfx) { 
+    prefixedName_ = pfx + name_; 
+};
 
 bool Analysis::registerFactory(Id name, Analysis::AnalysisFactory factory) {
     auto [it, inserted] = getRegistry().insert(std::make_pair(name, factory));

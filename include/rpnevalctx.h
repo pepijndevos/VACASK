@@ -39,6 +39,8 @@ public:
             return hash_val(static_cast<std::underlying_type_t<CtxType>>(cxType), obj, param, callIndex);
         }
     };
+
+    MCData() { setSeed(0); };
     
     // Monte Carlo generator ID
     // Context type, object ID, parameter ID, consecutive number of MC function in expression

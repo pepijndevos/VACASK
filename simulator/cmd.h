@@ -15,10 +15,10 @@ namespace NAMESPACE {
 class CommandInterpreter;
 
 enum class InterpreterExitStatus { 
-    OK,          // returned by commands on success
-    Error,       // returned on an error that can be ignored
-    HardFault,   // returned on an error that can't be masked
-    RequestExit, // Command requests loop exit
+    OK,            // returned by commands on success
+    Error,         // returned on an error that can be ignored
+    HardFault,     // returned on an error that can't be masked
+    RequestMCExit, // endmc command requests loop exit
 };
 
 typedef InterpreterExitStatus (*CommandFuncPtr)(CommandInterpreter& interpreter, PTCommand& cmd, Status& s);
@@ -84,8 +84,24 @@ public:
     void dumpOptionsMap(int indent, std::ostream& os) const;
     void dumpSaves(int indent, std::ostream& os) const;
 
+    size_t at() { return at_; };
+
+    void reset() { mcNames.clear(); at_=0; };
+    bool isUniqueMc(Id name) {
+        if (mcNames.contains(name)) {
+            return false;
+        } else {
+            mcNames.insert(name);
+            return true;
+        }
+    };
+    void setAnalysisNamePrefix(const std::string& pfx) { analysisNamePrefix_ = pfx; };
+    
 private:
-    bool mcMode;
+    size_t at_;
+    std::unordered_set<Id> mcNames;
+    std::string analysisNamePrefix_;
+
     bool printProgress_;
     bool runPostprocess_;
     std::vector<PTSave> commonSaves_;
