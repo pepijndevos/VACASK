@@ -97,3 +97,14 @@ These functions operate on vectors. `min` and `max` also accept two scalar or ve
 | `randunif(n)` | Real vector of length `n` filled with uniformly distributed random numbers from `[0, 1)` |
 | `interleave(v1, v2, ..., vn)` | Interleave `n` numeric vectors of equal length into `[v1[0], v2[0], ..., vn[0], v1[1], v2[1], ...]`. The result length is `n` times the input length; the element type is `real` if any input is `real`, otherwise `integer`. |
 | `separate(v, n, i)` | Extract the elements of vector `v` at indices `i, i+n, i+2n, ...` (every `n`-th element starting at offset `i`). Requires `n >= 1` and `0 <= i < n`. The result type matches `v`. |
+
+## Monte Carlo
+
+These functions draw a random value in place of a plain number when used in an instance parameter, model parameter, or `parameters` expression inside a Monte Carlo loop. Outside such a loop they evaluate to `nom`. See [Monte Carlo Analysis](cmd-analysis-mc.md) for details.
+
+| Function | Description |
+|----------|-------------|
+| `gauss(nom, rvar, sigma)` | Gaussian, mean `nom`, relative variation `rvar` corresponding to `sigma` standard deviations. If `rvar<=0` or `sigma<=0` the random generator is turned off and `nom` is always returned. |
+| `agauss(nom, avar, sigma)` | Gaussian, mean `nom`, absolute variation `avar` corresponding to `sigma` standard deviations. If `avar<=0` or `sigma<=0` the random generator is turned off and `nom` is always returned. |
+| `unif(nom, rvar)` | Uniform in `[nom*(1-rvar), nom*(1+rvar)]` |
+| `aunif(nom, avar)` | Uniform in `[nom-avar, nom+avar]` |

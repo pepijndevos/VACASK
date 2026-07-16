@@ -79,6 +79,7 @@ VACASK is developed at the EDA Laboratory, University of Ljubljana, and is relea
    10. [Transient Noise Analysis](cmd-analysis-trannoise.md)
    11. [Harmonic Balance Analysis](cmd-analysis-hb.md)
    12. [Verilog-A Natures and Tolerances](cmd-analysis-natures.md)
+   13. [Monte Carlo Analysis](cmd-analysis-mc.md)
 7. [Device Model Library](dev-overview.md)
    1. [Builtin Devices](dev-builtin.md)
       1. [Independent Sources](dev-builtin-src.md)
