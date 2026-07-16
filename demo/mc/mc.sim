@@ -1,0 +1,102 @@
+Monte Carlo demo: resistor divider with gaussian tolerances
+
+ground 0
+
+load "resistor.osdi"
+
+model r resistor
+model v vsource
+model i isource
+
+parameters glob1 = unif(2k, 0.01)
+parameters glob2 = unif(1, 0.01) + unif(1, 0.01)
+
+model rmod resistor r=unif(3k, 0.01)
+
+i1 (0 1) i dc=1
+r1 (1 0) r r=unif(1k, 0.01)
+
+i2 (0 2) i dc=1
+r2 (2 0) r r=glob1
+
+i3 (0 3) i dc=1
+r3 (3 0) rmod
+
+i4 (0 4) i dc=1
+r4 (4 0) r r=gauss(1k, 0.01, 1)
+
+i5 (0 5) i dc=1
+r5 (5 0) r r=agauss(1k, 100, 1)
+
+i6 (0 6) i dc=1
+r6 (6 0) r r=unif(1k, 0.01)
+
+i7 (0 7) i dc=1
+r7 (7 0) r r=aunif(1k, 100)
+
+
+control
+  abort always
+  
+  mc mc1 samples=500 seed=1
+    analysis op1 op
+  endmc
+
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+from runtest import *
+import numpy as np
+
+nsamples = 500
+
+names = [ "1", "2", "3", "4", "5", "6", "7" ]
+sol = { name: [] for name in names}
+
+for cnt in range(1,nsamples+1):
+  pl = rawread(f"mc1.{cnt}.op1.raw").get()
+  for name in names:
+    sol[name].append(pl[name])
+
+#          U     U     U     G     G     U     U
+eMean  = [ 1000, 2000, 3000, 1000, 1000, 1000, 1000]
+eDelta = [ 10,   20,   30,   None, None, 10,   100 ]
+eStd   = [ None, None, None, 10,   100,  None, None ]
+ndx = 0
+tests = []
+for name in names:
+  x = np.array(sol[name])
+  mean = x.mean()
+  delta = x.max()-x.min()
+  sigma = x.std()
+
+  meanStr = "skipped"
+  if eMean[ndx] is not None:
+    ok = relDiff(mean, eMean[ndx], 1e-6) < 2e-2
+    tests.append(ok)
+    meanStr = "OK"
+  
+  deltaStr = "skipped"
+  if eDelta[ndx] is not None:
+    ok = relDiff(delta, eDelta[ndx], 1e-6) < 2e-2
+    tests.append(ok)
+    deltaStr = "OK"
+  
+  stdStr = "skipped"
+  if eStd[ndx] is not None:
+    ok = relDiff(sigma, eStd[ndx], 1e-6) < 2e-2
+    tests.append(ok)
+    stdStr = "OK"
+  
+  print(name)
+  print("  mean=", mean, meanStr)
+  print("  (max-min)/2=", delta/2, deltaStr)
+  print("  std=", sigma, stdStr)
+  ndx += 1
+
+if isTest():
+    sys.exit(not all(tests))
+
+>>>FILE

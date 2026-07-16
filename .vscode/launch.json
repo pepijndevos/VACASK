@@ -60,8 +60,7 @@
             // "args": [ "-df", "-dt", "${workspaceFolder}/test/test_diode.sim" ],
             // "args": [ "-df", "${workspaceFolder}/test/timestep.sim" ],
             // "args": [ "-df", "${workspaceFolder}/test/resonator.sim" ],
-             "args": [ "-df", "${workspaceFolder}/test/test_mc.sim" ], 
-            
+            // "args": [ "-df", "${workspaceFolder}/test/test_mc.sim" ], 
             // "args": [ "-df", "-dp", "${workspaceFolder}/test/test_hb1.sim" ],
             // "args": [ "-df", "-dp", "${workspaceFolder}/test/test_hb2.sim" ],
             // "args": [ "-df", "-dp", "${workspaceFolder}/test/test_hb3.sim" ],
@@ -148,6 +147,7 @@
             // "args": [ "-df", "${workspaceFolder}/demo/natures/idt.sim" ], 
             // "args": [ "-df", "${workspaceFolder}/demo/natures/ddt.sim" ], 
             // "args": [ "-df", "${workspaceFolder}/demo/hierarchy/hier.sim" ], 
+            "args": [ "-df", "${workspaceFolder}/demo/mc/mc.sim" ], 
             // "args": [ "-df", "/home/arpadb/rram/test.sim" ], 
             // "args": [ "-df", "/home/arpadb/sim/t/test.sim" ], 
             // "args": [ "-df", "-dp" ],
