@@ -4,6 +4,7 @@
 #include "simulator.h"
 #include "an.h"
 #include "platform.h"
+#include "simulator.h"
 #include "progressbar.h"
 #include "common.h"
 #include <type_traits>
@@ -119,7 +120,7 @@ InterpreterExitStatus CommandInterpreter::run(size_t from, Status& s) {
             
             // Create analysis
             auto& ptAn = std::get<PTAnalysis>(entry);
-            if (printProgress_) {
+            if (printProgress_ && circuit_.paramEvaluator().mcData()==nullptr) {
                 Simulator::dbg() << "Running analysis '"+std::string(ptAn.name())+"'.\n";
             }
             Status tmps;
@@ -151,8 +152,8 @@ InterpreterExitStatus CommandInterpreter::run(size_t from, Status& s) {
             AnalysisProgress progress(2, Simulator::dbg(), 0.1);
             // Mark start
             progress.begin();
-            // Install progress reporter
-            if (printProgress_ && progress.enabled()) {
+            // Install progress reporter, but only if we are not in a MC loop
+            if (printProgress_ && progress.enabled() && circuit_.paramEvaluator().mcData()==nullptr) {
                 // Install progress reporter
                 an->add(&progress);
             }
@@ -161,7 +162,7 @@ InterpreterExitStatus CommandInterpreter::run(size_t from, Status& s) {
             // Mark end time
             progress.end();
             // Print final report
-            if (printProgress_) {
+            if (printProgress_&& circuit_.paramEvaluator().mcData()==nullptr) {
                 if (progress.enabled()) {
                     // Progress reporter enabled
                     // Report for one final time, force it
@@ -239,14 +240,15 @@ InterpreterExitStatus CommandInterpreter::run(size_t from, Status& s) {
             auto retStatus = desc.func(*this, cmd, tmps);
             // Exit on hard faults
             if (retStatus==InterpreterExitStatus::HardFault) {
+                s.set(tmps);
+                s.extend(cmd.location());
                 return retStatus;
             }
             // Exit requested by endmc
             if (retStatus==InterpreterExitStatus::RequestMCExit) {
-                // Here we should look for first statement after the loop.
+                // Here we should look for last statement of the loop.
                 // Because endmc is the statement that triggered the exit and 
-                // also the last statement, we simply advance by one command
-                at_++;
+                // also the last statement, we do nothing else. 
                 return retStatus;
             }
             // Other faults can be masked
@@ -262,7 +264,7 @@ InterpreterExitStatus CommandInterpreter::run(size_t from, Status& s) {
             }
         }
     }
-    return InterpreterExitStatus::OK;
+    return InterpreterExitStatus::EndReached;
 }
 
 void CommandInterpreter::addUserOption(const PTParameterValue& pv) {
@@ -811,9 +813,6 @@ InterpreterExitStatus cmd_print(CommandInterpreter& interpreter, PTCommand& cmd,
     return InterpreterExitStatus::OK;
 }
 
-static auto idMc = Id::createStatic("mc");
-static auto idEndmc = Id::createStatic("endmc");
-
 InterpreterExitStatus cmd_mc(CommandInterpreter& interpreter, PTCommand& cmd, Status& s) {
     // Are we inside a mc loop
     if (interpreter.circuit().paramEvaluator().mcData()!=nullptr) {
@@ -881,12 +880,20 @@ InterpreterExitStatus cmd_mc(CommandInterpreter& interpreter, PTCommand& cmd, St
         Simulator::dbg() << "Starting MC analysis '"+std::string(mcName)+"'.\n";
     }
 
+    // Progress reporter
+    AnalysisProgress progress(2, Simulator::dbg(), 0.1);
+    // Mark start
+    progress.begin();
+
+    progress.setValueFormat(ProgressReporter::ValueFormat::Fixed, 0);
+    progress.setValueDecoration("sample# ", "");
+    progress.initProgress(nsamples+1, 0);
+    progress.report();
+            
+
     // Main loop
+    bool abort = false;
     for(decltype(nsamples) i=0; i<nsamples; i++) {
-        if (interpreter.printProgress()) {
-            Simulator::dbg() << "MC sample #"+std::to_string(i+1)+".\n";
-        }
-        
         // Set variables
         interpreter.circuit().setVariable("MCSAMPLE", i+1);
 
@@ -904,36 +911,58 @@ InterpreterExitStatus cmd_mc(CommandInterpreter& interpreter, PTCommand& cmd, St
         interpreter.circuit().setFlags(Circuit::Flags::VariablesChanged);
         // Elaborate changes
         if (!interpreter.minimalElaboration(s)) {
-            // Abort on error
-            interpreter.circuit().paramEvaluator().setMCData(nullptr);
+            abort = true;
             s.set(Status::Syntax, "Elaboration failed, Monte Carlo loop aborted.");
-            return InterpreterExitStatus::HardFault;
+            break;
         }
 
-        
+        // if (i==0) {
+        //     mcData.dump(0, Simulator::out());
+        // }
+
         // Run loop body
         auto exitStatus = interpreter.run(loopStart, s);
         // Hard faults abort
         if (exitStatus==InterpreterExitStatus::HardFault) {
-            // Leave MC mode
-            interpreter.circuit().paramEvaluator().setMCData(nullptr);
-            return exitStatus;
+            abort = true;
+            break;
         }
         // Errors abort. If needed they were ignored in the nested interpreter loop. 
         // Exit status other than RequestMCExit mean that we reached the end without an endmc
-        if (exitStatus!=InterpreterExitStatus::RequestMCExit) {
-            // Leave MC mode
-            interpreter.circuit().paramEvaluator().setMCData(nullptr);
+        if (exitStatus==InterpreterExitStatus::EndReached) {
+            abort = true;
             s.set(Status::Syntax, "Monte Carlo loop without endmc.");
-            return InterpreterExitStatus::HardFault;
+            break;
+        } else if (exitStatus!=InterpreterExitStatus::RequestMCExit) {
+            // Loop finished prematurely
+            abort = true;
+            break;
+        }
+
+        progress.setProgress(i+1, i+1);
+        progress.report();
+    }
+    progress.end();
+
+    // Print final report
+    if (interpreter.printProgress()) {
+        if (progress.enabled()) {
+            // Progress reporter enabled
+            // Report for one final time, force it
+            progress.report(true);
+            Simulator::dbg() << "\n" << std::flush;
+        } else {
+            // Progress reporter disabled
+            Simulator::dbg() << "  Elapsed time: "<< progress.time() << "\n";
         }
     }
-
-    if (interpreter.printProgress()) {
-        Simulator::dbg() << "MC analysis '"+std::string(mcName)+"' finished.\n";
+    
+    if (abort) {
+        interpreter.circuit().paramEvaluator().setMCData(nullptr);
+        return InterpreterExitStatus::HardFault;
     }
 
-    // Interpreter pointer is now after the endmc command
+    // Interpreter pointer is now at endmc command
     interpreter.circuit().paramEvaluator().setMCData(nullptr);
     return InterpreterExitStatus::OK;
 }

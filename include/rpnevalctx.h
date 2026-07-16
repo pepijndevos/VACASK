@@ -61,6 +61,8 @@ public:
     // Return the number of generators
     size_t count() const; 
 
+    void dump(int indent, std::ostream& os) const;
+
 private:
     // Make generator return numbers from (0,1) so we avoid +-inf in Gaussian distribution
     double gen() {
@@ -108,6 +110,7 @@ public:
 
     void setParameterId(Id id) { param = id; };
     void setCallIndex(RpnArity ndx) { callIndex = ndx; };
+    void nextCallIndex() { callIndex++; };
     void setMCData(MCData* data) { mcData_ = data; };
     MCData* mcData() { return mcData_; };
     MCData::CtxType ctxType() const { return cxType_; };

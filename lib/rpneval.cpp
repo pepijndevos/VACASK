@@ -42,6 +42,7 @@ bool RpnEvaluator::evaluate(const Rpn& rpn, Value& result, RpnEvaluationNetlistC
 
     // Expose MC data to builtin functions via netlist context
     ctx.setMCData(mcData_);
+    ctx.setCallIndex(0);
     
     // Increment manually at the end of the loop
     for(auto e=rpn.cbegin(); e!=rpn.cend(); ) {

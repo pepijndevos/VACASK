@@ -313,7 +313,7 @@ int main(int argc, char**argv) {
     interp.setRunPostprocess(runPostprocess);
     
     // Run iterpreter
-    if (interp.run(0, status)!=InterpreterExitStatus::OK) {
+    if (interp.run(0, status)!=InterpreterExitStatus::EndReached) {
         Simulator::err() << status.message() << "\n";
         return 1;
     }

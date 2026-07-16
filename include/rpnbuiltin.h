@@ -597,6 +597,9 @@ bool mcGenerator(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContext& 
     // Write result to first argument
     *v1p = result;
 
+    // Advance call counter in context
+    ctx.nextCallIndex();
+
     return true;
 }
 

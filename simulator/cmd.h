@@ -19,6 +19,7 @@ enum class InterpreterExitStatus {
     Error,         // returned on an error that can be ignored
     HardFault,     // returned on an error that can't be masked
     RequestMCExit, // endmc command requests loop exit
+    EndReached,    // end of commands reached
 };
 
 typedef InterpreterExitStatus (*CommandFuncPtr)(CommandInterpreter& interpreter, PTCommand& cmd, Status& s);
