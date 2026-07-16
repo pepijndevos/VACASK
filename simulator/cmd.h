@@ -14,7 +14,14 @@ namespace NAMESPACE {
 
 class CommandInterpreter;
 
-typedef bool (*CommandFuncPtr)(CommandInterpreter& interpreter, PTCommand& cmd, Status& s);
+enum class InterpreterExitStatus { 
+    OK,          // returned by commands on success
+    Error,       // returned on an error that can be ignored
+    HardFault,   // returned on an error that can't be masked
+    RequestExit, // Command requests loop exit
+};
+
+typedef InterpreterExitStatus (*CommandFuncPtr)(CommandInterpreter& interpreter, PTCommand& cmd, Status& s);
 
 template <typename T> bool evaluateExpressions(RpnEvaluator& e, const PTCommand& cmd, std::vector<T>& out, Status& s=Status::ignore);
 
@@ -62,7 +69,7 @@ public:
     // Elaborate circuit from given toplevel definitions
     bool elaborate(const std::vector<Id>& names, const std::string& topDefName, const std::string& topInstName, Status& s=Status::ignore);
     
-    bool run(Status& s=Status::ignore);
+    InterpreterExitStatus run(size_t from=0, Status& s=Status::ignore);
 
     bool clearVariables(Status& s=Status::ignore);
     Circuit& circuit() { return circuit_; }; 
@@ -78,6 +85,7 @@ public:
     void dumpSaves(int indent, std::ostream& os) const;
 
 private:
+    bool mcMode;
     bool printProgress_;
     bool runPostprocess_;
     std::vector<PTSave> commonSaves_;
