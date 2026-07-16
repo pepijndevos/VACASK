@@ -482,7 +482,7 @@ bool TranCore::rebuild(Status& s) {
     return true;
 }
 
-bool TranCore::initializeOutputs(Id name, Status& s) {
+bool TranCore::initializeOutputs(const std::string& name, Status& s) {
     if (!params.write || Simulator::noOutput()) {
         return true;
     }

@@ -14,7 +14,7 @@ public:
     typedef CoreClass::Parameters Parameters;
 
     // Will need to specialize the constructor
-    SmallSignal(Id name, Circuit& circuit, PTAnalysis& ptAnalysis) {};
+    SmallSignal(const std::string& name, Circuit& circuit, PTAnalysis& ptAnalysis) {};
     
     SmallSignal           (const SmallSignal&)  = delete;
     SmallSignal           (      SmallSignal&&) = delete;

@@ -74,7 +74,7 @@ public:
     std::tuple<bool, bool> requestsRebuild(Status& s = Status::ignore);
     
     bool rebuild(Status& s=Status::ignore); 
-    bool initializeOutputs(Id name, Status& s=Status::ignore);
+    bool initializeOutputs(const std::string& name, Status& s=Status::ignore);
     bool run(bool continuePrevious);
     CoreCoroutine coroutine(bool continuePrevious);
     bool finalizeOutputs(Status& s=Status::ignore);

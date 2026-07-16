@@ -75,7 +75,7 @@ bool DCIncrementalCore::addDefaultOutputDescriptors() {
     return true;
 }
 
-bool DCIncrementalCore::initializeOutputs(Id name, Status& s) {
+bool DCIncrementalCore::initializeOutputs(const std::string& name, Status& s) {
     if (!params.write || Simulator::noOutput()) {
         return true;
     }

@@ -135,7 +135,7 @@ bool ACSPCore::addDefaultOutputDescriptors() {
     return true;
 }
 
-bool ACSPCore::initializeOutputs(Id name, Status& s) {
+bool ACSPCore::initializeOutputs(const std::string& name, Status& s) {
     // If output is suppressed, skip all this work
     if (!params.write || Simulator::noOutput()) {
         return true;

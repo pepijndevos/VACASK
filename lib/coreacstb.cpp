@@ -146,7 +146,7 @@ bool ACStbCore::addDefaultOutputDescriptors() {
     return true;
 }
 
-bool ACStbCore::initializeOutputs(Id name, Status& s) {
+bool ACStbCore::initializeOutputs(const std::string& name, Status& s) {
     // If output is suppressed, skip all this work
     if (!params.write || Simulator::noOutput()) {
         return true;

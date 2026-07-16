@@ -105,7 +105,7 @@ bool HBCore::resolveOutputDescriptors(bool strict, Status& s) {
     return ok;
 }
 
-bool HBCore::initializeOutputs(Id name, Status& s) {
+bool HBCore::initializeOutputs(const std::string& name, Status& s) {
     // If output is suppressed, skip all this work
     if (!params.write || Simulator::noOutput()) {
         return true;

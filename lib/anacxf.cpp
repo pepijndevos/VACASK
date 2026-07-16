@@ -4,7 +4,7 @@
 
 namespace NAMESPACE {
 
-template<> SmallSignal<ACXFCore, ACXFData>::SmallSignal(Id name, Circuit& circuit, PTAnalysis& ptAnalysis) 
+template<> SmallSignal<ACXFCore, ACXFData>::SmallSignal(const std::string& name, Circuit& circuit, PTAnalysis& ptAnalysis) 
     : Analysis(name, circuit, ptAnalysis), 
       opCore(*this, params.core().opParams, circuit, commons, jac, solution, states), 
       smsigCore(*this, params.core(), opCore, sourceIndex, circuit, commons, jac, solution, states, acMatrix, acSolution, sources, tf, yin, zin) {

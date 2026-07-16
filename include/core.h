@@ -114,7 +114,7 @@ public:
     bool rebuild(Status& s=Status::ignore) { return true; }; 
     
     // Called before core is run (and once per sweep) to initalize output files
-    bool initializeOutputs(Id name, Status& s=Status::ignore) { return true; };
+    bool initializeOutputs(const std::string& name, Status& s=Status::ignore) { return true; };
 
     // Runs the core
     bool run(bool continuePrevious) { return true; };

@@ -23,7 +23,7 @@ protected:
 };
 
 // Constructor specialization
-template<> SmallSignal<NoiseCore, NoiseData>::SmallSignal(Id name, Circuit& circuit, PTAnalysis& ptAnalysis);
+template<> SmallSignal<NoiseCore, NoiseData>::SmallSignal(const std::string& name, Circuit& circuit, PTAnalysis& ptAnalysis);
 
 // Resolve save specialization
 template<> bool SmallSignal<NoiseCore, NoiseData>::resolveSave(const PTSave& save, bool verify, Status& s);

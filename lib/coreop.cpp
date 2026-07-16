@@ -75,7 +75,7 @@ bool OperatingPointCore::addDefaultOutputDescriptors() {
     return true;
 }
 
-bool OperatingPointCore::initializeOutputs(Id name, Status& s) {
+bool OperatingPointCore::initializeOutputs(const std::string& name, Status& s) {
     if (!params.write || Simulator::noOutput()) {
         return true;
     }

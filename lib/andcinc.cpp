@@ -4,7 +4,7 @@
 
 namespace NAMESPACE {
 
-template<> SmallSignal<DCIncrementalCore, DCIncrementalData>::SmallSignal(Id name, Circuit& circuit, PTAnalysis& ptAnalysis) 
+template<> SmallSignal<DCIncrementalCore, DCIncrementalData>::SmallSignal(const std::string& name, Circuit& circuit, PTAnalysis& ptAnalysis) 
     : Analysis(name, circuit, ptAnalysis), 
       opCore(*this, params.core().opParams, circuit, commons, jac, solution, states), 
       smsigCore(*this, params.core(), opCore, circuit, commons, jac, incrementalSolution) {

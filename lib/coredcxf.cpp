@@ -124,7 +124,7 @@ bool DCXFCore::addDefaultOutputDescriptors() {
     return true;
 }
 
-bool DCXFCore::initializeOutputs(Id name, Status& s) {
+bool DCXFCore::initializeOutputs(const std::string& name, Status& s) {
     if (!params.write || Simulator::noOutput()) {
         return true;
     }

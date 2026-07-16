@@ -22,7 +22,7 @@ protected:
 };
 
 // Constructor specialization
-template<> SmallSignal<DCXFCore, DCXFData>::SmallSignal(Id name, Circuit& circuit, PTAnalysis& ptAnalysis);
+template<> SmallSignal<DCXFCore, DCXFData>::SmallSignal(const std::string& name, Circuit& circuit, PTAnalysis& ptAnalysis);
 
 // Resolve save specialization
 template<> bool SmallSignal<DCXFCore, DCXFData>::resolveSave(const PTSave& save, bool verify, Status& s);

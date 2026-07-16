@@ -5,7 +5,7 @@
 
 namespace NAMESPACE {
 
-Analysis::Analysis(Id name, Circuit& circuit, PTAnalysis& ptAnalysis) 
+Analysis::Analysis(const std::string& name, Circuit& circuit, PTAnalysis& ptAnalysis) 
     : name_(name), circuit(circuit), sweeper(circuit, ptAnalysis.sweeps()), 
       ptAnalysis(ptAnalysis), progressReporter(nullptr) {
 }

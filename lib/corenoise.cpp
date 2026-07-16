@@ -186,7 +186,7 @@ bool NoiseCore::addDefaultOutputDescriptors() {
     return true;
 }
 
-bool NoiseCore::initializeOutputs(Id name, Status& s) {
+bool NoiseCore::initializeOutputs(const std::string& name, Status& s) {
     if (!params.write || Simulator::noOutput()) {
         return true;
     }

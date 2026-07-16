@@ -21,7 +21,7 @@ protected:
 };
 
 // Constructor specialization
-template<> SmallSignal<ACSPCore, ACSPData>::SmallSignal(Id name, Circuit& circuit, PTAnalysis& ptAnalysis);
+template<> SmallSignal<ACSPCore, ACSPData>::SmallSignal(const std::string& name, Circuit& circuit, PTAnalysis& ptAnalysis);
 
 // Resolve save specialization
 template<> bool SmallSignal<ACSPCore, ACSPData>::resolveSave(const PTSave& save, bool verify, Status& s);

@@ -25,7 +25,7 @@ class Analysis : public OutputDescriptorResolver {
 public:
     typedef Analysis* (*AnalysisFactory)(PTAnalysis& ptAnalysis, Circuit& circuit, Status& s);
 
-    Analysis(Id name, Circuit& circuit, PTAnalysis& ptAnalysis);
+    Analysis(const std::string& name, Circuit& circuit, PTAnalysis& ptAnalysis);
     virtual ~Analysis() = default;
 
     Analysis           (const Analysis&)  = delete;
@@ -34,7 +34,7 @@ public:
     Analysis& operator=(      Analysis&&) = delete;
 
     Id name() const { return name_; };
-    
+
     // Inherited from OutputDescriptorResolver, overide it
     // Converts an output descriptor to output source and stores it in the given output sources list
     // This handles output descriptors that are not specific for an analysis core, 
@@ -136,7 +136,7 @@ public:
     virtual void dump(std::ostream& os) const;
 
 protected:
-    Id name_;
+    std::string name_;
     Circuit& circuit;
     CommonData commons;
     ParameterSweeper sweeper;

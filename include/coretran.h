@@ -118,7 +118,7 @@ public:
     bool populateStructures(Status& s=Status::ignore);
 
     bool rebuild(Status& s=Status::ignore); 
-    bool initializeOutputs(Id name, Status& s=Status::ignore);
+    bool initializeOutputs(const std::string& name, Status& s=Status::ignore);
     void install(ProgressReporter* p);
     CoreCoroutine coroutine(bool continuePrevious);
     bool run(bool continuePrevious);

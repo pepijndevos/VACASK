@@ -19,7 +19,7 @@ protected:
 };
 
 // Constructor specialization
-template<> SmallSignal<ACCore, AcData>::SmallSignal(Id name, Circuit& circuit, PTAnalysis& ptAnalysis);
+template<> SmallSignal<ACCore, AcData>::SmallSignal(const std::string& name, Circuit& circuit, PTAnalysis& ptAnalysis);
 
 // Resolve save specialization
 template<> bool SmallSignal<ACCore, AcData>::resolveSave(const PTSave& save, bool verify, Status& s);

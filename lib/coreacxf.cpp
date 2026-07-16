@@ -150,7 +150,7 @@ bool ACXFCore::addDefaultOutputDescriptors() {
     return true;
 }
 
-bool ACXFCore::initializeOutputs(Id name, Status& s) {
+bool ACXFCore::initializeOutputs(const std::string& name, Status& s) {
     if (!params.write || Simulator::noOutput()) {
         return true;
     }

@@ -104,7 +104,7 @@ bool ACCore::addDefaultOutputDescriptors() {
     return true;
 }
 
-bool ACCore::initializeOutputs(Id name, Status& s) {
+bool ACCore::initializeOutputs(const std::string& name, Status& s) {
     // If output is suppressed, skip all this work
     if (!params.write || Simulator::noOutput()) {
         return true;
