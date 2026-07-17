@@ -12,51 +12,54 @@ from ng2vclib.converter import Converter
 from ng2vclib.dfl import default_config
 import xschem2vc
 
+# Default destination relative to original file
+tech_dest_dir = "../../vacask/models"
+
 tech_files = [
     # file  read&process depth  output depth  destination (relative path)
-    ( "capacitors_mod.lib", 1, None, "../../vacask/models/capacitors_mod.lib" ), 
-    # "capacitors_mod_mismatch.lib", 
-    # "capacitors_stat.lib", 
+    ( "capacitors_mod.lib", 1, None ), 
+    ( "capacitors_mod_mismatch.lib", 1, None ), 
+    ( "capacitors_stat.lib", 1, None ), 
     
-    ( "cornerCAP.lib", 0, 0, "../../vacask/models/cornerCAP.lib"),  
-    ( "cornerDIO.lib", 0, 0, "../../vacask/models/cornerDIO.lib"),  
-    ( "cornerHBT.lib", 0, 0, "../../vacask/models/cornerHBT.lib"), 
-    ( "cornerMOShv.lib", 0, 0, "../../vacask/models/cornerMOShv.lib" ), 
-    ( "cornerMOSlv.lib", 0, 0, "../../vacask/models/cornerMOSlv.lib" ), 
-    ( "cornerRES.lib", 0, 0, "../../vacask/models/cornerRES.lib" ), 
+    ( "cornerCAP.lib", 0, 0 ),  
+    ( "cornerDIO.lib", 0, 0 ),  
+    ( "cornerHBT.lib", 0, 0 ), 
+    ( "cornerMOShv.lib", 0, 0 ), 
+    ( "cornerMOSlv.lib", 0, 0 ), 
+    ( "cornerRES.lib", 0, 0 ), 
     
-    ( "diodes.lib", 1, None, "../../vacask/models/diodes.lib" ), 
+    ( "diodes.lib", 1, None ), 
     
-    ( "resistors_mod.lib", 1, None, "../../vacask/models/resistors_mod.lib" ), 
-    # "resistors_mod_mismatch.lib", 
-    # "resistors_stat.lib", 
+    ( "resistors_mod.lib", 1, None ), 
+    ( "resistors_mod_mismatch.lib", 1, None ), 
+    ( "resistors_stat.lib", 1, None ), 
     
-    ( "sg13g2_bondpad.lib", 1, None, "../../vacask/models/sg13g2_bondpad.lib" ), 
+    ( "sg13g2_bondpad.lib", 1, None ), 
     
-    ( "sg13g2_dschottky_nbl1_mod.lib", 1, None, "../../vacask/models/sg13g2_dschottky_nbl1_mod.lib" ), 
+    ( "sg13g2_dschottky_nbl1_mod.lib", 1, None ), 
     
-    ( "sg13g2_esd.lib", 1, None, "../../vacask/models/sg13g2_esd.lib" ), 
+    ( "sg13g2_esd.lib", 1, None ), 
     
-    ( "sg13g2_hbt_mod.lib", 1, None, "../../vacask/models/sg13g2_hbt_mod.lib" ), 
-    # "sg13g2_hbt_mod_mismatch.lib", 
-    # "sg13g2_hbt_stat.lib", 
+    ( "sg13g2_hbt_mod.lib", 1, None ), 
+    ( "sg13g2_hbt_mod_mismatch.lib", 1, None ), 
+    ( "sg13g2_hbt_stat.lib", 1, None ), 
     
-    # "sg13g2_moshv_mismatch.lib", 
-    ( "sg13g2_moshv_mod.lib", 1, None, "../../vacask/models/sg13g2_moshv_mod.lib" ), 
-    # "sg13g2_moshv_mod_mismatch.lib", 
+    ( "sg13g2_moshv_mismatch.lib", 1, None ),  
+    ( "sg13g2_moshv_mod.lib", 1, None ), 
+    ( "sg13g2_moshv_mod_mismatch.lib", 1, None), 
     # "sg13g2_moshv_parm.lib", # flattened
-    # "sg13g2_moshv_stat.lib", 
+    ( "sg13g2_moshv_stat.lib", 1, None ), 
     
-    # "sg13g2_moslv_mismatch.lib", 
-    ( "sg13g2_moslv_mod.lib", 1, None, "../../vacask/models/sg13g2_moslv_mod.lib" ), 
-    # "sg13g2_moslv_mod_mismatch.lib", 
+    ( "sg13g2_moslv_mismatch.lib", 1, None), 
+    ( "sg13g2_moslv_mod.lib", 1, None ), 
+    ( "sg13g2_moslv_mod_mismatch.lib", 1, None ), 
     # "sg13g2_moslv_parm.lib", # flattened
-    # "sg13g2_moslv_stat.lib", 
+    ( "sg13g2_moslv_stat.lib", 1, None ), 
     
-    ( "sg13g2_svaricaphv_mod.lib", 1, None, "../../vacask/models/sg13g2_svaricaphv_mod.lib"),  
-    # "sg13g2_svaricaphv_mod_mismatch.lib", 
+    ( "sg13g2_svaricaphv_mod.lib", 1, None ),  
+    ( "sg13g2_svaricaphv_mod_mismatch.lib", 1, None), 
 
-    # Standard cells and I/O
+    # Standard cells and I/O, non-default destination
     ( "sg13g2_stdcell.spice", 1, None, "../vacask/sg13g2_stdcell.inc" ), 
     ( "sg13g2_io.spi", 1, None, "../vacask/sg13g2_io.inc" ), 
 ]
@@ -262,7 +265,14 @@ if __name__=="__main__":
     osdi_files = set()
     dflmods = set()
     print("Converting technology files and standard cells")
-    for file, read_process_depth, output_depth, destpath in tech_files:
+    for tech_file in tech_files:
+        print(tech_file)
+        if len(tech_file)==4:
+            file, read_process_depth, output_depth, destpath = tech_file 
+        else:
+            file, read_process_depth, output_depth = tech_file 
+            destpath = os.path.join(tech_dest_dir, file)
+
         print(" ", file)
         cfg = default_config()
         cfg.update({
