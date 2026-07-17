@@ -1,0 +1,154 @@
+Miller OTA simulation, IHP SG13G2 PDK
+
+ground 0
+
+include "sg13g2_vacask_common.lib"
+include "cornerMOSlv.lib" section=mos_tt_mismatch
+
+// Generic devices for compensation network and load
+load "resistor.osdi"
+load "capacitor.osdi"
+// vsource and isource are builtins
+
+model resistor resistor
+model capacitor capacitor
+model isource isource
+model vsource vsource
+model vcvs vcvs
+
+// DUT definition
+include "miller_ihp.inc"
+
+// Global hierarchical parameters
+parameters vdd=1.2 ibias=50u rload=100M cload=1p
+
+// Testbench circuit for open-loop differential DC sweep
+subckt dctest()
+  parameters vicm=vdd/2
+
+  x1 (inp inn out vdd vss) miller
+  vdd1 (vdd 0) vsource dc=vdd/2
+  vss1 (vss 0) vsource dc=-vdd/2
+  vcm1 (inp 0) vsource dc=vicm-vdd/2
+  vid1 (inp inn1) vsource dc=0
+  rin (inn1 inn) resistor r=10meg
+  rfb (inn out1) resistor r=10meg
+  eout (out1 0 out 0) vcvs gain=1
+  cl1 (out 0) capacitor c=cload
+  rl1 (out 0) resistor r=rload
+ends
+
+// Global parameters for sizing the OTA
+parameters mirr_w=10u  mirr_l=1u
+parameters mirr_wd=20u mirr_ld=1u
+parameters mirr_wo=20u
+parameters out_w=40u   out_l=0.5u
+parameters load_w=10u  load_l=1u
+parameters diff_w=10u  diff_l=0.5u
+parameters r_out=5k
+parameters c_out=2p
+
+control
+  abort always
+
+  elaborate circuit("dctest")
+  print hierarchy
+
+  save (
+    default
+    // Diff pair
+    p('x1:xmn1:nsg13_lv_nmos',vgs) p('x1:xmn1:nsg13_lv_nmos',vds) p('x1:xmn1:nsg13_lv_nmos',vth) p('x1:xmn1:nsg13_lv_nmos',vdss) p('x1:xmn1:nsg13_lv_nmos',ids)
+    p('x1:xmn2:nsg13_lv_nmos',vgs) p('x1:xmn2:nsg13_lv_nmos',vds) p('x1:xmn2:nsg13_lv_nmos',vth) p('x1:xmn2:nsg13_lv_nmos',vdss) p('x1:xmn2:nsg13_lv_nmos',ids)
+    // Mirrors
+    p('x1:xmn3:nsg13_lv_nmos',vgs) p('x1:xmn3:nsg13_lv_nmos',vds) p('x1:xmn3:nsg13_lv_nmos',vth) p('x1:xmn3:nsg13_lv_nmos',vdss) p('x1:xmn3:nsg13_lv_nmos',ids)
+    p('x1:xmn4:nsg13_lv_nmos',vgs) p('x1:xmn4:nsg13_lv_nmos',vds) p('x1:xmn4:nsg13_lv_nmos',vth) p('x1:xmn4:nsg13_lv_nmos',vdss) p('x1:xmn4:nsg13_lv_nmos',ids)
+    p('x1:xmn5:nsg13_lv_nmos',vgs) p('x1:xmn5:nsg13_lv_nmos',vds) p('x1:xmn5:nsg13_lv_nmos',vth) p('x1:xmn5:nsg13_lv_nmos',vdss) p('x1:xmn5:nsg13_lv_nmos',ids)
+    // Active load
+    p('x1:xmp1:nsg13_lv_pmos',vgs) p('x1:xmp1:nsg13_lv_pmos',vds) p('x1:xmp1:nsg13_lv_pmos',vth) p('x1:xmp1:nsg13_lv_pmos',vdss) p('x1:xmp1:nsg13_lv_pmos',ids)
+    p('x1:xmp2:nsg13_lv_pmos',vgs) p('x1:xmp2:nsg13_lv_pmos',vds) p('x1:xmp2:nsg13_lv_pmos',vth) p('x1:xmp2:nsg13_lv_pmos',vdss) p('x1:xmp2:nsg13_lv_pmos',ids)
+    // Output stage
+    p('x1:xmp3:nsg13_lv_pmos',vgs) p('x1:xmp3:nsg13_lv_pmos',vds) p('x1:xmp3:nsg13_lv_pmos',vth) p('x1:xmp3:nsg13_lv_pmos',vdss) p('x1:xmp3:nsg13_lv_pmos',ids)
+  )
+
+  analysis op1 op
+
+  sweep vid instance="vid1" parameter="dc" from=-1 to=1 mode="lin" points=80
+    analysis dc1 op
+
+  mc mc1 samples=500
+    sweep vid instance="vid1" parameter="dc" from=-1 to=1 mode="lin" points=80
+      analysis dc2 op
+  endmc
+
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+import numpy as np
+import matplotlib.pyplot as plt
+
+plot = rawread('op1.raw').get()
+print("Output operating point:", plot["out"])
+for name in [ "mn1", "mn2", "mn3", "mn4", "mn5", "mp1", "mp2", "mp3" ]:
+    if name.startswith("mn"):
+      devname = "x1:x"+name+":nsg13_lv_nmos"
+    else:
+      devname = "x1:x"+name+":nsg13_lv_pmos"
+    vgsov = plot[devname+".vgs"]-plot[devname+".vth"]
+    vdsov = plot[devname+".vds"]-plot[devname+".vdss"]
+    print(name, "ids=", plot[devname+".ids"], "vgs-vth=", vgsov, "vds-vdsat=", vdsov)
+
+plot = rawread('dc1.raw').get()
+
+fig1 = plt.figure(figsize=(10, 8))
+ax_dict = fig1.subplot_mosaic("""
+AB
+CC
+""")
+
+ax_dict["A"].set_title('Open-loop DC transfer characteristic, Miller OTA')
+ax_dict["A"].set_ylabel('Vout [V]')
+ax_dict["A"].set_xlabel('Vp-Vn [V]')
+ax_dict["A"].plot(plot['inp']-plot['inn'], plot['out'])
+ax_dict["A"].grid(True)
+
+nsamples = 500
+
+# Zero crossings (input-referred offset) collected while scanning MC samples
+crossings = []
+
+ax_dict["B"].set_title('Monte Carlo spread')
+ax_dict["B"].set_ylabel('Vout [V]')
+ax_dict["B"].set_xlabel('Vp-Vn [mV]')
+for i in range(1, nsamples+1):
+    mcplot = rawread(f"mc1.{i}.dc2.raw").get()
+    vid = mcplot['inp']-mcplot['inn']
+    vout = mcplot['out']
+    ax_dict["B"].plot(vid*1e3, vout, color="steelblue", alpha=0.15, linewidth=1.2)
+
+    # Find the first sign change of vout and linearly interpolate the crossing
+    idx = np.where(np.diff(np.sign(vout)) != 0)[0]
+    if len(idx) > 0:
+        i0 = idx[0]
+        x0, x1 = vid[i0], vid[i0+1]
+        y0, y1 = vout[i0], vout[i0+1]
+        xc = x0 + (0-y0)*(x1-x0)/(y1-y0)
+        crossings.append(xc*1e3)
+
+crossings = np.array(crossings)
+ax_dict["B"].set_xlim(-20, 20)
+ax_dict["B"].grid(True)
+
+print(f"Offset: mean={crossings.mean():.4f} mV, std={crossings.std():.4f} mV, n={len(crossings)}")
+
+ax_dict["C"].set_title('Input-referred offset distribution')
+ax_dict["C"].set_ylabel('Count')
+ax_dict["C"].set_xlabel('Offset [mV]')
+ax_dict["C"].hist(crossings, bins=30, color="steelblue", edgecolor="black")
+ax_dict["C"].grid(True)
+
+fig1.tight_layout()
+
+plt.show()
+>>>FILE

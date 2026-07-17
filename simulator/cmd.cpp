@@ -877,7 +877,7 @@ InterpreterExitStatus cmd_mc(CommandInterpreter& interpreter, PTCommand& cmd, St
     interpreter.circuit().paramEvaluator().setMCData(&mcData);
 
     if (interpreter.printProgress()) {
-        Simulator::dbg() << "Starting MC analysis '"+std::string(mcName)+"'.\n";
+        Simulator::dbg() << "Running MC analysis '"+std::string(mcName)+"'.\n";
     }
 
     // Progress reporter

@@ -147,7 +147,7 @@
             // "args": [ "-df", "${workspaceFolder}/demo/natures/idt.sim" ], 
             // "args": [ "-df", "${workspaceFolder}/demo/natures/ddt.sim" ], 
             // "args": [ "-df", "${workspaceFolder}/demo/hierarchy/hier.sim" ], 
-            "args": [ "-df", "${workspaceFolder}/demo/mc/mc.sim" ], 
+            "args": [ "-df", "${workspaceFolder}/demo/mc/miller_ihp.sim" ], 
             // "args": [ "-df", "/home/arpadb/rram/test.sim" ], 
             // "args": [ "-df", "/home/arpadb/sim/t/test.sim" ], 
             // "args": [ "-df", "-dp" ],
