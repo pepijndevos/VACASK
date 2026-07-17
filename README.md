@@ -95,6 +95,7 @@ Yes we do. It is bundled with the binary packages. [The user's manual](docs/inde
 - [IHP Open PDK](https://github.com/IHP-GmbH/IHP-Open-PDK) support. See [demo/ihp-sg13g2](demo/ihp-sg13g2) for more information. 
 - Verilog-A natures and disciplines for setting absolute tolerances on unknowns and residuals (see [demo/natures](demo/natures)). 
 - Monte Carlo analysis with Latin hypercube sampling (see [demo/mc](demo/mc)). 
+- Touchstone file to VACASK lumped model converter based on scikit-rf (see [demo/ts](demo/ts)). 
  
 Certain devices (independent voltage and current sources, linear controlled sources, and inductive coupling) are implemented as builtin devices because certain features needed by these devices are not available in OpenVAF-reloaded or even Verilog-A. 
 
