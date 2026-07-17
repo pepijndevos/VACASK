@@ -873,11 +873,54 @@ InterpreterExitStatus cmd_mc(CommandInterpreter& interpreter, PTCommand& cmd, St
         return InterpreterExitStatus::HardFault;
     }
 
+    // Get debug
+    auto it3 = args.find("debug");
+    Int debug = 0;
+    if (it3!=args.end()) {
+        auto dbg = it3->second;
+        if (!dbg.convertInPlace(Value::Type::Int, s)) {
+            s.extend("Debug flag must be an integer.");
+            return InterpreterExitStatus::HardFault;
+        }
+        debug = dbg.val<Int>();
+    }
+    
+    // Get strict
+    auto it4 = args.find("strict");
+    auto strict = false;
+    if (it4!=args.end()) {
+        auto str = it4->second;
+        if (!str.convertInPlace(Value::Type::Int, s)) {
+            s.extend("Strict flag must be an integer.");
+            return InterpreterExitStatus::HardFault;
+        }
+        strict = str.val<Int>();
+    }
+    
+    // Latin hypercube
+    auto it5 = args.find("lh");
+    auto lh = true;
+    if (it5!=args.end()) {
+        auto str = it5->second;
+        if (!str.convertInPlace(Value::Type::Int, s)) {
+            s.extend("Strict flag must be an integer.");
+            return InterpreterExitStatus::HardFault;
+        }
+        lh = str.val<Int>();
+    }
+    if (lh) {
+        mcData.setLHSamples(nsamples);
+    }
+    
     // Put paramEvaluator into MC mode
     interpreter.circuit().paramEvaluator().setMCData(&mcData);
 
     if (interpreter.printProgress()) {
-        Simulator::dbg() << "Running MC analysis '"+std::string(mcName)+"'.\n";
+        Simulator::dbg() << "Running MC analysis '"+std::string(mcName)+"'";
+        if (lh) {
+            Simulator::dbg() << " (Latin hypercube sampling)";
+        }
+        Simulator::dbg() << ".\n";
     }
 
     // Progress reporter
@@ -889,22 +932,29 @@ InterpreterExitStatus cmd_mc(CommandInterpreter& interpreter, PTCommand& cmd, St
     progress.setValueDecoration("sample# ", "");
     progress.initProgress(nsamples+1, 0);
     progress.report();
-            
+
+    if (debug) {
+        progress.disable();
+    }
 
     // Main loop
     bool abort = false;
-    for(decltype(nsamples) i=0; i<nsamples; i++) {
-        // Set variables
-        interpreter.circuit().setVariable("MCSAMPLE", i+1);
-
-        // Set analysis name prefix
-        interpreter.setAnalysisNamePrefix(std::string(mcName)+"."+std::to_string(i+1)+".");
-    
+    size_t ngen = 0;
+    bool first = true;
+    while(mcData.sample()<nsamples) {
         // Generate new sample if this is not the first iteration
-        if (i>0) {
+        if (!first) {
             mcData.advance();
         }
+        first = false;
+        auto atSam = mcData.sample();
+        
+        // Set variables
+        interpreter.circuit().setVariable("MCSAMPLE", Int(atSam+1));
 
+        // Set analysis name prefix
+        interpreter.setAnalysisNamePrefix(std::string(mcName)+"."+std::to_string(atSam+1)+".");
+    
         // Propagate parameters. In first iteration this populates the list of generators 
         // and implicitly generates a sample. 
         // Force global propagation by setting VariablesChanged flag
@@ -916,10 +966,13 @@ InterpreterExitStatus cmd_mc(CommandInterpreter& interpreter, PTCommand& cmd, St
             break;
         }
 
-        // if (i==0) {
-        //     mcData.dump(0, Simulator::out());
-        // }
-
+        if (debug>0) {
+            Simulator::out() << "MC generators (" << mcData.count() << "), sample #" << (atSam+1) << "\n";
+            if (atSam==0 || debug>1) {
+                mcData.dump(2, Simulator::out());
+            }
+        }
+        
         // Run loop body
         auto exitStatus = interpreter.run(loopStart, s);
         // Hard faults abort
@@ -939,8 +992,17 @@ InterpreterExitStatus cmd_mc(CommandInterpreter& interpreter, PTCommand& cmd, St
             break;
         }
 
-        progress.setProgress(i+1, i+1);
+        
+        progress.setProgress(atSam+1, atSam+1);
         progress.report();
+
+        if (atSam==0) {
+            ngen = mcData.count();
+        } else if (strict && mcData.count()!=ngen) {
+            abort = true;
+            s.set(Status::Syntax, "Number of MC generators changed between samples. Aborting.");
+            break;
+        }
     }
     progress.end();
 
@@ -989,7 +1051,7 @@ std::unordered_map<Id, CommandInterpreter::CmdDesc> CommandInterpreter::commandD
     { Id::createStatic("print"),        { 0,  1,             0,  CmdDesc::many, true,  {"eol", "separator"},      
                                                                                                     cmd_print } }, 
     { Id::createStatic("postprocess"),  { 0,  0,             1,  CmdDesc::many, true,  {},          cmd_postprocess } }, 
-    { Id::createStatic("mc"),           { 1,  1,             0,  CmdDesc::many, true,  {"samples", "seed"},      
+    { Id::createStatic("mc"),           { 1,  1,             0,  CmdDesc::many, true,  {"samples", "seed", "debug", "strict", "lh"},      
                                                                                                     cmd_mc } }, 
     { Id::createStatic("endmc"),        { 0,  0,             0,  CmdDesc::many, true,  {},          cmd_endmc } }, 
 };

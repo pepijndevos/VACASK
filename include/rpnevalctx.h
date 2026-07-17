@@ -40,7 +40,7 @@ public:
         }
     };
 
-    MCData() { setSeed(0); };
+    MCData() : sample_(0), lhSamples(0) { setSeed(0); };
     
     // Monte Carlo generator ID
     // Context type, object ID, parameter ID, consecutive number of MC function in expression
@@ -48,6 +48,9 @@ public:
 
     // Set generator seed
     void setSeed(Int seed);
+
+    // Enable/disable Latin hypercube sampling
+    void setLHSamples(size_t nsam);
 
     // Clear generator map
     void clear();
@@ -61,15 +64,25 @@ public:
     // Return the number of generators
     size_t count() const; 
 
+    // Return the consecutive number of the sample
+    size_t sample() const;
+
     void dump(int indent, std::ostream& os) const;
 
 private:
     // Make generator return numbers from (0,1) so we avoid +-inf in Gaussian distribution
-    double gen() {
+    double gen(size_t sourceNdx) {
         std::uniform_real_distribution<double> dist(0.0, 1.0);
         double v;
         do {
-            v = dist(randomGenerator);
+            if (lhSamples==0) {
+                // Ordinary sampling
+                v = dist(randomGenerator);
+            } else {
+                // Latin hypercube
+                auto bin = lhPerm[sourceNdx][sample_];
+                v = (bin + dist(randomGenerator)) / lhSamples;
+            }
         } while (v==0 || v==1);
         return v;
     };
@@ -80,6 +93,15 @@ private:
 
     // Generator values (all generators are uniform random (0,1))
     std::vector<double> value;
+
+    // Latin hypercube permutations
+    std::vector<std::vector<size_t>> lhPerm;
+
+    // Sample counter
+    size_t sample_;
+
+    // Latin hypercube sample count, 0 if disabled
+    size_t lhSamples;
 
     // Random generator
     std::mt19937_64 randomGenerator;

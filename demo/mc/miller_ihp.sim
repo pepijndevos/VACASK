@@ -75,6 +75,7 @@ control
   sweep vid instance="vid1" parameter="dc" from=-1 to=1 mode="lin" points=80
     analysis dc1 op
 
+  // By default uses Latin hypercube sampling
   mc mc1 samples=500
     sweep vid instance="vid1" parameter="dc" from=-1 to=1 mode="lin" points=80
       analysis dc2 op

@@ -5,7 +5,7 @@ A Monte Carlo loop repeats a portion of the control block many times, drawing ne
 ## Syntax
 
 ```text
-mc name samples=n [seed=s]
+mc name samples=n [seed=s] [lh=b] [strict=b] [debug=d]
   ... control statements, analyses ...
 endmc
 ```
@@ -16,6 +16,9 @@ endmc
 |---------|------|----------|-------------|
 | `samples` | integer | yes | Number of Monte Carlo samples (loop iterations). Must be greater than zero. |
 | `seed` | integer | no | Seed for the random number generator. Default: `0`. |
+| `lh` | boolean | no | Use Latin hypercube sampling instead of plain random sampling. Default: `1` (enabled). See [Latin Hypercube Sampling](#latin-hypercube-sampling) below. |
+| `strict` | boolean | no | Abort the loop if the number of distinct distribution-function call sites (MC generators) encountered changes between samples. Default: `0` (disabled). |
+| `debug` | integer | no | Debug verbosity. `0` disables debug output (default). `1` dumps the list of MC generators once, after the first sample. `>=2` dumps it after every sample. Any nonzero value disables the progressbar reporter. |
 
 Everything between `mc` and the matching `endmc` is executed once per sample. `mc` loops cannot be nested.
 
@@ -54,6 +57,12 @@ A distribution function only draws a random value when the expression that conta
 In any other context (for example inside a conditional netlist block's condition expression) the call is accepted syntactically but simply returns `nom`, without consuming a random draw.
 
 Each call site is identified by the enclosing instance/model/subcircuit-instance name, the parameter name, and the position of the call within the expression. This identity is stable across the netlist's conditional branches and re-elaborations, so the same call site always gets the same sample value within one Monte Carlo iteration, however many times its expression happens to be re-evaluated.
+
+## Latin Hypercube Sampling
+
+By default (`lh=1`) each distribution-function call site uses Latin hypercube sampling across the loop's `samples` iterations instead of drawing plain independent uniform numbers. The `samples` draws for a given call site are split into `samples` equal-probability bins, the bins are visited in a random order (a fresh random permutation per call site), and one draw is taken from a random position within the bin for each sample. This still yields a uniform `(0,1)` variate per sample, but spreads the samples more evenly across the distribution than independent draws would, reducing variance in the estimated mean/std for a given sample count.
+
+Set `lh=0` to fall back to plain independent random sampling.
 
 ## The `MCSAMPLE` variable
 
