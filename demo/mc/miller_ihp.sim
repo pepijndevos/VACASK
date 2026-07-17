@@ -29,11 +29,9 @@ subckt dctest()
   x1 (inp inn out vdd vss) miller
   vdd1 (vdd 0) vsource dc=vdd/2
   vss1 (vss 0) vsource dc=-vdd/2
-  vcm1 (inp 0) vsource dc=vicm-vdd/2
-  vid1 (inp inn1) vsource dc=0
-  rin (inn1 inn) resistor r=10meg
-  rfb (inn out1) resistor r=10meg
-  eout (out1 0 out 0) vcvs gain=1
+  vcm1 (cm 0) vsource dc=vicm-vdd/2
+  vid1 (inp cm) vsource dc=0
+  eid1 (inn cm inp cm) vcvs gain=-1
   cl1 (out 0) capacitor c=cload
   rl1 (out 0) resistor r=rload
 ends
@@ -72,12 +70,12 @@ control
 
   analysis op1 op
 
-  sweep vid instance="vid1" parameter="dc" from=-1 to=1 mode="lin" points=80
+  sweep vid instance="vid1" parameter="dc" from=-50m to=50m mode="lin" points=1000
     analysis dc1 op
 
   // By default uses Latin hypercube sampling
-  mc mc1 samples=500
-    sweep vid instance="vid1" parameter="dc" from=-1 to=1 mode="lin" points=80
+  mc mc1 samples=500 debug=0
+    sweep vid instance="vid1" parameter="dc" from=-10m to=10m mode="lin" points=200
       analysis dc2 op
   endmc
 
@@ -110,8 +108,8 @@ CC
 
 ax_dict["A"].set_title('Open-loop DC transfer characteristic, Miller OTA')
 ax_dict["A"].set_ylabel('Vout [V]')
-ax_dict["A"].set_xlabel('Vp-Vn [V]')
-ax_dict["A"].plot(plot['inp']-plot['inn'], plot['out'])
+ax_dict["A"].set_xlabel('Vp-Vn [mV]')
+ax_dict["A"].plot((plot['inp']-plot['inn'])*1e3, plot['out'])
 ax_dict["A"].grid(True)
 
 nsamples = 500
