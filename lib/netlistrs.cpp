@@ -15,13 +15,35 @@ namespace {
 // Convert rust::String to std::string.
 std::string sv(const rust::String& s) { return std::string(s); }
 
+// Strip ngspice expression quoting (`{expr}` braces, `'expr'` quotes) and
+// collapse SPICE continuation markers (`\n+`) from parameter values.
+std::string stripExprQuoting(const std::string& v) {
+    std::string out;
+    out.reserve(v.size());
+    for (size_t i = 0; i < v.size(); ++i) {
+        char c = v[i];
+        if (c == '{' || c == '}' || c == '\'') continue;
+        if (c == '\n') {
+            size_t j = i + 1;
+            while (j < v.size() && (v[j] == ' ' || v[j] == '\t')) ++j;
+            if (j < v.size() && v[j] == '+') {
+                out += ' ';
+                i = j;
+                continue;
+            }
+        }
+        out += c;
+    }
+    return out;
+}
+
 // "name=value name2=value2 …" from a list of Param, or "" if none.
 std::string paramString(const rust::Vec<netlist::Param>& params) {
     std::ostringstream os;
     bool first = true;
     for (const auto& p : params) {
         if (!first) os << " ";
-        os << sv(p.name) << "=" << sv(p.value);
+        os << sv(p.name) << "=" << stripExprQuoting(sv(p.value));
         first = false;
     }
     return os.str();
@@ -104,7 +126,7 @@ static std::string paramStringExcluding(const rust::Vec<netlist::Param>& params,
         for (const auto& ex : exclude) { if (keylower == ex) { skip = true; break; } }
         if (skip) continue;
         if (!first) os << " ";
-        os << key << "=" << sv(p.value);
+        os << key << "=" << stripExprQuoting(sv(p.value));
         first = false;
     }
     return os.str();
@@ -575,16 +597,8 @@ static bool spiceBlockToTables(const netlist::SpiceBlock& sb, PTSubcircuitDefini
         into.add(std::move(child));
     }
 
-    // .include / .lib inside a SPICE block: resolve using the same path as mergeNetlist (Fix 2).
-    // Section-qualified .lib includes are deferred (flat projection ignores library sections).
+    // .include / .lib inside a SPICE block.
     for (const auto& inc : sb.includes) {
-        if (!inc.section.empty()) {
-            Simulator::err() << "WARNING: section-qualified .lib inside SPICE block "
-                             << "('" << sv(inc.path) << "' section='" << sv(inc.section)
-                             << "') deferred; library sections not projected\n";
-            continue;
-        }
-
         std::filesystem::path incPath = baseDir / sv(inc.path);
         std::filesystem::path absPath;
         try {
@@ -604,10 +618,15 @@ static bool spiceBlockToTables(const netlist::SpiceBlock& sb, PTSubcircuitDefini
         std::stringstream incss; incss << ifs.rdbuf();
         std::string contents = incss.str();
 
-        std::string iext = absPath.extension().string();
-        std::transform(iext.begin(), iext.end(), iext.begin(), ::tolower);
-        bool spice = (iext != ".scs");
-        netlist::Netlist sub = netlist::parse_netlist(rust::Str(contents), spice);
+        netlist::Netlist sub;
+        if (!inc.section.empty()) {
+            sub = netlist::parse_netlist_lib(rust::Str(contents), rust::Str(sv(inc.section)));
+        } else {
+            std::string iext = absPath.extension().string();
+            std::transform(iext.begin(), iext.end(), iext.begin(), ::tolower);
+            bool spice = (iext != ".scs");
+            sub = netlist::parse_netlist(rust::Str(contents), spice);
+        }
         if (!sub.errors.empty()) {
             std::ostringstream os;
             os << "parse error in SPICE include '" << absPath.string() << "': "
@@ -678,17 +697,13 @@ bool mergeNetlist(const netlist::Netlist& nl, PTSubcircuitDefinition& top,
                          << nl.ahdl_includes.size() << " ahdl_include (VA) directive(s); AHDL includes ignored\n";
     }
 
-    // Recurse into top-level includes (section-qualified deferred).
+    // Recurse into top-level includes.
     for (const auto& inc : nl.includes) {
-        // Skip section-qualified includes (library sections not yet projected).
-        if (!inc.section.empty()) continue;
-
         std::filesystem::path incPath = baseDir / sv(inc.path);
         std::filesystem::path absPath;
         try {
             absPath = std::filesystem::canonical(incPath);
         } catch (...) {
-            // File doesn't exist — fall through, ifstream will fail below.
             absPath = std::filesystem::absolute(incPath);
         }
 
@@ -703,10 +718,15 @@ bool mergeNetlist(const netlist::Netlist& nl, PTSubcircuitDefinition& top,
         std::stringstream ss; ss << in.rdbuf();
         std::string contents = ss.str();
 
-        std::string iext = absPath.extension().string();
-        std::transform(iext.begin(), iext.end(), iext.begin(), ::tolower);
-        bool spice = (iext != ".scs");
-        netlist::Netlist sub = netlist::parse_netlist(rust::Str(contents), spice);
+        netlist::Netlist sub;
+        if (!inc.section.empty()) {
+            sub = netlist::parse_netlist_lib(rust::Str(contents), rust::Str(sv(inc.section)));
+        } else {
+            std::string iext = absPath.extension().string();
+            std::transform(iext.begin(), iext.end(), iext.begin(), ::tolower);
+            bool spice = (iext != ".scs");
+            sub = netlist::parse_netlist(rust::Str(contents), spice);
+        }
         if (!sub.errors.empty()) {
             std::ostringstream os;
             os << "parse error in include '" << absPath.string() << "': "
