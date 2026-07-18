@@ -1,6 +1,10 @@
 add_executable(demo_netlistrs demo_netlistrs.cpp)
 target_link_libraries(demo_netlistrs PRIVATE simlib netlist_cxx_bridge ${SIM_EXE_LIBRARIES})
 
+add_test(NAME demo_netlistrs
+         COMMAND demo_netlistrs "${CMAKE_CURRENT_SOURCE_DIR}/rc.scs")
+set_tests_properties(demo_netlistrs PROPERTIES WORKING_DIRECTORY "/tmp")
+
 add_executable(demo1
     demo1.cpp
 )
