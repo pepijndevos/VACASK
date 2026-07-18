@@ -74,6 +74,76 @@ void fillSubDef(PTSubcircuitDefinition& def, const netlist::Subckt& s, Parser& p
     }
 }
 
+// Build a "name=value …" param string excluding a set of keys (case-insensitive).
+// Used to strip dispatch-only keys like "level" before passing params to OSDI.
+static std::string paramStringExcluding(const rust::Vec<netlist::Param>& params,
+                                        const std::initializer_list<std::string>& exclude) {
+    std::ostringstream os;
+    bool first = true;
+    for (const auto& p : params) {
+        std::string key = sv(p.name);
+        std::string keylower = key;
+        std::transform(keylower.begin(), keylower.end(), keylower.begin(), ::tolower);
+        bool skip = false;
+        for (const auto& ex : exclude) { if (keylower == ex) { skip = true; break; } }
+        if (skip) continue;
+        if (!first) os << " ";
+        os << key << "=" << sv(p.value);
+        first = false;
+    }
+    return os.str();
+}
+
+// Map SPICE model_type + level to a VACASK OSDI master name.
+// Returns "" if there is no known VACASK master for the given type.
+// Emits a warning if the level is unknown for a MOSFET type and falls back
+// to the nearest available master.
+static std::string spiceModelMaster(const std::string& model_type_raw,
+                                    const std::string& level_str,
+                                    const std::string& /*version*/) {
+    std::string mt = model_type_raw;
+    std::transform(mt.begin(), mt.end(), mt.begin(), ::tolower);
+
+    // Diode: d -> diode (top-level diode.osdi, module diode(A,C))
+    if (mt == "d") return "diode";
+
+    // MOSFET: nmos/pmos by level
+    if (mt == "nmos" || mt == "pmos") {
+        int level = 0;
+        try { level = std::stoi(level_str); } catch (...) {}
+
+        // Dispatch table: level -> OSDI master name
+        // (uses filenames without .osdi suffix; VA module names are the master)
+        // bsim3v3.osdi  -> module bsim3   (bsim3v3 3.3, accepts level 49-53)
+        // bsim4v8.osdi  -> module bsim4   (bsim4 4.8, level 14 is typical)
+        // bsimbulk106.osdi -> module bsimbulk (has thermal port; 5 terminals)
+        // psp103v4.osdi -> module psp103va (accepts level 103)
+        // Default (levels 1/2/3/49/53 or unknown) -> bsim3
+        if (level == 54)               return "bsim4";
+        if (level == 70 || level == 72) {
+            Simulator::err() << "WARNING: MOSFET level=" << level
+                             << " (bsimbulk): has thermal port; connect substrate to 0 or add explicit bulk node\n";
+            return "bsimbulk";
+        }
+        if (level == 103)              return "psp103va";
+        // Levels 1,2,3,49,53 -> bsim3 (canonical BSIM3v3 range)
+        if (level != 0 && level != 1 && level != 2 && level != 3 &&
+            level != 49 && level != 53) {
+            Simulator::err() << "WARNING: MOSFET level=" << level
+                             << " not in known dispatch table; falling back to bsim3\n";
+        }
+        return "bsim3";
+    }
+
+    // BJT: npn/pnp -> vbic13 (3-terminal, vbic_1p3.osdi, module vbic13(c,b,e))
+    // Use 4-terminal variant (vbic13_4t) when the instance has a substrate node.
+    if (mt == "npn" || mt == "pnp") return "vbic13";
+
+    Simulator::err() << "WARNING: SPICE model_type '" << model_type_raw
+                     << "' has no known VACASK OSDI master (model skipped)\n";
+    return "";
+}
+
 // Map SPICE source function args to VACASK named vsource/isource params.
 // Returns a param string such as: dc=5 type="pulse" val0=0 val1=5 delay=1m rise=1u ...
 static std::string spiceSourceParams(const netlist::SpiceSource& src) {
@@ -221,9 +291,54 @@ static bool addSpiceDevice(const netlist::SpiceDevice& dev, PTSubcircuitDefiniti
             into.add(std::move(inst));
             break;
         }
-        case netlist::SpiceDeviceKind::Diode:
-        case netlist::SpiceDeviceKind::Mosfet:
-        case netlist::SpiceDeviceKind::Bjt:
+        case netlist::SpiceDeviceKind::Diode: {
+            // D<name> <pos> <neg> <model> [area=…] [<params>]
+            // Instance master = model card name; nodes = [anode, cathode]
+            // (diode.osdi module diode(A,C) — positional terminals)
+            if (mdl.empty()) {
+                Simulator::err() << "WARNING: Diode '" << name
+                                 << "' has no model reference (skipped)\n";
+                break;
+            }
+            PTInstance inst(Id(name.c_str()), Id(mdl.c_str()), nodeList(dev.nodes));
+            // Positional area value (uncommon; most netlists use named area=)
+            if (!val.empty()) inst.add(p.parseParameters("area=" + val));
+            auto ps = paramString(dev.params);
+            if (!ps.empty()) inst.add(p.parseParameters(ps));
+            into.add(std::move(inst));
+            break;
+        }
+        case netlist::SpiceDeviceKind::Mosfet: {
+            // M<name> <drain> <gate> <source> <bulk> <model> [W=… L=… …]
+            // Instance master = model card name; nodes = [d,g,s,b]
+            // (bsim3 module bsim3(d,g,s,b) — positional terminals)
+            if (mdl.empty()) {
+                Simulator::err() << "WARNING: MOSFET '" << name
+                                 << "' has no model reference (skipped)\n";
+                break;
+            }
+            PTInstance inst(Id(name.c_str()), Id(mdl.c_str()), nodeList(dev.nodes));
+            auto ps = paramString(dev.params);
+            if (!ps.empty()) inst.add(p.parseParameters(ps));
+            into.add(std::move(inst));
+            break;
+        }
+        case netlist::SpiceDeviceKind::Bjt: {
+            // Q<name> <c> <b> <e> [<s>] <model> [params]
+            // Instance master = model card name; nodes = [c,b,e,(s)]
+            // (vbic13 module vbic13(c,b,e) — 3 terminals; 4-terminal variant
+            //  vbic13_4t if a substrate node is present — deferred)
+            if (mdl.empty()) {
+                Simulator::err() << "WARNING: BJT '" << name
+                                 << "' has no model reference (skipped)\n";
+                break;
+            }
+            PTInstance inst(Id(name.c_str()), Id(mdl.c_str()), nodeList(dev.nodes));
+            auto ps = paramString(dev.params);
+            if (!ps.empty()) inst.add(p.parseParameters(ps));
+            into.add(std::move(inst));
+            break;
+        }
         case netlist::SpiceDeviceKind::Jfet:
         case netlist::SpiceDeviceKind::SubcktCall:
         case netlist::SpiceDeviceKind::Vcvs:
@@ -264,16 +379,37 @@ static bool spiceBlockToTables(const netlist::SpiceBlock& sb, PTSubcircuitDefini
     auto sp = paramString(sb.params);
     if (!sp.empty()) into.add(p.parseParameters(sp));
 
-    // Devices (R/C/L/V/I handled; others warn+skip).
-    for (const auto& dev : sb.devices) {
-        if (!addSpiceDevice(dev, into, p, addedModels, s)) return false;
+    // .model cards: emit PTModel BEFORE instances (VACASK resolves by name).
+    // spiceModelMaster maps model_type + level -> OSDI device master name.
+    // The 'level' param is consumed for dispatch and excluded from OSDI params.
+    // nmos/pmos models get type=1/type=-1 injected; npn/pnp get type=+1/-1.
+    for (const auto& m : sb.models) {
+        std::string mt_raw = sv(m.model_type);
+        std::string level_s = sv(m.level);
+        std::string master = spiceModelMaster(mt_raw, level_s, "");
+        if (master.empty()) continue; // warning already emitted by spiceModelMaster
+
+        PTModel mod(Id(sv(m.name).c_str()), Id(master.c_str()));
+
+        // Pass model params, excluding 'level' (dispatch-only; not an OSDI param
+        // in most models, and bsim3 only accepts level=[49:53] internally).
+        auto ps = paramStringExcluding(m.params, {"level"});
+        if (!ps.empty()) mod.add(p.parseParameters(ps));
+
+        // Inject type polarity for models that require it.
+        std::string mt = mt_raw;
+        std::transform(mt.begin(), mt.end(), mt.begin(), ::tolower);
+        if      (mt == "nmos") mod.add(p.parseParameters("type=1"));
+        else if (mt == "pmos") mod.add(p.parseParameters("type=-1"));
+        else if (mt == "npn")  mod.add(p.parseParameters("type=1"));
+        else if (mt == "pnp")  mod.add(p.parseParameters("type=-1"));
+
+        into.add(std::move(mod));
     }
 
-    // .model cards (D/M/Q — tasks 6-7; warn and skip for now).
-    for (const auto& m : sb.models) {
-        Simulator::err() << "WARNING: SPICE .model '" << sv(m.name)
-                         << "' type='" << sv(m.model_type)
-                         << "' not yet mapped by SPICE adapter (skipped)\n";
+    // Devices (R/C/L/V/I + D/M/Q now handled; others warn+skip).
+    for (const auto& dev : sb.devices) {
+        if (!addSpiceDevice(dev, into, p, addedModels, s)) return false;
     }
 
     // TODO: SPICE .tran / .dc / .ac analysis cards inside a SPICE block are not

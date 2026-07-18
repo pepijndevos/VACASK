@@ -24,9 +24,17 @@ int main(int argc, char** argv) {
     Parser p(tab);
     Status s;
 
-    // Load .osdi models for resistor and capacitor (vsource is a builtin device)
+    // Load .osdi models for passives, sources, and semiconductor devices.
+    // vsource/isource are builtin (no load needed).
+    // Semiconductor masters: diode, bsim3 (bsim3v3.osdi), bsim4 (bsim4v8.osdi),
+    // bsimbulk (bsimbulk106.osdi), psp103va (psp103v4.osdi), vbic13 (vbic_1p3.osdi).
     tab.add(PTLoad("resistor.osdi"))
-       .add(PTLoad("capacitor.osdi"));
+       .add(PTLoad("capacitor.osdi"))
+       .add(PTLoad("inductor.osdi"))
+       .add(PTLoad("diode.osdi"))
+       .add(PTLoad("bsim3v3.osdi"))
+       .add(PTLoad("bsim4v8.osdi"))
+       .add(PTLoad("vbic_1p3.osdi"));
 
     if (!buildParserTablesFromFile(path, tab, p, s)) {
         Simulator::err() << s.message() << "\n"; return 1;
@@ -71,6 +79,49 @@ int main(int argc, char** argv) {
             Simulator::out() << "param check: x1:c1 c=" << val_c.str() << "\n";
             if (val_c.str() != "3e-06") {
                 Simulator::err() << "ERROR: x1:c1 c expected 3e-06 (call-site override), got " << val_c.str() << "\n";
+                return 1;
+            }
+        }
+    }
+
+    // Diode E2E (spice_diode.cir): verify the dmod model was elaborated with correct params.
+    // SPICE instance names are uppercase (D1), model names match the .model card name.
+    // Without the D/M/Q adapter (step-2 "FAIL" state), D1 and dmod are skipped →
+    // modelParameter("dmod","is") returns false → error.
+    // Note: "area" is not an OSDI instance param in diode.va; use model param "is".
+    {
+        bool require_diode = (path.find("spice_diode") != std::string::npos);
+        auto [found_d, val_d] = cir.modelParameter("dmod", "is");
+        if (require_diode && !found_d) {
+            Simulator::err() << "ERROR: spice_diode: model 'dmod' not found in elaborated "
+                                "hierarchy (D adapter not implemented?)\n";
+            return 1;
+        }
+        if (found_d) {
+            Simulator::out() << "param check: dmod.is=" << val_d.str()
+                             << " (expect 1e-14)\n";
+        }
+    }
+
+    // MOSFET E2E (spice_mos.cir): verify M1 is present with correct l=0.35u.
+    // SPICE instance names are uppercase (M1).  l is annotated (*type="instance"*)
+    // in bsim3v3.va so instanceParameter("M1","l") returns it.
+    // Without the D/M/Q adapter, M1 is skipped → not found → error.
+    {
+        bool require_mos = (path.find("spice_mos") != std::string::npos);
+        auto [found_m, val_m] = cir.instanceParameter("M1", "l");
+        if (require_mos && !found_m) {
+            Simulator::err() << "ERROR: spice_mos: M1 not found in elaborated hierarchy "
+                                "(M adapter not implemented?)\n";
+            return 1;
+        }
+        if (found_m) {
+            Simulator::out() << "param check: M1.l=" << val_m.str()
+                             << " (expect 3.5e-07)\n";
+            // l=0.35u = 3.5e-7
+            if (val_m.str() != "3.5e-07") {
+                Simulator::err() << "ERROR: M1.l expected 3.5e-07, got " << val_m.str()
+                                 << " (check W/L param parsing)\n";
                 return 1;
             }
         }

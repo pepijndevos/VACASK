@@ -64,6 +64,40 @@ set_tests_properties(demo_netlistrs_spice_rc_ngspice PROPERTIES
     SKIP_RETURN_CODE 77
     FIXTURES_REQUIRED vacask_spice_rc_raw)
 
+# ── Diode half-wave rectifier (Task 6) ─────────────────────────────────────
+# Step 1: run VACASK on the diode netlist.  Fails (step 2) until the D adapter
+# is implemented: d1 is skipped → instanceParameter("d1","area") → not found.
+add_test(NAME demo_netlistrs_spice_diode
+         COMMAND demo_netlistrs "${CMAKE_CURRENT_SOURCE_DIR}/spice_diode.cir"
+                                "${VACASK_MOD_DIR_DEFAULT}")
+set_tests_properties(demo_netlistrs_spice_diode PROPERTIES
+    WORKING_DIRECTORY "/tmp"
+    FIXTURES_SETUP vacask_spice_diode_raw)
+
+set(VACASK_SPICE_DIODE_RAW "/tmp/tran1.raw")
+
+# ngspice comparison: VACASK diode vs ngspice built-in diode on the same netlist.
+# Tolerance is wider than passive RC (model families differ) but both should
+# show ~0.6-0.7 V forward drop and near-zero reverse.  Exits 77 (SKIP) if
+# ngspice is absent so CI without ngspice still builds green.
+add_test(NAME demo_netlistrs_spice_diode_ngspice
+         COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/ngspice_compare.sh"
+                 "${CMAKE_CURRENT_SOURCE_DIR}/spice_diode.cir"
+                 "${VACASK_SPICE_DIODE_RAW}")
+set_tests_properties(demo_netlistrs_spice_diode_ngspice PROPERTIES
+    WORKING_DIRECTORY "/tmp"
+    SKIP_RETURN_CODE 77
+    FIXTURES_REQUIRED vacask_spice_diode_raw)
+
+# ── NMOS resistor-load stage (Task 6) ──────────────────────────────────────
+# Verifies: Analysis OK + m1 present in hierarchy with l=3.5e-07.
+# Fails (step 2) until M adapter is implemented: m1 is skipped → not found.
+add_test(NAME demo_netlistrs_spice_mos
+         COMMAND demo_netlistrs "${CMAKE_CURRENT_SOURCE_DIR}/spice_mos.cir"
+                                "${VACASK_MOD_DIR_DEFAULT}")
+set_tests_properties(demo_netlistrs_spice_mos PROPERTIES
+    WORKING_DIRECTORY "/tmp")
+
 target_link_libraries(
     demo1
     simlib
