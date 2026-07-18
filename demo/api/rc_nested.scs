@@ -8,5 +8,7 @@ ends rcblock
 model res resistor
 model cap capacitor
 model vsrc vsource
+// Port b is tied to ground (node 0), so c1 is degenerate (no RC time constant observable in waveform).
+// The call-site overrides r=rext (→2k) and c=3u are verified via instanceParameter, not a waveform.
 x1 (1 0) rcblock r=rext c=3u
 v1 (1 0) vsrc type="pulse" val0=0 val1=5 delay=1m rise=1u fall=1u width=4m

@@ -48,11 +48,21 @@ int main(int argc, char** argv) {
     // this is harmless for rc.scs / rc_inc.scs (no x1:r1 instance there).
     {
         auto [found_r, val_r] = cir.instanceParameter("x1:r1", "r");
-        if (found_r)
+        if (found_r) {
             Simulator::out() << "param check: x1:r1 r=" << val_r.str() << "\n";
+            if (val_r.str() != "2000") {
+                Simulator::err() << "ERROR: x1:r1 r expected 2000 (rext override), got " << val_r.str() << "\n";
+                return 1;
+            }
+        }
         auto [found_c, val_c] = cir.instanceParameter("x1:c1", "c");
-        if (found_c)
+        if (found_c) {
             Simulator::out() << "param check: x1:c1 c=" << val_c.str() << "\n";
+            if (val_c.str() != "3e-06") {
+                Simulator::err() << "ERROR: x1:c1 c expected 3e-06 (call-site override), got " << val_c.str() << "\n";
+                return 1;
+            }
+        }
     }
 
     auto tranDesc = PTAnalysis("tran1", "tran");
