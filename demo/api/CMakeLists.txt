@@ -1,5 +1,5 @@
 add_executable(demo_netlistrs demo_netlistrs.cpp)
-target_link_libraries(demo_netlistrs PRIVATE netlist_cxx_bridge)
+target_link_libraries(demo_netlistrs PRIVATE simlib netlist_cxx_bridge ${SIM_EXE_LIBRARIES})
 
 add_executable(demo1
     demo1.cpp
