@@ -18,6 +18,16 @@ namespace sim {
 bool buildParserTables(const std::string& source, bool startSpice,
                        ParserTables& tab, Parser& p, Status& s);
 
+// Parse a netlist FILE, resolving top-level includes relative to its directory.
+//  .sim  -> VACASK's own native parser (Parser::parseNetlistFile); Rust path skipped.
+//  .scs  -> Rust parser starting in Spectre.
+//  else  -> Rust parser starting in SPICE.
+// Section-qualified includes and includes inside subckt bodies are deferred.
+// PTLoads are NOT added here.
+// Returns false and populates `s` on error.
+bool buildParserTablesFromFile(const std::string& path,
+                               ParserTables& tab, Parser& p, Status& s);
+
 }
 
 #endif

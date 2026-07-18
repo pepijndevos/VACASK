@@ -1,5 +1,8 @@
 #include "netlistrs.h"
 #include "netlist_cxx_bridge/lib.h"
+#include <filesystem>
+#include <fstream>
+#include <set>
 #include <sstream>
 
 namespace sim {
@@ -68,17 +71,81 @@ void fillSubDef(PTSubcircuitDefinition& def, const netlist::Subckt& s, Parser& p
     }
 }
 
-// Fill a PTSubcircuitDefinition from the top-level netlist::Netlist
-// (no conditionals or ports at the top level).
-void fillTopLevel(PTSubcircuitDefinition& def, const netlist::Netlist& nl, Parser& p) {
+// (private) Accumulate one parsed Netlist's toplevel members into `top`,
+// its analyses/globals into `tab`, then recurse into its top-level includes.
+// Section-qualified includes (section != "") are skipped (deferred: flat Netlist
+// projection does not carry library sections).
+// Includes nested inside subckt bodies are also deferred (Subckt drops includes).
+void mergeNetlist(const netlist::Netlist& nl, PTSubcircuitDefinition& top,
+                  ParserTables& tab, Parser& p,
+                  const std::filesystem::path& baseDir,
+                  std::set<std::filesystem::path>& visited,
+                  Status& s);
+
+void mergeNetlist(const netlist::Netlist& nl, PTSubcircuitDefinition& top,
+                  ParserTables& tab, Parser& p,
+                  const std::filesystem::path& baseDir,
+                  std::set<std::filesystem::path>& visited,
+                  Status& s) {
+    // Accumulate toplevel params/models/instances/subckts.
     auto sp = paramString(nl.params);
-    if (!sp.empty()) def.add(p.parseParameters(sp));
-    for (const auto& m : nl.models)    def.add(makeModel(m, p));
-    for (const auto& i : nl.instances) def.add(makeInstance(i, p));
+    if (!sp.empty()) top.add(p.parseParameters(sp));
+    for (const auto& m : nl.models)    top.add(makeModel(m, p));
+    for (const auto& i : nl.instances) top.add(makeInstance(i, p));
     for (const auto& sub : nl.subckts) {
         PTSubcircuitDefinition child(Id(sv(sub.name).c_str()), nodeList(sub.ports));
         fillSubDef(child, sub, p);
-        def.add(std::move(child));
+        top.add(std::move(child));
+    }
+
+    // Globals and analyses into tab.
+    for (const auto& g : nl.globals) tab.addGlobal(PTParsedIdentifier(sv(g).c_str()));
+    for (const auto& a : nl.analyses) {
+        PTAnalysis desc(Id(sv(a.name).c_str()), Id(sv(a.analysis_type).c_str()));
+        auto ps = paramString(a.params);
+        if (!ps.empty()) desc.add(p.parseParameters(ps));
+        tab.addCommand(std::move(desc));
+    }
+
+    // Recurse into top-level includes (section-qualified deferred).
+    for (const auto& inc : nl.includes) {
+        // Skip section-qualified includes (library sections not yet projected).
+        if (!inc.section.empty()) continue;
+
+        std::filesystem::path incPath = baseDir / sv(inc.path);
+        std::filesystem::path absPath;
+        try {
+            absPath = std::filesystem::canonical(incPath);
+        } catch (...) {
+            // File doesn't exist — fall through, ifstream will fail below.
+            absPath = std::filesystem::absolute(incPath);
+        }
+
+        if (visited.count(absPath)) continue;
+        visited.insert(absPath);
+
+        std::ifstream in(absPath);
+        if (!in) {
+            s.set(Status::NotFound, "cannot open include: " + absPath.string());
+            return;
+        }
+        std::stringstream ss; ss << in.rdbuf();
+        std::string contents = ss.str();
+
+        std::string ext = absPath.extension().string();
+        bool spice = (ext != ".scs");
+        netlist::Netlist sub = netlist::parse_netlist(rust::Str(contents), spice);
+        if (!sub.errors.empty()) {
+            std::ostringstream os;
+            os << "parse error in include '" << absPath.string() << "': "
+               << sub.errors.size() << " error(s)"
+               << " (first at bytes [" << sub.errors[0].start << ", "
+               << sub.errors[0].end << "))";
+            s.set(Status::Syntax, os.str());
+            return;
+        }
+
+        mergeNetlist(sub, top, tab, p, absPath.parent_path(), visited, s);
     }
 }
 
@@ -96,21 +163,54 @@ bool buildParserTables(const std::string& source, bool startSpice,
     }
 
     tab.defaultGround();
-
-    // Toplevel: global params + top-level models/instances + nested subckts.
     PTSubcircuitDefinition top;
-    fillTopLevel(top, nl, p);
+    std::set<std::filesystem::path> visited;
+    mergeNetlist(nl, top, tab, p, std::filesystem::current_path(), visited, s);
     tab.setDefaultSubDef(std::move(top));
+    return true;
+}
 
-    for (const auto& g : nl.globals) tab.addGlobal(PTParsedIdentifier(sv(g).c_str()));
+bool buildParserTablesFromFile(const std::string& path,
+                               ParserTables& tab, Parser& p, Status& s) {
+    namespace fs = std::filesystem;
+    fs::path fp(path);
+    std::string ext = fp.extension().string();
 
-    // Analyses → control block.
-    for (const auto& a : nl.analyses) {
-        PTAnalysis desc(Id(sv(a.name).c_str()), Id(sv(a.analysis_type).c_str()));
-        auto ps = paramString(a.params);
-        if (!ps.empty()) desc.add(p.parseParameters(ps));
-        tab.addCommand(std::move(desc));
+    if (ext == ".sim") {
+        // VACASK's own native parser fills tab directly.
+        // FileStack::addFile() registers the file and returns its index.
+        FileStackFileIndex idx = tab.fileStack().addFile(path);
+        return p.parseNetlistFile(idx, s);
     }
+
+    std::ifstream in(path);
+    if (!in) {
+        s.set(Status::NotFound, "cannot open: " + path);
+        return false;
+    }
+    std::stringstream ss; ss << in.rdbuf();
+    std::string source = ss.str();
+
+    tab.defaultGround();
+    PTSubcircuitDefinition top;
+    fs::path absPath;
+    try {
+        absPath = fs::canonical(fp);
+    } catch (...) {
+        absPath = fs::absolute(fp);
+    }
+    std::set<fs::path> visited{ absPath };
+    bool spice = (ext != ".scs");
+    netlist::Netlist nl = netlist::parse_netlist(rust::Str(source), spice);
+    if (!nl.errors.empty()) {
+        std::ostringstream os;
+        os << "netlist parse error(s) in '" << path << "': " << nl.errors.size()
+           << " (first at bytes [" << nl.errors[0].start << ", " << nl.errors[0].end << "))";
+        s.set(Status::Syntax, os.str());
+        return false;
+    }
+    mergeNetlist(nl, top, tab, p, absPath.parent_path(), visited, s);
+    tab.setDefaultSubDef(std::move(top));
     return true;
 }
 

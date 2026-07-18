@@ -4,22 +4,14 @@
 #include "netlistrs.h"
 #include "openvafcomp.h"
 #include "circuit.h"
-#include <fstream>
 #include <memory>
-#include <sstream>
 #include <iostream>
 
 using namespace sim;
 
 int main(int argc, char** argv) {
-    if (argc < 2) { std::cerr << "usage: demo_netlistrs <file.scs|.cir>\n"; return 2; }
+    if (argc < 2) { std::cerr << "usage: demo_netlistrs <file.scs|.cir|.sim>\n"; return 2; }
     std::string path = argv[1];
-    bool startSpice = !(path.size() >= 4 && path.substr(path.size() - 4) == ".scs");
-
-    std::ifstream in(path);
-    if (!in) { std::cerr << "cannot open " << path << "\n"; return 2; }
-    std::stringstream ss; ss << in.rdbuf();
-    std::string source = ss.str();
 
     // argv[2] overrides the compile-time default so CTest and manual runs can
     // point to any model directory without recompiling.
@@ -36,7 +28,7 @@ int main(int argc, char** argv) {
     tab.add(PTLoad("resistor.osdi"))
        .add(PTLoad("capacitor.osdi"));
 
-    if (!buildParserTables(source, startSpice, tab, p, s)) {
+    if (!buildParserTablesFromFile(path, tab, p, s)) {
         Simulator::err() << s.message() << "\n"; return 1;
     }
     if (!tab.verify(s)) { Simulator::err() << s.message() << "\n"; return 1; }
