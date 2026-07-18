@@ -80,10 +80,25 @@ set(VACASK_SPICE_DIODE_RAW "/tmp/tran1.raw")
 # Tolerance is wider than passive RC (model families differ) but both should
 # show ~0.6-0.7 V forward drop and near-zero reverse.  Exits 77 (SKIP) if
 # ngspice is absent so CI without ngspice still builds green.
+#
+# Sample at quarter-period peaks of the 1 kHz SIN source (T/4=0.25ms), so the
+# diode is conducting at every sample point (V_source ≈ +2 V → V(out) ≈ 1.0 V).
+# Using zero-crossings (multiples of 1 ms) would give V(out)≈0 regardless of
+# whether the diode works — this ensures the comparison is meaningful.
+#
+# Tolerance: 30 mV abs / 3% rel.  At forward-bias peaks the VACASK diode.osdi
+# model diverges from ngspice's built-in by up to ~23 mV (verified empirically).
+# The two model families (Shockley exponential implementations differ in their
+# limit/smoothing details) so sub-5 mV agreement is not expected.  30 mV still
+# catches gross errors (wrong model, wrong polarity, not conducting at all).
+set(DIODE_SAMPLE_TS "0.25e-3,1.25e-3,2.25e-3,3.25e-3,4.25e-3")
 add_test(NAME demo_netlistrs_spice_diode_ngspice
          COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/ngspice_compare.sh"
                  "${CMAKE_CURRENT_SOURCE_DIR}/spice_diode.cir"
-                 "${VACASK_SPICE_DIODE_RAW}")
+                 "${VACASK_SPICE_DIODE_RAW}"
+                 "${DIODE_SAMPLE_TS}"
+                 "30e-3"
+                 "0.03")
 set_tests_properties(demo_netlistrs_spice_diode_ngspice PROPERTIES
     WORKING_DIRECTORY "/tmp"
     SKIP_RETURN_CODE 77

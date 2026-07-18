@@ -1,13 +1,23 @@
 #!/usr/bin/env bash
-# ngspice_compare.sh <spice_cir> <vacask_raw>
-# Run ngspice on the given SPICE RC netlist, parse both the VACASK raw and the
+# ngspice_compare.sh <spice_cir> <vacask_raw> [sample_times_csv] [tol_abs_v] [tol_rel_frac]
+# Run ngspice on the given SPICE netlist, parse both the VACASK raw and the
 # ngspice raw, sample V(2) (node 2) at several matching time points, and compare
 # VACASK-vs-ngspice at each point.  Exits nonzero if ANY point exceeds tolerance.
 # Exits 77 (SKIP) if ngspice is not found, so CI without ngspice still builds.
+#
+# Optional third argument: comma-separated sample times in seconds, e.g.
+#   "0.25e-3,1.25e-3,2.25e-3"
+# When omitted, defaults to [2,4,6,8,9] ms.
+#
+# Optional fourth/fifth arguments: absolute tolerance (V) and relative tolerance
+# (fraction).  When omitted, defaults to 5e-3 V and 0.02 (2%).
 set -euo pipefail
 
 CIR="${1:-spice_rc.cir}"
 VACASK_RAW="${2:-}"
+SAMPLE_TS_CSV="${3:-}"
+TOL_ABS="${4:-5e-3}"
+TOL_REL="${5:-0.02}"
 
 NGSPICE="${NGSPICE_BIN:-/usr/local/bin/ngspice}"
 
@@ -40,7 +50,7 @@ NGSPICE_RAW="$WORK/out.raw"
 echo "ngspice log:"
 cat "$WORK/ngspice.log"
 
-python3 - "$VACASK_RAW" "$NGSPICE_RAW" <<'PYEOF'
+python3 - "$VACASK_RAW" "$NGSPICE_RAW" "$SAMPLE_TS_CSV" "$TOL_ABS" "$TOL_REL" <<'PYEOF'
 import sys, struct, math
 
 def parse_raw(rawfile, node2_candidates):
@@ -163,8 +173,11 @@ def interpolate(times, vals, t_target):
     return vals[-1]
 
 
-vacask_raw  = sys.argv[1]
-ngspice_raw = sys.argv[2]
+vacask_raw      = sys.argv[1]
+ngspice_raw     = sys.argv[2]
+sample_ts_csv   = sys.argv[3] if len(sys.argv) > 3 else ""
+tol_abs         = float(sys.argv[4]) if len(sys.argv) > 4 and sys.argv[4] else 5e-3
+tol_rel         = float(sys.argv[5]) if len(sys.argv) > 5 and sys.argv[5] else 0.02
 
 print("\nParsing VACASK raw:")
 v_times, v_node2 = parse_raw(vacask_raw,  ['2', 'v(2)'])
@@ -182,10 +195,11 @@ print(f"\nVACASK time range: {v_times[0]:.3e}..{v_times[-1]:.3e} s ({len(v_times
 print(f"ngspice time range: {n_times[0]:.3e}..{n_times[-1]:.3e} s ({len(n_times)} pts)")
 
 # Sample at several time points and compare VACASK vs ngspice using interpolation.
-# Tolerance: abs 5 mV, rel 2%.
-sample_ts = [2e-3, 4e-3, 6e-3, 8e-3, 9e-3]
-tol_abs   = 5e-3   # 5 mV
-tol_rel   = 0.02   # 2 %
+if sample_ts_csv:
+    sample_ts = [float(x) for x in sample_ts_csv.split(',')]
+else:
+    sample_ts = [2e-3, 4e-3, 6e-3, 8e-3, 9e-3]
+# tol_abs and tol_rel are set from command-line args above.
 
 print("\nVACASK vs ngspice — V(node 2) comparison:")
 print(f"{'t(ms)':>8}  {'VACASK(V)':>12}  {'ngspice(V)':>12}  "
