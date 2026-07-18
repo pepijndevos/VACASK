@@ -22,7 +22,12 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(Corrosion)
 
-set(NETLIST_RS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../Cadnip.jl/netlist-parser-rs")
+set(NETLIST_RS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../Cadnip.jl/netlist-parser-rs"
+    CACHE PATH "Path to the netlist-parser-rs workspace (contains crates/netlist-cxx)")
+if(NOT EXISTS "${NETLIST_RS_DIR}/crates/netlist-cxx/Cargo.toml")
+    message(FATAL_ERROR "netlist-parser-rs not found at NETLIST_RS_DIR=${NETLIST_RS_DIR}. "
+                        "Set -DNETLIST_RS_DIR=/path/to/netlist-parser-rs.")
+endif()
 corrosion_import_crate(MANIFEST_PATH "${NETLIST_RS_DIR}/crates/netlist-cxx/Cargo.toml")
 corrosion_add_cxxbridge(netlist_cxx_bridge
     CRATE netlist_cxx

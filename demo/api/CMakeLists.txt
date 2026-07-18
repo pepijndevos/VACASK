@@ -1,5 +1,20 @@
+add_executable(demo1
+    demo1.cpp
+)
+
+set_target_properties(demo1 PROPERTIES OUTPUT_NAME "demo1")
+add_dependencies(demo1 simlib)
+
+if (${SIM_PLATFORM} STREQUAL "Windows")
+    target_link_options(demo1 PUBLIC -static)
+endif()
+
 add_executable(demo_netlistrs demo_netlistrs.cpp)
 target_link_libraries(demo_netlistrs PRIVATE simlib netlist_cxx_bridge ${SIM_EXE_LIBRARIES})
+
+if (${SIM_PLATFORM} STREQUAL "Windows")
+    target_link_options(demo_netlistrs PUBLIC -static)
+endif()
 
 # OSDI models live in the VACASK in-tree build directory.
 # No username-specific path: CMAKE_SOURCE_DIR is the root of this source tree.
@@ -28,17 +43,6 @@ add_test(NAME demo_netlistrs_nested
          COMMAND demo_netlistrs "${CMAKE_CURRENT_SOURCE_DIR}/rc_nested.scs"
                                 "${VACASK_MOD_DIR_DEFAULT}")
 set_tests_properties(demo_netlistrs_nested PROPERTIES WORKING_DIRECTORY "/tmp")
-
-add_executable(demo1
-    demo1.cpp
-)
-
-set_target_properties(demo1 PROPERTIES OUTPUT_NAME "demo1")
-add_dependencies(demo1 simlib)
-
-if (${SIM_PLATFORM} STREQUAL "Windows")
-    target_link_options(demo1 PUBLIC -static)
-endif()
 
 target_link_libraries(
     demo1

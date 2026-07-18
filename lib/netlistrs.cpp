@@ -1,5 +1,6 @@
 #include "netlistrs.h"
 #include "netlist_cxx_bridge/lib.h"
+#include "simulator.h"
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
@@ -108,6 +109,22 @@ bool mergeNetlist(const netlist::Netlist& nl, PTSubcircuitDefinition& top,
         auto ps = paramString(a.params);
         if (!ps.empty()) desc.add(p.parseParameters(ps));
         tab.addCommand(std::move(desc));
+    }
+
+    // Warn about fields that are parsed but not yet transcribed.
+    // One-time warnings per category: ics silently change transient results if
+    // dropped without notice; saves and ahdl_includes are also deferred.
+    if (!nl.saves.empty()) {
+        Simulator::err() << "WARNING: netlistrs adapter does not yet transcribe "
+                         << nl.saves.size() << " 'save' directive(s); save requests ignored\n";
+    }
+    if (!nl.ics.empty()) {
+        Simulator::err() << "WARNING: netlistrs adapter does not yet transcribe "
+                         << nl.ics.size() << " 'ic' directive(s); initial conditions ignored\n";
+    }
+    if (!nl.ahdl_includes.empty()) {
+        Simulator::err() << "WARNING: netlistrs adapter does not yet transcribe "
+                         << nl.ahdl_includes.size() << " ahdl_include (VA) directive(s); AHDL includes ignored\n";
     }
 
     // Recurse into top-level includes (section-qualified deferred).

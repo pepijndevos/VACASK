@@ -24,7 +24,12 @@ bool buildParserTables(const std::string& source, bool startSpice,
 //  .sim  -> VACASK's own native parser (Parser::parseNetlistFile); Rust path skipped.
 //  .scs  -> Rust parser starting in Spectre.
 //  else  -> Rust parser starting in SPICE.
-// Section-qualified includes and includes inside subckt bodies are deferred.
+// Known limitations (deferred — emit warnings, not errors):
+//  - Section-qualified includes (.lib "file" section): not projected into the flat Netlist.
+//  - Includes nested inside subckt bodies: Subckt does not carry includes.
+//  - saves: not yet transcribed (save requests are dropped with a warning).
+//  - ics: not yet transcribed (initial conditions are dropped with a warning).
+//  - ahdl_includes (VA): not yet transcribed (dropped with a warning).
 // PTLoads are NOT added here.
 // Returns false and populates `s` on error.
 bool buildParserTablesFromFile(const std::string& path,

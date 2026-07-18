@@ -46,8 +46,15 @@ int main(int argc, char** argv) {
     // Verify call-site parameter overrides when the nested subckt is present.
     // instanceParameter returns (false, _) when the instance does not exist, so
     // this is harmless for rc.scs / rc_inc.scs (no x1:r1 instance there).
+    // For the nested netlist the instances MUST be found — if path contains
+    // "rc_nested" we require both and fail hard if either is missing.
     {
+        bool require_nested = (path.find("rc_nested") != std::string::npos);
         auto [found_r, val_r] = cir.instanceParameter("x1:r1", "r");
+        if (require_nested && !found_r) {
+            Simulator::err() << "ERROR: rc_nested: x1:r1 not found in hierarchy\n";
+            return 1;
+        }
         if (found_r) {
             Simulator::out() << "param check: x1:r1 r=" << val_r.str() << "\n";
             if (val_r.str() != "2000") {
@@ -56,6 +63,10 @@ int main(int argc, char** argv) {
             }
         }
         auto [found_c, val_c] = cir.instanceParameter("x1:c1", "c");
+        if (require_nested && !found_c) {
+            Simulator::err() << "ERROR: rc_nested: x1:c1 not found in hierarchy\n";
+            return 1;
+        }
         if (found_c) {
             Simulator::out() << "param check: x1:c1 c=" << val_c.str() << "\n";
             if (val_c.str() != "3e-06") {
