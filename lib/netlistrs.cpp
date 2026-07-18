@@ -276,6 +276,11 @@ static bool spiceBlockToTables(const netlist::SpiceBlock& sb, PTSubcircuitDefini
                          << "' not yet mapped by SPICE adapter (skipped)\n";
     }
 
+    // TODO: SPICE .tran / .dc / .ac analysis cards inside a SPICE block are not
+    // yet projected into PTAnalysis commands here.  The driver (e.g.
+    // demo_netlistrs.cpp) configures the analysis directly; consistent with the
+    // Spectre path where analyses are already skipped at the top-level merge.
+
     // Nested .subckt definitions.
     for (const auto& sub : sb.subckts) {
         PTSubcircuitDefinition child(Id(sv(sub.name).c_str()), nodeList(sub.ports));

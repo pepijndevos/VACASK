@@ -47,14 +47,22 @@ set_tests_properties(demo_netlistrs_nested PROPERTIES WORKING_DIRECTORY "/tmp")
 add_test(NAME demo_netlistrs_spice_rc
          COMMAND demo_netlistrs "${CMAKE_CURRENT_SOURCE_DIR}/spice_rc.cir"
                                 "${VACASK_MOD_DIR_DEFAULT}")
-set_tests_properties(demo_netlistrs_spice_rc PROPERTIES WORKING_DIRECTORY "/tmp")
+set_tests_properties(demo_netlistrs_spice_rc PROPERTIES
+    WORKING_DIRECTORY "/tmp"
+    FIXTURES_SETUP vacask_spice_rc_raw)
+
+# The transient analysis in demo_netlistrs is named "tran1", so VACASK writes
+# tran1.raw into the working directory (/tmp) of demo_netlistrs_spice_rc.
+set(VACASK_SPICE_RC_RAW "/tmp/tran1.raw")
 
 add_test(NAME demo_netlistrs_spice_rc_ngspice
          COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/ngspice_compare.sh"
-                 "${CMAKE_CURRENT_SOURCE_DIR}/spice_rc.cir")
+                 "${CMAKE_CURRENT_SOURCE_DIR}/spice_rc.cir"
+                 "${VACASK_SPICE_RC_RAW}")
 set_tests_properties(demo_netlistrs_spice_rc_ngspice PROPERTIES
     WORKING_DIRECTORY "/tmp"
-    SKIP_RETURN_CODE 77)
+    SKIP_RETURN_CODE 77
+    FIXTURES_REQUIRED vacask_spice_rc_raw)
 
 target_link_libraries(
     demo1
