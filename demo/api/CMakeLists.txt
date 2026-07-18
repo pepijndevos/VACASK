@@ -44,6 +44,18 @@ add_test(NAME demo_netlistrs_nested
                                 "${VACASK_MOD_DIR_DEFAULT}")
 set_tests_properties(demo_netlistrs_nested PROPERTIES WORKING_DIRECTORY "/tmp")
 
+add_test(NAME demo_netlistrs_spice_rc
+         COMMAND demo_netlistrs "${CMAKE_CURRENT_SOURCE_DIR}/spice_rc.cir"
+                                "${VACASK_MOD_DIR_DEFAULT}")
+set_tests_properties(demo_netlistrs_spice_rc PROPERTIES WORKING_DIRECTORY "/tmp")
+
+add_test(NAME demo_netlistrs_spice_rc_ngspice
+         COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/ngspice_compare.sh"
+                 "${CMAKE_CURRENT_SOURCE_DIR}/spice_rc.cir")
+set_tests_properties(demo_netlistrs_spice_rc_ngspice PROPERTIES
+    WORKING_DIRECTORY "/tmp"
+    SKIP_RETURN_CODE 77)
+
 target_link_libraries(
     demo1
     simlib
