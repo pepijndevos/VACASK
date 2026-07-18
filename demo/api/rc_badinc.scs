@@ -1,0 +1,5 @@
+simulator lang=spectre
+// This file intentionally includes a non-existent file to verify that
+// missing-include errors propagate cleanly (exit non-zero).
+include "does_not_exist.scs"
+r1 (1 2) res r=1k

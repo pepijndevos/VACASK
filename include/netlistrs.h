@@ -14,6 +14,8 @@ namespace sim {
 // analyses. Parameters/expressions are re-parsed with `p` (parseParameters), so
 // VACASK owns value-vs-expression classification. `startSpice` selects the
 // starting dialect (true = SPICE, false = Spectre). PTLoads are NOT added here.
+// Relative includes in `source` are resolved against CWD; prefer
+// buildParserTablesFromFile for sources containing include directives.
 // Returns false and populates `s` if the parser reported error nodes.
 bool buildParserTables(const std::string& source, bool startSpice,
                        ParserTables& tab, Parser& p, Status& s);

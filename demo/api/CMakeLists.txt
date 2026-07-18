@@ -17,6 +17,13 @@ add_test(NAME demo_netlistrs_include
                                 "${VACASK_MOD_DIR_DEFAULT}")
 set_tests_properties(demo_netlistrs_include PROPERTIES WORKING_DIRECTORY "/tmp")
 
+add_test(NAME demo_netlistrs_badinc
+         COMMAND demo_netlistrs "${CMAKE_CURRENT_SOURCE_DIR}/rc_badinc.scs"
+                                "${VACASK_MOD_DIR_DEFAULT}")
+set_tests_properties(demo_netlistrs_badinc PROPERTIES
+    WORKING_DIRECTORY "/tmp"
+    WILL_FAIL TRUE)
+
 add_executable(demo1
     demo1.cpp
 )

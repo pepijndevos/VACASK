@@ -1,5 +1,6 @@
 #include "netlistrs.h"
 #include "netlist_cxx_bridge/lib.h"
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <set>
@@ -76,13 +77,15 @@ void fillSubDef(PTSubcircuitDefinition& def, const netlist::Subckt& s, Parser& p
 // Section-qualified includes (section != "") are skipped (deferred: flat Netlist
 // projection does not carry library sections).
 // Includes nested inside subckt bodies are also deferred (Subckt drops includes).
-void mergeNetlist(const netlist::Netlist& nl, PTSubcircuitDefinition& top,
+// Returns true on success; false with `s` set on any error (open failure, parse
+// error, or error in a nested include).
+bool mergeNetlist(const netlist::Netlist& nl, PTSubcircuitDefinition& top,
                   ParserTables& tab, Parser& p,
                   const std::filesystem::path& baseDir,
                   std::set<std::filesystem::path>& visited,
                   Status& s);
 
-void mergeNetlist(const netlist::Netlist& nl, PTSubcircuitDefinition& top,
+bool mergeNetlist(const netlist::Netlist& nl, PTSubcircuitDefinition& top,
                   ParserTables& tab, Parser& p,
                   const std::filesystem::path& baseDir,
                   std::set<std::filesystem::path>& visited,
@@ -127,13 +130,14 @@ void mergeNetlist(const netlist::Netlist& nl, PTSubcircuitDefinition& top,
         std::ifstream in(absPath);
         if (!in) {
             s.set(Status::NotFound, "cannot open include: " + absPath.string());
-            return;
+            return false;
         }
         std::stringstream ss; ss << in.rdbuf();
         std::string contents = ss.str();
 
-        std::string ext = absPath.extension().string();
-        bool spice = (ext != ".scs");
+        std::string iext = absPath.extension().string();
+        std::transform(iext.begin(), iext.end(), iext.begin(), ::tolower);
+        bool spice = (iext != ".scs");
         netlist::Netlist sub = netlist::parse_netlist(rust::Str(contents), spice);
         if (!sub.errors.empty()) {
             std::ostringstream os;
@@ -142,17 +146,21 @@ void mergeNetlist(const netlist::Netlist& nl, PTSubcircuitDefinition& top,
                << " (first at bytes [" << sub.errors[0].start << ", "
                << sub.errors[0].end << "))";
             s.set(Status::Syntax, os.str());
-            return;
+            return false;
         }
 
-        mergeNetlist(sub, top, tab, p, absPath.parent_path(), visited, s);
+        if (!mergeNetlist(sub, top, tab, p, absPath.parent_path(), visited, s))
+            return false;
     }
+    return true;
 }
 
 } // namespace
 
 bool buildParserTables(const std::string& source, bool startSpice,
                        ParserTables& tab, Parser& p, Status& s) {
+    // Note: relative includes in `source` are resolved against CWD. Prefer
+    // buildParserTablesFromFile for sources that contain include directives.
     netlist::Netlist nl = netlist::parse_netlist(rust::Str(source), startSpice);
     if (!nl.errors.empty()) {
         std::ostringstream os;
@@ -165,7 +173,8 @@ bool buildParserTables(const std::string& source, bool startSpice,
     tab.defaultGround();
     PTSubcircuitDefinition top;
     std::set<std::filesystem::path> visited;
-    mergeNetlist(nl, top, tab, p, std::filesystem::current_path(), visited, s);
+    if (!mergeNetlist(nl, top, tab, p, std::filesystem::current_path(), visited, s))
+        return false;
     tab.setDefaultSubDef(std::move(top));
     return true;
 }
@@ -175,6 +184,7 @@ bool buildParserTablesFromFile(const std::string& path,
     namespace fs = std::filesystem;
     fs::path fp(path);
     std::string ext = fp.extension().string();
+    std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
 
     if (ext == ".sim") {
         // VACASK's own native parser fills tab directly.
@@ -209,7 +219,8 @@ bool buildParserTablesFromFile(const std::string& path,
         s.set(Status::Syntax, os.str());
         return false;
     }
-    mergeNetlist(nl, top, tab, p, absPath.parent_path(), visited, s);
+    if (!mergeNetlist(nl, top, tab, p, absPath.parent_path(), visited, s))
+        return false;
     tab.setDefaultSubDef(std::move(top));
     return true;
 }
