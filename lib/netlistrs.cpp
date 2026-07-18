@@ -54,9 +54,6 @@ PTBlockSequence makeConditional(const netlist::Conditional& c, Parser& p) {
     return seq;
 }
 
-// Forward declaration for mutual recursion.
-void fillSubDef(PTSubcircuitDefinition& def, const netlist::Subckt& s, Parser& p);
-
 // Fill a PTSubcircuitDefinition from a netlist::Subckt (has conditionals + ports).
 void fillSubDef(PTSubcircuitDefinition& def, const netlist::Subckt& s, Parser& p) {
     auto sp = paramString(s.params);
