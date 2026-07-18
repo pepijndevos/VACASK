@@ -1,3 +1,6 @@
+add_executable(demo_netlistrs demo_netlistrs.cpp)
+target_link_libraries(demo_netlistrs PRIVATE netlist_cxx_bridge)
+
 add_executable(demo1
     demo1.cpp
 )

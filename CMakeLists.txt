@@ -13,6 +13,22 @@ endif()
 
 enable_testing()
 
+# --- Rust netlist parser (netlist-cxx via Corrosion) ------------------------
+include(FetchContent)
+FetchContent_Declare(
+    Corrosion
+    GIT_REPOSITORY https://github.com/corrosion-rs/corrosion.git
+    GIT_TAG v0.5.1
+)
+FetchContent_MakeAvailable(Corrosion)
+
+set(NETLIST_RS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../Cadnip.jl/netlist-parser-rs")
+corrosion_import_crate(MANIFEST_PATH "${NETLIST_RS_DIR}/crates/netlist-cxx/Cargo.toml")
+corrosion_add_cxxbridge(netlist_cxx_bridge
+    CRATE netlist_cxx
+    FILES lib.rs
+)
+
 message(STATUS "CMake version ${CMAKE_VERSION}")
 set(PROGRAM_NAME "vacask")
 set(PROGRAM_COPYRIGHT "2023-2026")
