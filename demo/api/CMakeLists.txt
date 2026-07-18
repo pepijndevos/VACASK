@@ -104,6 +104,51 @@ set_tests_properties(demo_netlistrs_spice_diode_ngspice PROPERTIES
     SKIP_RETURN_CODE 77
     FIXTURES_REQUIRED vacask_spice_diode_raw)
 
+# ── SPICE subckt X-call + .subckt (Task 7) ─────────────────────────────────
+# Step 1 (failing): X1 is skipped because SubcktCall adapter is not yet implemented.
+# Step 4 (passing): X1:R1 r=2000 verified (rval override from 1k to 2k).
+add_test(NAME demo_netlistrs_spice_subckt
+         COMMAND demo_netlistrs "${CMAKE_CURRENT_SOURCE_DIR}/spice_subckt.cir"
+                                "${VACASK_MOD_DIR_DEFAULT}")
+set_tests_properties(demo_netlistrs_spice_subckt PROPERTIES
+    WORKING_DIRECTORY "/tmp")
+
+# ── VCVS controlled source (Task 7) ─────────────────────────────────────────
+# Step 1 (failing): E1 is skipped because Vcvs adapter is not yet implemented.
+# Step 4 (passing): Analysis OK + E1 gain=2 reported.
+add_test(NAME demo_netlistrs_spice_vcvs
+         COMMAND demo_netlistrs "${CMAKE_CURRENT_SOURCE_DIR}/spice_vcvs.cir"
+                                "${VACASK_MOD_DIR_DEFAULT}")
+set_tests_properties(demo_netlistrs_spice_vcvs PROPERTIES
+    WORKING_DIRECTORY "/tmp"
+    FIXTURES_SETUP vacask_spice_vcvs_raw)
+
+set(VACASK_SPICE_VCVS_RAW "/tmp/tran1.raw")
+
+# ngspice comparison: VACASK vcvs vs ngspice E-source on the same netlist.
+# V(2) = 2*V(1) at all times (ideal vcvs).  Sample at quarter-period peaks
+# (V(1)=±1 → V(2)=±2) for a sensitive comparison.
+#
+# Tolerance is wider than the passive RC test because VACASK's adaptive
+# timestep on a smooth sine wave produces ~150 output points over 10 ms
+# (avg ~66 µs/step) while ngspice uses a fixed 1 µs step.  Linear
+# interpolation of a 1 kHz sine with 66 µs steps gives up to ~80 mV
+# interpolation error at peaks — this is a raw-file artifact, not a physics
+# error.  100 mV / 5 % still catches a wrong gain (factor-of-2 error → 1 V
+# residual >> 100 mV) while tolerating the interpolation noise.
+set(VCVS_SAMPLE_TS "0.25e-3,0.75e-3,1.25e-3,1.75e-3,2.25e-3")
+add_test(NAME demo_netlistrs_spice_vcvs_ngspice
+         COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/ngspice_compare.sh"
+                 "${CMAKE_CURRENT_SOURCE_DIR}/spice_vcvs.cir"
+                 "${VACASK_SPICE_VCVS_RAW}"
+                 "${VCVS_SAMPLE_TS}"
+                 "100e-3"
+                 "0.05")
+set_tests_properties(demo_netlistrs_spice_vcvs_ngspice PROPERTIES
+    WORKING_DIRECTORY "/tmp"
+    SKIP_RETURN_CODE 77
+    FIXTURES_REQUIRED vacask_spice_vcvs_raw)
+
 # ── NMOS resistor-load stage (Task 6) ──────────────────────────────────────
 # Verifies: Analysis OK + m1 present in hierarchy with l=3.5e-07.
 # Fails (step 2) until M adapter is implemented: m1 is skipped → not found.

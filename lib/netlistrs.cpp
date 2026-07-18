@@ -339,16 +339,137 @@ static bool addSpiceDevice(const netlist::SpiceDevice& dev, PTSubcircuitDefiniti
             into.add(std::move(inst));
             break;
         }
+        case netlist::SpiceDeviceKind::SubcktCall: {
+            // X<name> <node1> ... <subckt_master> [param=val ...]
+            // dev.model holds the subckt master name; dev.nodes are the connections.
+            if (mdl.empty()) {
+                Simulator::err() << "WARNING: SubcktCall '" << name
+                                 << "' has no master subcircuit name (skipped)\n";
+                break;
+            }
+            PTInstance inst(Id(name.c_str()), Id(mdl.c_str()), nodeList(dev.nodes));
+            auto ps = paramString(dev.params);
+            if (!ps.empty()) inst.add(p.parseParameters(ps));
+            into.add(std::move(inst));
+            break;
+        }
+        case netlist::SpiceDeviceKind::Vcvs: {
+            // E<name> pos neg ctrl_pos ctrl_neg gain
+            // VACASK vcvs: terminals [p, n, cp, cn] (4 connection + 1 internal flow),
+            // instance param: gain (Real).
+            // ctrl_nodes = [cp, cn], ctrl_value = gain (string).
+            if (dev.nodes.size() < 2 || dev.ctrl_nodes.size() < 2) {
+                Simulator::err() << "WARNING: Vcvs '" << name
+                                 << "' has too few nodes/ctrl_nodes (skipped)\n";
+                break;
+            }
+            ensureSpiceModel(into, "vcvs", addedModels);
+            PTIdentifierList allNodes;
+            for (const auto& n : dev.nodes)       allNodes.push_back(PTParsedIdentifier(sv(n).c_str()));
+            for (const auto& cn : dev.ctrl_nodes) allNodes.push_back(PTParsedIdentifier(sv(cn).c_str()));
+            PTInstance inst(Id(name.c_str()), Id("vcvs"), std::move(allNodes));
+            std::string gainVal = sv(dev.ctrl_value);
+            if (!gainVal.empty()) inst.add(p.parseParameters("gain=" + gainVal));
+            auto ps = paramString(dev.params);
+            if (!ps.empty()) inst.add(p.parseParameters(ps));
+            into.add(std::move(inst));
+            break;
+        }
+        case netlist::SpiceDeviceKind::Vccs: {
+            // G<name> pos neg ctrl_pos ctrl_neg transconductance
+            // VACASK vccs: terminals [p, n, cp, cn] (4 connection), param: gain (Real).
+            if (dev.nodes.size() < 2 || dev.ctrl_nodes.size() < 2) {
+                Simulator::err() << "WARNING: Vccs '" << name
+                                 << "' has too few nodes/ctrl_nodes (skipped)\n";
+                break;
+            }
+            ensureSpiceModel(into, "vccs", addedModels);
+            PTIdentifierList allNodes;
+            for (const auto& n : dev.nodes)       allNodes.push_back(PTParsedIdentifier(sv(n).c_str()));
+            for (const auto& cn : dev.ctrl_nodes) allNodes.push_back(PTParsedIdentifier(sv(cn).c_str()));
+            PTInstance inst(Id(name.c_str()), Id("vccs"), std::move(allNodes));
+            std::string gainVal = sv(dev.ctrl_value);
+            if (!gainVal.empty()) inst.add(p.parseParameters("gain=" + gainVal));
+            auto ps = paramString(dev.params);
+            if (!ps.empty()) inst.add(p.parseParameters(ps));
+            into.add(std::move(inst));
+            break;
+        }
+        case netlist::SpiceDeviceKind::Cccs: {
+            // F<name> pos neg <ctrl_vsource_name> gain
+            // VACASK cccs: terminals [p, n] (2 connection), params: gain, ctlinst, ctlnode.
+            // ctrl_nodes[0] = controlling vsource instance name; ctrl_value = gain.
+            // ctlnode defaults to "flow(br)" in VACASK (matches vsource's internal flow node).
+            if (dev.nodes.size() < 2) {
+                Simulator::err() << "WARNING: Cccs '" << name
+                                 << "' has too few connection nodes (skipped)\n";
+                break;
+            }
+            if (dev.ctrl_nodes.empty()) {
+                Simulator::err() << "WARNING: Cccs '" << name
+                                 << "' has no controlling source reference (skipped)\n";
+                break;
+            }
+            ensureSpiceModel(into, "cccs", addedModels);
+            PTInstance inst(Id(name.c_str()), Id("cccs"), nodeList(dev.nodes));
+            std::string ctlsrc  = sv(dev.ctrl_nodes[0]);
+            std::string gainVal = sv(dev.ctrl_value);
+            // ctlinst=<vsrc_name>; ctlnode defaults to "flow(br)" so no need to set it.
+            std::string prms = "ctlinst=" + ctlsrc;
+            if (!gainVal.empty()) prms += " gain=" + gainVal;
+            inst.add(p.parseParameters(prms));
+            auto ps = paramString(dev.params);
+            if (!ps.empty()) inst.add(p.parseParameters(ps));
+            into.add(std::move(inst));
+            break;
+        }
+        case netlist::SpiceDeviceKind::Ccvs: {
+            // H<name> pos neg <ctrl_vsource_name> transresistance
+            // VACASK ccvs: terminals [p, n] (2 connection + 1 internal flow), params: gain, ctlinst, ctlnode.
+            // ctrl_nodes[0] = controlling vsource instance name; ctrl_value = transresistance.
+            // ctlnode defaults to "flow(br)" in VACASK (matches vsource's internal flow node).
+            if (dev.nodes.size() < 2) {
+                Simulator::err() << "WARNING: Ccvs '" << name
+                                 << "' has too few connection nodes (skipped)\n";
+                break;
+            }
+            if (dev.ctrl_nodes.empty()) {
+                Simulator::err() << "WARNING: Ccvs '" << name
+                                 << "' has no controlling source reference (skipped)\n";
+                break;
+            }
+            ensureSpiceModel(into, "ccvs", addedModels);
+            PTInstance inst(Id(name.c_str()), Id("ccvs"), nodeList(dev.nodes));
+            std::string ctlsrc  = sv(dev.ctrl_nodes[0]);
+            std::string gainVal = sv(dev.ctrl_value);
+            std::string prms = "ctlinst=" + ctlsrc;
+            if (!gainVal.empty()) prms += " gain=" + gainVal;
+            inst.add(p.parseParameters(prms));
+            auto ps = paramString(dev.params);
+            if (!ps.empty()) inst.add(p.parseParameters(ps));
+            into.add(std::move(inst));
+            break;
+        }
         case netlist::SpiceDeviceKind::Jfet:
-        case netlist::SpiceDeviceKind::SubcktCall:
-        case netlist::SpiceDeviceKind::Vcvs:
-        case netlist::SpiceDeviceKind::Vccs:
-        case netlist::SpiceDeviceKind::Ccvs:
-        case netlist::SpiceDeviceKind::Cccs:
+            Simulator::err() << "WARNING: SPICE device '" << name
+                             << "' (Jfet) has no VACASK equivalent; skipped\n";
+            break;
         case netlist::SpiceDeviceKind::MutualInductor:
+            Simulator::err() << "WARNING: SPICE device '" << name
+                             << "' (MutualInductor) has no VACASK equivalent; skipped\n";
+            break;
         case netlist::SpiceDeviceKind::Behavioral:
+            Simulator::err() << "WARNING: SPICE device '" << name
+                             << "' (Behavioral/B-source) has no VACASK equivalent; skipped\n";
+            break;
         case netlist::SpiceDeviceKind::Switch:
+            Simulator::err() << "WARNING: SPICE device '" << name
+                             << "' (Switch) has no VACASK equivalent; skipped\n";
+            break;
         case netlist::SpiceDeviceKind::Osdi:
+            Simulator::err() << "WARNING: SPICE device '" << name
+                             << "' (Osdi) has no SPICE-dialect adapter; skipped\n";
+            break;
         default:
             Simulator::err() << "WARNING: SPICE device '" << name
                              << "' has unsupported kind (skipped in this adapter version)\n";

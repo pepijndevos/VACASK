@@ -84,6 +84,39 @@ int main(int argc, char** argv) {
         }
     }
 
+    // SPICE subckt E2E (spice_subckt.cir): verify X1:R1 r=2000 (rval override from 1k to 2k).
+    // X1 is a SubcktCall with master rcblock; R1 is inside rcblock with r=rval param.
+    // Without the SubcktCall adapter X1 is skipped → X1:R1 not found → error.
+    {
+        bool require_spice_subckt = (path.find("spice_subckt") != std::string::npos);
+        auto [found_xr, val_xr] = cir.instanceParameter("X1:R1", "r");
+        if (require_spice_subckt && !found_xr) {
+            Simulator::err() << "ERROR: spice_subckt: X1:R1 not found in hierarchy "
+                                "(SubcktCall adapter not implemented?)\n";
+            return 1;
+        }
+        if (found_xr) {
+            Simulator::out() << "param check: X1:R1 r=" << val_xr.str()
+                             << " (expect 2000 from rval=2k override)\n";
+            if (val_xr.str() != "2000") {
+                Simulator::err() << "ERROR: spice_subckt: X1:R1 r expected 2000 (rval=2k "
+                                    "override), got " << val_xr.str() << "\n";
+                return 1;
+            }
+        }
+    }
+
+    // VCVS E2E (spice_vcvs.cir): verify E1 gain=2.
+    // Without the Vcvs adapter E1 is skipped → gain not found.
+    // The gain check here is informational; the primary verification is the tran + ngspice compare.
+    {
+        auto [found_eg, val_eg] = cir.instanceParameter("E1", "gain");
+        if (found_eg) {
+            Simulator::out() << "param check: E1.gain=" << val_eg.str()
+                             << " (expect 2)\n";
+        }
+    }
+
     // Diode E2E (spice_diode.cir): verify the dmod model was elaborated with correct params.
     // SPICE instance names are uppercase (D1), model names match the .model card name.
     // Without the D/M/Q adapter (step-2 "FAIL" state), D1 and dmod are skipped →
