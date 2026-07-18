@@ -43,6 +43,18 @@ int main(int argc, char** argv) {
     }
     cir.dumpHierarchy(0, Simulator::out());
 
+    // Verify call-site parameter overrides when the nested subckt is present.
+    // instanceParameter returns (false, _) when the instance does not exist, so
+    // this is harmless for rc.scs / rc_inc.scs (no x1:r1 instance there).
+    {
+        auto [found_r, val_r] = cir.instanceParameter("x1:r1", "r");
+        if (found_r)
+            Simulator::out() << "param check: x1:r1 r=" << val_r.str() << "\n";
+        auto [found_c, val_c] = cir.instanceParameter("x1:c1", "c");
+        if (found_c)
+            Simulator::out() << "param check: x1:c1 c=" << val_c.str() << "\n";
+    }
+
     auto tranDesc = PTAnalysis("tran1", "tran");
     tranDesc.add(PV{"step", 1e-5}).add(PV{"stop", 10e-3});
     std::unique_ptr<Analysis> tran(Analysis::create(tranDesc, cir, s));

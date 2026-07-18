@@ -24,6 +24,11 @@ set_tests_properties(demo_netlistrs_badinc PROPERTIES
     WORKING_DIRECTORY "/tmp"
     WILL_FAIL TRUE)
 
+add_test(NAME demo_netlistrs_nested
+         COMMAND demo_netlistrs "${CMAKE_CURRENT_SOURCE_DIR}/rc_nested.scs"
+                                "${VACASK_MOD_DIR_DEFAULT}")
+set_tests_properties(demo_netlistrs_nested PROPERTIES WORKING_DIRECTORY "/tmp")
+
 add_executable(demo1
     demo1.cpp
 )

@@ -1,0 +1,12 @@
+simulator lang=spectre
+parameters rext=2k
+subckt rcblock (a b)
+  parameters r=1k c=1u
+  r1 (a b) res r=r
+  c1 (b 0) cap c=c
+ends rcblock
+model res resistor
+model cap capacitor
+model vsrc vsource
+x1 (1 0) rcblock r=rext c=3u
+v1 (1 0) vsrc type="pulse" val0=0 val1=5 delay=1m rise=1u fall=1u width=4m
