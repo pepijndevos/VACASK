@@ -1,0 +1,17 @@
+// spice_scs_nested.scs — Fix 1 test: Spectre subckt with embedded SPICE block
+// The Rust parser projects SPICE blocks inside Spectre subckts into Subckt.spice_blocks.
+// Without Fix 1, the R1 inside rblock is silently dropped.
+// With Fix 1, fillSubDef calls spiceBlockToTables for the SPICE block → R1 appears.
+simulator lang=spectre
+subckt rblock (in out)
+simulator lang=spice
+R1 in out 1k
+simulator lang=spectre
+ends rblock
+model vsrc vsource
+model res resistor
+// x1: Spectre call of rblock (which has SPICE R1 inside)
+// After Fix 1: x1:R1 should appear in the elaborated hierarchy with r=1k.
+x1 (1 2) rblock
+v1 (1 0) vsrc dc=5
+rload (2 0) res r=2k

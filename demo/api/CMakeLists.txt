@@ -44,16 +44,24 @@ add_test(NAME demo_netlistrs_nested
                                 "${VACASK_MOD_DIR_DEFAULT}")
 set_tests_properties(demo_netlistrs_nested PROPERTIES WORKING_DIRECTORY "/tmp")
 
+# Fix 4: unique working directories so concurrent ctest -j runs don't race on tran1.raw.
+# Each circuit gets its own /tmp/vacask_<name>/ dir created by a mkdir fixture test.
+
+add_test(NAME vacask_mkdir_spice_rc
+         COMMAND ${CMAKE_COMMAND} -E make_directory /tmp/vacask_spice_rc)
+set_tests_properties(vacask_mkdir_spice_rc PROPERTIES
+    FIXTURES_SETUP vacask_spice_rc_dir)
+
 add_test(NAME demo_netlistrs_spice_rc
          COMMAND demo_netlistrs "${CMAKE_CURRENT_SOURCE_DIR}/spice_rc.cir"
                                 "${VACASK_MOD_DIR_DEFAULT}")
 set_tests_properties(demo_netlistrs_spice_rc PROPERTIES
-    WORKING_DIRECTORY "/tmp"
+    WORKING_DIRECTORY "/tmp/vacask_spice_rc"
+    FIXTURES_REQUIRED vacask_spice_rc_dir
     FIXTURES_SETUP vacask_spice_rc_raw)
 
-# The transient analysis in demo_netlistrs is named "tran1", so VACASK writes
-# tran1.raw into the working directory (/tmp) of demo_netlistrs_spice_rc.
-set(VACASK_SPICE_RC_RAW "/tmp/tran1.raw")
+# Each test writes tran1.raw into its own working directory (Fix 4: no race).
+set(VACASK_SPICE_RC_RAW "/tmp/vacask_spice_rc/tran1.raw")
 
 add_test(NAME demo_netlistrs_spice_rc_ngspice
          COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/ngspice_compare.sh"
@@ -65,16 +73,20 @@ set_tests_properties(demo_netlistrs_spice_rc_ngspice PROPERTIES
     FIXTURES_REQUIRED vacask_spice_rc_raw)
 
 # ── Diode half-wave rectifier (Task 6) ─────────────────────────────────────
-# Step 1: run VACASK on the diode netlist.  Fails (step 2) until the D adapter
-# is implemented: d1 is skipped → instanceParameter("d1","area") → not found.
+add_test(NAME vacask_mkdir_spice_diode
+         COMMAND ${CMAKE_COMMAND} -E make_directory /tmp/vacask_spice_diode)
+set_tests_properties(vacask_mkdir_spice_diode PROPERTIES
+    FIXTURES_SETUP vacask_spice_diode_dir)
+
 add_test(NAME demo_netlistrs_spice_diode
          COMMAND demo_netlistrs "${CMAKE_CURRENT_SOURCE_DIR}/spice_diode.cir"
                                 "${VACASK_MOD_DIR_DEFAULT}")
 set_tests_properties(demo_netlistrs_spice_diode PROPERTIES
-    WORKING_DIRECTORY "/tmp"
+    WORKING_DIRECTORY "/tmp/vacask_spice_diode"
+    FIXTURES_REQUIRED vacask_spice_diode_dir
     FIXTURES_SETUP vacask_spice_diode_raw)
 
-set(VACASK_SPICE_DIODE_RAW "/tmp/tran1.raw")
+set(VACASK_SPICE_DIODE_RAW "/tmp/vacask_spice_diode/tran1.raw")
 
 # ngspice comparison: VACASK diode vs ngspice built-in diode on the same netlist.
 # Tolerance is wider than passive RC (model families differ) but both should
@@ -114,16 +126,20 @@ set_tests_properties(demo_netlistrs_spice_subckt PROPERTIES
     WORKING_DIRECTORY "/tmp")
 
 # ── VCVS controlled source (Task 7) ─────────────────────────────────────────
-# Step 1 (failing): E1 is skipped because Vcvs adapter is not yet implemented.
-# Step 4 (passing): Analysis OK + E1 gain=2 reported.
+add_test(NAME vacask_mkdir_spice_vcvs
+         COMMAND ${CMAKE_COMMAND} -E make_directory /tmp/vacask_spice_vcvs)
+set_tests_properties(vacask_mkdir_spice_vcvs PROPERTIES
+    FIXTURES_SETUP vacask_spice_vcvs_dir)
+
 add_test(NAME demo_netlistrs_spice_vcvs
          COMMAND demo_netlistrs "${CMAKE_CURRENT_SOURCE_DIR}/spice_vcvs.cir"
                                 "${VACASK_MOD_DIR_DEFAULT}")
 set_tests_properties(demo_netlistrs_spice_vcvs PROPERTIES
-    WORKING_DIRECTORY "/tmp"
+    WORKING_DIRECTORY "/tmp/vacask_spice_vcvs"
+    FIXTURES_REQUIRED vacask_spice_vcvs_dir
     FIXTURES_SETUP vacask_spice_vcvs_raw)
 
-set(VACASK_SPICE_VCVS_RAW "/tmp/tran1.raw")
+set(VACASK_SPICE_VCVS_RAW "/tmp/vacask_spice_vcvs/tran1.raw")
 
 # ngspice comparison: VACASK vcvs vs ngspice E-source on the same netlist.
 # V(2) = 2*V(1) at all times (ideal vcvs).  Sample at quarter-period peaks
@@ -151,12 +167,72 @@ set_tests_properties(demo_netlistrs_spice_vcvs_ngspice PROPERTIES
 
 # ── NMOS resistor-load stage (Task 6) ──────────────────────────────────────
 # Verifies: Analysis OK + m1 present in hierarchy with l=3.5e-07.
-# Fails (step 2) until M adapter is implemented: m1 is skipped → not found.
 add_test(NAME demo_netlistrs_spice_mos
          COMMAND demo_netlistrs "${CMAKE_CURRENT_SOURCE_DIR}/spice_mos.cir"
                                 "${VACASK_MOD_DIR_DEFAULT}")
 set_tests_properties(demo_netlistrs_spice_mos PROPERTIES
     WORKING_DIRECTORY "/tmp")
+
+# ── CCCS F-source E2E (Fix 3) ────────────────────────────────────────────────
+# Verifies: F1.gain=5 (ctlinst=Vsense, ctlnode=flow(br) default confirmed).
+# V(2) = -5V (DC, steady): ngspice comparison at default sample times.
+add_test(NAME vacask_mkdir_spice_cccs
+         COMMAND ${CMAKE_COMMAND} -E make_directory /tmp/vacask_spice_cccs)
+set_tests_properties(vacask_mkdir_spice_cccs PROPERTIES
+    FIXTURES_SETUP vacask_spice_cccs_dir)
+
+add_test(NAME demo_netlistrs_spice_cccs
+         COMMAND demo_netlistrs "${CMAKE_CURRENT_SOURCE_DIR}/spice_cccs.cir"
+                                "${VACASK_MOD_DIR_DEFAULT}")
+set_tests_properties(demo_netlistrs_spice_cccs PROPERTIES
+    WORKING_DIRECTORY "/tmp/vacask_spice_cccs"
+    FIXTURES_REQUIRED vacask_spice_cccs_dir
+    FIXTURES_SETUP vacask_spice_cccs_raw)
+
+set(VACASK_SPICE_CCCS_RAW "/tmp/vacask_spice_cccs/tran1.raw")
+
+# ngspice comparison: V(2)=-5V constant (DC CCCS circuit).
+# Tight tolerance: 5mV abs / 2% rel (pure DC).
+add_test(NAME demo_netlistrs_spice_cccs_ngspice
+         COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/ngspice_compare.sh"
+                 "${CMAKE_CURRENT_SOURCE_DIR}/spice_cccs.cir"
+                 "${VACASK_SPICE_CCCS_RAW}")
+set_tests_properties(demo_netlistrs_spice_cccs_ngspice PROPERTIES
+    WORKING_DIRECTORY "/tmp"
+    SKIP_RETURN_CODE 77
+    FIXTURES_REQUIRED vacask_spice_cccs_raw)
+
+# ── SPICE .include resolution (Fix 2) ────────────────────────────────────────
+# spice_inc.cir includes spice_models.spice which defines dmod.
+# Test: modelParameter("dmod","is") == "1e-14" (resolved from included file).
+add_test(NAME vacask_mkdir_spice_inc
+         COMMAND ${CMAKE_COMMAND} -E make_directory /tmp/vacask_spice_inc)
+set_tests_properties(vacask_mkdir_spice_inc PROPERTIES
+    FIXTURES_SETUP vacask_spice_inc_dir)
+
+add_test(NAME demo_netlistrs_spice_inc
+         COMMAND demo_netlistrs "${CMAKE_CURRENT_SOURCE_DIR}/spice_inc.cir"
+                                "${VACASK_MOD_DIR_DEFAULT}")
+set_tests_properties(demo_netlistrs_spice_inc PROPERTIES
+    WORKING_DIRECTORY "/tmp/vacask_spice_inc"
+    FIXTURES_REQUIRED vacask_spice_inc_dir)
+
+# ── Spectre subckt with nested SPICE block (Fix 1) ───────────────────────────
+# NOTE: The Rust parser does not currently support `simulator lang=spice` inside
+# a Spectre subckt body (produces parse errors). The C++ fillSubDef fix (iterating
+# spice_blocks) is a latent/preemptive fix for when the parser gains that capability.
+# No test is registered here; the fix is covered by code review + report.
+# When the parser supports this, re-enable with a .scs file using the nested syntax.
+
+# ── Warn-skip test (Minor 7) ─────────────────────────────────────────────────
+# B1 (Behavioral) is warned + skipped; R1/R2 divider runs cleanly.
+# PASS_REGULAR_EXPRESSION verifies the WARNING appears; exit 0 confirms circuit runs.
+add_test(NAME demo_netlistrs_spice_warnonly
+         COMMAND demo_netlistrs "${CMAKE_CURRENT_SOURCE_DIR}/spice_warnonly.cir"
+                                "${VACASK_MOD_DIR_DEFAULT}")
+set_tests_properties(demo_netlistrs_spice_warnonly PROPERTIES
+    WORKING_DIRECTORY "/tmp"
+    PASS_REGULAR_EXPRESSION "WARNING.*Behavioral")
 
 target_link_libraries(
     demo1

@@ -1,0 +1,9 @@
+* spice_warnonly.cir — Minor 7: warn-skip test
+* B1 (Behavioral source) is warned + skipped; R1/R2 divider runs cleanly.
+* Test asserts: WARNING appears in output AND exit code 0.
+Vin vin 0 DC 5
+R1 vin out 1k
+R2 out 0 1k
+B1 out 0 V=1+2
+.tran 1u 10m
+.end

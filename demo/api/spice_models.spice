@@ -1,0 +1,2 @@
+* spice_models.spice — model library for spice_inc.cir include test (Fix 2)
+.model dmod d is=1e-14

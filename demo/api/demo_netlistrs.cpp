@@ -6,6 +6,8 @@
 #include "circuit.h"
 #include <memory>
 #include <iostream>
+#include <cmath>
+#include <stdexcept>
 
 using namespace sim;
 
@@ -119,7 +121,9 @@ int main(int argc, char** argv) {
         if (found_eg) {
             Simulator::out() << "param check: E1.gain=" << val_eg.str()
                              << " (expect 2)\n";
-            if (val_eg.str() != "2") {
+            double gval_e = 0.0;
+            try { gval_e = std::stod(val_eg.str()); } catch (...) {}
+            if (std::abs(gval_e - 2.0) > 1e-9) {
                 Simulator::err() << "ERROR: spice_vcvs: E1 gain expected 2, got "
                                  << val_eg.str() << "\n";
                 return 1;
@@ -133,16 +137,25 @@ int main(int argc, char** argv) {
     // modelParameter("dmod","is") returns false → error.
     // Note: "area" is not an OSDI instance param in diode.va; use model param "is".
     {
-        bool require_diode = (path.find("spice_diode") != std::string::npos);
+        // require_diode: spice_diode.cir direct test + spice_inc.cir include-resolution test
+        bool require_diode = (path.find("spice_diode") != std::string::npos)
+                           || (path.find("spice_inc") != std::string::npos);
         auto [found_d, val_d] = cir.modelParameter("dmod", "is");
         if (require_diode && !found_d) {
-            Simulator::err() << "ERROR: spice_diode: model 'dmod' not found in elaborated "
-                                "hierarchy (D adapter not implemented?)\n";
+            Simulator::err() << "ERROR: model 'dmod' not found in elaborated hierarchy"
+                             << (path.find("spice_inc") != std::string::npos
+                                 ? " (SPICE .include not resolved?)"
+                                 : " (D adapter not implemented?)")
+                             << "\n";
             return 1;
         }
         if (found_d) {
             Simulator::out() << "param check: dmod.is=" << val_d.str()
                              << " (expect 1e-14)\n";
+            if (require_diode && val_d.str() != "1e-14") {
+                Simulator::err() << "ERROR: dmod.is expected 1e-14, got " << val_d.str() << "\n";
+                return 1;
+            }
         }
     }
 
@@ -165,6 +178,30 @@ int main(int argc, char** argv) {
             if (val_m.str() != "3.5e-07") {
                 Simulator::err() << "ERROR: M1.l expected 3.5e-07, got " << val_m.str()
                                  << " (check W/L param parsing)\n";
+                return 1;
+            }
+        }
+    }
+
+    // CCCS E2E (spice_cccs.cir): verify F1 gain=5 (Fix 3).
+    // Convention: ctlinst=Vsense (controlling vsource name), ctlnode="flow(br)" (default).
+    // With Vin=1V, Rsense=1k, Vsense(0V sense): I_sense=1mA → F1 injects 5mA at node 2.
+    // V(2) = -5V (F1 drains 5mA from node 2; Rload=1k to 0).
+    {
+        bool require_cccs = (path.find("spice_cccs") != std::string::npos);
+        auto [found_fg, val_fg] = cir.instanceParameter("F1", "gain");
+        if (require_cccs && !found_fg) {
+            Simulator::err() << "ERROR: spice_cccs: F1 not found in elaborated hierarchy "
+                                "(Cccs adapter not working?)\n";
+            return 1;
+        }
+        if (found_fg) {
+            Simulator::out() << "param check: F1.gain=" << val_fg.str()
+                             << " (expect 5)\n";
+            double gval_f = 0.0;
+            try { gval_f = std::stod(val_fg.str()); } catch (...) {}
+            if (std::abs(gval_f - 5.0) > 1e-9) {
+                Simulator::err() << "ERROR: F1.gain expected 5, got " << val_fg.str() << "\n";
                 return 1;
             }
         }

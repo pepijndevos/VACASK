@@ -60,8 +60,19 @@ PTBlockSequence makeConditional(const netlist::Conditional& c, Parser& p) {
     return seq;
 }
 
+// Forward declarations for mutual recursion: fillSubDef ↔ spiceBlockToTables ↔ mergeNetlist.
+static bool spiceBlockToTables(const netlist::SpiceBlock& sb, PTSubcircuitDefinition& into,
+                               ParserTables& tab, Parser& p,
+                               std::set<std::string>& addedModels, Status& s,
+                               const std::filesystem::path& baseDir,
+                               std::set<std::filesystem::path>& visited);
+
 // Fill a PTSubcircuitDefinition from a netlist::Subckt (has conditionals + ports).
-void fillSubDef(PTSubcircuitDefinition& def, const netlist::Subckt& s, Parser& p) {
+// Returns false (with `st` set) on any error in nested SPICE-block processing.
+static bool fillSubDef(PTSubcircuitDefinition& def, const netlist::Subckt& s, Parser& p,
+                       ParserTables& tab, std::set<std::string>& addedModels, Status& st,
+                       const std::filesystem::path& baseDir,
+                       std::set<std::filesystem::path>& visited) {
     auto sp = paramString(s.params);
     if (!sp.empty()) def.add(p.parseParameters(sp));
     for (const auto& m : s.models)       def.add(makeModel(m, p));
@@ -69,9 +80,14 @@ void fillSubDef(PTSubcircuitDefinition& def, const netlist::Subckt& s, Parser& p
     for (const auto& c : s.conditionals) def.add(makeConditional(c, p));
     for (const auto& sub : s.subckts) {
         PTSubcircuitDefinition child(Id(sv(sub.name).c_str()), nodeList(sub.ports));
-        fillSubDef(child, sub, p);
+        if (!fillSubDef(child, sub, p, tab, addedModels, st, baseDir, visited)) return false;
         def.add(std::move(child));
     }
+    // Process any SPICE blocks nested inside this Spectre subckt body (Fix 1).
+    for (const auto& sb : s.spice_blocks) {
+        if (!spiceBlockToTables(sb, def, tab, p, addedModels, st, baseDir, visited)) return false;
+    }
+    return true;
 }
 
 // Build a "name=value …" param string excluding a set of keys (case-insensitive).
@@ -301,8 +317,7 @@ static bool addSpiceDevice(const netlist::SpiceDevice& dev, PTSubcircuitDefiniti
                 break;
             }
             PTInstance inst(Id(name.c_str()), Id(mdl.c_str()), nodeList(dev.nodes));
-            // Positional area value (uncommon; most netlists use named area=)
-            if (!val.empty()) inst.add(p.parseParameters("area=" + val));
+            // Note: Rust Diode projects value="" (area not a named OSDI param in diode.va).
             auto ps = paramString(dev.params);
             if (!ps.empty()) inst.add(p.parseParameters(ps));
             into.add(std::move(inst));
@@ -414,8 +429,9 @@ static bool addSpiceDevice(const netlist::SpiceDevice& dev, PTSubcircuitDefiniti
             PTInstance inst(Id(name.c_str()), Id("cccs"), nodeList(dev.nodes));
             std::string ctlsrc  = sv(dev.ctrl_nodes[0]);
             std::string gainVal = sv(dev.ctrl_value);
-            // ctlinst=<vsrc_name>; ctlnode defaults to "flow(br)" so no need to set it.
-            std::string prms = "ctlinst=" + ctlsrc;
+            // ctlinst is an Id param — must be quoted as a string literal in the expression.
+            // ctlnode defaults to "flow(br)" in VACASK; no need to set it explicitly.
+            std::string prms = "ctlinst=\"" + ctlsrc + "\"";
             if (!gainVal.empty()) prms += " gain=" + gainVal;
             inst.add(p.parseParameters(prms));
             auto ps = paramString(dev.params);
@@ -442,7 +458,8 @@ static bool addSpiceDevice(const netlist::SpiceDevice& dev, PTSubcircuitDefiniti
             PTInstance inst(Id(name.c_str()), Id("ccvs"), nodeList(dev.nodes));
             std::string ctlsrc  = sv(dev.ctrl_nodes[0]);
             std::string gainVal = sv(dev.ctrl_value);
-            std::string prms = "ctlinst=" + ctlsrc;
+            // ctlinst is an Id param — must be quoted as a string literal in the expression.
+            std::string prms = "ctlinst=\"" + ctlsrc + "\"";
             if (!gainVal.empty()) prms += " gain=" + gainVal;
             inst.add(p.parseParameters(prms));
             auto ps = paramString(dev.params);
@@ -493,11 +510,22 @@ static bool fillSpiceSubDef(PTSubcircuitDefinition& def, const netlist::SpiceSub
     return true;
 }
 
+// Forward declaration of mergeNetlist for spiceBlockToTables to call (Fix 2).
+bool mergeNetlist(const netlist::Netlist& nl, PTSubcircuitDefinition& top,
+                  ParserTables& tab, Parser& p,
+                  const std::filesystem::path& baseDir,
+                  std::set<std::filesystem::path>& visited,
+                  std::set<std::string>& addedModels,
+                  Status& s);
+
 // Map one SpiceBlock into a PTSubcircuitDefinition.  `addedModels` is shared
 // across repeated calls so self-alias model cards are emitted only once.
+// `baseDir` and `visited` thread through for .include resolution (Fix 2).
 static bool spiceBlockToTables(const netlist::SpiceBlock& sb, PTSubcircuitDefinition& into,
-                               ParserTables& /*tab*/, Parser& p,
-                               std::set<std::string>& addedModels, Status& s) {
+                               ParserTables& tab, Parser& p,
+                               std::set<std::string>& addedModels, Status& s,
+                               const std::filesystem::path& baseDir,
+                               std::set<std::filesystem::path>& visited) {
     // Top-level .param declarations from the SPICE block.
     auto sp = paramString(sb.params);
     if (!sp.empty()) into.add(p.parseParameters(sp));
@@ -547,28 +575,62 @@ static bool spiceBlockToTables(const netlist::SpiceBlock& sb, PTSubcircuitDefini
         into.add(std::move(child));
     }
 
-    // .include / .lib inside a SPICE block — deferred (same as milestone-1 deferrals).
-    if (!sb.includes.empty()) {
-        Simulator::err() << "WARNING: netlistrs adapter does not yet resolve "
-                         << sb.includes.size() << " include(s) inside a SPICE block\n";
+    // .include / .lib inside a SPICE block: resolve using the same path as mergeNetlist (Fix 2).
+    // Section-qualified .lib includes are deferred (flat projection ignores library sections).
+    for (const auto& inc : sb.includes) {
+        if (!inc.section.empty()) {
+            Simulator::err() << "WARNING: section-qualified .lib inside SPICE block "
+                             << "('" << sv(inc.path) << "' section='" << sv(inc.section)
+                             << "') deferred; library sections not projected\n";
+            continue;
+        }
+
+        std::filesystem::path incPath = baseDir / sv(inc.path);
+        std::filesystem::path absPath;
+        try {
+            absPath = std::filesystem::canonical(incPath);
+        } catch (...) {
+            absPath = std::filesystem::absolute(incPath);
+        }
+
+        if (visited.count(absPath)) continue;
+        visited.insert(absPath);
+
+        std::ifstream ifs(absPath);
+        if (!ifs) {
+            s.set(Status::NotFound, "cannot open SPICE include: " + absPath.string());
+            return false;
+        }
+        std::stringstream incss; incss << ifs.rdbuf();
+        std::string contents = incss.str();
+
+        std::string iext = absPath.extension().string();
+        std::transform(iext.begin(), iext.end(), iext.begin(), ::tolower);
+        bool spice = (iext != ".scs");
+        netlist::Netlist sub = netlist::parse_netlist(rust::Str(contents), spice);
+        if (!sub.errors.empty()) {
+            std::ostringstream os;
+            os << "parse error in SPICE include '" << absPath.string() << "': "
+               << sub.errors.size() << " error(s)"
+               << " (first at bytes [" << sub.errors[0].start << ", "
+               << sub.errors[0].end << "))";
+            s.set(Status::Syntax, os.str());
+            return false;
+        }
+
+        if (!mergeNetlist(sub, into, tab, p, absPath.parent_path(), visited, addedModels, s))
+            return false;
     }
     return true;
 }
 
 // (private) Accumulate one parsed Netlist's toplevel members into `top`,
-// its analyses/globals into `tab`, then recurse into its top-level includes.
+// its analyses/globals into `tab`, then recurse into its top-level includes
+// and SPICE block includes.
 // Section-qualified includes (section != "") are skipped (deferred: flat Netlist
 // projection does not carry library sections).
-// Includes nested inside subckt bodies are also deferred (Subckt drops includes).
 // Returns true on success; false with `s` set on any error (open failure, parse
 // error, or error in a nested include).
-bool mergeNetlist(const netlist::Netlist& nl, PTSubcircuitDefinition& top,
-                  ParserTables& tab, Parser& p,
-                  const std::filesystem::path& baseDir,
-                  std::set<std::filesystem::path>& visited,
-                  std::set<std::string>& addedModels,
-                  Status& s);
-
 bool mergeNetlist(const netlist::Netlist& nl, PTSubcircuitDefinition& top,
                   ParserTables& tab, Parser& p,
                   const std::filesystem::path& baseDir,
@@ -582,13 +644,13 @@ bool mergeNetlist(const netlist::Netlist& nl, PTSubcircuitDefinition& top,
     for (const auto& i : nl.instances) top.add(makeInstance(i, p));
     for (const auto& sub : nl.subckts) {
         PTSubcircuitDefinition child(Id(sv(sub.name).c_str()), nodeList(sub.ports));
-        fillSubDef(child, sub, p);
+        if (!fillSubDef(child, sub, p, tab, addedModels, s, baseDir, visited)) return false;
         top.add(std::move(child));
     }
 
-    // SPICE blocks (R/C/L/V/I adapter + nested .subckt/.model).
+    // SPICE blocks (R/C/L/V/I adapter + nested .subckt/.model + .include resolution).
     for (const auto& sb : nl.spice_blocks) {
-        if (!spiceBlockToTables(sb, top, tab, p, addedModels, s)) return false;
+        if (!spiceBlockToTables(sb, top, tab, p, addedModels, s, baseDir, visited)) return false;
     }
 
     // Globals and analyses into tab.
