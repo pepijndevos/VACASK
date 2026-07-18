@@ -5,6 +5,7 @@
 #include "openvafcomp.h"
 #include "circuit.h"
 #include <fstream>
+#include <memory>
 #include <sstream>
 #include <iostream>
 
@@ -20,9 +21,12 @@ int main(int argc, char** argv) {
     std::stringstream ss; ss << in.rdbuf();
     std::string source = ss.str();
 
+    // argv[2] overrides the compile-time default so CTest and manual runs can
+    // point to any model directory without recompiling.
+    std::string modDir = (argc >= 3) ? argv[2] : VACASK_MOD_DIR;
+
     Simulator::setup();
-    // Absolute path to staged .osdi models (vsource is a builtin, no .osdi needed)
-    Simulator::prependModulePath({"/home/pepijn/code/nyanodide/VACASK/build/lib/vacask/mod"});
+    Simulator::prependModulePath({modDir});
 
     ParserTables tab("rc from rust parser");
     Parser p(tab);
@@ -49,12 +53,11 @@ int main(int argc, char** argv) {
 
     auto tranDesc = PTAnalysis("tran1", "tran");
     tranDesc.add(PV{"step", 1e-5}).add(PV{"stop", 10e-3});
-    auto* tran = Analysis::create(tranDesc, cir, s);
+    std::unique_ptr<Analysis> tran(Analysis::create(tranDesc, cir, s));
     if (!tran) { Simulator::err() << "analysis create failed: " << s.message() << "\n"; return 1; }
     tran->add(PTSave("default"));
 
     auto [ok, canResume] = tran->run(s);
-    delete tran;
     if (!ok) { Simulator::err() << "analysis failed: " << s.message() << "\n"; return 1; }
     Simulator::out() << "Analysis OK.\n";
     return 0;

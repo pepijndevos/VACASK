@@ -1,8 +1,15 @@
 add_executable(demo_netlistrs demo_netlistrs.cpp)
 target_link_libraries(demo_netlistrs PRIVATE simlib netlist_cxx_bridge ${SIM_EXE_LIBRARIES})
 
+# OSDI models live in the VACASK in-tree build directory.
+# No username-specific path: CMAKE_SOURCE_DIR is the root of this source tree.
+set(VACASK_MOD_DIR_DEFAULT "${CMAKE_SOURCE_DIR}/build/lib/vacask/mod")
+target_compile_definitions(demo_netlistrs PRIVATE
+    VACASK_MOD_DIR="${VACASK_MOD_DIR_DEFAULT}")
+
 add_test(NAME demo_netlistrs
-         COMMAND demo_netlistrs "${CMAKE_CURRENT_SOURCE_DIR}/rc.scs")
+         COMMAND demo_netlistrs "${CMAKE_CURRENT_SOURCE_DIR}/rc.scs"
+                                "${VACASK_MOD_DIR_DEFAULT}")
 set_tests_properties(demo_netlistrs PROPERTIES WORKING_DIRECTORY "/tmp")
 
 add_executable(demo1
