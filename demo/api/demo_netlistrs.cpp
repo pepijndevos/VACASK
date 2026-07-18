@@ -107,13 +107,23 @@ int main(int argc, char** argv) {
     }
 
     // VCVS E2E (spice_vcvs.cir): verify E1 gain=2.
-    // Without the Vcvs adapter E1 is skipped → gain not found.
-    // The gain check here is informational; the primary verification is the tran + ngspice compare.
+    // Without the Vcvs adapter E1 is skipped → gain not found → error.
     {
+        bool require_vcvs = (path.find("vcvs") != std::string::npos);
         auto [found_eg, val_eg] = cir.instanceParameter("E1", "gain");
+        if (require_vcvs && !found_eg) {
+            Simulator::err() << "ERROR: spice_vcvs: E1 not found in elaborated hierarchy "
+                                "(Vcvs adapter not implemented?)\n";
+            return 1;
+        }
         if (found_eg) {
             Simulator::out() << "param check: E1.gain=" << val_eg.str()
                              << " (expect 2)\n";
+            if (val_eg.str() != "2") {
+                Simulator::err() << "ERROR: spice_vcvs: E1 gain expected 2, got "
+                                 << val_eg.str() << "\n";
+                return 1;
+            }
         }
     }
 

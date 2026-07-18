@@ -219,8 +219,8 @@ static std::string spiceSourceParams(const netlist::SpiceSource& src) {
 }
 
 // Fill a PTSubcircuitDefinition from one SpiceSubckt body (recursive).
-static void fillSpiceSubDef(PTSubcircuitDefinition& def, const netlist::SpiceSubckt& s,
-                            Parser& p, std::set<std::string>& addedModels);
+static bool fillSpiceSubDef(PTSubcircuitDefinition& def, const netlist::SpiceSubckt& s,
+                            Parser& p, std::set<std::string>& addedModels, Status& st);
 
 // Ensure a self-alias model card is emitted once per block.
 // These mirror `model resistor resistor` / `model vsource vsource` in .sim files.
@@ -478,17 +478,19 @@ static bool addSpiceDevice(const netlist::SpiceDevice& dev, PTSubcircuitDefiniti
     return true;
 }
 
-static void fillSpiceSubDef(PTSubcircuitDefinition& def, const netlist::SpiceSubckt& s,
-                            Parser& p, std::set<std::string>& addedModels) {
+static bool fillSpiceSubDef(PTSubcircuitDefinition& def, const netlist::SpiceSubckt& s,
+                            Parser& p, std::set<std::string>& addedModels, Status& st) {
     auto sp = paramString(s.params);
     if (!sp.empty()) def.add(p.parseParameters(sp));
-    Status dummy;
-    for (const auto& dev : s.devices) addSpiceDevice(dev, def, p, addedModels, dummy);
+    for (const auto& dev : s.devices) {
+        if (!addSpiceDevice(dev, def, p, addedModels, st)) return false;
+    }
     for (const auto& sub : s.subckts) {
         PTSubcircuitDefinition child(Id(sv(sub.name).c_str()), nodeList(sub.ports));
-        fillSpiceSubDef(child, sub, p, addedModels);
+        if (!fillSpiceSubDef(child, sub, p, addedModels, st)) return false;
         def.add(std::move(child));
     }
+    return true;
 }
 
 // Map one SpiceBlock into a PTSubcircuitDefinition.  `addedModels` is shared
@@ -541,7 +543,7 @@ static bool spiceBlockToTables(const netlist::SpiceBlock& sb, PTSubcircuitDefini
     // Nested .subckt definitions.
     for (const auto& sub : sb.subckts) {
         PTSubcircuitDefinition child(Id(sv(sub.name).c_str()), nodeList(sub.ports));
-        fillSpiceSubDef(child, sub, p, addedModels);
+        if (!fillSpiceSubDef(child, sub, p, addedModels, s)) return false;
         into.add(std::move(child));
     }
 
