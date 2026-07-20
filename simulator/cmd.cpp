@@ -372,8 +372,9 @@ InterpreterExitStatus cmd_postprocess(CommandInterpreter& interpreter, PTCommand
     const std::string* parentFilePathPtr = nullptr;
     if (cmd.location()!=Loc::bad) {
         auto [fs, pos, line, offset] = cmd.location().data();
-        if (pos!=FileStack::badFileId) {
-            // get parent directory
+        if (pos!=FileStack::badFileId && !fs->canonicalName(pos).empty()) {
+            // get parent directory (canonicalName is empty for netlists parsed
+            // from an in-memory string, i.e. not backed by a real file)
             parentFilePath = std::filesystem::path(fs->canonicalName(pos)).parent_path().string();
             parentFilePathPtr = &parentFilePath;
         }
@@ -407,7 +408,11 @@ InterpreterExitStatus cmd_postprocess(CommandInterpreter& interpreter, PTCommand
     if (!err.empty()) {
         Simulator::err() << err;
     }
-    return InterpreterExitStatus::OK;
+    if (ok) {
+        return InterpreterExitStatus::OK;
+    } else {
+        return InterpreterExitStatus::Error;
+    }
 }
 
 InterpreterExitStatus cmd_abort(CommandInterpreter& interpreter, PTCommand& cmd, Status& s) {
