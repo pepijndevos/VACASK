@@ -151,11 +151,11 @@ bool HBAC::rebuildCores(Status& s) {
 }
 
 bool HBAC::initializeOutputs(Status& s) {
-    if (!hbCore.initializeOutputs(std::string(name_)+".hb")) {
+    if (!hbCore.initializeOutputs(prefixedName_+".hb", s)) {
         hbCore.formatError(s);
         return false;
     }
-    if (!hbacCore.initializeOutputs(name_)) {
+    if (!hbacCore.initializeOutputs(prefixedName_, s)) {
         hbacCore.formatError(s);
         return false;
     }
@@ -163,25 +163,27 @@ bool HBAC::initializeOutputs(Status& s) {
 }
 
 bool HBAC::finalizeOutputs(Status& s) {
-    auto ok1 = hbCore.finalizeOutputs();
-    auto ok2 = hbacCore.finalizeOutputs();
+    Status s1, s2;
+    auto ok1 = hbCore.finalizeOutputs(s1);
+    auto ok2 = hbacCore.finalizeOutputs(s2);
     if (!ok1) {
-        hbCore.formatError(s);
+        s.set(s1);
     }
     if (!ok2) {
-        hbacCore.formatError(s);
+        s.set(s2);
     }
     return ok1 && ok2;
 }
 
 bool HBAC::deleteOutputs(Status& s) {
-    auto ok1 = hbCore.deleteOutputs(std::string(name_)+".hb");
-    auto ok2 = hbacCore.deleteOutputs(name_);
+    Status s1, s2;
+    auto ok1 = hbCore.deleteOutputs(prefixedName_+".hb", s1);
+    auto ok2 = hbacCore.deleteOutputs(prefixedName_, s2);
     if (!ok1) {
-        hbCore.formatError(s);
+        s.set(s1);
     }
     if (!ok2) {
-        hbacCore.formatError(s);
+        s.set(s2);
     }
     return ok1 && ok2;
 }
