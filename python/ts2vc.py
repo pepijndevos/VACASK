@@ -336,8 +336,6 @@ Arguments:
   -sp --spice             write a generic SPICE subcircuit with scikit-rf's
                            own write_spice_subcircuit_s() instead of a
                            VACASK-syntax subcircuit
-  -no --no-output         skip writing the output file; only fit and print
-                           the quality report (and plot, if -p is given)
 
 Options passed to scikit-rf's VectorFitting.auto_fit() (see its
 documentation for details, defaults are auto_fit's own):
@@ -369,7 +367,6 @@ for details, defaults are passivity_enforce's own):
     plot = False
     referencePins = False
     spice = False
-    noOutput = False
     targets = {"autoFit": {}, "passivityEnforce": {}}
     while ndx<len(sys.argv):
         arg = sys.argv[ndx]
@@ -390,8 +387,6 @@ for details, defaults are passivity_enforce's own):
                 referencePins = True
             elif arg == "-sp" or arg == "--spice":
                 spice = True
-            elif arg == "-no" or arg == "--no-output":
-                noOutput = True
             else:
                 for short, long, dest, value, target in flagOptions:
                     if arg == short or arg == long:
@@ -496,13 +491,12 @@ where the fit deviates.""")
         fig.tight_layout()
         plt.show()
 
-    if not noOutput:
-        if spice:
-            vf.write_spice_subcircuit_s(toFile, fitted_model_name=name, create_reference_pins=referencePins)
-        else:
-            with open(toFile, "w") as toFileObj:
-                write_vacask_subcircuit_s(vf, qualif, toFileObj, fitted_model_name=name,
-                                           create_reference_pins=referencePins,
-                                           auto_fit_options=autoFitResolved,
-                                           passivity_enforce_options=passivityEnforceResolved,
-                                           command_line=format_command_line(sys.argv))
+    if spice:
+        vf.write_spice_subcircuit_s(toFile, fitted_model_name=name, create_reference_pins=referencePins)
+    else:
+        with open(toFile, "w") as toFileObj:
+            write_vacask_subcircuit_s(vf, qualif, toFileObj, fitted_model_name=name,
+                                       create_reference_pins=referencePins,
+                                       auto_fit_options=autoFitResolved,
+                                       passivity_enforce_options=passivityEnforceResolved,
+                                       command_line=format_command_line(sys.argv))
