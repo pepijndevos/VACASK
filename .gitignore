@@ -7,3 +7,5 @@ bug
 benchmark/rundir
 *.osdi
 build/
+theory
+docs/internals/

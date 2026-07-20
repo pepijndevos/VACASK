@@ -51,3 +51,11 @@
 - In examples do not declare node `0` as ground (it is by default the ground node anyway)
 - In long examples the first line should be the title of a circuit. 
 - Look at docs of similar subjects and follow their style and outline. 
+
+## Documenting internals
+- Internals are documented in docs/internals
+- Same rules as for user docs
+- The main file index.md has a "Last update" field. On full updates you will update this field with the current timestamp (date, time, and timezone code). 
+- Look at suggested .h files and the corresponding .cpp file
+- Sometimes extra .cpp files are also listed that neeed to be documented
+
