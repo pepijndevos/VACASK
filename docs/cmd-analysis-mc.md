@@ -22,6 +22,8 @@ endmc
 
 Everything between `mc` and the matching `endmc` is executed once per sample. `mc` loops cannot be nested.
 
+After the last sample, the circuit is re-elaborated with all distribution functions evaluating to their nominal value (`nom`), restoring instance, model, and subcircuit parameters to zero variation before control continues past `endmc`.
+
 ## Distribution functions
 
 Instance parameters, model parameters, and subcircuit `parameters` expressions may call one of four distribution functions in place of a plain value. Each call site draws its own independent random number.

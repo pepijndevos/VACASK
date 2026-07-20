@@ -60,12 +60,10 @@ Yes we do. It is bundled with the binary packages. [The user's manual](docs/inde
 
 # What does VACASK offer? 
 
-- user defined global and ground nodes
-- fully parameterized hierarchical circuit description
+- fully parameterized hierarchical circuit description with user defined global and ground nodes
 - conditional netlist blocks (@if-@elseif-@else-@end)
 - RPN interpreter for parameterized expression evaluation
-- integer, real, and string data types
-- vectors (homogeneous containers) and lists (heterogeneous containers)
+- integer, real, and string data types; vectors (homogeneous containers) and lists (heterogeneous containers)
 - a library of [built-in functions and constants](lib/context.cpp) for use in parameterized expressions
 - all SPICE analyses + [many more](#supported-analyses)
 - [options](lib/options.cpp) for fine tuning the simulator
