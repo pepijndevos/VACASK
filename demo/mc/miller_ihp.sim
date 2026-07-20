@@ -37,12 +37,12 @@ subckt dctest()
 ends
 
 // Global parameters for sizing the OTA
-parameters mirr_w=10u  mirr_l=1u
-parameters mirr_wd=20u mirr_ld=1u
-parameters mirr_wo=20u
-parameters out_w=40u   out_l=0.5u
-parameters load_w=10u  load_l=1u
-parameters diff_w=10u  diff_l=0.5u
+parameters mirr_w=5u  mirr_l=1u    mirr_m=2
+parameters mirr_wd=5u mirr_ld=1u   mirr_md=4
+parameters mirr_wo=5u              mirr_mo=4
+parameters out_w=1.53u out_l=0.5u  out_m=8
+parameters load_w=5u  load_l=1u    load_m=2
+parameters diff_w=5u  diff_l=0.5u  diff_m=2
 parameters r_out=5k
 parameters c_out=2p
 

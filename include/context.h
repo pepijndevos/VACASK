@@ -14,6 +14,9 @@
 
 namespace NAMESPACE {
 
+// General RPN builtin function/operator
+typedef bool (*RpnBuiltinFunc)(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContext& ctx, Status& s);
+
 typedef struct Builtin {
     Rpn::Arity minArity;
     Rpn::Arity maxArity;

@@ -884,6 +884,7 @@ InterpreterExitStatus cmd_mc(CommandInterpreter& interpreter, PTCommand& cmd, St
         }
         debug = dbg.val<Int>();
     }
+    mcData.setDebug(debug>2);
     
     // Get strict
     auto it4 = args.find("strict");
@@ -940,15 +941,12 @@ InterpreterExitStatus cmd_mc(CommandInterpreter& interpreter, PTCommand& cmd, St
     // Main loop
     bool abort = false;
     size_t ngen = 0;
-    bool first = true;
-    while(mcData.sample()<nsamples) {
+    for(decltype(nsamples) atSam=0; atSam<nsamples; atSam++) {
         // Generate new sample if this is not the first iteration
-        if (!first) {
+        if (atSam>0) {
             mcData.advance();
         }
-        first = false;
-        auto atSam = mcData.sample();
-        
+
         // Set variables
         interpreter.circuit().setVariable("MCSAMPLE", Int(atSam+1));
 
@@ -1018,9 +1016,18 @@ InterpreterExitStatus cmd_mc(CommandInterpreter& interpreter, PTCommand& cmd, St
             Simulator::dbg() << "  Elapsed time: "<< progress.time() << "\n";
         }
     }
-    
+
     if (abort) {
         interpreter.circuit().paramEvaluator().setMCData(nullptr);
+        return InterpreterExitStatus::HardFault;
+    }
+
+    // Restore circuit state with zero variation
+    interpreter.circuit().paramEvaluator().setMCData(nullptr);
+    interpreter.circuit().setFlags(Circuit::Flags::VariablesChanged);
+    // Elaborate changes
+    if (!interpreter.minimalElaboration(s)) {
+        s.set(Status::Syntax, "Elaboration failed while restoring zero variation.");
         return InterpreterExitStatus::HardFault;
     }
 

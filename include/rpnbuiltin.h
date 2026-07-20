@@ -9,13 +9,11 @@
 #include "hash.h"
 #include "rpnevalctx.h"
 #include <cmath>
+#include <iostream>
 #include "common.h"
 
 
 namespace NAMESPACE {
-
-// General RPN builtin function/operator
-typedef bool (*RpnBuiltinFunc)(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContext& ctx, Status& s);
 
 // Unary operator / single argument function
 // Applied in the same way to all vector components
@@ -582,6 +580,9 @@ bool mcGenerator(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContext& 
                 // 2 arguments, uniform distribution
                 result = functor(nom, delta, r);
             }
+            if (ctx.mcData()->debug()) {
+                std::cout << "Eval " << ctx.generatorId() << " unif=" << r << " value=" << result << "\n";
+            }
         } else {
             // Not the right context, return nominal
             result = nom;
@@ -590,7 +591,7 @@ bool mcGenerator(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContext& 
         // No MC data, return nominal
         result = nom;
     }
-    
+        
     // Return result, pop all but the first argument
     stack.pop(narg-1);
     

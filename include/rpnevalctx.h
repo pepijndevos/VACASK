@@ -40,7 +40,7 @@ public:
         }
     };
 
-    MCData() : sample_(0), lhSamples(0) { setSeed(0); };
+    MCData() : sample_(0), lhSamples(0), debug_(0) { setSeed(0); };
     
     // Monte Carlo generator ID
     // Context type, object ID, parameter ID, consecutive number of MC function in expression
@@ -67,6 +67,9 @@ public:
     // Return the consecutive number of the sample
     size_t sample() const;
 
+    void setDebug(Int debug) { debug_= debug; };
+    Int debug() const { return debug_; };
+    
     void dump(int indent, std::ostream& os) const;
 
 private:
@@ -105,8 +108,12 @@ private:
 
     // Random generator
     std::mt19937_64 randomGenerator;
+
+    Int debug_;
 };
 
+// Stream a GeneratorId
+std::ostream& operator<<(std::ostream& os, const MCData::GeneratorId& genId);
 
 // Netlist context of a RPN evaluation
 // A random generator is recognized by
