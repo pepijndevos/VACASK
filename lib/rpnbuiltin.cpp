@@ -550,8 +550,6 @@ bool listMerge(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContext& ct
             // Other arguments are moved to list entries
             vVec.push_back(std::move(*vp));
         }
-        
-        vVec.push_back(std::move(*vp));
     }
     
     if (argc>0) {

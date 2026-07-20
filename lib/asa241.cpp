@@ -1,13 +1,13 @@
 #include "common.h"
 
+# include "asa241.h"
+
 namespace NAMESPACE {
 
 # include <stdlib.h>
 # include <stdio.h>
 # include <math.h>
 # include <time.h>
-
-# include "asa241.h"
 
 // Wichura’s Algorithm AS 241, inverse CDF of standard normal distribution N(0,1)
 // GNU LGPL license

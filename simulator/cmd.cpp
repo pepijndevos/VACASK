@@ -884,7 +884,10 @@ InterpreterExitStatus cmd_mc(CommandInterpreter& interpreter, PTCommand& cmd, St
         }
         debug = dbg.val<Int>();
     }
-    mcData.setDebug(debug>2);
+
+    if (debug>2) {
+        mcData.setDebugStream(&Simulator::dbg());
+    }
     
     // Get strict
     auto it4 = args.find("strict");
@@ -931,7 +934,7 @@ InterpreterExitStatus cmd_mc(CommandInterpreter& interpreter, PTCommand& cmd, St
 
     progress.setValueFormat(ProgressReporter::ValueFormat::Fixed, 0);
     progress.setValueDecoration("sample# ", "");
-    progress.initProgress(nsamples+1, 0);
+    progress.initProgress(nsamples, 0);
     progress.report();
 
     if (debug) {
@@ -1016,6 +1019,9 @@ InterpreterExitStatus cmd_mc(CommandInterpreter& interpreter, PTCommand& cmd, St
             Simulator::dbg() << "  Elapsed time: "<< progress.time() << "\n";
         }
     }
+
+    // Remove analysis name prefix
+    interpreter.setAnalysisNamePrefix("");
 
     if (abort) {
         interpreter.circuit().paramEvaluator().setMCData(nullptr);

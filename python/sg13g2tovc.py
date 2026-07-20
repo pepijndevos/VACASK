@@ -266,7 +266,6 @@ if __name__=="__main__":
     dflmods = set()
     print("Converting technology files and standard cells")
     for tech_file in tech_files:
-        print(tech_file)
         if len(tech_file)==4:
             file, read_process_depth, output_depth, destpath = tech_file 
         else:

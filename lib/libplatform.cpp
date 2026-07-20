@@ -4,8 +4,6 @@
 #include "common.h"
 #include <tuple>
 #include <cstdlib>
-#include <cmath>
-#include <limits>
 
 namespace NAMESPACE {
 

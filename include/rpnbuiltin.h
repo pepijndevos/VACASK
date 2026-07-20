@@ -559,8 +559,7 @@ bool mcGenerator(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContext& 
 
     auto nom = v1p->val<Real>();
     auto delta = v2p->val<Real>();
-    auto sigma = v3p->val<Real>();
-
+    
     // Compute result
     double result;
     // Do we have MC data
@@ -575,13 +574,14 @@ bool mcGenerator(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContext& 
             F functor;
             if constexpr(narg>2) {
                 // 3 arguments, Gaussian distribution
+                auto sigma = v3p->val<Real>();
                 result = functor(nom, delta, sigma, r);
             } else {
                 // 2 arguments, uniform distribution
                 result = functor(nom, delta, r);
             }
-            if (ctx.mcData()->debug()) {
-                std::cout << "Eval " << ctx.generatorId() << " unif=" << r << " value=" << result << "\n";
+            if (ctx.mcData()->debugStream()) {
+                *(ctx.mcData()->debugStream()) << "Eval " << ctx.generatorId() << " unif=" << r << " value=" << result << "\n";
             }
         } else {
             // Not the right context, return nominal

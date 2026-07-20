@@ -24,8 +24,6 @@ enum class InterpreterExitStatus {
 
 typedef InterpreterExitStatus (*CommandFuncPtr)(CommandInterpreter& interpreter, PTCommand& cmd, Status& s);
 
-template <typename T> bool evaluateExpressions(RpnEvaluator& e, const PTCommand& cmd, std::vector<T>& out, Status& s=Status::ignore);
-
 class CommandInterpreter {
 public:
     typedef struct CmdDesc {

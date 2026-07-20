@@ -40,7 +40,7 @@ public:
         }
     };
 
-    MCData() : sample_(0), lhSamples(0), debug_(0) { setSeed(0); };
+    MCData() : sample_(0), lhSamples(0), dbgStream(nullptr) { setSeed(0); };
     
     // Monte Carlo generator ID
     // Context type, object ID, parameter ID, consecutive number of MC function in expression
@@ -67,8 +67,8 @@ public:
     // Return the consecutive number of the sample
     size_t sample() const;
 
-    void setDebug(Int debug) { debug_= debug; };
-    Int debug() const { return debug_; };
+    void setDebugStream(std::ostream* debug) { dbgStream = debug; };
+    std::ostream* debugStream() const { return dbgStream; };
     
     void dump(int indent, std::ostream& os) const;
 
@@ -109,7 +109,7 @@ private:
     // Random generator
     std::mt19937_64 randomGenerator;
 
-    Int debug_;
+    std::ostream* dbgStream;
 };
 
 // Stream a GeneratorId

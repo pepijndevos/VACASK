@@ -84,17 +84,15 @@ size_t MCData::sample() const {
 
 void MCData::dump(int indent, std::ostream& os) const {
     std::string pfx = std::string(indent, ' ');
-    size_t cnt = 0;
     for(auto& it : generatorIndexMap) {
         auto ndx = it.second;
 
         os << pfx << it.first;
         if (lhSamples>0) {
-            os << " : bin=" << lhPerm[cnt][sample_];
+            os << " : bin=" << lhPerm[ndx][sample_];
         }
-        os << " : unif=" << value[cnt];
+        os << " : unif=" << value[ndx];
         os << "\n";
-        cnt++;
     }
 }
 

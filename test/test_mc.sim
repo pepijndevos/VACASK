@@ -38,7 +38,7 @@ r7 (7 0) r r=aunif(1k, 100)
 control
   abort always
   
-  mc mc1 samples=1000 seed=1 debug=1
+  mc mc1 samples=1000 seed=1 debug=0
     analysis op1 op
   endmc
 
