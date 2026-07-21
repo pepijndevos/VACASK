@@ -127,15 +127,17 @@ set_tests_properties(demo_netlistrs_spice_subckt PROPERTIES
 
 # ── SPICE MOSFET binning (@if lowering) ─────────────────────────────────────
 # nbin_model.1/.2 collapse to one @if chain; X1 (l=7e-7) must bind bin 2.
-# Asserts the generated ParserTables contain the @if guard for bin 2's range
-# (l*$scale >= 5e-07). Program also exits 0 only if elaboration resolves the
-# bin-less model name nbin_model (i.e. a bin actually bound).
+# PASS_REGULAR_EXPRESSION pins bin-2's @elseif guard (lmin=5e-7 lower bound:
+# l*$scale>=5e-07), confirming correct-bin selection rather than just that any
+# @if chain was emitted. FAIL_REGULAR_EXPRESSION "elaboration failed" ensures
+# the bin-less model name nbin_model resolved (a bin actually bound).
+# Note: PASS_REGULAR_EXPRESSION overrides exit-code checking in CTest.
 add_test(NAME demo_netlistrs_spice_binned_mos
          COMMAND demo_netlistrs "${CMAKE_CURRENT_SOURCE_DIR}/spice_binned_mos.cir"
                                 "${VACASK_MOD_DIR_DEFAULT}")
 set_tests_properties(demo_netlistrs_spice_binned_mos PROPERTIES
     WORKING_DIRECTORY "/tmp"
-    PASS_REGULAR_EXPRESSION "@if"
+    PASS_REGULAR_EXPRESSION "@elseif l\\*\\$scale>=5e-07"
     FAIL_REGULAR_EXPRESSION "elaboration failed")
 
 # ── VCVS controlled source (Task 7) ─────────────────────────────────────────
