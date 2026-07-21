@@ -257,6 +257,22 @@ set_tests_properties(demo_netlistrs_spice_warnonly PROPERTIES
     WORKING_DIRECTORY "/tmp"
     PASS_REGULAR_EXPRESSION "WARNING.*Behavioral")
 
+# ── Sky130 nfet_01v8 binning E2E (Task 3) ────────────────────────────────────
+# Registered only when both the PDK lib and bsim4v8.osdi are present at configure
+# time, so CI without the PDK stays green.  Uses .lib tt corner to pull in corner
+# params + all models together (the PDK's intended consumption pattern).
+set(SKY130_LIB "/home/pepijn/code/nyanodide/skywater-pdk-libs-sky130_fd_pr/combined_models/sky130.lib.spice")
+if(EXISTS "${SKY130_LIB}" AND EXISTS "${VACASK_MOD_DIR_DEFAULT}/bsim4v8.osdi")
+    add_test(NAME demo_netlistrs_sky130_nfet_bin
+             COMMAND demo_netlistrs "${CMAKE_CURRENT_SOURCE_DIR}/sky130_nfet_bin.cir"
+                                    "${VACASK_MOD_DIR_DEFAULT}")
+    set_tests_properties(demo_netlistrs_sky130_nfet_bin PROPERTIES
+        WORKING_DIRECTORY "/tmp"
+        PASS_REGULAR_EXPRESSION "Analysis OK \\(sky130 op\\)")
+else()
+    message(STATUS "Skipping demo_netlistrs_sky130_nfet_bin (Sky130 PDK or bsim4v8.osdi absent)")
+endif()
+
 target_link_libraries(
     demo1
     simlib

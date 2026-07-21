@@ -1,0 +1,23 @@
+* Sky130 nfet_01v8 binning E2E (path contains "sky130" -> demo sets scale=1e-6, runs op)
+* Minimal include chain (fallback from full .lib tt): the full tt corner loads
+* resistor models with string-expression dw= parameters that VACASK cannot
+* evaluate at elaboration time (pre-existing VACASK limitation, unrelated to binning).
+* Corner params are inline here (normally emitted by the .lib tt section preamble).
+* models_global.spice references sw_rdp/sw_rdn from parameters_res_nom.spice and
+* sw_cap_mim_ca from parameters_cap_nom.spice, so those are included too.
+* Geometry in microns: l=0.15 w=1.0 -> l*scale=1.5e-7, w*scale=1e-6.
+* Bin selected: lmin=1.5E-7, lmax=1.8E-7, wmin=1E-6, wmax=3E-6 (bin 48 of 48).
+.param MC_MM_SWITCH=0
+.param MC_PR_SWITCH=0
+.param corner_factor=1
+.param process_mc_factor=1
+.param mismatch_factor=1
+.include "/home/pepijn/code/nyanodide/skywater-pdk-libs-sky130_fd_pr/combined_models/continuous/parameters_fet_tt.spice"
+.include "/home/pepijn/code/nyanodide/skywater-pdk-libs-sky130_fd_pr/combined_models/continuous/parameters_res_nom.spice"
+.include "/home/pepijn/code/nyanodide/skywater-pdk-libs-sky130_fd_pr/combined_models/continuous/parameters_cap_nom.spice"
+.include "/home/pepijn/code/nyanodide/skywater-pdk-libs-sky130_fd_pr/combined_models/continuous/models_global.spice"
+.include "/home/pepijn/code/nyanodide/skywater-pdk-libs-sky130_fd_pr/combined_models/continuous/models_fet/sky130_fd_pr__nfet_01v8.spice"
+X1 d g 0 0 sky130_fd_pr__nfet_01v8 l=0.15 w=1.0
+V1 d 0 1.8
+V2 g 0 1.8
+.end
