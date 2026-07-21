@@ -6,7 +6,7 @@
 * models_global.spice references sw_rdp/sw_rdn from parameters_res_nom.spice and
 * sw_cap_mim_ca from parameters_cap_nom.spice, so those are included too.
 * Geometry in microns: l=0.15 w=1.0 -> l*scale=1.5e-7, w*scale=1e-6.
-* Bin selected: lmin=1.5E-7, lmax=1.8E-7, wmin=1E-6, wmax=3E-6 (bin 48 of 48).
+* Bin selected: lmin=1.5E-7, lmax=1.8E-7, wmin=1E-6, wmax=3E-6 (the 150nm×1µm bin; 48 bins total).
 .param MC_MM_SWITCH=0
 .param MC_PR_SWITCH=0
 .param corner_factor=1
