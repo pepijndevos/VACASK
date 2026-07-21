@@ -630,13 +630,29 @@ std::tuple<bool, bool> HBCore::runSolver(bool continuePrevious) {
         // Continue mode
         if (continueState &&
             continueState->valid && continueState->coherent &&
-            continueState->solution.cxValues().size()==circuit.unknownCount()*timepoints.size() &&
+            continueState->solution.cxValues().size()==circuit.unknownCount()*spurs_.spectrum().size() &&
             continueState->solution.hbSpurs().spectrum().size()==spurs_.spectrum().size()
         ) {
             // Continue a state
             // State is valid, coherent, and its lengths match those of the solver vectors
             // Restore current state
-            solution.vector() = continueState->solution.values();
+            // Solution values are complex, unpack them in a real vector of re DC + re/im magnitudes
+            auto& data = continueState->solution.cxValues();
+            auto& dest = solution.vector();
+            auto n = circuit.unknownCount();
+            auto nf = spurs_.spectrum().size();
+            auto nt = timepoints.size();
+            for(decltype(n) i=0; i<n; i++) {
+                auto srcOrigin = i*nf;
+                auto destOrigin = i*nt;
+                dest[destOrigin] = data[srcOrigin].real();
+                for(decltype(nf) k=1; k<nf; k++) {
+                    auto base = destOrigin + 1 + (k-1)*2;
+                    dest[base] = data[srcOrigin+k].real();
+                    dest[base+1] = data[srcOrigin+k].imag();
+                }
+            }
+
             runInContinueMode = true;
             // No forces applied
             nrSolver.enableForces(0, false);

@@ -124,26 +124,71 @@ nodeset applied," so behavior for `strictforce=0` is unchanged and safe.
 Verified `lastHBNRError` is reset via `clearError()` in `initialize()`, so no
 stale error state leaks between calls. No remaining issue.
 
-### 2. [ ] [corehb.cpp:631](lib/corehb.cpp#L631) — Warm-start "ordinary continue" path in `HBCore::runSolver` is dead and, if reached, would crash
+### 2. [x] [corehb.cpp:631](lib/corehb.cpp#L631) — Warm-start "ordinary continue" path in `HBCore::runSolver`: size check fixed, but the branch is now reachable and WILL crash — **now fully fixed**
 ```cpp
 if (continueState &&
     continueState->valid && continueState->coherent &&
-    continueState->solution.cxValues().size()==circuit.unknownCount()*timepoints.size() &&
+    continueState->solution.cxValues().size()==circuit.unknownCount()*spurs_.spectrum().size() &&  // fixed: was *timepoints.size()
+    continueState->solution.hbSpurs().spectrum().size()==spurs_.spectrum().size()
+) {
     ...
-    solution.vector() = continueState->solution.values();
+    solution.vector() = continueState->solution.values();   // STILL WRONG
 ```
-The size check compares `cxValues().size()` (`n * nf`, spectrum size) against
-`unknownCount()*timepoints.size()` (`n * nt`, colocation-point count).
-`nt = 2*nf-1` always (`corehbcoloc.cpp:30`) with `nf>=2` enforced, so
-`nt != nf` always holds and this branch can never be taken — the "ordinary
-continue mode with stored analysis state" path is permanently dead. Even if
-it were reached, `continueState->solution.values()` does
-`std::get<std::vector<double>>(values_)`, but HB only ever stores state via
-`setCxValues()` (`std::vector<Complex>`) — that `std::get` would throw
-`std::bad_variant_access`. This looks like `coreop.cpp`'s continuation logic
-copy-pasted without adapting it to HB's complex-spectrum representation; net
-effect is HB continuation silently always falls back to the slower
-nodeset-forcing path even when a fast warm start should be possible.
+**Status: only the size check was fixed** (uncommitted working-tree change:
+`timepoints.size()` → `spurs_.spectrum().size()`, i.e. comparing `n*nf`
+against `n*nf` on both sides, consistent now). This actually makes things
+**more dangerous than before**: originally `nt = 2*nf-1` (`corehbcoloc.cpp:30`)
+guaranteed `nt != nf`, so the whole condition was permanently `false` and this
+branch was dead code — the crash below could never trigger. Now that the size
+check is internally consistent, the branch **is reachable** whenever a
+coherent, matching-frequency continuation happens (a very normal case, e.g.
+back-to-back HB points in a sweep with unchanged tone/harmonic settings).
+
+`continueState->solution.values()` still calls
+`std::get<std::vector<double>>(values_)`, but HB's stored `AnnotatedSolution`
+only ever has `setCxValues()` called on it (`corehb.cpp:160-161,189-192`) —
+`values_` holds a `std::vector<Complex>`, never a `std::vector<double>`. This
+`std::get` throws `std::bad_variant_access`, i.e. **this will now crash the
+next time HB hits an ordinary (coherent, same-grid) continuation** — a
+regression risk introduced by fixing only half of this finding.
+
+The correct fix must replace this line with the same real/imaginary
+unpacking `HBNRSolver::postRun` uses to go the other way
+(`corehbnr.cpp:326-347`, unpacking `n*nf` complex coefficients into an `n*nt`
+real vector one unknown at a time — DC as a single real value, then real/imag
+pairs), applied to `continueState->solution.cxValues()` to rebuild
+`solution.vector()`. A plain vector assignment cannot work here since the two
+sides have different lengths (`n*nf` complex vs. `n*nt` real) and different
+representations.
+
+**Status: FIXED** (uncommitted working-tree change). The working tree now
+adds exactly this unpacking loop in place (`corehb.cpp:639-654`):
+```cpp
+auto& data = continueState->solution.cxValues();
+auto& dest = solution.vector();
+auto n = circuit.unknownCount();
+auto nf = spurs_.spectrum().size();
+auto nt = timepoints.size();
+for(decltype(n) i=0; i<n; i++) {
+    auto srcOrigin = i*nf;
+    auto destOrigin = i*nt;
+    dest[destOrigin] = data[srcOrigin].real();
+    for(decltype(nf) k=1; k<nf; k++) {
+        auto base = destOrigin + 1 + (k-1)*2;
+        dest[base] = data[srcOrigin+k].real();
+        dest[base+1] = data[srcOrigin+k].imag();
+    }
+}
+```
+Verified: this is the exact inverse of `postRun`'s TD→FD packing, `dest` is a
+reference to `solution.vector()`'s storage (already sized `n*nt` by the
+earlier `nrSolver.rebuild(n*nt)` call, so all writes are in-bounds), and the
+last index touched (`base+1` at `k=nf-1`) equals `destOrigin+nt-1`, exactly
+filling each unknown's block with no gap or overflow — matches `nt=2*nf-1`.
+The old crash-triggering `solution.vector() = continueState->solution.values();`
+line that originally followed this loop (and would have unconditionally
+overwritten `dest` with a throwing call) has been removed. No remaining issue
+at this line.
 
 ### 3. [ ] [corehbnr.cpp:728](lib/corehbnr.cpp#L728) — Wrong DC value printed for every unknown but the first in `HBNRSolver::dumpSolution`
 ```cpp
