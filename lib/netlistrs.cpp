@@ -7,6 +7,9 @@
 #include <map>
 #include <set>
 #include <sstream>
+#include <optional>
+#include <cstdlib>
+#include <cctype>
 
 namespace sim {
 
@@ -242,23 +245,55 @@ static std::string spiceModelMaster(const std::string& model_type_raw,
     return "";
 }
 
-// Project one SPICE `.model` card into a PTModel and add it to `into`.
-// Maps model_type+level to an OSDI master (spiceModelMaster), passes model
-// params (minus dispatch-only `level`), and injects type polarity where the
-// master needs it. Skips (with a warning already emitted) when there is no
-// known master. Shared by spiceBlockToTables and fillSpiceSubDef so model
-// cards defined inside a .subckt are emitted too, not only top-level ones.
-static void addSpiceModelCard(const netlist::SpiceModel& m,
-                              PTSubcircuitDefinition& into, Parser& p) {
+// Build a "name=value …" param string excluding a set of keys (case-insensitive).
+static std::string paramStringExcludingSet(const rust::Vec<netlist::Param>& params,
+                                           const std::set<std::string>& exclude) {
+    std::ostringstream os;
+    bool first = true;
+    for (const auto& p : params) {
+        std::string key = sv(p.name);
+        std::string keylower = key;
+        std::transform(keylower.begin(), keylower.end(), keylower.begin(), ::tolower);
+        if (exclude.count(keylower)) continue;
+        if (!first) os << " ";
+        os << key << "=" << stripExprQuoting(sv(p.value));
+        first = false;
+    }
+    return os.str();
+}
+
+// Value of the first parameter whose name matches `key` (case-insensitive),
+// brace/quote-stripped; "" if absent.
+static std::string spiceParamValue(const rust::Vec<netlist::Param>& params,
+                                   const std::string& key) {
+    for (const auto& p : params) {
+        std::string k = sv(p.name);
+        std::transform(k.begin(), k.end(), k.begin(), ::tolower);
+        if (k == key) return stripExprQuoting(sv(p.value));
+    }
+    return "";
+}
+
+// Build a PTModel from a SPICE `.model` card. Returns nullopt if there is no
+// known OSDI master (warning already emitted). `nameOverride` (if non-empty)
+// replaces the card name — used to collapse binned cards to their base name.
+// `extraExclude` names are dropped from the emitted params in addition to the
+// dispatch-only `level` — used to strip binning bounds lmin/lmax/wmin/wmax.
+static std::optional<PTModel> buildSpiceModelCard(const netlist::SpiceModel& m,
+                                                  const std::string& nameOverride,
+                                                  const std::set<std::string>& extraExclude,
+                                                  Parser& p) {
     std::string mt_raw = sv(m.model_type);
     std::string master = spiceModelMaster(mt_raw, sv(m.level), "");
-    if (master.empty()) return; // warning already emitted by spiceModelMaster
+    if (master.empty()) return std::nullopt;
 
-    PTModel mod(spiceId(sv(m.name)), Id(master.c_str()));
+    std::string modelName = nameOverride.empty() ? sv(m.name) : nameOverride;
+    PTModel mod(spiceId(modelName), Id(master.c_str()));
 
-    auto ps = paramStringExcluding(m.params, {"level"});
-    // sp_diode has a real `level` model param (junction-cap model selector);
-    // re-append it since it was stripped as a dispatch key above.
+    std::set<std::string> excl = extraExclude;
+    excl.insert("level");
+    auto ps = paramStringExcludingSet(m.params, excl);
+    // sp_diode has a real `level` model param (junction-cap selector); re-append.
     if (master == "sp_diode") {
         std::string lvl = sv(m.level);
         if (!lvl.empty()) ps += (ps.empty() ? "" : " ") + std::string("level=") + lvl;
@@ -272,7 +307,14 @@ static void addSpiceModelCard(const netlist::SpiceModel& m,
     else if (mt == "npn")  mod.add(p.parseParameters("type=1"));
     else if (mt == "pnp")  mod.add(p.parseParameters("type=-1"));
 
-    into.add(std::move(mod));
+    return mod;
+}
+
+// Project one SPICE `.model` card into a PTModel and add it to `into`.
+static void addSpiceModelCard(const netlist::SpiceModel& m,
+                              PTSubcircuitDefinition& into, Parser& p) {
+    auto mod = buildSpiceModelCard(m, "", {}, p);
+    if (mod) into.add(std::move(*mod));
 }
 
 // Map SPICE source function args to VACASK named vsource/isource params.
