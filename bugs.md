@@ -215,7 +215,16 @@ calls `dumpSolution` whenever `nr_debug>=2`, so every NR iteration during an
 HB run with elevated `nr_debug` prints an incorrect DC term for all but one
 unknown — actively misleading during convergence debugging.
 
-### 4. [ ] [ansmsig.h:157](include/ansmsig.h#L157) — `Status` dropped for every small-signal analysis's output-descriptor resolution
+### 4. [x] [ansmsig.h:157](include/ansmsig.h#L157) — `Status` dropped for every small-signal analysis's output-descriptor resolution
+**Status: FIXED** (uncommitted working-tree change). Both calls now pass `s`
+through: `opCore.resolveOutputDescriptors(strict, s)` and
+`smsigCore.resolveOutputDescriptors(strict, s)`. Confirmed every concrete
+`smsigCore` type used here (`coreac`, `coreacsp`, `coreacstb`, `coreacxf`,
+`coredcinc`, `coredcxf`, `corenoise`) declares the matching two-argument
+`resolveOutputDescriptors(bool strict, Status& s=Status::ignore)` overload, so
+error messages now correctly propagate to the caller instead of being
+swallowed by the default `Status::ignore`. No remaining issue.
+
 ```cpp
 if (!opCore.resolveOutputDescriptors(strict)) {      // no `s` passed
     if (strict) return false;
@@ -235,7 +244,13 @@ Noise analysis: the user sees only the generic "Failed to bind analysis
 outputs." instead of the actual reason (e.g. which node/instance/outvar
 wasn't found).
 
-### 5. [ ] [core.cpp:508](lib/core.cpp#L508) — Uninitialized member read while formatting a save-argument-count error
+### 5. [x] [core.cpp:508](lib/core.cpp#L508) — Uninitialized member read while formatting a save-argument-count error
+**Status: FIXED** (uncommitted working-tree change). The `default:` branch
+now uses the actual `expectedArgumentCount` parameter instead of the member;
+the unused, never-initialized `errorExpectedArgCount` member was removed from
+`core.h` entirely, and no other reference to it remains in the tree. No
+remaining issue.
+
 ```cpp
 default:
     s.set(Status::Save, "Save directive requires "+std::to_string(errorExpectedArgCount)+" arguments.");
@@ -248,7 +263,7 @@ initialized in the constructor — reading it is UB. Reachable via
 `.save p(inst)`-style directive with a missing outvar argument in an
 OperatingPoint- or Tran-based analysis.
 
-### 6. [ ] [core.cpp:423](lib/core.cpp#L423) — Wrong identifier interpolated into "instance not found" error
+### 6. [x] [core.cpp:423](lib/core.cpp#L423) — Wrong identifier interpolated into "instance not found" error
 ```cpp
 } else if (strict) {
     s.set(Status::NotFound, "Instance '"+std::string(outvar)+"' not found.");
@@ -259,7 +274,52 @@ instead of `instance`. Triggered by `.save p(badinstname, var)` under strict
 save — the error reports the output-variable name where the (nonexistent)
 instance name should appear, making the message actively misleading.
 
-### 7. [ ] [anac.cpp:31](lib/anac.cpp#L31) (and `anacxf.cpp`, `andcxf.cpp`, `andcinc.cpp`, `annoise.cpp`) — Duplicated error-location suffix in `resolveSave`
+**Status: FIXED** (uncommitted working-tree change, after an intermediate
+edit briefly regressed the sibling branch — now both are correct):
+```cpp
+} else if (strict) {  // found==false: instance exists, outvar doesn't
+    s.set(Status::NotFound, "Output variable '"+std::string(outvar)+"' of instance '"+std::string(instance)+"' not found.");
+    return false;
+}
+...
+} else if (strict) {  // !inst: instance lookup failed
+    s.set(Status::NotFound, "Instance '"+std::string(instance)+"' not found.");
+    return false;
+}
+```
+The `found==false` branch correctly reports the missing output variable
+(using both `outvar` and `instance`), and the `!inst` branch now correctly
+reports the missing instance using `instance` instead of `outvar`. No
+remaining issue.
+
+### 7. [x] [anac.cpp:31](lib/anac.cpp#L31) (and `anacxf.cpp`, `andcxf.cpp`, `andcinc.cpp`, `annoise.cpp`) — Duplicated error-location suffix in `resolveSave`
+**Status: FIXED** (uncommitted working-tree change, all five files). Each
+file now introduces an `addLoc` flag (defaults `true`, set `false` only on
+the `resolveOpSave` path, with a comment noting `resolveOpSave()` already
+adds the location) and guards the fallthrough with it:
+```cpp
+bool addLoc = true;
+...
+} else {
+    std::tie(st, handled) = resolveOpSave(save, verify, s1);
+    // resolveOpSave() adds location to error
+    addLoc = false;
+    ...
+}
+if (verify && !st) {
+    if (addLoc) {
+        s.extend(save.location());
+    }
+    return false;
+}
+```
+Verified identically applied in `anac.cpp`, `anacxf.cpp`, `andcxf.cpp`,
+`andcinc.cpp`, and `annoise.cpp`: the `smsigCore.addXXX` branches (unique per
+file — `addAllUnknowns`/`addAllNodes`/`addNode`/`addFlow` for AC/DCInc,
+`addAllTfZin`/... for ACXF/DCXF, `addAllNoiseContribInst`/... for Noise)
+still get the location appended exactly once as before, and only the
+`resolveOpSave` branch now skips the redundant second append. No remaining
+issue.
 The old code returned immediately after delegating to `resolveOpSave`. This
 branch removed the early return, so on failure execution falls through to:
 ```cpp

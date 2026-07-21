@@ -19,6 +19,7 @@ template<> bool SmallSignal<DCXFCore, DCXFData>::resolveSave(const PTSave& save,
 
     bool st = true;
     bool handled = true;
+    bool addLoc = true;
     Status& s1 = verify ? s : Status::ignore;
     if (save.typeName() == idDefault) {
         st = smsigCore.addAllTfZin(save, sourceIndex, s1);
@@ -31,6 +32,8 @@ template<> bool SmallSignal<DCXFCore, DCXFData>::resolveSave(const PTSave& save,
     } else {
         // Handle OP saves
         std::tie(st, handled) = resolveOpSave(save, verify, s1); 
+        // resolveOpSave() adds location to error
+        addLoc = false;
         // Not handled error was formatted by resolveOpSave()
         // Also all op errors were formatted
         if (!verify) {
@@ -42,7 +45,9 @@ template<> bool SmallSignal<DCXFCore, DCXFData>::resolveSave(const PTSave& save,
     // Handled save via smsigCore, check error if verification required
     if (verify && !st) {
         // Format error
-        s.extend(save.location());
+        if (addLoc) {
+            s.extend(save.location());
+        }
         return false;
     } 
     

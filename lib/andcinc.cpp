@@ -19,6 +19,7 @@ template<> bool SmallSignal<DCIncrementalCore, DCIncrementalData>::resolveSave(c
 
     bool st = true;
     bool handled = true;
+    bool addLoc = true;
     Status& s1 = verify ? s : Status::ignore;
     if (save.typeName() == idDefault) {
         st = smsigCore.addAllUnknowns(save, s1);
@@ -31,6 +32,8 @@ template<> bool SmallSignal<DCIncrementalCore, DCIncrementalData>::resolveSave(c
     } else {
         // Handle OP saves
         std::tie(st, handled) = resolveOpSave(save, verify, s1); 
+        // resolveOpSave() adds location to error
+        addLoc = false;
         // Not handled error was formatted by resolveOpSave()
         // Also all op errors were formatted
         if (!verify) {
@@ -42,7 +45,9 @@ template<> bool SmallSignal<DCIncrementalCore, DCIncrementalData>::resolveSave(c
     // Handled save via smsigCore, check error if verification required
     if (verify && !st) {
         // Format error
-        s.extend(save.location());
+        if (addLoc) {
+            s.extend(save.location());
+        }
         return false;
     } 
     

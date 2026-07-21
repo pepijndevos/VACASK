@@ -183,7 +183,6 @@ protected:
     void clearError() { lastError = Error::OK; }; 
 
     enum Error lastError;
-    Int errorExpectedArgCount;
     Id errorId;
     Id errorId2;
 

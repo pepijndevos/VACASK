@@ -105,12 +105,12 @@ void HBAC::clearOutputDescriptors() {
 }
 
 bool HBAC::resolveOutputDescriptors(bool strict, Status& s) {
-    if (!hbCore.resolveOutputDescriptors(strict)) {
+    if (!hbCore.resolveOutputDescriptors(strict, s)) {
         if (strict) {
             return false;
         }
     }
-    if (!hbacCore.resolveOutputDescriptors(strict)) {
+    if (!hbacCore.resolveOutputDescriptors(strict, s)) {
         if (strict) {
             return false;
         }

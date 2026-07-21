@@ -154,12 +154,12 @@ template<typename CoreClass, typename DataMixin>
 bool SmallSignal<CoreClass, DataMixin>::resolveOutputDescriptors(bool strict, Status& s) {
     // Any error causes immediate exit if strict is true
     // Before exit an error message is formatted and status is set
-    if (!opCore.resolveOutputDescriptors(strict)) {
+    if (!opCore.resolveOutputDescriptors(strict, s)) {
         if (strict) {
             return false;
         }
     }
-    if (!smsigCore.resolveOutputDescriptors(strict)) {
+    if (!smsigCore.resolveOutputDescriptors(strict, s)) {
         if (strict) {
             return false;
         }

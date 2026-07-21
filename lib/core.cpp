@@ -423,7 +423,7 @@ bool AnalysisCore::addOutvarOutputSource(bool strict, Id instance, Id outvar, Id
             return false;
         }
     } else if (strict) {
-        s.set(Status::NotFound, "Instance '"+std::string(outvar)+"' not found.");
+        s.set(Status::NotFound, "Instance '"+std::string(instance)+"' not found.");
         return false;
     } else {
         outputSources.emplace_back(asName);
@@ -514,7 +514,7 @@ void AnalysisCore::expectedSaveArgumentsError(int expectedArgumentCount, Status&
             s.set(Status::Save, "Save directive requires one argument.");
             break;
         default:
-            s.set(Status::Save, "Save directive requires "+std::to_string(errorExpectedArgCount)+" arguments.");
+            s.set(Status::Save, "Save directive requires "+std::to_string(expectedArgumentCount)+" arguments.");
             break;
     }
 }
