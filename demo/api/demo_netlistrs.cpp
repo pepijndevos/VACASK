@@ -28,14 +28,16 @@ int main(int argc, char** argv) {
 
     // Load .osdi models for passives, sources, and semiconductor devices.
     // vsource/isource are builtin (no load needed).
-    // Semiconductor masters: diode, bsim3 (bsim3v3.osdi), bsim4 (bsim4v8.osdi),
-    // bsimbulk (bsimbulk106.osdi), psp103va (psp103v4.osdi), vbic13 (vbic_1p3.osdi).
+    // Semiconductor masters: diode, bsim3 (bsim3v3.osdi), sp_bsim4v8 (spice/bsim4v8.osdi),
+    // bsim4 (bsim4v8.osdi, generic), bsimbulk (bsimbulk106.osdi), psp103va (psp103v4.osdi),
+    // vbic13 (vbic_1p3.osdi).
     tab.add(PTLoad("resistor.osdi"))
        .add(PTLoad("spice/resistor.osdi"))   // sp_resistor (ngspice R: tc1/tc2/w/l)
        .add(PTLoad("capacitor.osdi"))
        .add(PTLoad("inductor.osdi"))
        .add(PTLoad("diode.osdi"))
        .add(PTLoad("spice/diode.osdi"))     // sp_diode (ngspice diode: level/js/cj/…)
+       .add(PTLoad("spice/bsim4v8.osdi"))   // sp_bsim4v8 (arpad ngspice BSIM4, level 54 — Sky130)
        .add(PTLoad("bsim3v3.osdi"))
        .add(PTLoad("bsim4v8.osdi"))
        .add(PTLoad("vbic_1p3.osdi"));

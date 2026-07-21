@@ -1102,8 +1102,7 @@ module bsim4(d, g, s, b);
     parameter real ef = `NOT_GIVEN;              // Flicker noise frequency exponent
     parameter real af = `NOT_GIVEN;              // Flicker noise exponent
     parameter real kf = `NOT_GIVEN;              // Flicker noise coeff
-    parameter real lintnoi = `NOT_GIVEN;         // Lint offset for noise calculation (accepted, not used in DC op)
-
+   
    //  BSIM4.3
    
     (*type = "instance"*) parameter real sa = `NOT_GIVEN;   // Distance between OD edge to Poly [m]
@@ -1199,7 +1198,7 @@ module bsim4(d, g, s, b);
     parameter real wcigd = `NOT_GIVEN;		//Enh new params version >4.3
     parameter real lcigd = `NOT_GIVEN;		//Enh new params version >4.3
     parameter real pcigd = `NOT_GIVEN;		//Enh new params version >4.3    
-    (*type = "instance"*) parameter real delvto = `NOT_GIVEN;		//Enh new params version >4.3 (instance: per-device Vth shift)
+    parameter real delvto = `NOT_GIVEN;		//Enh new params version >4.3
     parameter real ados = `NOT_GIVEN;		//Enh new params version >4.3
     parameter real bdos = `NOT_GIVEN;		//Enh new params version >4.3    
     parameter real agisl = `NOT_GIVEN;		//Enh new params version >4.3
@@ -12388,23 +12387,29 @@ module bsim4(d, g, s, b);
     endcase // case(BSIM4rgateMod)
         
     if (BSIM4rbodyMod) begin
-    //using I(a,b)<+... (conductance stamp) for all backends; the V(a,b)<+I/g form
-    //causes zero-pivot failures in OpenVAF-based simulators (e.g. VACASK).
+    //using I(a,b)<+... instead of V(a,b)<+.. for node collapse condition, or else Xyce fail
+`ifdef __XYCE_VAMS__
+//using I, both ok for me
         I(sbulk,bi) <+ V(sbulk,bi) * BSIM4grbps;
         I(sbulk,b)  <+ V(sbulk,b)  * BSIM4grbsb;
         I(b,bi)     <+ V(b,bi)     * BSIM4grbpb;
         I(b,dbulk)  <+ V(b,dbulk)  * BSIM4grbdb;
-        I(bi,dbulk) <+ V(bi,dbulk) * BSIM4grbpd;
+        I(bi,dbulk) <+ V(bi,dbulk) * BSIM4grbpd;  
+`else
+        V(sbulk,bi) <+ I(sbulk,bi) / BSIM4grbps;
+        V(sbulk,b)  <+ I(sbulk,b)  / BSIM4grbsb;
+        V(b,bi)     <+ I(b,bi)     / BSIM4grbpb;
+        V(b,dbulk)  <+ I(b,dbulk)  / BSIM4grbdb;
+        V(bi,dbulk) <+ I(bi,dbulk) / BSIM4grbpd;       
+`endif
     end
     else begin
-      // rbodymod=0: collapse internal body nodes by shorting to b via large conductance.
-      // Using I() (conductance stamp) avoids creating flow variables that cause zero-pivot
-      // failures in OpenVAF-based simulators when rbodymod=1 is in effect for other instances.
-      I(sbulk,b)  <+ V(sbulk,b)  * 1e12;
-      I(b,bi)     <+ V(b,bi)     * 1e12;
-      I(b,dbulk)  <+ V(b,dbulk)  * 1e12;
-      I(sbulk,bi) <+ V(sbulk,bi) * 1e12;
-      I(bi,dbulk) <+ V(bi,dbulk) * 1e12;
+      V(sbulk,b)  <+ 0.0;
+      V(b,bi)     <+ 0.0;
+      V(b,dbulk)  <+ 0.0;
+      //remove 2 below to avoid voltage loop
+      //V(sbulk,bi) <+ 0.0;
+      //V(bi,dbulk) <+ 0.0;     
     end
     //using the same notation for both topologies
     I(sbulk,si) <+ BSIM4type*BSIM4cbs;    
@@ -12498,13 +12503,11 @@ module bsim4(d, g, s, b);
         I(gm, g) <+ white_noise(4 * `P_K * T * BSIM4grgeltd, "Rg");
 
     if (BSIM4rbodyMod) begin
-        // Use I() (Norton) form to avoid creating flow variables that cause zero-pivot
-        // failures in OpenVAF-based simulators during DC op. S_i = 4kT*g = 4kT/R.
-        I(bi, sbulk) <+ white_noise(4 * `P_K * T * BSIM4grbps, "Rbulk");
-        I(bi, dbulk) <+ white_noise(4 * `P_K * T * BSIM4grbpd, "Rbulk");
-        I(bi, b)     <+ white_noise(4 * `P_K * T * BSIM4grbpb, "Rbulk");
-        I(b, sbulk)  <+ white_noise(4 * `P_K * T * BSIM4grbsb, "Rbulk");
-        I(b, dbulk)  <+ white_noise(4 * `P_K * T * BSIM4grbdb, "Rbulk");
+        V(bi, sbulk) <+ white_noise(4 * `P_K * T * BSIM4rbps, "Rbulk");
+        V(bi, dbulk) <+ white_noise(4 * `P_K * T * BSIM4rbpd, "Rbulk");
+        V(bi, b)     <+ white_noise(4 * `P_K * T * BSIM4rbpb, "Rbulk");
+        V(b, sbulk)  <+ white_noise(4 * `P_K * T * BSIM4rbsb, "Rbulk");
+        V(b, dbulk)  <+ white_noise(4 * `P_K * T * BSIM4rbdb, "Rbulk");
     end
 
     case(BSIM4tnoiMod) 

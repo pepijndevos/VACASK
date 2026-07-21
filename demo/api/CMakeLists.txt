@@ -262,7 +262,7 @@ set_tests_properties(demo_netlistrs_spice_warnonly PROPERTIES
 # time, so CI without the PDK stays green.  Uses .lib tt corner to pull in corner
 # params + all models together (the PDK's intended consumption pattern).
 set(SKY130_LIB "/home/pepijn/code/nyanodide/skywater-pdk-libs-sky130_fd_pr/combined_models/sky130.lib.spice")
-if(EXISTS "${SKY130_LIB}" AND EXISTS "${VACASK_MOD_DIR_DEFAULT}/bsim4v8.osdi")
+if(EXISTS "${SKY130_LIB}" AND EXISTS "${VACASK_MOD_DIR_DEFAULT}/spice/bsim4v8.osdi")
     add_test(NAME demo_netlistrs_sky130_nfet_bin
              COMMAND demo_netlistrs "${CMAKE_CURRENT_SOURCE_DIR}/sky130_nfet_bin.cir"
                                     "${VACASK_MOD_DIR_DEFAULT}")

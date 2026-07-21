@@ -208,12 +208,14 @@ static std::string spiceModelMaster(const std::string& model_type_raw,
 
         // Dispatch table: level -> OSDI master name
         // (uses filenames without .osdi suffix; VA module names are the master)
-        // bsim3v3.osdi  -> module bsim3   (bsim3v3 3.3, accepts level 49-53)
-        // bsim4v8.osdi  -> module bsim4   (bsim4 4.8, level 14 is typical)
-        // bsimbulk106.osdi -> module bsimbulk (has thermal port; 5 terminals)
-        // psp103v4.osdi -> module psp103va (accepts level 103)
+        // bsim3v3.osdi        -> module bsim3      (bsim3v3 3.3, accepts level 49-53)
+        // spice/bsim4v8.osdi  -> module sp_bsim4v8 (arpad ngspice-flavored BSIM4 4.8,
+        //                        level 54 — same spice/ family as sp_resistor/sp_diode;
+        //                        this is the variant the Sky130 VACASK port uses)
+        // bsimbulk106.osdi    -> module bsimbulk   (has thermal port; 5 terminals)
+        // psp103v4.osdi       -> module psp103va   (accepts level 103)
         // Default (levels 1/2/3/49/53 or unknown) -> bsim3
-        if (level == 54)               return "bsim4";
+        if (level == 54)               return "sp_bsim4v8";
         if (level == 70 || level == 72) {
             Simulator::err() << "WARNING: MOSFET level=" << level
                              << " (bsimbulk): has thermal port; connect substrate to 0 or add explicit bulk node\n";
@@ -292,6 +294,11 @@ static std::optional<PTModel> buildSpiceModelCard(const netlist::SpiceModel& m,
 
     std::set<std::string> excl = extraExclude;
     excl.insert("level");
+    // sp_bsim4v8 declares `version` as a string parameter (e.g. "4.8.3").
+    // Sky130 model cards write `version=4.5` (unquoted real), which would cause
+    // a type-mismatch error at elaboration.  Strip it so the OSDI default ("4.8.3")
+    // is used; the version selector affects only minor equation variants.
+    if (master == "sp_bsim4v8") excl.insert("version");
     auto ps = paramStringExcludingSet(m.params, excl);
     // sp_diode has a real `level` model param (junction-cap selector); re-append.
     if (master == "sp_diode") {
