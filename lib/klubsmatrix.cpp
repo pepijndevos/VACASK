@@ -86,6 +86,9 @@ bool KluBlockSparseMatrixCore<IndexType, ValueType>::rebuild(SparsityMap& m, Equ
     if (!storageOnly) {
         AP.resize(AN+1);
         AI.resize(nnz_);
+    } else {
+        AP.clear();
+        AI.clear();
     }
     
     // Element column index
@@ -208,6 +211,8 @@ bool KluBlockSparseMatrixCore<IndexType, ValueType>::rebuild(SparsityMap& m, Equ
     }
     if (!st) {
         lastError = Error::Defaults;
+        // Set smap to nullptr indicating failed rebuild()
+        smap = nullptr;
         return false;
     }
 
@@ -219,6 +224,8 @@ bool KluBlockSparseMatrixCore<IndexType, ValueType>::rebuild(SparsityMap& m, Equ
         }
         if (!symbolic) {
             lastError = Error::Analysis;
+            // Set smap to nullptr indicating failed rebuild()
+            smap = nullptr;
             return false;
         }
     } else {

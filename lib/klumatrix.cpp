@@ -182,6 +182,8 @@ template<typename IndexType, typename ValueType> bool KluMatrixCore<IndexType, V
     }
     if (!st) {
         lastError = Error::Defaults;
+        // Set smap to nullptr indicating failed rebuild()
+        smap = nullptr;
         return false;
     }
 
@@ -192,6 +194,8 @@ template<typename IndexType, typename ValueType> bool KluMatrixCore<IndexType, V
     }
     if (!symbolic) {
         lastError = Error::Analysis;
+        // Set smap to nullptr indicating failed rebuild()
+        smap = nullptr;
         return false;
     }
     

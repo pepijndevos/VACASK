@@ -213,9 +213,12 @@ public:
 
     // Error element
     std::tuple<IndexType, IndexType> errorElement() const {
-        for(IndexType col=0; col<AN; col++) {
-            if (AP[col]<=errorIndex && errorIndex<AP[col+1]) {
-                return std::make_tuple(AI[errorIndex], col); 
+        if (AP.size()==AN+1) {
+            // Search only if this matrix is not storage only
+            for(IndexType col=0; col<AN; col++) {
+                if (AP[col]<=errorIndex && errorIndex<AP[col+1]) {
+                    return std::make_tuple(AI[errorIndex], col); 
+                }
             }
         }
         return std::make_tuple(-1, -1);
@@ -259,7 +262,7 @@ public:
     IndexType nCol() const { return AN; };
 
     // Return number of nonzeros
-    IndexType nnz() const { return AP[AN]; };
+    IndexType nnz() const { return nnz_; };
 
     // Set entries to 0, clear error
     void zero(Component what=Component::Real|Component::Imaginary);

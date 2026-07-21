@@ -352,16 +352,68 @@ falls through to "not equal," safely forcing a rebuild rather than silently
 trusting stale state. This now correctly reaches the existing "outspur not
 allowed to change" guard in `rebuild()`. No remaining issue.
 
-### 9. [ ] [klubsmatrix.cpp:83](lib/klubsmatrix.cpp#L83) — `storageOnly=true` rebuild leaves `AP`/`AI` unresized while inherited base methods assume they're sized `AN+1`
+### 9. [x] [klubsmatrix.cpp:83](lib/klubsmatrix.cpp#L83) — `storageOnly=true` rebuild leaves `AP`/`AI` unresized while inherited base methods assume they're sized `AN+1`
 When `storageOnly` is true, `AP.resize(AN+1); AI.resize(nnz_);` is skipped
 entirely, but `KluMatrixCore::nnz()` (`return AP[AN];`) and `errorElement()`
 (loops `AP[col]`/`AP[col+1]`) are inherited unchanged and not
 storageOnly-aware — an out-of-bounds `std::vector::operator[]` read on a
-freshly-constructed storage-only block matrix. Currently unreachable: no
-caller anywhere in the tree passes `storageOnly=true` yet, so this is latent
-capability added for future use — worth guarding before something calls it.
+freshly-constructed storage-only block matrix.
 
-### 10. [ ] [klumatrix.h:201](include/klumatrix.h#L201) — `isBuilt()` can return true after a failed `rebuild()`
+**Correction: this is NOT dead/speculative code — `storageOnly=true` is
+already used by two live matrices.** The original "no caller anywhere passes
+`storageOnly=true`" claim was wrong. Two real call sites do:
+```cpp
+// lib/corehb.cpp:562 (HB core)
+jacColoc.rebuild(circuit.sparsityMap(), circuit.unknownCount(), nt, 2, true);
+// lib/corehbac.cpp:430 (HBAC core)
+if (!jacSpec.rebuild(circuit.sparsityMap(), circuit.unknownCount(), nf, 2, true)) {
+```
+What keeps this from crashing *today* is narrower than "unreachable": I
+traced every call site of the two unsafe accessors and neither `.nnz()` nor
+`.formatError()` (which is what invokes `errorElement()`) is ever called on
+`jacColoc` or `jacSpec` themselves. Notably, even when
+`jacSpec.isFinite(true, true)` fails (`corehbac.cpp:552-559`), the resulting
+error is reported via `acMatrix.formatError(s, &nr)` — a *different*,
+non-storage-only matrix — not `jacSpec.formatError()`. `isFinite()` itself is
+safe on a storage-only matrix (it only scans `Ax`, which is unconditionally
+resized at `klubsmatrix.cpp:191` regardless of `storageOnly`). So the safety
+margin here is accidental: it only takes someone later wiring up direct error
+reporting for `jacSpec`/`jacColoc` (the natural fix if *their* own entry is
+the one that's actually non-finite, rather than attributing the error to
+`acMatrix`) to hit the out-of-bounds read.
+
+**Status: FIXED** (uncommitted working-tree change, both accessors made
+storageOnly-aware instead of relying on no caller reaching them):
+```cpp
+// nnz() no longer reads AP at all:
+IndexType nnz() const { return nnz_; };   // was: return AP[AN];
+```
+`nnz_` is a plain member set unconditionally in both `KluMatrixCore::rebuild()`
+and `KluBlockSparseMatrixCore::rebuild()`, regardless of `storageOnly`, so
+this is safe on a storage-only matrix.
+```cpp
+// errorElement() now guards on AP actually being built:
+std::tuple<IndexType, IndexType> errorElement() const {
+    if (AP.size()==AN+1) {
+        // Search only if this matrix is not storage only
+        for(IndexType col=0; col<AN; col++) {
+            if (AP[col]<=errorIndex && errorIndex<AP[col+1]) {
+                return std::make_tuple(AI[errorIndex], col); 
+            }
+        }
+    }
+    return std::make_tuple(-1, -1);
+}
+```
+On a storage-only matrix (`AP` never resized) this now safely returns a
+`(-1, -1)` sentinel instead of indexing out of bounds. The one caller
+(`klumatrix.cpp:776`, inside `formatError()`'s `Error::MatrixInfNan` case)
+just interpolates `row`/`col` into an error message, so `(-1, -1)` produces a
+merely cosmetically-off message (not currently reachable for `jacSpec`/
+`jacColoc` anyway, per the note above) rather than UB. No remaining
+memory-safety issue.
+
+### 10. [x] [klumatrix.h:201](include/klumatrix.h#L201) — `isBuilt()` can return true after a failed `rebuild()`
 ```cpp
 bool isBuilt() const { return smap!=nullptr; };
 ```
@@ -373,6 +425,17 @@ so `isBuilt()` reports true although the matrix isn't actually factorizable.
 confidence this is exercised today (a failed `rebuild()` likely aborts
 before that check runs), but the contract as written doesn't match
 "successfully built."
+
+**Status: FIXED** (uncommitted working-tree change, both classes). Both the
+`klu_defaults` and `klu_analyze` failure paths in `KluMatrixCore::rebuild()`
+(`lib/klumatrix.cpp`) and, separately, in `KluBlockSparseMatrixCore::rebuild()`
+(`lib/klubsmatrix.cpp`, which has its own independent `klu_defaults`/
+`klu_analyze` calls rather than delegating to the base class) now set
+`smap = nullptr;` before returning `false`. Since `smap` is the shared,
+inherited member `isBuilt()` reads, it now correctly reports `false` after
+either failure mode in both classes — including `KluBlockSparseRealMatrix`,
+the concrete type `bsjac` actually is at the reachable call site in
+`corehbnr.cpp`. No remaining issue.
 
 ### 11. [x] [core.cpp:404](lib/core.cpp#L404) — Asymmetric output-name fallback between sibling `addRealVarOutputSource`/`addComplexVarOutputSource` overloads
 Three of the four overloads use `outputSources.emplace_back(asName)` in the
