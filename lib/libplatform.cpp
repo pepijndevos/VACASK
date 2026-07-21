@@ -4,6 +4,14 @@
 #include "common.h"
 #include <tuple>
 #include <cstdlib>
+#include <chrono>
+
+#ifdef SIMMACOS
+#include <format>
+#include <ctime>
+#include <sstream>
+#include <iomanip>
+#endif
 
 namespace NAMESPACE {
 
@@ -115,5 +123,23 @@ const char* defaultOpenVafBinaryName() {
 #endif
     return binary;
 }
+
+#ifndef SIMMACOS
+std::string formattedTimestamp() {
+    auto now = std::chrono::floor<std::chrono::seconds>(std::chrono::system_clock::now());
+    auto localTime = std::chrono::zoned_time{std::chrono::current_zone(), now};
+    return std::format("{:%a %b %e %H:%M:%S %Y}", localTime);
+}
+#else
+std::string formattedTimestamp() {
+    std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+    std::tm localTime;
+    localtime_r(&now, &localTime);
+    std::ostringstream oss;
+    oss << std::put_time(&localTime, "%a %b %e %H:%M:%S %Y");
+    return oss.str();
+}
+#endif
+
 
 }

@@ -1,5 +1,5 @@
 #include "outrawfile.h"
-#include <chrono>
+#include "libplatform.h"
 #include <format>
 #include <iomanip>
 #include <filesystem>
@@ -32,10 +32,8 @@ bool OutputRawfile::prologue(Status& s) {
     
     // Thread-safe local timestamp; asctime/localtime use shared static buffers.
     // floor<seconds> drops sub-second digits so %S matches asctime's layout.
-    auto now = std::chrono::floor<std::chrono::seconds>(std::chrono::system_clock::now());
-    auto localTime = std::chrono::zoned_time{std::chrono::current_zone(), now};
-    outStream << "Date: " << std::format("{:%a %b %e %H:%M:%S %Y}", localTime) << "\n";
-
+    outStream << "Date: " << formattedTimestamp() << "\n";
+    
     outStream << "Plotname: " << plotname_ << "\n";
     outStream << "Flags: " << (checkFlags(Flags::Complex) ? "complex" : "real" ) 
               << (checkFlags(Flags::Padded) ? "" : " unpadded") << "\n";
