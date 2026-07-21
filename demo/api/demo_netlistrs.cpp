@@ -35,6 +35,7 @@ int main(int argc, char** argv) {
        .add(PTLoad("capacitor.osdi"))
        .add(PTLoad("inductor.osdi"))
        .add(PTLoad("diode.osdi"))
+       .add(PTLoad("spice/diode.osdi"))     // sp_diode (ngspice diode: level/js/cj/…)
        .add(PTLoad("bsim3v3.osdi"))
        .add(PTLoad("bsim4v8.osdi"))
        .add(PTLoad("vbic_1p3.osdi"));
@@ -48,6 +49,12 @@ int main(int argc, char** argv) {
     OpenvafCompiler comp;
     Circuit cir(tab, &comp, s);
     if (!cir.isValid()) { Simulator::err() << s.message() << "\n"; return 1; }
+
+    // Sky130 PDK geometries are in microns; the models expect scale=1e-6
+    // (matches the PDK's own VACASK smoke-test recipe). Must be set before
+    // elaborate (scale affects device sizing/mapping).
+    bool is_sky130 = (path.find("sky130") != std::string::npos);
+    if (is_sky130) cir.setOption("scale", 1e-6);
 
     if (!cir.elaborate({}, "__topdef__", "__topinst__", nullptr, s)) {
         Simulator::err() << "elaboration failed: " << s.message() << "\n"; return 1;
@@ -66,7 +73,7 @@ int main(int argc, char** argv) {
             Simulator::err() << "ERROR: rc_nested: x1:r1 not found in hierarchy\n";
             return 1;
         }
-        if (found_r) {
+        if (require_nested && found_r) {
             Simulator::out() << "param check: x1:r1 r=" << val_r.str() << "\n";
             if (val_r.str() != "2000") {
                 Simulator::err() << "ERROR: x1:r1 r expected 2000 (rext override), got " << val_r.str() << "\n";
@@ -78,7 +85,7 @@ int main(int argc, char** argv) {
             Simulator::err() << "ERROR: rc_nested: x1:c1 not found in hierarchy\n";
             return 1;
         }
-        if (found_c) {
+        if (require_nested && found_c) {
             Simulator::out() << "param check: x1:c1 c=" << val_c.str() << "\n";
             if (val_c.str() != "3e-06") {
                 Simulator::err() << "ERROR: x1:c1 c expected 3e-06 (call-site override), got " << val_c.str() << "\n";
@@ -92,7 +99,8 @@ int main(int argc, char** argv) {
     // Without the SubcktCall adapter X1 is skipped → X1:R1 not found → error.
     {
         bool require_spice_subckt = (path.find("spice_subckt") != std::string::npos);
-        auto [found_xr, val_xr] = cir.instanceParameter("X1:R1", "r");
+        // SPICE names are canonicalized to lowercase by the netlistrs adapter.
+        auto [found_xr, val_xr] = cir.instanceParameter("x1:r1", "r");
         if (require_spice_subckt && !found_xr) {
             Simulator::err() << "ERROR: spice_subckt: X1:R1 not found in hierarchy "
                                 "(SubcktCall adapter not implemented?)\n";
@@ -113,7 +121,7 @@ int main(int argc, char** argv) {
     // Without the Vcvs adapter E1 is skipped → gain not found → error.
     {
         bool require_vcvs = (path.find("vcvs") != std::string::npos);
-        auto [found_eg, val_eg] = cir.instanceParameter("E1", "gain");
+        auto [found_eg, val_eg] = cir.instanceParameter("e1", "gain");
         if (require_vcvs && !found_eg) {
             Simulator::err() << "ERROR: spice_vcvs: E1 not found in elaborated hierarchy "
                                 "(Vcvs adapter not implemented?)\n";
@@ -166,7 +174,7 @@ int main(int argc, char** argv) {
     // Without the D/M/Q adapter, M1 is skipped → not found → error.
     {
         bool require_mos = (path.find("spice_mos") != std::string::npos);
-        auto [found_m, val_m] = cir.instanceParameter("M1", "l");
+        auto [found_m, val_m] = cir.instanceParameter("m1", "l");
         if (require_mos && !found_m) {
             Simulator::err() << "ERROR: spice_mos: M1 not found in elaborated hierarchy "
                                 "(M adapter not implemented?)\n";
@@ -190,7 +198,7 @@ int main(int argc, char** argv) {
     // V(2) = -5V (F1 drains 5mA from node 2; Rload=1k to 0).
     {
         bool require_cccs = (path.find("spice_cccs") != std::string::npos);
-        auto [found_fg, val_fg] = cir.instanceParameter("F1", "gain");
+        auto [found_fg, val_fg] = cir.instanceParameter("f1", "gain");
         if (require_cccs && !found_fg) {
             Simulator::err() << "ERROR: spice_cccs: F1 not found in elaborated hierarchy "
                                 "(Cccs adapter not working?)\n";
@@ -229,6 +237,19 @@ int main(int argc, char** argv) {
                 return 1;
             }
         }
+    }
+
+    // Sky130 devices: run a DC operating point (the PDK recipe uses op; a bare
+    // transient without an initial op tends to be stiff for these models).
+    if (is_sky130) {
+        auto opDesc = PTAnalysis("op1", "op");
+        std::unique_ptr<Analysis> op(Analysis::create(opDesc, cir, s));
+        if (!op) { Simulator::err() << "analysis create failed: " << s.message() << "\n"; return 1; }
+        op->add(PTSave("default"));
+        auto [ok, canResume] = op->run(s);
+        if (!ok) { Simulator::err() << "analysis failed: " << s.message() << "\n"; return 1; }
+        Simulator::out() << "Analysis OK (sky130 op).\n";
+        return 0;
     }
 
     auto tranDesc = PTAnalysis("tran1", "tran");

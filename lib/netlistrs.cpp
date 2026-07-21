@@ -15,6 +15,33 @@ namespace {
 // Convert rust::String to std::string.
 std::string sv(const rust::String& s) { return std::string(s); }
 
+// SPICE is case-insensitive, but VACASK interns every identifier into a
+// case-sensitive Id (exact strcmp) keyed in unordered_map<Id,…>. To make
+// SPICE-origin names bind, canonicalize them to lowercase here — the netlistrs
+// adapter is the one place that knows the content came from a SPICE block.
+// This matches VACASK's own OSDI loader (which lowercases device/parameter/
+// terminal storage keys) and its lowercase builtin functions (agauss, gauss,
+// sin, …). Spectre-origin names (makeInstance/makeModel/fillSubDef) are left
+// verbatim: Spectre is case-sensitive by contract.
+//
+// Whole-string lowercasing of a param/expression string is safe because SPICE
+// is case-insensitive throughout — no identifier loses meaning, and PDK model/
+// param expressions carry no case-significant string literals. Filesystem
+// include paths are NOT run through this (they stay case-sensitive).
+//
+// Caveat: builtin *constants* (M_PI, P_Q, …) are registered uppercase, so a
+// SPICE expression referencing one by name would not resolve after lowercasing.
+// Not observed in PDK expressions; add lowercase aliases in context.cpp if it
+// ever occurs.
+std::string lc(std::string s) {
+    std::transform(s.begin(), s.end(), s.begin(),
+                   [](unsigned char c) { return std::tolower(c); });
+    return s;
+}
+
+// Lowercased Id / node list for SPICE-origin identifiers.
+Id spiceId(const std::string& s) { return Id(lc(s).c_str()); }
+
 // Strip ngspice expression quoting (`{expr}` braces, `'expr'` quotes) and
 // collapse SPICE continuation markers (`\n+`) from parameter values.
 std::string stripExprQuoting(const std::string& v) {
@@ -52,6 +79,13 @@ std::string paramString(const rust::Vec<netlist::Param>& params) {
 PTIdentifierList nodeList(const rust::Vec<rust::String>& nodes) {
     PTIdentifierList terms;
     for (const auto& n : nodes) terms.push_back(PTParsedIdentifier(sv(n).c_str()));
+    return terms;
+}
+
+// SPICE-origin node list: lowercased (see lc above).
+PTIdentifierList spiceNodeList(const rust::Vec<rust::String>& nodes) {
+    PTIdentifierList terms;
+    for (const auto& n : nodes) terms.push_back(PTParsedIdentifier(lc(sv(n)).c_str()));
     return terms;
 }
 
@@ -153,8 +187,16 @@ static std::string spiceModelMaster(const std::string& model_type_raw,
     std::string mt = model_type_raw;
     std::transform(mt.begin(), mt.end(), mt.begin(), ::tolower);
 
-    // Diode: d -> diode (top-level diode.osdi, module diode(A,C))
-    if (mt == "d") return "diode";
+    // Diode: d -> generic diode (diode.osdi, module diode(A,C)) when no level
+    // is given. ngspice diodes with an explicit level (1/3) — e.g. Sky130
+    // sky130_fd_pr__diode_* models — need the fuller ngspice sp_diode master
+    // (spice/diode.osdi), which has js/jsw/cj/cjsw/tlevc/gap/… params the
+    // generic diode lacks.
+    if (mt == "d") {
+        int dlevel = 0;
+        try { dlevel = std::stoi(level_str); } catch (...) {}
+        return (dlevel > 0) ? "sp_diode" : "diode";
+    }
 
     // MOSFET: nmos/pmos by level
     if (mt == "nmos" || mt == "pmos") {
@@ -212,10 +254,16 @@ static void addSpiceModelCard(const netlist::SpiceModel& m,
     std::string master = spiceModelMaster(mt_raw, sv(m.level), "");
     if (master.empty()) return; // warning already emitted by spiceModelMaster
 
-    PTModel mod(Id(sv(m.name).c_str()), Id(master.c_str()));
+    PTModel mod(spiceId(sv(m.name)), Id(master.c_str()));
 
     auto ps = paramStringExcluding(m.params, {"level"});
-    if (!ps.empty()) mod.add(p.parseParameters(ps));
+    // sp_diode has a real `level` model param (junction-cap model selector);
+    // re-append it since it was stripped as a dispatch key above.
+    if (master == "sp_diode") {
+        std::string lvl = sv(m.level);
+        if (!lvl.empty()) ps += (ps.empty() ? "" : " ") + std::string("level=") + lvl;
+    }
+    if (!ps.empty()) mod.add(p.parseParameters(lc(ps)));
 
     std::string mt = mt_raw;
     std::transform(mt.begin(), mt.end(), mt.begin(), ::tolower);
@@ -317,9 +365,10 @@ static void ensureSpiceModel(PTSubcircuitDefinition& into, const std::string& ma
 // Process a single SpiceDevice into the given subcircuit definition.
 static bool addSpiceDevice(const netlist::SpiceDevice& dev, PTSubcircuitDefinition& into,
                            Parser& p, std::set<std::string>& addedModels, Status& s) {
-    std::string name = sv(dev.name);
-    std::string val  = sv(dev.value);
-    std::string mdl  = sv(dev.model);
+    // SPICE-origin identifiers/expressions → lowercase (see lc/spiceId above).
+    std::string name = lc(sv(dev.name));
+    std::string val  = lc(sv(dev.value));
+    std::string mdl  = lc(sv(dev.model));
 
     switch (dev.kind) {
         case netlist::SpiceDeviceKind::Resistor: {
@@ -346,9 +395,9 @@ static bool addSpiceDevice(const netlist::SpiceDevice& dev, PTSubcircuitDefiniti
                 ensureSpiceModel(into, "sp_resistor", addedModels);
                 rval = val;
             }
-            PTInstance inst(Id(name.c_str()), Id(master.c_str()), nodeList(dev.nodes));
+            PTInstance inst(Id(name.c_str()), Id(master.c_str()), spiceNodeList(dev.nodes));
             if (!rval.empty()) inst.add(p.parseParameters("r=" + rval));
-            auto ps = paramString(dev.params);
+            auto ps = lc(paramString(dev.params));
             if (!ps.empty()) inst.add(p.parseParameters(ps));
             into.add(std::move(inst));
             break;
@@ -356,9 +405,9 @@ static bool addSpiceDevice(const netlist::SpiceDevice& dev, PTSubcircuitDefiniti
         case netlist::SpiceDeviceKind::Capacitor: {
             std::string master = mdl.empty() ? "capacitor" : mdl;
             ensureSpiceModel(into, "capacitor", addedModels);
-            PTInstance inst(Id(name.c_str()), Id(master.c_str()), nodeList(dev.nodes));
+            PTInstance inst(Id(name.c_str()), Id(master.c_str()), spiceNodeList(dev.nodes));
             if (!val.empty()) inst.add(p.parseParameters("c=" + val));
-            auto ps = paramString(dev.params);
+            auto ps = lc(paramString(dev.params));
             if (!ps.empty()) inst.add(p.parseParameters(ps));
             into.add(std::move(inst));
             break;
@@ -366,32 +415,32 @@ static bool addSpiceDevice(const netlist::SpiceDevice& dev, PTSubcircuitDefiniti
         case netlist::SpiceDeviceKind::Inductor: {
             std::string master = mdl.empty() ? "inductor" : mdl;
             ensureSpiceModel(into, "inductor", addedModels);
-            PTInstance inst(Id(name.c_str()), Id(master.c_str()), nodeList(dev.nodes));
+            PTInstance inst(Id(name.c_str()), Id(master.c_str()), spiceNodeList(dev.nodes));
             if (!val.empty()) inst.add(p.parseParameters("l=" + val));
-            auto ps = paramString(dev.params);
+            auto ps = lc(paramString(dev.params));
             if (!ps.empty()) inst.add(p.parseParameters(ps));
             into.add(std::move(inst));
             break;
         }
         case netlist::SpiceDeviceKind::VSource: {
             ensureSpiceModel(into, "vsource", addedModels);
-            PTInstance inst(Id(name.c_str()), Id("vsource"), nodeList(dev.nodes));
+            PTInstance inst(Id(name.c_str()), Id("vsource"), spiceNodeList(dev.nodes));
             std::string srcParams = spiceSourceParams(dev.source);
-            auto ps = paramString(dev.params);
+            auto ps = lc(paramString(dev.params));
             if (!srcParams.empty() && !ps.empty()) srcParams += " ";
             srcParams += ps;
-            if (!srcParams.empty()) inst.add(p.parseParameters(srcParams));
+            if (!srcParams.empty()) inst.add(p.parseParameters(lc(srcParams)));
             into.add(std::move(inst));
             break;
         }
         case netlist::SpiceDeviceKind::ISource: {
             ensureSpiceModel(into, "isource", addedModels);
-            PTInstance inst(Id(name.c_str()), Id("isource"), nodeList(dev.nodes));
+            PTInstance inst(Id(name.c_str()), Id("isource"), spiceNodeList(dev.nodes));
             std::string srcParams = spiceSourceParams(dev.source);
-            auto ps = paramString(dev.params);
+            auto ps = lc(paramString(dev.params));
             if (!srcParams.empty() && !ps.empty()) srcParams += " ";
             srcParams += ps;
-            if (!srcParams.empty()) inst.add(p.parseParameters(srcParams));
+            if (!srcParams.empty()) inst.add(p.parseParameters(lc(srcParams)));
             into.add(std::move(inst));
             break;
         }
@@ -404,9 +453,9 @@ static bool addSpiceDevice(const netlist::SpiceDevice& dev, PTSubcircuitDefiniti
                                  << "' has no model reference (skipped)\n";
                 break;
             }
-            PTInstance inst(Id(name.c_str()), Id(mdl.c_str()), nodeList(dev.nodes));
+            PTInstance inst(Id(name.c_str()), Id(mdl.c_str()), spiceNodeList(dev.nodes));
             // Note: Rust Diode projects value="" (area not a named OSDI param in diode.va).
-            auto ps = paramString(dev.params);
+            auto ps = lc(paramString(dev.params));
             if (!ps.empty()) inst.add(p.parseParameters(ps));
             into.add(std::move(inst));
             break;
@@ -420,8 +469,8 @@ static bool addSpiceDevice(const netlist::SpiceDevice& dev, PTSubcircuitDefiniti
                                  << "' has no model reference (skipped)\n";
                 break;
             }
-            PTInstance inst(Id(name.c_str()), Id(mdl.c_str()), nodeList(dev.nodes));
-            auto ps = paramString(dev.params);
+            PTInstance inst(Id(name.c_str()), Id(mdl.c_str()), spiceNodeList(dev.nodes));
+            auto ps = lc(paramString(dev.params));
             if (!ps.empty()) inst.add(p.parseParameters(ps));
             into.add(std::move(inst));
             break;
@@ -436,8 +485,8 @@ static bool addSpiceDevice(const netlist::SpiceDevice& dev, PTSubcircuitDefiniti
                                  << "' has no model reference (skipped)\n";
                 break;
             }
-            PTInstance inst(Id(name.c_str()), Id(mdl.c_str()), nodeList(dev.nodes));
-            auto ps = paramString(dev.params);
+            PTInstance inst(Id(name.c_str()), Id(mdl.c_str()), spiceNodeList(dev.nodes));
+            auto ps = lc(paramString(dev.params));
             if (!ps.empty()) inst.add(p.parseParameters(ps));
             into.add(std::move(inst));
             break;
@@ -450,8 +499,8 @@ static bool addSpiceDevice(const netlist::SpiceDevice& dev, PTSubcircuitDefiniti
                                  << "' has no master subcircuit name (skipped)\n";
                 break;
             }
-            PTInstance inst(Id(name.c_str()), Id(mdl.c_str()), nodeList(dev.nodes));
-            auto ps = paramString(dev.params);
+            PTInstance inst(Id(name.c_str()), Id(mdl.c_str()), spiceNodeList(dev.nodes));
+            auto ps = lc(paramString(dev.params));
             if (!ps.empty()) inst.add(p.parseParameters(ps));
             into.add(std::move(inst));
             break;
@@ -468,12 +517,12 @@ static bool addSpiceDevice(const netlist::SpiceDevice& dev, PTSubcircuitDefiniti
             }
             ensureSpiceModel(into, "vcvs", addedModels);
             PTIdentifierList allNodes;
-            for (const auto& n : dev.nodes)       allNodes.push_back(PTParsedIdentifier(sv(n).c_str()));
-            for (const auto& cn : dev.ctrl_nodes) allNodes.push_back(PTParsedIdentifier(sv(cn).c_str()));
+            for (const auto& n : dev.nodes)       allNodes.push_back(PTParsedIdentifier(lc(sv(n)).c_str()));
+            for (const auto& cn : dev.ctrl_nodes) allNodes.push_back(PTParsedIdentifier(lc(sv(cn)).c_str()));
             PTInstance inst(Id(name.c_str()), Id("vcvs"), std::move(allNodes));
-            std::string gainVal = sv(dev.ctrl_value);
+            std::string gainVal = lc(sv(dev.ctrl_value));
             if (!gainVal.empty()) inst.add(p.parseParameters("gain=" + gainVal));
-            auto ps = paramString(dev.params);
+            auto ps = lc(paramString(dev.params));
             if (!ps.empty()) inst.add(p.parseParameters(ps));
             into.add(std::move(inst));
             break;
@@ -488,12 +537,12 @@ static bool addSpiceDevice(const netlist::SpiceDevice& dev, PTSubcircuitDefiniti
             }
             ensureSpiceModel(into, "vccs", addedModels);
             PTIdentifierList allNodes;
-            for (const auto& n : dev.nodes)       allNodes.push_back(PTParsedIdentifier(sv(n).c_str()));
-            for (const auto& cn : dev.ctrl_nodes) allNodes.push_back(PTParsedIdentifier(sv(cn).c_str()));
+            for (const auto& n : dev.nodes)       allNodes.push_back(PTParsedIdentifier(lc(sv(n)).c_str()));
+            for (const auto& cn : dev.ctrl_nodes) allNodes.push_back(PTParsedIdentifier(lc(sv(cn)).c_str()));
             PTInstance inst(Id(name.c_str()), Id("vccs"), std::move(allNodes));
-            std::string gainVal = sv(dev.ctrl_value);
+            std::string gainVal = lc(sv(dev.ctrl_value));
             if (!gainVal.empty()) inst.add(p.parseParameters("gain=" + gainVal));
-            auto ps = paramString(dev.params);
+            auto ps = lc(paramString(dev.params));
             if (!ps.empty()) inst.add(p.parseParameters(ps));
             into.add(std::move(inst));
             break;
@@ -514,15 +563,15 @@ static bool addSpiceDevice(const netlist::SpiceDevice& dev, PTSubcircuitDefiniti
                 break;
             }
             ensureSpiceModel(into, "cccs", addedModels);
-            PTInstance inst(Id(name.c_str()), Id("cccs"), nodeList(dev.nodes));
-            std::string ctlsrc  = sv(dev.ctrl_nodes[0]);
-            std::string gainVal = sv(dev.ctrl_value);
+            PTInstance inst(Id(name.c_str()), Id("cccs"), spiceNodeList(dev.nodes));
+            std::string ctlsrc  = lc(sv(dev.ctrl_nodes[0]));
+            std::string gainVal = lc(sv(dev.ctrl_value));
             // ctlinst is an Id param — must be quoted as a string literal in the expression.
             // ctlnode defaults to "flow(br)" in VACASK; no need to set it explicitly.
             std::string prms = "ctlinst=\"" + ctlsrc + "\"";
             if (!gainVal.empty()) prms += " gain=" + gainVal;
             inst.add(p.parseParameters(prms));
-            auto ps = paramString(dev.params);
+            auto ps = lc(paramString(dev.params));
             if (!ps.empty()) inst.add(p.parseParameters(ps));
             into.add(std::move(inst));
             break;
@@ -543,14 +592,14 @@ static bool addSpiceDevice(const netlist::SpiceDevice& dev, PTSubcircuitDefiniti
                 break;
             }
             ensureSpiceModel(into, "ccvs", addedModels);
-            PTInstance inst(Id(name.c_str()), Id("ccvs"), nodeList(dev.nodes));
-            std::string ctlsrc  = sv(dev.ctrl_nodes[0]);
-            std::string gainVal = sv(dev.ctrl_value);
+            PTInstance inst(Id(name.c_str()), Id("ccvs"), spiceNodeList(dev.nodes));
+            std::string ctlsrc  = lc(sv(dev.ctrl_nodes[0]));
+            std::string gainVal = lc(sv(dev.ctrl_value));
             // ctlinst is an Id param — must be quoted as a string literal in the expression.
             std::string prms = "ctlinst=\"" + ctlsrc + "\"";
             if (!gainVal.empty()) prms += " gain=" + gainVal;
             inst.add(p.parseParameters(prms));
-            auto ps = paramString(dev.params);
+            auto ps = lc(paramString(dev.params));
             if (!ps.empty()) inst.add(p.parseParameters(ps));
             into.add(std::move(inst));
             break;
@@ -586,7 +635,7 @@ static bool addSpiceDevice(const netlist::SpiceDevice& dev, PTSubcircuitDefiniti
 static bool fillSpiceSubDef(PTSubcircuitDefinition& def, const netlist::SpiceSubckt& s,
                             Parser& p, std::set<std::string>& addedModels, Status& st) {
     auto sp = paramString(s.params);
-    if (!sp.empty()) def.add(p.parseParameters(sp));
+    if (!sp.empty()) def.add(p.parseParameters(lc(sp)));
     // .model cards inside the .subckt body (e.g. Sky130 res subckts define
     // reshead/resbody locally). Emit BEFORE devices so instances resolve them.
     for (const auto& m : s.models) addSpiceModelCard(m, def, p);
@@ -594,7 +643,7 @@ static bool fillSpiceSubDef(PTSubcircuitDefinition& def, const netlist::SpiceSub
         if (!addSpiceDevice(dev, def, p, addedModels, st)) return false;
     }
     for (const auto& sub : s.subckts) {
-        PTSubcircuitDefinition child(Id(sv(sub.name).c_str()), nodeList(sub.ports));
+        PTSubcircuitDefinition child(spiceId(sv(sub.name)), spiceNodeList(sub.ports));
         if (!fillSpiceSubDef(child, sub, p, addedModels, st)) return false;
         def.add(std::move(child));
     }
@@ -619,7 +668,7 @@ static bool spiceBlockToTables(const netlist::SpiceBlock& sb, PTSubcircuitDefini
                                std::set<std::filesystem::path>& visited) {
     // Top-level .param declarations from the SPICE block.
     auto sp = paramString(sb.params);
-    if (!sp.empty()) into.add(p.parseParameters(sp));
+    if (!sp.empty()) into.add(p.parseParameters(lc(sp)));
 
     // .model cards: emit PTModel BEFORE instances (VACASK resolves by name).
     for (const auto& m : sb.models) addSpiceModelCard(m, into, p);
@@ -636,7 +685,7 @@ static bool spiceBlockToTables(const netlist::SpiceBlock& sb, PTSubcircuitDefini
 
     // Nested .subckt definitions.
     for (const auto& sub : sb.subckts) {
-        PTSubcircuitDefinition child(Id(sv(sub.name).c_str()), nodeList(sub.ports));
+        PTSubcircuitDefinition child(spiceId(sv(sub.name)), spiceNodeList(sub.ports));
         if (!fillSpiceSubDef(child, sub, p, addedModels, s)) return false;
         into.add(std::move(child));
     }
