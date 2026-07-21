@@ -745,12 +745,13 @@ void HBNRSolver::dumpSolution(std::ostream& os, double* solution, const char* pr
     auto nf = spurs_.spectrum().size();
     for(decltype(n) i=1; i<=n; i++) {
         auto rn = circuit.reprNode(i);
+        auto base = (i-1)*nt;
         for(decltype(nf) k=0; k<nf; k++) {
-            Complex x;
+            Complex x;    
             if (k==0) {
-                x = solution[0];
+                x = solution[base];
             } else {
-                auto ndx = (i-1)*nt+1+(k-1)*2;
+                auto ndx = base+1+(k-1)*2;
                 x = Complex(solution[ndx], solution[ndx+1]);
             }
             os << prefix << rn->name() << "@f" << k << " : " << x << "\n";

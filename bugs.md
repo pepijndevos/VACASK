@@ -190,7 +190,12 @@ line that originally followed this loop (and would have unconditionally
 overwritten `dest` with a throwing call) has been removed. No remaining issue
 at this line.
 
-### 3. [ ] [corehbnr.cpp:728](lib/corehbnr.cpp#L728) — Wrong DC value printed for every unknown but the first in `HBNRSolver::dumpSolution`
+### 3. [x] [corehbnr.cpp:728](lib/corehbnr.cpp#L728) — Wrong DC value printed for every unknown but the first in `HBNRSolver::dumpSolution`
+**Status: FIXED** (uncommitted working-tree change). The `k==0` branch now
+reads `solution[base]` with `base=(i-1)*nt` (computed once and reused for the
+`k>0` branch too), instead of the hardcoded `solution[0]`, so each unknown's
+own DC value is printed. No remaining issue.
+
 ```cpp
 for(decltype(n) i=1; i<=n; i++) {
     ...
