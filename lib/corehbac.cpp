@@ -217,11 +217,11 @@ void HBACCore::computeOmega(Real f) {
 //
 // Parameters:
 //   G    - Fourier coefficients [G_k]_pq of the resistive Jacobian,
-//          indexed by 0-based Jacobian frequency index
-//          only positive part of the spectrum
+//          indexed by 0-based Jacobian frequency index over the
+//          full (negative+DC+positive) pruned spectrum
 //   C    - Fourier coefficients [C_k]_pq of the reactive Jacobian,
-//          indexed by 0-based Jacobian frequency index
-//          only positive part of the spectrum
+//          indexed by 0-based Jacobian frequency index over the
+//          full (negative+DC+positive) pruned spectrum
 //   omega - small-signal frequencies 2 pi (f+f_n), one per output row n
 //   block - (p,q) subblock of H(omega) to fill, size nf x nf
 //           column-major assumed
@@ -304,7 +304,8 @@ std::tuple<bool, bool> HBACCore::requestsRebuild(Status& s) {
     }
 
     bool needsRebuild = oldParams.maxharm != params.maxharm ||
-                        oldParams.maxfreq != params.maxfreq;
+                        oldParams.maxfreq != params.maxfreq || 
+                        oldParams.outspur != params.outspur;
     
     oldParams = params;
     return std::make_tuple(true, needsRebuild);

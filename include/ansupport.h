@@ -249,8 +249,8 @@ public:
     
     // Return array of doubles without bucket 
     // (for use with linear solver)
-    T* dataWithoutBucket(DepthIndexDelta which, size_t bucketSize) { return dataWithoutBucket(vector(which, bucketSize)); };
-    const T* dataWithoutBucket(DepthIndexDelta which, size_t bucketSize) const { return dataWithoutBucket(vector(which, bucketSize)); }
+    T* dataWithoutBucket(DepthIndexDelta which, size_t bucketSize) { return dataWithoutBucket(vector(which), bucketSize); };
+    const T* dataWithoutBucket(DepthIndexDelta which, size_t bucketSize) const { return dataWithoutBucket(vector(which), bucketSize); }
     
 protected:
     using CircularBuffer<Vector<T>>::size_;

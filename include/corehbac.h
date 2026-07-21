@@ -135,9 +135,6 @@ protected:
     // Build matrix
     void fillMatrix();
 
-    // Evaluate (quasi)periodic operating point based on given nodeset
-    bool evalOp();
-
     // Clear error
     // errorFreq is read unconditionally by formatError() (outside the lastHBACError
     // switch), so unlike the other auxiliary error fields it must be reset here to

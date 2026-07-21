@@ -320,24 +320,10 @@ file — `addAllUnknowns`/`addAllNodes`/`addNode`/`addFlow` for AC/DCInc,
 still get the location appended exactly once as before, and only the
 `resolveOpSave` branch now skips the redundant second append. No remaining
 issue.
-The old code returned immediately after delegating to `resolveOpSave`. This
-branch removed the early return, so on failure execution falls through to:
-```cpp
-if (verify && !st) {
-    s.extend(save.location());   // location already appended once inside resolveOpSave()
-    return false;
-}
-```
-`resolveOpSave` (`ansmsig.h`) already appends `save.location()` itself when
-`verify && !st`. Falling through appends it a second time. Reachable via any
-op-save (`v()/i()/p()`) resolution failure with `verify=true` in AC, ACXF,
-DCXF, DC-incremental, or Noise — functionally harmless (analysis still
-aborts) but the reported error message has a duplicated location suffix, in
-all five files identically.
 
 ## Plausible (needs confirmation in context)
 
-### 8. [ ] [corehbac.cpp:299](lib/corehbac.cpp#L299) — `outspur` changes not detected by `HBACCore::requestsRebuild`, bypassing the "outspur may not change" safety check
+### 8. [x] [corehbac.cpp:299](lib/corehbac.cpp#L299) — `outspur` changes not detected by `HBACCore::requestsRebuild`, bypassing the "outspur may not change" safety check
 `requestsRebuild` only compares `oldParams.maxharm` and `oldParams.maxfreq`;
 `params.outspur` is never compared, even though `HBACCore::rebuild` (line
 ~408) explicitly guards against `outspur` changing across rebuilds ("Output
@@ -348,6 +334,23 @@ between points (e.g. it's an expression referencing a swept parameter) while
 points — the safety check never runs, and `spurIndices`/output descriptors
 silently stay bound to the *first* point's `outspur`, so later points report
 results for the wrong spur with no error.
+
+**Status: FIXED** (uncommitted working-tree change).
+`needsRebuild` now also ORs in `oldParams.outspur != params.outspur`:
+```cpp
+bool needsRebuild = oldParams.maxharm != params.maxharm ||
+                    oldParams.maxfreq != params.maxfreq || 
+                    oldParams.outspur != params.outspur;
+```
+`outspur` is a `Value` holding a `ValueVec`; verified `Value::operator!=`
+(`value.cpp:47-67`) dispatches `ValueVec`/`ValueVec` to
+`valueEqual<ValueVector, ValueVector>`, which does an element-wise (deep,
+recursive) comparison — so an actual content change between sweep points is
+correctly detected, not just a type/pointer check, and a type mismatch (e.g.
+comparing against a default-constructed `oldParams.outspur` on first use)
+falls through to "not equal," safely forcing a rebuild rather than silently
+trusting stale state. This now correctly reaches the existing "outspur not
+allowed to change" guard in `rebuild()`. No remaining issue.
 
 ### 9. [ ] [klubsmatrix.cpp:83](lib/klubsmatrix.cpp#L83) — `storageOnly=true` rebuild leaves `AP`/`AI` unresized while inherited base methods assume they're sized `AN+1`
 When `storageOnly` is true, `AP.resize(AN+1); AI.resize(nnz_);` is skipped
@@ -371,7 +374,7 @@ confidence this is exercised today (a failed `rebuild()` likely aborts
 before that check runs), but the contract as written doesn't match
 "successfully built."
 
-### 11. [ ] [core.cpp:404](lib/core.cpp#L404) — Asymmetric output-name fallback between sibling `addRealVarOutputSource`/`addComplexVarOutputSource` overloads
+### 11. [x] [core.cpp:404](lib/core.cpp#L404) — Asymmetric output-name fallback between sibling `addRealVarOutputSource`/`addComplexVarOutputSource` overloads
 Three of the four overloads use `outputSources.emplace_back(asName)` in the
 non-strict "not found" path; the fourth (`addComplexVarOutputSource(...,
 VectorRepository<Complex>&, ...)`) uses
@@ -381,16 +384,26 @@ column comes back unnamed instead of falling back to the referenced signal's
 name, unlike the fourth variant. No in-scope caller currently triggers this,
 flagged for awareness given the inconsistency sits in a shared file.
 
+**Status: FIXED** (uncommitted working-tree change). All four overloads
+(`addRealVarOutputSource` ×2, `addComplexVarOutputSource` ×2) now
+consistently use `asName ? asName : name` in both the found and not-found
+branches. No remaining asymmetry.
+
 ## Minor / dead code / cosmetic
 
-### 12. [ ] [corehbac.h:139](include/corehbac.h#L139) — `HBACCore::evalOp()` declared but never implemented or called
+### 12. [x] [corehbac.h:139](include/corehbac.h#L139) — `HBACCore::evalOp()` declared but never implemented or called
 Declared with a doc comment ("Evaluate (quasi)periodic operating point based
 on given nodeset") but has no definition in `corehbac.cpp` and no caller;
 the actual nodeset-evaluation path used is `hbCore_.evaluateAtNodeset()`.
 Looks like scaffolding left over from an earlier iteration — harmless but
 should be removed or implemented.
 
-### 13. [ ] [ansupport.h:252](include/ansupport.h#L252) — `VectorRepository::dataWithoutBucket(DepthIndexDelta, size_t)` member calls a `vector()` overload that doesn't exist
+**Status: FIXED** (uncommitted working-tree change). The dead `bool evalOp();`
+declaration has been removed from `include/corehbac.h` entirely; confirmed no
+remaining references to `evalOp` anywhere in `corehbac.h/.cpp` or
+`anhbac.h/.cpp`. No remaining issue.
+
+### 13. [x] [ansupport.h:252](include/ansupport.h#L252) — `VectorRepository::dataWithoutBucket(DepthIndexDelta, size_t)` member calls a `vector()` overload that doesn't exist
 ```cpp
 T* dataWithoutBucket(DepthIndexDelta which, size_t bucketSize) { return dataWithoutBucket(vector(which, bucketSize)); };
 ```
@@ -400,7 +413,19 @@ uses it via member syntax anywhere in the tree today (all real call sites use
 the free `dataWithoutBucket(Vector<T>&, size_t)`), so it silently compiles as
 dead code — but it's a landmine for the next person who reaches for it.
 
-### 14. [ ] [corehbac.cpp:218](lib/corehbac.cpp#L218) — Stale doc comment on `fillDenseBlock`'s spectrum indexing
+**Status: FIXED** (uncommitted working-tree change, both the `const` and
+non-`const` overloads). Now correctly splits the arguments between the two
+calls:
+```cpp
+T* dataWithoutBucket(DepthIndexDelta which, size_t bucketSize) { return dataWithoutBucket(vector(which), bucketSize); };
+```
+`vector(which)` uses the existing single-argument overload (returning
+`Vector<T>&`, i.e. `std::vector<T>&`), and the result is passed together with
+`bucketSize` to the free-function template `dataWithoutBucket(std::vector<T>&,
+size_t)` (`ansupport.h:21,25`), which matches its declared signature exactly.
+No remaining issue.
+
+### 14. [x] [corehbac.cpp:218](lib/corehbac.cpp#L218) — Stale doc comment on `fillDenseBlock`'s spectrum indexing
 Comment states `G`/`C` are indexed "only [over the] positive part of the
 spectrum," but `jacSpec` is actually sized and populated over the full
 negative+DC+positive pruned range (confirmed correct at runtime via the
@@ -408,10 +433,19 @@ regression test's negative-spur outputs). Comment is simply out of date, not
 indicative of an actual bug — worth fixing so it doesn't mislead future
 maintainers.
 
-### 15. [ ] [corehbnr.cpp:492](lib/corehbnr.cpp#L492) — Stale "rows" wording in comment for a column-scaling operation
+**Status: FIXED.** Updated the comment at `corehbac.cpp:219-224` to say `G`/`C`
+are indexed "over the full (negative+DC+positive) pruned spectrum," matching
+the actual runtime behavior.
+
+### 15. [x] [corehbnr.cpp:492](lib/corehbnr.cpp#L492) — Stale "rows" wording in comment for a column-scaling operation
 Comment says "Scale rows of Gamma/Omega Gamma..." but the code calls
 `scaleColumns`/`scaleColumnsAdd`. The code itself is correct (diagonal-matrix
 right-multiplication scales columns); only the comment text is wrong.
+
+**Status: FIXED** (uncommitted working-tree change). Both instances now read
+"Scale columns of Gamma..." (`corehbnr.cpp:510`) and "Scale columns of Omega
+Gamma..." (`corehbnr.cpp:514`), matching the `scaleColumns`/`scaleColumnsAdd`
+calls beneath them. No remaining issue.
 
 ---
 

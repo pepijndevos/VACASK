@@ -341,12 +341,12 @@ bool AnalysisCore::addRealVarOutputSource(bool strict, Id name, const Vector<dou
     // Get unknown
     if (node) {
         auto unknown = node->unknownIndex();
-        outputSources.emplace_back(&solution, node->unknownIndex(), asName);
+        outputSources.emplace_back(&solution, node->unknownIndex(), asName ? asName : name);
     } else if (strict) {
         s.set(Status::NotFound, "Node '"+std::string(name)+"' not found.");
         return false;
     } else {
-        outputSources.emplace_back(asName);
+        outputSources.emplace_back(asName ? asName : name);
     }
     return true;
 }
@@ -358,12 +358,12 @@ bool AnalysisCore::addRealVarOutputSource(bool strict, Id name, const VectorRepo
     // Get unknown
     if (node) {
         auto unknown = node->unknownIndex();
-        outputSources.emplace_back(&solution, node->unknownIndex(), asName);
+        outputSources.emplace_back(&solution, node->unknownIndex(), asName ? asName : name);
     } else if (strict) {
         s.set(Status::NotFound, "Node '"+std::string(name)+"' not found.");
         return false;
     } else {
-        outputSources.emplace_back(asName);
+        outputSources.emplace_back(asName ? asName : name);
     }
     return true;
 }
@@ -376,12 +376,12 @@ bool AnalysisCore::addComplexVarOutputSource(bool strict, Id name, const Vector<
     if (node) {
         auto unknown = node->unknownIndex();
         auto pos = unknown*stride+offset;
-        outputSources.emplace_back(&solution, pos, asName);
+        outputSources.emplace_back(&solution, pos, asName ? asName : name);
     } else if (strict) {
         s.set(Status::NotFound, "Node '"+std::string(name)+"' not found.");
         return false;
     } else {
-        outputSources.emplace_back(asName);
+        outputSources.emplace_back(asName ? asName : name);
     }
     return true;
 }
@@ -394,7 +394,7 @@ bool AnalysisCore::addComplexVarOutputSource(bool strict, Id name, const VectorR
     if (node) {
         auto unknown = node->unknownIndex();
         auto pos = unknown*stride+offset;
-        outputSources.emplace_back(&solution, pos, asName);
+        outputSources.emplace_back(&solution, pos, asName ? asName : name);
     } else if (strict) {
         s.set(Status::NotFound, "Node '"+std::string(name)+"' not found.");
         return false;
