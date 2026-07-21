@@ -12,24 +12,117 @@ Severity ordered. Line refs are to source as read during the audit.
 
 ## Confirmed (correctness-breaking)
 
-### 1. [ ] [corehbnr.cpp:132](lib/corehbnr.cpp#L132) — Out-of-bounds read in `HBNRSolver::setForces` when a stored nodeset comes from a smaller circuit
+### 1. [x] [corehbnr.cpp:132](lib/corehbnr.cpp#L132) — Out-of-bounds read in `HBNRSolver::setForces` when a stored nodeset comes from a smaller circuit
+**Status: FIXED.** As of the current code, `setForces` no longer loops up to
+the current circuit's `n`. It deduces `solNodes` from the stored solution's
+own data (`solSpec.size()/nfSolution`), requires
+`solNames.size()-1==solNodes` before trusting name-based lookup, and bounds
+the loop by `solNodes` instead of `n` (`corehbnr.cpp:138,153`):
 ```cpp
-if (solNames.size()>0) {                 // was: solNames.size()==n+1  (main)
-    checkNames = true;
+auto solNodes = solSpec.size()/nfSolution;
 ...
-for(decltype(n) i=1; i<=n; i++) {
+if (solNames.size()-1==solNodes) {
+    checkNames = true;
+} else if (solNames.size()==0 && solNodes==n) {
+    checkNames = false;
+} else {
+    lastHBNRError = HBNRSolverError::ForcesError;
+    return false;
+}
+for(decltype(n) i=1; i<=solNodes; i++) {
     if (checkNames) {
-        node = circuit.findNode(solNames[i]);   // solNames[i] with i up to n
+        node = circuit.findNode(solNames[i]);   // i<=solNodes, always in bounds
 ```
-`main` required `solNames.size()==n+1` before trusting name-based lookup by
-index. This branch relaxed it to merely `solNames.size()>0` and dropped the
-length check, while the loop still runs `i` up to the *current* circuit's
-unknown count `n`. `AnnotatedSolution::names()` is sized by the *storing*
-circuit's own unknown count, so using `nodeset=<name>` where the stored
-solution came from a circuit with fewer unknowns than the one currently being
-solved reads `solNames[i]` past the end of the vector — UB (crash, or a
-garbage `Id` silently matching an unrelated node and forcing the wrong
-nodeset value instead of erroring out).
+`solNames` is guaranteed to have `solNodes+1` entries whenever `checkNames`
+is true, so `solNames[i]` for `i` in `1..solNodes` is always in bounds. The
+original out-of-bounds read is gone. See finding #1b below for a related,
+still-open bug found in the same function during this re-audit.
+
+### 1b. [x] [corehbnr.cpp:171](lib/corehbnr.cpp#L171) — Unsigned underflow / massive out-of-bounds write in `HBNRSolver::setForces` when a stored node name now resolves to the current circuit's ground node
+**Status: FIXED** (uncommitted working-tree change). The current code now
+does:
+```cpp
+auto ui = node->unknownIndex();
+// Ground node, nothing to do
+if (ui==0) {
+    continue;
+}
+```
+immediately after resolving `ui` and before any `ui-1` arithmetic, exactly
+mirroring `OpNRSolver::setForceOnUnknown`'s guard. Verified this fully closes
+the underflow: in the `checkNames` branch a stored name that now resolves to
+the current circuit's ground node is skipped before `destOrigin` is
+computed; in the non-`checkNames` branch (`node = circuit.reprNode(i)` for
+`i` in `1..solNodes==n`) `ui` was already always non-zero, so the added check
+is a harmless no-op there. No remaining issue at this line.
+```cpp
+node = circuit.findNode(solNames[i]);   // i>=1, i.e. a *non-ground* name in the storing circuit
+...
+if (!node) { continue; }
+auto ui = node->unknownIndex();          // UnknownIndex = uint32_t; ground node's index is always 0
+auto destOrigin = (ui-1)*blockSize;       // ui==0  ->  underflows to (UINT32_MAX)*blockSize
+...
+f.unknownValue_[destOrigin] = solSpec[srcOrigin].real();   // catastrophic OOB write
+f.unknownForced_[destOrigin] = true;
+```
+There is no check that `node` isn't the ground node before computing
+`ui-1`. `solNames[i]` for `i>=1` is guaranteed to be a *non-ground* name in
+the **storing** circuit (`AnnotatedSolution::setNames` puts the storing
+circuit's ground name only at index 0), but `names_` exists precisely "for
+cross matching across slightly different circuits" (`ansolution.h:51`) —
+i.e. the current circuit is allowed to differ from the one that produced the
+stored solution. If the current circuit's netlist grounds a node that was
+*not* ground when the solution was stored (e.g. a different `.global`/ground
+declaration, or a topology tweak between runs), `circuit.findNode(solNames[i])`
+resolves to the current circuit's ground node, whose `unknownIndex()` is
+always `0` (`circuit.cpp:542`, `Circuit::addGround`). `ui` is `UnknownIndex`
+(`uint32_t`), so `ui-1` wraps to `UINT32_MAX` instead of going negative, and
+`destOrigin = (ui-1)*blockSize` becomes a huge value used directly as a
+`std::vector::operator[]` index into `f.unknownValue_`/`f.unknownForced_` —
+undefined behavior (heap corruption or crash), with no bounds checking since
+`operator[]` never checks and `DBGCHECK` is a release-mode no-op anyway.
+
+This exact hazard is already known and guarded against elsewhere in the
+codebase: `OpNRSolver::setForceOnUnknown` (`coreopnr.cpp:374-381`) explicitly
+checks `if (u==0) { return true; }` ("Is it a ground node? If yes, ignore the
+force.") before using a looked-up node's `unknownIndex()` as an array index.
+`HBNRSolver::setForces` is missing the equivalent guard. Note this bug
+**predates this branch** — the same unguarded `(ui-1)*blockSize` pattern
+already existed in `main`'s version of this function — so it is not a
+regression introduced by `analysis/hbac`, but it is still live in the current
+code and reachable through the same `nodeset=` mechanism this branch relies
+on for HBAC. Fix: skip the unknown (`continue`) when `ui==0`, mirroring
+`OpNRSolver::setForceOnUnknown`.
+
+### 1c. [x] [corehbnr.cpp:66](lib/corehbnr.cpp#L66) — `abortOnError` parameter of `setForces` is unused
+**Status: FIXED** (uncommitted working-tree change). `abortOnError` is now
+read in the per-unknown "node not found" path:
+```cpp
+if (!node) {
+    // Node not found. No forces will be applied to this unknown. 
+    // If abortOnError is set, abort 
+    if (abortOnError) {
+        lastHBNRError = HBNRSolverError::ForcesError;
+        return false;
+    }
+    // Otherwise continue to next force
+    continue;
+}
+```
+This is a real (not just cosmetic) behavioral improvement: previously a
+missing individual node in a `nodeset=` solution was always silently
+skipped, and `strictforce` in the caller (`corehb.cpp:597-603`) only ever saw
+an overall `false` from the structural ("no names nor matching length")
+check — so `strictforce=1` never actually caught a missing named node.
+Now it does, matching the option's intended meaning. The structural-mismatch
+path (`corehbnr.cpp:144-149`) is correctly left unconditional ("Abort always
+regardless of `abortOnError`") since that's a harder, unrecoverable
+incompatibility, not a single missing node — and the caller's own
+`if (strictforce)` gate still decides whether that unconditional `false`
+escalates to aborting the whole analysis or is silently treated as "no
+nodeset applied," so behavior for `strictforce=0` is unchanged and safe.
+Verified `lastHBNRError` is reset via `clearError()` in `initialize()`, so no
+stale error state leaks between calls. No remaining issue.
 
 ### 2. [ ] [corehb.cpp:631](lib/corehb.cpp#L631) — Warm-start "ordinary continue" path in `HBCore::runSolver` is dead and, if reached, would crash
 ```cpp

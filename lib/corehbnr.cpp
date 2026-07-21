@@ -127,23 +127,31 @@ bool HBNRSolver::setForces(Int ndx, const AnnotatedSolution& storedSolution, boo
     // Solution spectrum
     auto& solSpec = storedSolution.cxValues();
     auto& solNames = storedSolution.names();
+    // In case we have no names, we must deduce the number of stored solution nodes (including ground). 
+    // The vector does not contains entries for ground node. 
+    // This number must match the length of solution names
+    auto solNodes = solSpec.size()/nfSolution;
 
     // Check if we have solution name annotations
     bool checkNames;
-    if (solNames.size()>0) {
+    // Note that solNames includes ground node
+    if (solNames.size()-1==solNodes) {
         // Yes, check names
         checkNames = true;
-    } else if (solNames.size()==0 && solSpec.size()==nfSolver*n) {
+    } else if (solNames.size()==0 && solNodes==n) {
         // No annotations, solutions vector has correct length
         checkNames = false;
     } else {
         // Cannot apply stored solution, no names nor matching length vector
         lastHBNRError = HBNRSolverError::ForcesError;
+        // Abort always regardless of abortOnError
         return false;
     }
 
     // Go through all unknowns, skip the unknown corresponding to the bucket 
-    for(decltype(n) i=1; i<=n; i++) {
+    // If the stored solution has no names its solution vector length 
+    // must match the current circuit's solution vector
+    for(decltype(n) i=1; i<=solNodes; i++) {
         Node* node;
         if (checkNames) {
             // Stored solution has name annotations, get node by the name from the solution
@@ -154,12 +162,22 @@ bool HBNRSolver::setForces(Int ndx, const AnnotatedSolution& storedSolution, boo
         }
         if (!node) {
             // Node not found. No forces will be applied to this unknown. 
+            // If abortOnError is set, abort 
+            if (abortOnError) {
+                lastHBNRError = HBNRSolverError::ForcesError;
+                return false;
+            }
+            // Otherwise continue to next force
             continue;
         }
         // Copy spectrum for one node
         auto ui = node->unknownIndex();
+        // Ground node, nothing to do
+        if (ui==0) {
+            continue;
+        }
         // Spectrum origin index in complex spectrum vector (no bucket)
-        auto srcOrigin = (ui-1)*nfSolution;
+        auto srcOrigin = (i-1)*nfSolution;
         // Spectrum origin index in destination vector of TD values (no bucket)
         auto destOrigin = (ui-1)*blockSize;
         

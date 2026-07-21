@@ -21,6 +21,7 @@ r1 (2 0) resistor r=200k
 
 control
   abort always
+  print unknowns
   
   analysis tran1 tran stop=5m step=1u maxstep=0.1u
 
