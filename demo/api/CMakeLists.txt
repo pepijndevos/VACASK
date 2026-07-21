@@ -224,6 +224,16 @@ set_tests_properties(demo_netlistrs_spice_inc PROPERTIES
 # No test is registered here; the fix is covered by code review + report.
 # When the parser supports this, re-enable with a .scs file using the nested syntax.
 
+# ── Resistor model-reference + subckt .param (Sky130 res pattern) ────────────
+# rend1 names a `.model reshead R` card AND carries r={rhead}: the positional
+# token must be the model name, not a colliding r= value. Verifies
+# x1:rend1 r=100 (resolved via the subckt .param) + Analysis OK.
+add_test(NAME demo_netlistrs_spice_res_model
+         COMMAND demo_netlistrs "${CMAKE_CURRENT_SOURCE_DIR}/spice_res_model.cir"
+                                "${VACASK_MOD_DIR_DEFAULT}")
+set_tests_properties(demo_netlistrs_spice_res_model PROPERTIES
+    WORKING_DIRECTORY "/tmp")
+
 # ── Warn-skip test (Minor 7) ─────────────────────────────────────────────────
 # B1 (Behavioral) is warned + skipped; R1/R2 divider runs cleanly.
 # PASS_REGULAR_EXPRESSION verifies the WARNING appears; exit 0 confirms circuit runs.

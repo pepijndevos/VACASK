@@ -132,6 +132,17 @@ static std::string paramStringExcluding(const rust::Vec<netlist::Param>& params,
     return os.str();
 }
 
+// True if any parameter name (case-insensitive) matches one of `keys`.
+static bool spiceParamsHaveAny(const rust::Vec<netlist::Param>& params,
+                               const std::initializer_list<std::string>& keys) {
+    for (const auto& p : params) {
+        std::string key = sv(p.name);
+        std::transform(key.begin(), key.end(), key.begin(), ::tolower);
+        for (const auto& k : keys) if (key == k) return true;
+    }
+    return false;
+}
+
 // Map SPICE model_type + level to a VACASK OSDI master name.
 // Returns "" if there is no known VACASK master for the given type.
 // Emits a warning if the level is unknown for a MOSFET type and falls back
@@ -177,9 +188,43 @@ static std::string spiceModelMaster(const std::string& model_type_raw,
     // Use 4-terminal variant (vbic13_4t) when the instance has a substrate node.
     if (mt == "npn" || mt == "pnp") return "vbic13";
 
+    // Semiconductor resistor: .model <name> R ... (ngspice). Maps to the
+    // ngspice-flavour sp_resistor master (spice/resistor.osdi), which supports
+    // tc1/tc2/tnom and instance-level r/w/l — unlike the generic 'resistor'
+    // master (r/noisy only). Physical resistor subcircuits (e.g. Sky130
+    // sky130_fd_pr__res_*) reference these model cards from R instances.
+    if (mt == "r" || mt == "res") return "sp_resistor";
+
     Simulator::err() << "WARNING: SPICE model_type '" << model_type_raw
                      << "' has no known VACASK OSDI master (model skipped)\n";
     return "";
+}
+
+// Project one SPICE `.model` card into a PTModel and add it to `into`.
+// Maps model_type+level to an OSDI master (spiceModelMaster), passes model
+// params (minus dispatch-only `level`), and injects type polarity where the
+// master needs it. Skips (with a warning already emitted) when there is no
+// known master. Shared by spiceBlockToTables and fillSpiceSubDef so model
+// cards defined inside a .subckt are emitted too, not only top-level ones.
+static void addSpiceModelCard(const netlist::SpiceModel& m,
+                              PTSubcircuitDefinition& into, Parser& p) {
+    std::string mt_raw = sv(m.model_type);
+    std::string master = spiceModelMaster(mt_raw, sv(m.level), "");
+    if (master.empty()) return; // warning already emitted by spiceModelMaster
+
+    PTModel mod(Id(sv(m.name).c_str()), Id(master.c_str()));
+
+    auto ps = paramStringExcluding(m.params, {"level"});
+    if (!ps.empty()) mod.add(p.parseParameters(ps));
+
+    std::string mt = mt_raw;
+    std::transform(mt.begin(), mt.end(), mt.begin(), ::tolower);
+    if      (mt == "nmos") mod.add(p.parseParameters("type=1"));
+    else if (mt == "pmos") mod.add(p.parseParameters("type=-1"));
+    else if (mt == "npn")  mod.add(p.parseParameters("type=1"));
+    else if (mt == "pnp")  mod.add(p.parseParameters("type=-1"));
+
+    into.add(std::move(mod));
 }
 
 // Map SPICE source function args to VACASK named vsource/isource params.
@@ -278,10 +323,31 @@ static bool addSpiceDevice(const netlist::SpiceDevice& dev, PTSubcircuitDefiniti
 
     switch (dev.kind) {
         case netlist::SpiceDeviceKind::Resistor: {
-            std::string master = mdl.empty() ? "resistor" : mdl;
-            ensureSpiceModel(into, "resistor", addedModels);
+            // Disambiguate the positional token (value-vs-model), mirroring
+            // Cadnip's sema.jl: a trailing bare token is a MODEL name (not a
+            // resistance) when the instance also carries an explicit r=/l=
+            // param — e.g. `rend1 r0 t1 reshead r={rhead}`. Without this the
+            // token would be emitted as r=<token> and collide with the
+            // explicit r= param ("Parameter 'r' redefinition"). The Rust
+            // projection always leaves `model` empty for R (no model slot in
+            // the AST), so the decision is made here from value + params.
+            std::string master;
+            std::string rval;
+            if (!mdl.empty()) {
+                master = mdl;   // explicit model reference (future-proofing)
+                rval = val;
+            } else if (!val.empty() && spiceParamsHaveAny(dev.params, {"r", "l"})) {
+                master = val;   // value is a model card name
+            } else {
+                // Plain resistor: value (if any) is the resistance. Default to
+                // the ngspice sp_resistor master so instance params like
+                // tc1/tc2/w/l are accepted (the generic 'resistor' has r only).
+                master = "sp_resistor";
+                ensureSpiceModel(into, "sp_resistor", addedModels);
+                rval = val;
+            }
             PTInstance inst(Id(name.c_str()), Id(master.c_str()), nodeList(dev.nodes));
-            if (!val.empty()) inst.add(p.parseParameters("r=" + val));
+            if (!rval.empty()) inst.add(p.parseParameters("r=" + rval));
             auto ps = paramString(dev.params);
             if (!ps.empty()) inst.add(p.parseParameters(ps));
             into.add(std::move(inst));
@@ -521,6 +587,9 @@ static bool fillSpiceSubDef(PTSubcircuitDefinition& def, const netlist::SpiceSub
                             Parser& p, std::set<std::string>& addedModels, Status& st) {
     auto sp = paramString(s.params);
     if (!sp.empty()) def.add(p.parseParameters(sp));
+    // .model cards inside the .subckt body (e.g. Sky130 res subckts define
+    // reshead/resbody locally). Emit BEFORE devices so instances resolve them.
+    for (const auto& m : s.models) addSpiceModelCard(m, def, p);
     for (const auto& dev : s.devices) {
         if (!addSpiceDevice(dev, def, p, addedModels, st)) return false;
     }
@@ -553,32 +622,7 @@ static bool spiceBlockToTables(const netlist::SpiceBlock& sb, PTSubcircuitDefini
     if (!sp.empty()) into.add(p.parseParameters(sp));
 
     // .model cards: emit PTModel BEFORE instances (VACASK resolves by name).
-    // spiceModelMaster maps model_type + level -> OSDI device master name.
-    // The 'level' param is consumed for dispatch and excluded from OSDI params.
-    // nmos/pmos models get type=1/type=-1 injected; npn/pnp get type=+1/-1.
-    for (const auto& m : sb.models) {
-        std::string mt_raw = sv(m.model_type);
-        std::string level_s = sv(m.level);
-        std::string master = spiceModelMaster(mt_raw, level_s, "");
-        if (master.empty()) continue; // warning already emitted by spiceModelMaster
-
-        PTModel mod(Id(sv(m.name).c_str()), Id(master.c_str()));
-
-        // Pass model params, excluding 'level' (dispatch-only; not an OSDI param
-        // in most models, and bsim3 only accepts level=[49:53] internally).
-        auto ps = paramStringExcluding(m.params, {"level"});
-        if (!ps.empty()) mod.add(p.parseParameters(ps));
-
-        // Inject type polarity for models that require it.
-        std::string mt = mt_raw;
-        std::transform(mt.begin(), mt.end(), mt.begin(), ::tolower);
-        if      (mt == "nmos") mod.add(p.parseParameters("type=1"));
-        else if (mt == "pmos") mod.add(p.parseParameters("type=-1"));
-        else if (mt == "npn")  mod.add(p.parseParameters("type=1"));
-        else if (mt == "pnp")  mod.add(p.parseParameters("type=-1"));
-
-        into.add(std::move(mod));
-    }
+    for (const auto& m : sb.models) addSpiceModelCard(m, into, p);
 
     // Devices (R/C/L/V/I + D/M/Q now handled; others warn+skip).
     for (const auto& dev : sb.devices) {

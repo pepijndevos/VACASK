@@ -1,0 +1,13 @@
+* SPICE resistor model-reference + subckt .param (Sky130 res pattern)
+* Mirrors sky130_fd_pr__res_* : an R instance names a `.model <name> R` card
+* AND carries an explicit r=/tc1/tc2 param. The positional token must be read
+* as the MODEL name (not the resistance) so it does not collide with r=
+* ("Parameter 'r' redefinition"). Also exercises `.param` inside a .subckt.
+.subckt resdev a b
+rend1 a mid reshead r={rhead} tc1=-4.3e-4 tc2=-1.3e-5
+rbody mid b r={rbody} tc1=-1.47e-3 tc2=2.7e-6
+.model reshead r tc1=-4.3e-4 tc2=-1.3e-5 tnom=25.0
+.param rhead=100 rbody=200
+.ends
+v1 n1 0 dc 1
+x1 n1 0 resdev

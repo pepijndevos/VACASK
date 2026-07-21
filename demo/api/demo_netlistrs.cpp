@@ -31,6 +31,7 @@ int main(int argc, char** argv) {
     // Semiconductor masters: diode, bsim3 (bsim3v3.osdi), bsim4 (bsim4v8.osdi),
     // bsimbulk (bsimbulk106.osdi), psp103va (psp103v4.osdi), vbic13 (vbic_1p3.osdi).
     tab.add(PTLoad("resistor.osdi"))
+       .add(PTLoad("spice/resistor.osdi"))   // sp_resistor (ngspice R: tc1/tc2/w/l)
        .add(PTLoad("capacitor.osdi"))
        .add(PTLoad("inductor.osdi"))
        .add(PTLoad("diode.osdi"))
@@ -202,6 +203,29 @@ int main(int argc, char** argv) {
             try { gval_f = std::stod(val_fg.str()); } catch (...) {}
             if (std::abs(gval_f - 5.0) > 1e-9) {
                 Simulator::err() << "ERROR: F1.gain expected 5, got " << val_fg.str() << "\n";
+                return 1;
+            }
+        }
+    }
+
+    // Resistor model-reference E2E (spice_res_model.cir): the R instance names
+    // a `.model reshead R` card AND carries r={rhead}. Verify x1:rend1 resolved
+    // with r=100 (from the subckt .param) — proving the positional token was
+    // read as the model name, not emitted as a colliding r= value.
+    {
+        bool require_res_model = (path.find("spice_res_model") != std::string::npos);
+        auto [found_rr, val_rr] = cir.instanceParameter("x1:rend1", "r");
+        if (require_res_model && !found_rr) {
+            Simulator::err() << "ERROR: spice_res_model: x1:rend1 not found "
+                                "(resistor model-reference not handled?)\n";
+            return 1;
+        }
+        if (found_rr) {
+            Simulator::out() << "param check: x1:rend1 r=" << val_rr.str()
+                             << " (expect 100)\n";
+            if (val_rr.str() != "100") {
+                Simulator::err() << "ERROR: x1:rend1 r expected 100, got "
+                                 << val_rr.str() << "\n";
                 return 1;
             }
         }
