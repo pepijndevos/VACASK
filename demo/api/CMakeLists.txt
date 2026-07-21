@@ -125,6 +125,18 @@ add_test(NAME demo_netlistrs_spice_subckt
 set_tests_properties(demo_netlistrs_spice_subckt PROPERTIES
     WORKING_DIRECTORY "/tmp")
 
+# ── SPICE MOSFET binning (@if lowering) ─────────────────────────────────────
+# nbin_model.1/.2 collapse to one @if chain; X1 (l=7e-7) must bind bin 2.
+# Asserts the generated ParserTables contain the @if guard for bin 2's range
+# (l*$scale >= 5e-07). Program also exits 0 only if elaboration resolves the
+# bin-less model name nbin_model (i.e. a bin actually bound).
+add_test(NAME demo_netlistrs_spice_mos_bin
+         COMMAND demo_netlistrs "${CMAKE_CURRENT_SOURCE_DIR}/spice_mos_bin.cir"
+                                "${VACASK_MOD_DIR_DEFAULT}")
+set_tests_properties(demo_netlistrs_spice_mos_bin PROPERTIES
+    WORKING_DIRECTORY "/tmp"
+    PASS_REGULAR_EXPRESSION "@if")
+
 # ── VCVS controlled source (Task 7) ─────────────────────────────────────────
 add_test(NAME vacask_mkdir_spice_vcvs
          COMMAND ${CMAKE_COMMAND} -E make_directory /tmp/vacask_spice_vcvs)

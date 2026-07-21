@@ -317,6 +317,79 @@ static void addSpiceModelCard(const netlist::SpiceModel& m,
     if (mod) into.add(std::move(*mod));
 }
 
+// True if the card carries all four numeric binning bounds.
+static bool isBinnedModel(const netlist::SpiceModel& m) {
+    return !spiceParamValue(m.params, "lmin").empty()
+        && !spiceParamValue(m.params, "lmax").empty()
+        && !spiceParamValue(m.params, "wmin").empty()
+        && !spiceParamValue(m.params, "wmax").empty();
+}
+
+// Strip a trailing ".N" or "_N" bin suffix. "nshort_model.7" -> "nshort_model".
+static std::string binBaseName(const std::string& name) {
+    auto pos = name.find_last_of("._");
+    if (pos != std::string::npos && pos + 1 < name.size()) {
+        bool digits = true;
+        for (size_t i = pos + 1; i < name.size(); ++i)
+            if (!std::isdigit(static_cast<unsigned char>(name[i]))) { digits = false; break; }
+        if (digits) return name.substr(0, pos);
+    }
+    return name;
+}
+
+// Emit one bin group as an @if/@elseif PTBlockSequence. Each branch defines a
+// model under `baseName`, guarded by that bin's scaled L/W range. Bins are
+// sorted by (lmin, wmin); first matching branch wins. No @else fallback.
+static void emitBinnedModelGroup(std::vector<const netlist::SpiceModel*>& bins,
+                                 const std::string& baseName,
+                                 PTSubcircuitDefinition& into, Parser& p) {
+    std::sort(bins.begin(), bins.end(),
+              [](const netlist::SpiceModel* a, const netlist::SpiceModel* b) {
+        double la = std::atof(spiceParamValue(a->params, "lmin").c_str());
+        double lb = std::atof(spiceParamValue(b->params, "lmin").c_str());
+        if (la != lb) return la < lb;
+        double wa = std::atof(spiceParamValue(a->params, "wmin").c_str());
+        double wb = std::atof(spiceParamValue(b->params, "wmin").c_str());
+        return wa < wb;
+    });
+
+    PTBlockSequence seq;
+    bool any = false;
+    for (const auto* m : bins) {
+        auto mod = buildSpiceModelCard(*m, baseName, {"lmin", "lmax", "wmin", "wmax"}, p);
+        if (!mod) continue; // no master; warning already emitted
+        std::string guard =
+            "l*$scale >= "  + spiceParamValue(m->params, "lmin") +
+            " && l*$scale < " + spiceParamValue(m->params, "lmax") +
+            " && w*$scale >= " + spiceParamValue(m->params, "wmin") +
+            " && w*$scale < " + spiceParamValue(m->params, "wmax");
+        PTBlock block;
+        block.add(std::move(*mod));
+        seq.add(p.parseExpression(guard), std::move(block));
+        any = true;
+    }
+    if (any) into.add(std::move(seq));
+}
+
+// Emit all `.model` cards for a block. Non-binned cards emit unchanged; binned
+// cards are grouped by base name (first-seen order) into @if chains, emitted
+// after the non-binned cards but before any instances (caller ordering).
+static void emitSpiceModels(const rust::Vec<netlist::SpiceModel>& models,
+                            PTSubcircuitDefinition& into, Parser& p) {
+    std::vector<std::string> order;
+    std::map<std::string, std::vector<const netlist::SpiceModel*>> groups;
+    for (const auto& m : models) {
+        if (isBinnedModel(m)) {
+            std::string base = binBaseName(sv(m.name));
+            if (!groups.count(base)) order.push_back(base);
+            groups[base].push_back(&m);
+        } else {
+            addSpiceModelCard(m, into, p);
+        }
+    }
+    for (const auto& base : order) emitBinnedModelGroup(groups[base], base, into, p);
+}
+
 // Map SPICE source function args to VACASK named vsource/isource params.
 // Returns a param string such as: dc=5 type="pulse" val0=0 val1=5 delay=1m rise=1u ...
 static std::string spiceSourceParams(const netlist::SpiceSource& src) {
@@ -680,7 +753,7 @@ static bool fillSpiceSubDef(PTSubcircuitDefinition& def, const netlist::SpiceSub
     if (!sp.empty()) def.add(p.parseParameters(lc(sp)));
     // .model cards inside the .subckt body (e.g. Sky130 res subckts define
     // reshead/resbody locally). Emit BEFORE devices so instances resolve them.
-    for (const auto& m : s.models) addSpiceModelCard(m, def, p);
+    emitSpiceModels(s.models, def, p);
     for (const auto& dev : s.devices) {
         if (!addSpiceDevice(dev, def, p, addedModels, st)) return false;
     }
@@ -713,7 +786,7 @@ static bool spiceBlockToTables(const netlist::SpiceBlock& sb, PTSubcircuitDefini
     if (!sp.empty()) into.add(p.parseParameters(lc(sp)));
 
     // .model cards: emit PTModel BEFORE instances (VACASK resolves by name).
-    for (const auto& m : sb.models) addSpiceModelCard(m, into, p);
+    emitSpiceModels(sb.models, into, p);
 
     // Devices (R/C/L/V/I + D/M/Q now handled; others warn+skip).
     for (const auto& dev : sb.devices) {

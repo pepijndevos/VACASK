@@ -1,0 +1,12 @@
+* Synthetic MOSFET binning test: two bins with distinct vth0.
+* X1 geometry l=7e-7 selects bin 2 (l in [5e-7, 1e-5)).
+.subckt nbin d g s b
+.param l=1 w=1
+M0 d g s b nbin_model l={l} w={w}
+.model nbin_model.1 nmos level=49 lmin=1e-7 lmax=5e-7 wmin=1e-7 wmax=1e-3 vth0=0.40
+.model nbin_model.2 nmos level=49 lmin=5e-7 lmax=1e-5 wmin=1e-7 wmax=1e-3 vth0=0.80
+.ends
+X1 d g s b nbin l=7e-7 w=2e-6
+V1 d 0 1
+V2 g 0 1
+.end
