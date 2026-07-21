@@ -130,12 +130,13 @@ set_tests_properties(demo_netlistrs_spice_subckt PROPERTIES
 # Asserts the generated ParserTables contain the @if guard for bin 2's range
 # (l*$scale >= 5e-07). Program also exits 0 only if elaboration resolves the
 # bin-less model name nbin_model (i.e. a bin actually bound).
-add_test(NAME demo_netlistrs_spice_mos_bin
-         COMMAND demo_netlistrs "${CMAKE_CURRENT_SOURCE_DIR}/spice_mos_bin.cir"
+add_test(NAME demo_netlistrs_spice_binned_mos
+         COMMAND demo_netlistrs "${CMAKE_CURRENT_SOURCE_DIR}/spice_binned_mos.cir"
                                 "${VACASK_MOD_DIR_DEFAULT}")
-set_tests_properties(demo_netlistrs_spice_mos_bin PROPERTIES
+set_tests_properties(demo_netlistrs_spice_binned_mos PROPERTIES
     WORKING_DIRECTORY "/tmp"
-    PASS_REGULAR_EXPRESSION "@if")
+    PASS_REGULAR_EXPRESSION "@if"
+    FAIL_REGULAR_EXPRESSION "elaboration failed")
 
 # ── VCVS controlled source (Task 7) ─────────────────────────────────────────
 add_test(NAME vacask_mkdir_spice_vcvs
