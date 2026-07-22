@@ -86,6 +86,50 @@ When including with a section, VACASK searches for the file in the same
 locations as basic includes, but treats it as a library file. Library files
 can contain multiple sections for different purposes.
 
+## Foreign-format includes (SPICE / Spectre)
+
+When VACASK is built with SPICE/Spectre support (the `VACASK_WITH_SPICE` CMake
+option, on by default), the `include` directive also accepts SPICE and Spectre
+netlist files. They are dispatched to the bundled Rust parser and their
+**models, subcircuit definitions, and device instances** are merged into the
+top-level circuit, exactly as if you had written them in native VACASK syntax:
+
+```text
+include "sky130_models.spice"
+include "corner.lib" section=tt
+```
+
+The format is chosen by file extension:
+
+- **SPICE**: `.cir`, `.sp`, `.spice`, `.mod`, `.lib`
+- **Spectre**: `.scs`, `.spectre`
+
+Everything else (notably `.sim`) is treated as a native VACASK include and lexed
+directly, as described above. The `section=` selector works for foreign
+libraries too (SPICE `.lib`/`.endl` sections and Spectre `section` blocks).
+
+Two behaviours are specific to foreign includes:
+
+- **Commands are ignored.** Analysis/control directives inside an included SPICE
+  or Spectre file (for example a SPICE `.tran` card or a Spectre analysis
+  statement) are **not** translated into VACASK commands; a warning is printed
+  and they are skipped. Write your analyses, options, saves, and loads in the
+  native VACASK top-level deck. The guiding principle is *translate the models,
+  not the testbench*.
+
+- **OSDI models are auto-loaded.** You do not need to `load` the `.osdi` module
+  for a device a foreign file uses — VACASK emits the required `load` directives
+  automatically for the masters it references (built-in devices such as voltage
+  and current sources need no load).
+
+Foreign includes are supported at the **top level** of the deck. An `include` of
+a foreign-format file inside a `subckt` body is merged into the top-level
+definition rather than that subcircuit.
+
+If VACASK was built with `-DVACASK_WITH_SPICE=OFF`, including a foreign-format
+file reports an error asking you to rebuild with the option enabled; native
+`.sim` includes are unaffected.
+
 ## Nesting includes
 
 Includes can be nested arbitrarily deep. A file included with sections can
