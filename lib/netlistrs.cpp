@@ -47,12 +47,23 @@ Id spiceId(const std::string& s) { return Id(lc(s).c_str()); }
 
 // Strip ngspice expression quoting (`{expr}` braces, `'expr'` quotes) and
 // collapse SPICE continuation markers (`\n+`) from parameter values.
+//
+// Double quotes are stripped only *inside* `{ }` (expression context): some
+// ngspice model cards wrap an expression in both, e.g. Sky130's
+// `dw = {"-sw_activecd-nfom_dw/2"}`, and the inner quotes would otherwise reach
+// VACASK as a string literal for a real-valued OSDI parameter ("cannot convert
+// string into real"). Quotes *outside* braces are kept: they mark genuine
+// string parameters such as `type="pulse"` or a BSIM `version="4.8.3"`.
 std::string stripExprQuoting(const std::string& v) {
     std::string out;
     out.reserve(v.size());
+    int braceDepth = 0;
     for (size_t i = 0; i < v.size(); ++i) {
         char c = v[i];
-        if (c == '{' || c == '}' || c == '\'') continue;
+        if (c == '{') { ++braceDepth; continue; }
+        if (c == '}') { if (braceDepth > 0) --braceDepth; continue; }
+        if (c == '\'') continue;
+        if (c == '"' && braceDepth > 0) continue;
         if (c == '\n') {
             size_t j = i + 1;
             while (j < v.size() && (v[j] == ' ' || v[j] == '\t')) ++j;
@@ -243,6 +254,13 @@ static std::string spiceModelMaster(const std::string& model_type_raw,
     // sky130_fd_pr__res_*) reference these model cards from R instances.
     if (mt == "r" || mt == "res") return "sp_resistor";
 
+    // Semiconductor capacitor: .model <name> C ... (ngspice). Maps to the
+    // ngspice-flavour sp_capacitor master (spice/capacitor.osdi), which supports
+    // cox/capsw (aliases of cj/cjsw), w/l, tc1/tc2, tnom — unlike the generic
+    // 'capacitor' master (c only). Sky130 MiM/junction cap subcircuits reference
+    // these model cards from C instances.
+    if (mt == "c" || mt == "cap") return "sp_capacitor";
+
     Simulator::err() << "WARNING: SPICE model_type '" << model_type_raw
                      << "' has no known VACASK OSDI master (model skipped)\n";
     return "";
@@ -300,12 +318,23 @@ static std::optional<PTModel> buildSpiceModelCard(const netlist::SpiceModel& m,
     // a type-mismatch error at elaboration.  Strip it so the OSDI default ("4.8.3")
     // is used; the version selector affects only minor equation variants.
     if (master == "sp_bsim4v8") excl.insert("version");
+    // ngspice R/C model cards name the parameter-measurement temperature `tref`;
+    // the distilled sp_resistor/sp_capacitor masters expose it as `tnom`. Drop
+    // `tref` from the verbatim params and re-append it under the master's name.
+    bool renameTref = (master == "sp_resistor" || master == "sp_capacitor");
+    std::string trefVal;
+    if (renameTref) {
+        trefVal = spiceParamValue(m.params, "tref");
+        excl.insert("tref");
+    }
     auto ps = paramStringExcludingSet(m.params, excl);
     // sp_diode has a real `level` model param (junction-cap selector); re-append.
     if (master == "sp_diode") {
         std::string lvl = sv(m.level);
         if (!lvl.empty()) ps += (ps.empty() ? "" : " ") + std::string("level=") + lvl;
     }
+    if (renameTref && !trefVal.empty())
+        ps += (ps.empty() ? "" : " ") + std::string("tnom=") + trefVal;
     if (!ps.empty()) mod.add(p.parseParameters(lc(ps)));
 
     std::string mt = mt_raw;
@@ -406,7 +435,8 @@ static void emitSpiceModels(const rust::Vec<netlist::SpiceModel>& models,
 static const std::map<std::string, std::string>& osdiFileForMaster() {
     static const std::map<std::string, std::string> t = {
         {"resistor",   "resistor.osdi"},       {"sp_resistor", "spice/resistor.osdi"},
-        {"capacitor",  "capacitor.osdi"},      {"inductor",    "inductor.osdi"},
+        {"capacitor",  "capacitor.osdi"},      {"sp_capacitor","spice/capacitor.osdi"},
+        {"inductor",    "inductor.osdi"},
         {"diode",      "diode.osdi"},          {"sp_diode",    "spice/diode.osdi"},
         {"sp_bsim4v8", "spice/bsim4v8.osdi"},  {"bsim3",       "bsim3v3.osdi"},
         {"bsim4",      "bsim4v8.osdi"},        {"vbic13",      "vbic_1p3.osdi"},
