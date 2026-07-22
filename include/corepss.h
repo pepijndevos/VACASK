@@ -213,7 +213,6 @@ private:
     DenseMatrix<double> phiT_;
     DenseMatrix<double> omegaT_;    // adjoint
 
-    Vector<double>      PsiT;
     Vector<double>      Fp;
     Vector<double>      alpha;
     DenseMatrix<double> Jp;
@@ -228,26 +227,6 @@ private:
     // On return, solution_.vector() holds xT, the endpoint of the shoot.
     // pssTran_.trajectory() is populated with G(t) and C(t) snapshots.
     bool runShoot(double T0);
-
-    // Build the regular (driven) Newton system from PhiT, x0 and xT. 
-    // Solve it and update x0 and T0.
-    bool solveNewtonStep(
-        Vector<double>&       x0,
-        const Vector<double>& xT,
-        DenseMatrix<double>&  PhiT,
-        Status& s
-    );
-
-    // Build the augmented Newton system from PhiT, PsiT, x0, xT, and
-    // the phase constraint vector alpha. Solve it and update x0 and T0.
-    bool solveAugmentedNewtonStep(
-        Vector<double>&       x0,
-        double&               T0,
-        const Vector<double>& xT,
-        DenseMatrix<double>&  PhiT,
-        const Vector<double>& PsiT,
-        Status& s
-    );
 
     // Compute the phase constraint vector alpha.
     // alpha fixes the phase of the PSS solution so the (n+1) x (n+1)

@@ -76,7 +76,6 @@ bool PssCore::rebuild(Status& s) {
     opCore_.solver().setForcesFactor(3, options.nr_force);
 
     auto n = circuit.unknownCount();    
-    PsiT.resize(n+1);
     Fp.resize(n+1);
     alpha.resize(n+1);
     Jp.resize(n+1, n+1);
@@ -354,14 +353,14 @@ void PssCore::computePhaseConstraint(
     alpha.assign(n + 1, 0.0);
 
     double norm = 0.0;
-    for (decltype(n) i = 1; i <= n; i++) {
+    for (decltype(n) i = 0; i < n; i++) {
         norm += PsiT[i] * PsiT[i];
     }
     norm = std::sqrt(norm);
 
     if (norm > 0.0) {
-        for (decltype(n) i = 1; i <= n; i++) {
-            alpha[i] = PsiT[i] / norm;
+        for (decltype(n) i = 0; i < n; i++) {
+            alpha[i+1] = PsiT[i] / norm;
         }
     } else {
         if (circuit.simulatorOptions().core().pss_debug) {
@@ -475,13 +474,6 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
             co_yield CoreState::Aborted;
         }
         auto& tmpPhiT = pssTran_.phiCurrent();
-        if (!params.driven) {
-            // Oscillator, add leading zero to psi
-            auto& tmpPsi = pssTran_.psiCurrent();
-            PsiT.resize(n+1);
-            PsiT[0] = 0;
-            std::copy(tmpPsi.begin(), tmpPsi.end(), PsiT.begin() + 1);
-        }
         if (debug>0) {
             ss.str(""); 
             auto n = circuit.unknownCount();
@@ -492,8 +484,9 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
                 ss << "]\n";
             }
             if(!params.driven) {
+                auto& tmpPsiT = pssTran_.psiCurrent();
                 ss << "\tPsiT=[ ";
-                for (decltype(n) i = 1; i <= n; i++) ss << PsiT[i] << " ";
+                for (decltype(n) i = 0; i < n; i++) ss << tmpPsiT[i] << " ";
                 ss << "]\n";
             }
             Simulator::dbg() << ss.str();
@@ -515,7 +508,8 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
         // Compute phase constraint for autonomous circuits
         /// TODO: rewrite computePhaseConstraint without weird approximations
         if (!params.driven){
-            computePhaseConstraint(x0, T0, PsiT, alpha);
+            auto& tmpPsiT = pssTran_.psiCurrent();
+            computePhaseConstraint(x0, T0, tmpPsiT, alpha);
             if (debug>0){
                 ss.str(""); 
                 ss << "\talpha=[ ";
@@ -528,7 +522,7 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
             //for (decltype(n) i = 0; i <= n; i++) Fp[n] += alpha[i] * x0[i];
             // Augment the Jacobian
             // Right column: PsiT
-            for (decltype(n) i = 0; i < n; i++) Jp.at(i, n) = -PsiT[i + 1];
+            for (decltype(n) i = 0; i < n; i++) Jp.at(i, n) = -tmpPsiT[i];
             // Bottom row: alpha^T
             for (decltype(n) j = 0; j < n; j++) Jp.at(n, j) = alpha[j + 1];
         }

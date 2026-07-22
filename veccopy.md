@@ -7,30 +7,42 @@ suffice. Ranked by impact; matrix copies are O(n²) and dominate.
 
 ## FIXED 1. `PhiT` copied every Newton iteration instead of only at convergence
 
-- `lib/corepsstran.cpp:360-370` (`integrateSensitivity`)
-- `lib/corepsstran.cpp:377-398` (`integrateAugmentedSensitivity`)
+Was: `integrateSensitivity()`/`integrateAugmentedSensitivity()` did
+`PhiT = phiCurrent_;`, copying the full n×n matrix into a `PssCore`-owned
+out-param (`phiT_`) once per outer Newton iteration, even though only the
+converged result needed to survive.
 
-Both do `PhiT = phiCurrent_;`, copying the full n×n matrix into the caller's
-out-param. Called once per outer Newton iteration from
-`PssCore::runSensitivity` (`lib/corepss.cpp:332-353`), invoked at
-`lib/corepss.cpp:501` with `phiT_` (a `PssCore` member) as the target.
+Now: `PssTranCore` exposes `phiCurrent()`/`psiCurrent()` reference accessors
+(`include/corepsstran.h`) and a `phiValid()` check
+(`lib/corepsstran.cpp`). The old `integrateSensitivity`/
+`integrateAugmentedSensitivity`/`PssCore::runSensitivity` wrapper is gone.
+`PssCore::coroutine()` reads `PhiT`/`PsiT` through `pssTran_.phiCurrent()`/
+`pssTran_.psiCurrent()` directly while building `Jp` each iteration
+(`lib/corepss.cpp:472-524`), and copies into the durable member `phiT_`
+exactly once, right where the shooting Newton loop converges
+(`lib/corepss.cpp:589`) — before the final adjoint re-shoot that would
+otherwise overwrite `pssTran_`'s live `phiCurrent_`.
 
-`phiT_` only needs a durable copy for the *converged* result (exposed later
-via `convergedMonodromy()`, `include/corepss.h:173`). On every non-final
-iteration the value is only read locally to build `Jp`
-(`lib/corepss.cpp:528-533`).
+Bonus cleanups that came with this:
+- The unused `x_laststep` parameter of the old `integrateAugmentedSensitivity`
+  (computed but never read) was removed along with the function.
+- `PssCore::PsiT` (a 1-indexed, size n+1 member holding a reindexed copy of
+  `psiCurrent_` with a leading zero bucket) was eliminated entirely.
+  Every consumer (`computePhaseConstraint`, debug prints, the `Jp` right
+  column) now reads `pssTran_.psiCurrent()` (0-indexed, size n) directly,
+  with the index shift (`PsiT[i+1]` ↔ `tmpPsiT[i]`) applied inline instead
+  of via a stored copy.
 
-Fix direction: expose `phiCurrent_` via a `const DenseMatrix<double>&`
-accessor on `PssTranCore` (same pattern already used for
-`convergedMonodromy()`), read through that reference while building `Jp`
-during the loop, and copy into `phiT_` only once, after convergence.
+Regression caught and fixed during review: the removed `runSensitivity()`
+wrapper used to call `setError(PssError::SensitivityFailed)` on failure.
+The replacement `if (!pssTran_.phiValid())` check initially dropped that
+call, so `PssCore::lastPssError` stayed `OK` and `formatError()` silently
+reported no error after an aborted run. Restored at `lib/corepss.cpp:473`.
 
 ## FIXED 2. Double copy of Phi/Psi on every accepted timestep
-- `lib/corepsstran.cpp:271` + `lib/corepsstran.cpp:332-333`
-- `lib/corepsstran.cpp:314` + `lib/corepsstran.cpp:343`
 
 `onTimestepAccepted()` runs once per accepted transient step (far more often
-than once per Newton iteration):
+than once per Newton iteration). Was:
 
 ```cpp
 phiCurrent_ = rhs;                          // copy 1 (n×n)
@@ -39,9 +51,13 @@ DenseMatrix<double> phiSnap(phiCurrent_);    // copy 2 (n×n)
 phiHist_.push_front(std::move(phiSnap));
 ```
 
-Building `phiSnap` directly from `rhs` and moving `rhs` into `phiCurrent_`
-turns this into one copy + one move. Same pattern applies to
-`psiCurrent_`/`psiRhs`/`psiHist_`.
+Now: `phiCurrent_ = std::move(rhs);` (`lib/corepsstran.cpp:271`) — `rhs` is
+dead after this point, so the move is safe — followed by the existing
+`phiSnap(phiCurrent_)` copy into history (`lib/corepsstran.cpp:332`): one
+copy + one move instead of two copies. Same fix applied to the Psi side:
+`psiCurrent_ = std::move(psiRhs);` (`lib/corepsstran.cpp:314`) followed by
+the existing `psiHist_.push_front(psiCurrent_)` copy
+(`lib/corepsstran.cpp:343`).
 
 ## 3. `integrateAdjointMonodromy`: copies where a move would do
 
