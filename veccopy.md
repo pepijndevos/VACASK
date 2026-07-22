@@ -103,22 +103,9 @@ accept a matrix column directly. The call sites in `onTimestepAccepted()`
 now pass `Phi_kmi.column(j)` straight to `scratchC_.product(...)`
 (`lib/corepsstran.cpp:239,253`) — `phi_colbuf` is gone.
 
-## 3. `integrateAdjointMonodromy`: copies where a move would do
+## FIXED 5. `DenseMatrix::operator=(DenseMatrix&&)` didn't actually move
 
-- `lib/corepsstran.cpp:373` (`omegaHist.push_front(Omega)`)
-- `lib/corepsstran.cpp:483` (`Omega = omegaHist.front();`)
-
-`Omega` is seeded into history by copy even though it isn't read again until
-overwritten at the end, and the final result is copied out of a deque
-(`omegaHist`) that is local scratch destroyed right after. Both are
-`std::move` candidates rather than reference-return material, but they're
-free n×n copies to remove. Still open — not yet worth doing until item 5
-is addressed, since `Omega`/`omegaHist` entries are `DenseMatrix<double>`
-and would hit the same non-moving move-assignment operator.
-
-## 5. `DenseMatrix::operator=(DenseMatrix&&)` doesn't actually move
-
-Found while chasing item 2. `include/densematrix.h:743-751`:
+Found while chasing item 2. Was (`include/densematrix.h:743-751`):
 
 ```cpp
 DenseMatrix<T>& operator=(DenseMatrix<T>&& other) {
@@ -129,25 +116,93 @@ DenseMatrix<T>& operator=(DenseMatrix<T>&& other) {
 };
 ```
 
-This is identical to the copy-assignment operator apart from a pointless
+Identical to the copy-assignment operator apart from a pointless
 `std::move()` around a raw pointer. The move *constructor* just above it
-(`include/densematrix.h:688-695`) does this correctly
-(`data_ = std::move(A.data_);`), so only the assignment operator is affected.
+(`include/densematrix.h:688-695`) did this correctly
+(`data_ = std::move(A.data_);`) — only the assignment operator was affected.
 Net effect: every `someDenseMatrix = std::move(otherDenseMatrix);` in the
-codebase silently does a full O(n²) copy instead of a move — including the
-still-open item 3 above.
+codebase silently did a full O(n²) copy instead of a move.
 
-Not fixed yet — explicitly deferred per instruction ("no, just do a copy...")
-when it came up in the context of item 2, since at that point the fix
-under discussion (`phiCurrent_ = std::move(rhs)` with `rhs` as a reused
-scratch member) would have been actively unsafe once this operator were
-corrected. Worth a one-line fix (`data_ = std::move(other.data_);`) on its
-own, independent of PSS, but any code currently relying on
-`DenseMatrix` move-assignment for correctness (not just performance) should
-be re-checked first — this audit didn't find any, but item 3 hasn't been
-converted to use moves yet specifically because of this.
+Fixed to `data_ = std::move(other.data_); start_ = data_.data();`
+(`include/densematrix.h:743-751`). Checked before fixing: no other call site
+in the codebase does `= std::move(...)` on a `DenseMatrix`, so nothing was
+relying on the old copy-like behavior for correctness — safe to fix in
+isolation. The moved-from source (e.g. a reused scratch member) is left
+with an emptied `data_` but stale `nRow_`/`nCol_`/`start_`, standard
+"valid but unspecified" moved-from state — do not read a `DenseMatrix`
+after moving from it without reassigning/resizing it first (this is exactly
+the hazard item 2's second dead end ran into).
+
+## WON'T FIX 3. `integrateAdjointMonodromy`: copies where a move would do
+
+- `lib/corepsstran.cpp:373` (`omegaHist.push_front(Omega)`)
+- `lib/corepsstran.cpp:483` (`Omega = omegaHist.front();`)
+
+`Omega` is seeded into history by copy even though it isn't read again until
+overwritten at the end, and the final result is copied out of a deque
+(`omegaHist`) that is local scratch destroyed right after. Both are
+`std::move` candidates rather than reference-return material, and now that
+item 5 is fixed `std::move` here would actually save the copies (both
+`Omega` and `omegaHist` entries are locals that aren't reused afterward).
+
+Deliberately not doing this: the adjoint monodromy computation
+(`integrateAdjointMonodromy` and the whole `params.adjoint` path) is going
+to be removed in the future, so it's not worth spending effort on.
+
+## FIXED 6. `DenseMatrix::row(i) const` / `column(i) const` silently strip constness
+
+Found during a follow-up sweep of `densematrix.h` for the same class of
+"stupid" slip as item 5. Was (`include/densematrix.h:801-810` and `:823-832`):
+
+```cpp
+VectorView<T> row(size_t i) const {
+    auto* p = const_cast<T*>(data_.data());   // strips const off data_
+    ...
+    return VectorView<T>(p+nCol_*i, nCol_, 1);   // returns a WRITABLE view
+};
+```
+
+Both were declared `const` but returned a plain (non-const) `VectorView<T>`,
+using `const_cast` to get a writable pointer out of `data_.data()`. So
+`.row(i)`/`.column(i)` on a `const DenseMatrix<double>&` handed back a view
+that could still be written through — defeated the const contract. Compare
+to the base class `DenseMatrixView::row()/column() const`
+(`include/densematrix.h:288-293`), which returns `const VectorView<T>` and
+needs no cast at all, because it reads the inherited `start_` pointer
+directly (a plain `T*` value, unaffected by the method's own constness).
+
+Fixed by using `start_` (already kept in sync with `data_.data()` by every
+constructor/`resize()`/assignment) instead of re-deriving from
+`data_.data()`, dropping the `const_cast` and returning `const VectorView<T>`
+to match the base class:
+
+```cpp
+const VectorView<T> row(size_t i) const {
+    switch (major_) {
+        case Major::Row:    return VectorView<T>(start_+nCol_*i, nCol_, 1);
+        case Major::Column:
+        default:            return VectorView<T>(start_+i, nCol_, nRow_);
+    }
+};
+```
+
+An in-place attempt using `auto* p = data_.data();` (no cast) doesn't
+compile: `data_.data() const` returns `const T*`, which can't implicitly
+convert to the `T*` the `VectorView<T>` constructor needs — `start_` sidesteps
+this because its declared member type is already plain `T*`. Checked every
+`.row(`/`.column(` call site in `lib/`/`include/`/`devices/` before fixing —
+none chain a mutating call (`.swap()`, `=`, `.scale()`, …) directly onto the
+result of a const matrix's `.row()`/`.column()`, so nothing relied on the old
+leak; all safe.
+
+## FIXED 7. Dead variable in `solveCore`
+
+Was (`include/densematrix.h:594`): `auto pivot = pivCol[pivI];`, computed
+during pivot search and never read afterward — the pivot value actually
+used later comes from `pivRow[i]` post-swap. Harmless, just noise. Removed.
 
 ## Priority
 
-Items 1, 2, and 4 are fixed. Remaining: item 5 (one-line, low risk, but
-audit call sites first) and item 3 (blocked on item 5 to be worth doing).
+Items 1, 2, 4, 5, 6, and 7 are fixed. Item 3 is deliberately left as-is
+(adjoint monodromy code is slated for removal). Nothing else outstanding
+in this file.

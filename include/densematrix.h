@@ -591,7 +591,6 @@ private:
                     pivI = j;
                 }
             }
-            auto pivot = pivCol[pivI];
             if (p==0) {
                 return false;
             }
@@ -742,8 +741,8 @@ public:
     // Move assignment
     DenseMatrix<T>& operator=(DenseMatrix<T>&& other) {
         major_ = other.major_;
-        data_ = other.data_;
-        start_ = std::move(data_.data());
+        data_ = std::move(other.data_);
+        start_ = data_.data();
         nRow_ = other.nRow_;
         nCol_ = other.nCol_;
         setStride();
@@ -798,14 +797,13 @@ public:
         }   
     };
 
-    VectorView<T> row(size_t i) const {
-        auto* p = const_cast<T*>(data_.data());
+    const VectorView<T> row(size_t i) const {
         switch (major_) {
             case Major::Row:
-                return VectorView<T>(p+nCol_*i, nCol_, 1);
+                return VectorView<T>(start_+nCol_*i, nCol_, 1);
             case Major::Column:
             default:
-                return VectorView<T>(p+i, nCol_, nRow_);
+                return VectorView<T>(start_+i, nCol_, nRow_);
         }
     };
     
@@ -820,14 +818,13 @@ public:
         }
     };
 
-    VectorView<T> column(size_t i) const {
-        auto* p = const_cast<T*>(data_.data());
+    const VectorView<T> column(size_t i) const {
         switch (major_) {
             case Major::Row:
-                return VectorView<T>(p+i, nRow_, nCol_);
+                return VectorView<T>(start_+i, nRow_, nCol_);
             case Major::Column:
             default:
-                return VectorView<T>(p+i*nRow_, nRow_, 1);
+                return VectorView<T>(start_+i*nRow_, nRow_, 1);
         }
     };
 
