@@ -8,7 +8,7 @@ ground 0
 // included R devices reference. vsource is a native builtin.
 model vsource vsource
 
-include "spice_include_models.cir"
+include "spice_include_models.cir" lang=ngspice
 
 v1 (1 0) vsource dc=10
 

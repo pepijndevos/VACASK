@@ -8,7 +8,7 @@ ground 0
 // V(2) proves the right section was projected through parse_netlist_lib.
 model vsource vsource
 
-include "spice_include_corners.lib" section=tt
+include "spice_include_corners.lib" lang=ngspice section=tt
 
 v1 (1 0) vsource dc=10
 

@@ -13,11 +13,11 @@ model vsource vsource
 // emitted by the .lib tt section preamble; supplied here for the minimal chain).
 parameters mc_mm_switch=0 mc_pr_switch=0 corner_factor=1 process_mc_factor=1 mismatch_factor=1
 
-include "@SKY130_CONTINUOUS@/parameters_fet_tt.spice"
-include "@SKY130_CONTINUOUS@/parameters_res_nom.spice"
-include "@SKY130_CONTINUOUS@/parameters_cap_nom.spice"
-include "@SKY130_CONTINUOUS@/models_global.spice"
-include "@SKY130_CONTINUOUS@/models_fet/sky130_fd_pr__nfet_01v8.spice"
+include "@SKY130_CONTINUOUS@/parameters_fet_tt.spice" lang=ngspice
+include "@SKY130_CONTINUOUS@/parameters_res_nom.spice" lang=ngspice
+include "@SKY130_CONTINUOUS@/parameters_cap_nom.spice" lang=ngspice
+include "@SKY130_CONTINUOUS@/models_global.spice" lang=ngspice
+include "@SKY130_CONTINUOUS@/models_fet/sky130_fd_pr__nfet_01v8.spice" lang=ngspice
 
 // l/w in microns; scale=1e-6 maps them to metres for the model.
 x1 (d g 0 0) sky130_fd_pr__nfet_01v8 l=0.15 w=1.0

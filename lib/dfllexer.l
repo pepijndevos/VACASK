@@ -16,19 +16,6 @@
 #include <stdexcept>
 #include <algorithm>
 
-/* True if `path` names a foreign-format (SPICE/Spectre) netlist by extension.
-   Such includes are dispatched to the Rust parser instead of being lexed
-   natively (see the INCEND/LIBEND actions). Defined unconditionally so both the
-   SPICE-enabled (stash) and SPICE-disabled (error) branches can test it. */
-static bool isForeignNetlistExt(const std::string& path) {
-    auto dot = path.find_last_of('.');
-    if (dot == std::string::npos) return false;
-    std::string e = path.substr(dot);
-    std::transform(e.begin(), e.end(), e.begin(), ::tolower);
-    return e==".cir"||e==".sp"||e==".spice"||e==".mod"||e==".lib"
-         ||e==".scs"||e==".spectre";
-}
-
 /* Implementation of yyFlexScanner. Specify the prototype of lexer call. */ 
 #include "dflscanner.h"
 #undef  YY_DECL
@@ -332,7 +319,7 @@ after INCEND we have
                 auto pos = tables.fileStack().addFile(std::string(sbuf), Simulator::includePath(), fileStackPosition, loc->begin.line);
                 if (pos!=FileStack::badFileId) {
                     auto& fname = tables.fileStack().canonicalName(pos);
-                    if (!language.empty() || isForeignNetlistExt(fname)) {
+                    if (!language.empty()) {
 #ifdef VACASK_WITH_SPICE
                         // Foreign-format (SPICE/Spectre) include: do not lex it
                         // natively. Stash it for the grammar to dispatch to the
@@ -428,7 +415,7 @@ after INCEND we have
                 auto pos = tables.fileStack().addFile(std::string(sbuf), Simulator::includePath(), fileStackPosition, loc->begin.line);
                 if (pos!=FileStack::badFileId) {
                     auto& fname = tables.fileStack().canonicalName(pos);
-                    if (!language.empty() || isForeignNetlistExt(fname)) {
+                    if (!language.empty()) {
 #ifdef VACASK_WITH_SPICE
                         // Foreign-format library include with a section: defer to
                         // the Rust adapter (parse_netlist_lib extracts the

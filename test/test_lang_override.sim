@@ -1,0 +1,17 @@
+lang= override: .scs file parsed as ngspice
+
+ground 0
+model vsource vsource
+
+// ngspice-syntax content in a .scs file: lang=ngspice must govern the dialect,
+// not the .scs extension (which would otherwise imply Spectre). This proves that
+// extension inference is gone and lang= is the sole routing signal.
+include "lang_override_models.scs" lang=ngspice
+
+r1 (n1 0) resr r=1k
+v1 (n1 0) vsource dc=1.0
+
+control
+  abort always
+  analysis op1 op
+endc
