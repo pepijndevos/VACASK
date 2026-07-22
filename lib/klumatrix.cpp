@@ -581,6 +581,15 @@ template<typename IndexType, typename ValueType> bool KluMatrixCore<IndexType, V
 }
 
 template<typename IndexType, typename ValueType> bool KluMatrixCore<IndexType, ValueType>::tsolve(ValueType* b) {
+    auto t0 = Accounting::wclk();
+    if (acct) {
+        if constexpr(std::is_same<ValueType, Complex>::value) {
+            acct->acctNew.cxsolve++;
+        } else {
+            acct->acctNew.solve++;
+        }
+    }
+
     clearError();
 
     int st;
@@ -598,6 +607,14 @@ template<typename IndexType, typename ValueType> bool KluMatrixCore<IndexType, V
         }
     }
 
+    if (acct) {
+        if constexpr(std::is_same<ValueType, Complex>::value) {
+            acct->acctNew.tcxsolve += Accounting::wclkDelta(t0);
+        } else {
+            acct->acctNew.tsolve += Accounting::wclkDelta(t0);
+        }
+    }
+
     if (!st) {
         lastError = Error::Solve;
         return false;
@@ -606,6 +623,15 @@ template<typename IndexType, typename ValueType> bool KluMatrixCore<IndexType, V
 }
 
 template<typename IndexType, typename ValueType> bool KluMatrixCore<IndexType, ValueType>::tsolveBlock(ValueType* B, IndexType nrhs) {
+    auto t0 = Accounting::wclk();
+    if (acct) {
+        if constexpr(std::is_same<ValueType, Complex>::value) {
+            acct->acctNew.cxsolve += nrhs;
+        } else {
+            acct->acctNew.solve += nrhs;
+        }
+    }
+
     clearError();
 
     int st;
@@ -620,6 +646,14 @@ template<typename IndexType, typename ValueType> bool KluMatrixCore<IndexType, V
             st = klu_tsolve(symbolic, numeric, AN, nrhs, B, &common);
         } else {
             st = klu_l_tsolve(symbolic, numeric, AN, nrhs, B, &common);
+        }
+    }
+
+    if (acct) {
+        if constexpr(std::is_same<ValueType, Complex>::value) {
+            acct->acctNew.tcxsolve += Accounting::wclkDelta(t0);
+        } else {
+            acct->acctNew.tsolve += Accounting::wclkDelta(t0);
         }
     }
 
