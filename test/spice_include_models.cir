@@ -1,0 +1,6 @@
+* Resistive divider devices in SPICE dialect. Included by test_spice_include.sim
+* through VACASK's foreign-format include dispatch: R1/R2 are merged into the
+* native toplevel definition and their OSDI master (sp_resistor -> spice/
+* resistor.osdi) is auto-loaded. R1 from node 1->2 (1k), R2 from 2->0 (9k).
+R1 1 2 1k
+R2 2 0 9k

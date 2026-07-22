@@ -1,0 +1,42 @@
+SPICE library section include OP analysis
+
+ground 0
+
+// R1/R2 come from section `tt` of a SPICE-dialect library, pulled in via the
+// foreign-format include dispatch with a section selector. Section tt gives a
+// 1k/9k divider (V(2)=9); section ff would give 2k/8k (V(2)=8), so a correct
+// V(2) proves the right section was projected through parse_netlist_lib.
+model vsource vsource
+
+include "spice_include_corners.lib" section=tt
+
+v1 (1 0) vsource dc=10
+
+control
+  abort always
+  var dbglevel=0
+  options rawfile="binary" op_debug=dbglevel
+  analysis op1 op
+
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+from runtest import *
+import sys
+
+tests=[]
+
+op1 = rawread('op1.raw').get()
+
+# Section tt: 1k/9k divider from a 10 V supply -> V(2) = 9 V (ff would be 8 V).
+v = op1["2"]
+exact = 9.0
+status = (relDiff(v, exact, 1e-6) < 1e-3).all()
+print("V(2)=", v, "exact=", exact, "(tt section)", status)
+tests.append(status)
+
+if isTest():
+    sys.exit(not all(tests))
+>>>FILE

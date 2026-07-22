@@ -1,0 +1,50 @@
+SPICE include OP analysis
+
+ground 0
+
+// The resistors come from a SPICE-dialect file pulled in via the foreign-format
+// include dispatch (VACASK_WITH_SPICE). No explicit `load` for the resistor
+// OSDI is needed: the adapter auto-emits it for the sp_resistor master that the
+// included R devices reference. vsource is a native builtin.
+model vsource vsource
+
+include "spice_include_models.cir"
+
+v1 (1 0) vsource dc=10
+
+control
+  abort always
+  var dbglevel=0
+  options rawfile="binary" op_debug=dbglevel
+  analysis op1 op
+
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+from runtest import *
+import sys
+
+tests=[]
+
+op1 = rawread('op1.raw').get()
+
+# V(1) is the source node, must be exactly the 10 V supply.
+v = op1["1"]
+exact = 10
+status = (relDiff(v, exact, 1e-6) < 1e-3).all()
+print("V(1)=", v, "exact=", exact, status)
+tests.append(status)
+
+# V(2) is the divider midpoint: 10 * R2/(R1+R2) = 10 * 9k/10k = 9 V.
+# This is only correct if the included SPICE resistors actually participate.
+v = op1["2"]
+exact = 9.0
+status = (relDiff(v, exact, 1e-6) < 1e-3).all()
+print("V(2)=", v, "exact=", exact, status)
+tests.append(status)
+
+if isTest():
+    sys.exit(not all(tests))
+>>>FILE

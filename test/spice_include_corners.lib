@@ -1,0 +1,13 @@
+* SPICE library with two corner sections, pulled in by
+* test_spice_include_section.sim via `include "..." section=tt`. Section tt and
+* section ff give different divider ratios so the test proves the correct
+* section was selected (and dispatched through the Rust adapter's
+* parse_netlist_lib path).
+.lib tt
+R1 1 2 1k
+R2 2 0 9k
+.endl tt
+.lib ff
+R1 1 2 2k
+R2 2 0 8k
+.endl ff
