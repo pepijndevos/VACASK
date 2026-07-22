@@ -87,4 +87,28 @@ prepare_netlist_test(test_mc.sim)
 if(VACASK_WITH_SPICE)
     prepare_netlist_test(test_spice_include.sim)
     prepare_netlist_test(test_spice_include_section.sim)
+
+    # Sky130 ngspice PDK include E2E: a native deck that includes the raw ngspice
+    # Sky130 model sources directly (no Cadnip.jl conversion) and solves an nfet
+    # operating point through the vacask binary. Registered only when the PDK
+    # checkout is present, so CI without it stays green. The PDK path is baked
+    # into a generated deck via configure_file (keeps the committed .sim.in
+    # machine-independent).
+    set(SKY130_CONTINUOUS "/home/pepijn/code/nyanodide/skywater-pdk-libs-sky130_fd_pr/combined_models/continuous"
+        CACHE PATH "Sky130 ngspice 'continuous' model directory for the include E2E test")
+    if(EXISTS "${SKY130_CONTINUOUS}/models_fet/sky130_fd_pr__nfet_01v8.spice")
+        set(_sky130_test test_sky130_nfet_include.sim)
+        file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${_sky130_test}")
+        configure_file(
+            "${CMAKE_CURRENT_SOURCE_DIR}/test_sky130_nfet_include.sim.in"
+            "${CMAKE_CURRENT_BINARY_DIR}/${_sky130_test}/${_sky130_test}" @ONLY)
+        add_test(NAME "${_sky130_test}"
+            COMMAND $<TARGET_FILE:sim> -dp "${CMAKE_CURRENT_BINARY_DIR}/${_sky130_test}/${_sky130_test}"
+            WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${_sky130_test}")
+        set_tests_properties("${_sky130_test}" PROPERTIES
+            ENVIRONMENT "PYTHONPATH=${CMAKE_CURRENT_BINARY_DIR};SIM_TEST=yes"
+            TIMEOUT 30)
+    else()
+        message(STATUS "Skipping test_sky130_nfet_include (Sky130 PDK not found at ${SKY130_CONTINUOUS})")
+    endif()
 endif()

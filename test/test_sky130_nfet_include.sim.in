@@ -1,0 +1,61 @@
+Sky130 nfet_01v8 OP via direct ngspice include
+
+// Real end-to-end test of foreign-format include dispatch: a simple native
+// VACASK top-level deck that includes the *ngspice* Sky130 PDK sources directly
+// (no Cadnip.jl / Spectre conversion) and solves an operating point. The OSDI
+// modules the models need (sp_bsim4v8 etc.) are auto-loaded by the adapter.
+// @SKY130_CONTINUOUS@ is substituted by CMake at configure time.
+
+ground 0
+model vsource vsource
+
+// Corner-switch/factor parameters the PDK model files reference (normally
+// emitted by the .lib tt section preamble; supplied here for the minimal chain).
+parameters mc_mm_switch=0 mc_pr_switch=0 corner_factor=1 process_mc_factor=1 mismatch_factor=1
+
+include "@SKY130_CONTINUOUS@/parameters_fet_tt.spice"
+include "@SKY130_CONTINUOUS@/parameters_res_nom.spice"
+include "@SKY130_CONTINUOUS@/parameters_cap_nom.spice"
+include "@SKY130_CONTINUOUS@/models_global.spice"
+include "@SKY130_CONTINUOUS@/models_fet/sky130_fd_pr__nfet_01v8.spice"
+
+// l/w in microns; scale=1e-6 maps them to metres for the model.
+x1 (d g 0 0) sky130_fd_pr__nfet_01v8 l=0.15 w=1.0
+v1 (d 0) vsource dc=1.8
+v2 (g 0) vsource dc=1.8
+
+control
+  abort always
+  options rawfile="binary" scale=1e-6
+  analysis op1 op
+
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+from runtest import *
+import sys
+
+tests=[]
+
+op1 = rawread('op1.raw').get()
+
+# Gate/drain biased at 1.8 V.
+status = (relDiff(op1["d"], 1.8, 1e-6) < 1e-3).all()
+print("V(d)=", op1["d"], "exact=", 1.8, status)
+tests.append(status)
+
+# Drain current sunk by the nfet (Id = -I into v1's + terminal). With Vgs=Vds=1.8,
+# l=0.15u/w=1u the device is in saturation and conducts ~0.48 mA. Assert a wide
+# physical band (0.05..5 mA): proves the ngspice models were parsed, the OSDI was
+# auto-loaded, and a real operating point was solved -- without over-fitting to a
+# model revision.
+Id = -op1["v1:flow(br)"]
+status = bool((Id > 5e-5).all() and (Id < 5e-3).all())
+print("Id=", Id, "A (expect ~4.8e-4)", status)
+tests.append(status)
+
+if isTest():
+    sys.exit(not all(tests))
+>>>FILE
