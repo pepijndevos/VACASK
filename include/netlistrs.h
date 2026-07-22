@@ -13,7 +13,8 @@ namespace sim {
 // into `tab`'s default toplevel subcircuit definition, nested subckt defs, and
 // analyses. Parameters/expressions are re-parsed with `p` (parseParameters), so
 // VACASK owns value-vs-expression classification. `startSpice` selects the
-// starting dialect (true = SPICE, false = Spectre). PTLoads are NOT added here.
+// starting dialect (true = SPICE, false = Spectre). OSDI PTLoads for the masters
+// referenced by the parsed devices/models are auto-emitted into `tab`.
 // Relative includes in `source` are resolved against CWD; prefer
 // buildParserTablesFromFile for sources containing include directives.
 // Returns false and populates `s` if the parser reported error nodes.
@@ -30,10 +31,24 @@ bool buildParserTables(const std::string& source, bool startSpice,
 //  - saves: not yet transcribed (save requests are dropped with a warning).
 //  - ics: not yet transcribed (initial conditions are dropped with a warning).
 //  - ahdl_includes (VA): not yet transcribed (dropped with a warning).
-// PTLoads are NOT added here.
+// OSDI PTLoads for the masters referenced by the parsed devices/models are
+// auto-emitted into `tab`.
 // Returns false and populates `s` on error.
 bool buildParserTablesFromFile(const std::string& path,
                                ParserTables& tab, Parser& p, Status& s);
+
+// Parse a foreign-format netlist FILE (SPICE by extension; Spectre for
+// .scs/.spectre) and merge its models/subckts/devices into the caller-provided
+// `top` subcircuit definition — used by the native parser's `include` handler to
+// dispatch a foreign-format include into the in-progress toplevel definition.
+// Analysis/command directives in the file are ignored (with a warning); OSDI
+// loads for referenced masters are auto-emitted into `tab` (de-duplicated).
+// `section` (if non-empty) selects a `.lib`-style section. Unlike the functions
+// above it does NOT call defaultGround()/setDefaultSubDef().
+// Returns false and populates `s` on error.
+bool mergeForeignFile(const std::string& path, const std::string& section,
+                      PTSubcircuitDefinition& top, ParserTables& tab,
+                      Parser& p, Status& s);
 
 }
 

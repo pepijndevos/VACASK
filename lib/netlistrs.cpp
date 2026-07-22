@@ -124,7 +124,8 @@ static bool spiceBlockToTables(const netlist::SpiceBlock& sb, PTSubcircuitDefini
                                ParserTables& tab, Parser& p,
                                std::set<std::string>& addedModels, Status& s,
                                const std::filesystem::path& baseDir,
-                               std::set<std::filesystem::path>& visited);
+                               std::set<std::filesystem::path>& visited,
+                               bool projectAnalyses = true);
 
 // Fill a PTSubcircuitDefinition from a netlist::Subckt (has conditionals + ports).
 // Returns false (with `st` set) on any error in nested SPICE-block processing.
@@ -395,6 +396,57 @@ static void emitSpiceModels(const rust::Vec<netlist::SpiceModel>& models,
         }
     }
     for (const auto& base : order) emitBinnedModelGroup(groups[base], base, into, p);
+}
+
+// --- OSDI auto-load ---------------------------------------------------------
+// SPICE-flavored master name -> OSDI module file. Builtins (vsource/isource and
+// the controlled-source masters vcvs/vccs/cccs/ccvs) are intentionally absent:
+// they are built into VACASK and need no `load`. Subcircuit-call masters are
+// also absent (they resolve to subckt definitions, not OSDI modules).
+static const std::map<std::string, std::string>& osdiFileForMaster() {
+    static const std::map<std::string, std::string> t = {
+        {"resistor",   "resistor.osdi"},       {"sp_resistor", "spice/resistor.osdi"},
+        {"capacitor",  "capacitor.osdi"},      {"inductor",    "inductor.osdi"},
+        {"diode",      "diode.osdi"},          {"sp_diode",    "spice/diode.osdi"},
+        {"sp_bsim4v8", "spice/bsim4v8.osdi"},  {"bsim3",       "bsim3v3.osdi"},
+        {"bsim4",      "bsim4v8.osdi"},        {"vbic13",      "vbic_1p3.osdi"},
+        {"bsimbulk",   "bsimbulk106.osdi"},    {"psp103va",    "psp103v4.osdi"},
+    };
+    return t;
+}
+
+// Collect every model/instance master referenced in a block, recursing into
+// @if/@elseif block sequences (where binned models live).
+static void collectMasters(const PTBlock& b, std::set<std::string>& out) {
+    for (const auto& m : b.models())    out.insert(std::string(m.device()));
+    for (const auto& i : b.instances()) out.insert(std::string(i.masterName()));
+    if (b.hasBlockSequences()) {
+        for (const auto& seq : b.blockSequences())
+            for (const auto& e : seq.entries())
+                collectMasters(std::get<2>(e), out);
+    }
+}
+
+// Collect masters across a subcircuit definition and all nested definitions.
+static void collectMastersDef(const PTSubcircuitDefinition& d, std::set<std::string>& out) {
+    collectMasters(d.root(), out);
+    for (const auto& sd : d.subDefs()) collectMastersDef(*sd, out);
+}
+
+// Emit a toplevel `load "<file>.osdi"` for each OSDI master referenced by `def`,
+// de-duplicated against loads already present in `tab`. Replaces callers'
+// previously hardcoded PTLoad lists: including a PDK auto-pulls exactly the OSDI
+// modules its devices need.
+static void emitOsdiLoads(ParserTables& tab, const PTSubcircuitDefinition& def) {
+    std::set<std::string> masters;
+    collectMastersDef(def, masters);
+    std::set<std::string> have;
+    for (const auto& ld : tab.loads()) have.insert(ld.file());
+    for (const auto& m : masters) {
+        auto it = osdiFileForMaster().find(m);
+        if (it == osdiFileForMaster().end()) continue;
+        if (have.insert(it->second).second) tab.add(PTLoad(it->second));
+    }
 }
 
 // Map SPICE source function args to VACASK named vsource/isource params.
@@ -773,12 +825,14 @@ static bool fillSpiceSubDef(PTSubcircuitDefinition& def, const netlist::SpiceSub
 }
 
 // Forward declaration of mergeNetlist for spiceBlockToTables to call (Fix 2).
+// `projectAnalyses` = false suppresses (and warns about) analysis/command
+// projection — used for foreign-format includes, whose commands are ignored.
 bool mergeNetlist(const netlist::Netlist& nl, PTSubcircuitDefinition& top,
                   ParserTables& tab, Parser& p,
                   const std::filesystem::path& baseDir,
                   std::set<std::filesystem::path>& visited,
                   std::set<std::string>& addedModels,
-                  Status& s);
+                  Status& s, bool projectAnalyses = true);
 
 // Map one SpiceBlock into a PTSubcircuitDefinition.  `addedModels` is shared
 // across repeated calls so self-alias model cards are emitted only once.
@@ -787,7 +841,8 @@ static bool spiceBlockToTables(const netlist::SpiceBlock& sb, PTSubcircuitDefini
                                ParserTables& tab, Parser& p,
                                std::set<std::string>& addedModels, Status& s,
                                const std::filesystem::path& baseDir,
-                               std::set<std::filesystem::path>& visited) {
+                               std::set<std::filesystem::path>& visited,
+                               bool projectAnalyses) {
     // Top-level .param declarations from the SPICE block.
     auto sp = paramString(sb.params);
     if (!sp.empty()) into.add(p.parseParameters(lc(sp)));
@@ -852,7 +907,8 @@ static bool spiceBlockToTables(const netlist::SpiceBlock& sb, PTSubcircuitDefini
             return false;
         }
 
-        if (!mergeNetlist(sub, into, tab, p, absPath.parent_path(), visited, addedModels, s))
+        if (!mergeNetlist(sub, into, tab, p, absPath.parent_path(), visited, addedModels, s,
+                          projectAnalyses))
             return false;
     }
     return true;
@@ -870,7 +926,7 @@ bool mergeNetlist(const netlist::Netlist& nl, PTSubcircuitDefinition& top,
                   const std::filesystem::path& baseDir,
                   std::set<std::filesystem::path>& visited,
                   std::set<std::string>& addedModels,
-                  Status& s) {
+                  Status& s, bool projectAnalyses) {
     // Accumulate toplevel params/models/instances/subckts.
     auto sp = paramString(nl.params);
     if (!sp.empty()) top.add(p.parseParameters(sp));
@@ -884,16 +940,23 @@ bool mergeNetlist(const netlist::Netlist& nl, PTSubcircuitDefinition& top,
 
     // SPICE blocks (R/C/L/V/I adapter + nested .subckt/.model + .include resolution).
     for (const auto& sb : nl.spice_blocks) {
-        if (!spiceBlockToTables(sb, top, tab, p, addedModels, s, baseDir, visited)) return false;
+        if (!spiceBlockToTables(sb, top, tab, p, addedModels, s, baseDir, visited, projectAnalyses))
+            return false;
     }
 
     // Globals and analyses into tab.
     for (const auto& g : nl.globals) tab.addGlobal(PTParsedIdentifier(sv(g).c_str()));
-    for (const auto& a : nl.analyses) {
-        PTAnalysis desc(Id(sv(a.name).c_str()), Id(sv(a.analysis_type).c_str()));
-        auto ps = paramString(a.params);
-        if (!ps.empty()) desc.add(p.parseParameters(ps));
-        tab.addCommand(std::move(desc));
+    if (projectAnalyses) {
+        for (const auto& a : nl.analyses) {
+            PTAnalysis desc(Id(sv(a.name).c_str()), Id(sv(a.analysis_type).c_str()));
+            auto ps = paramString(a.params);
+            if (!ps.empty()) desc.add(p.parseParameters(ps));
+            tab.addCommand(std::move(desc));
+        }
+    } else if (!nl.analyses.empty()) {
+        Simulator::err() << "WARNING: netlistrs adapter ignoring " << nl.analyses.size()
+                         << " analysis command(s) from an included foreign-format file"
+                         << " (write analyses in the native VACASK deck)\n";
     }
 
     // Warn about fields that are parsed but not yet transcribed.
@@ -952,7 +1015,8 @@ bool mergeNetlist(const netlist::Netlist& nl, PTSubcircuitDefinition& top,
             return false;
         }
 
-        if (!mergeNetlist(sub, top, tab, p, absPath.parent_path(), visited, addedModels, s))
+        if (!mergeNetlist(sub, top, tab, p, absPath.parent_path(), visited, addedModels, s,
+                          projectAnalyses))
             return false;
     }
     return true;
@@ -979,6 +1043,7 @@ bool buildParserTables(const std::string& source, bool startSpice,
     std::set<std::string> addedModels;
     if (!mergeNetlist(nl, top, tab, p, std::filesystem::current_path(), visited, addedModels, s))
         return false;
+    emitOsdiLoads(tab, top);
     tab.setDefaultSubDef(std::move(top));
     return true;
 }
@@ -1026,7 +1091,51 @@ bool buildParserTablesFromFile(const std::string& path,
     }
     if (!mergeNetlist(nl, top, tab, p, absPath.parent_path(), visited, addedModels, s))
         return false;
+    emitOsdiLoads(tab, top);
     tab.setDefaultSubDef(std::move(top));
+    return true;
+}
+
+// Parse a foreign-format netlist FILE and merge its models/subckts/devices into
+// the caller-provided `top` subcircuit definition (the native parser's in-progress
+// toplevel def). Analysis/command directives are ignored (with a warning); OSDI
+// loads for referenced masters are auto-emitted into `tab`. `section` (non-empty)
+// selects a `.lib` section. Extension picks the dialect (.scs/.spectre = Spectre,
+// else SPICE). Does NOT touch defaultGround()/setDefaultSubDef() — that stays the
+// grammar's responsibility.
+bool mergeForeignFile(const std::string& path, const std::string& section,
+                      PTSubcircuitDefinition& top, ParserTables& tab,
+                      Parser& p, Status& s) {
+    namespace fs = std::filesystem;
+    fs::path fp(path);
+    std::string ext = fp.extension().string();
+    std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+    bool spice = (ext != ".scs" && ext != ".spectre");
+
+    std::ifstream in(path);
+    if (!in) { s.set(Status::NotFound, "cannot open foreign include: " + path); return false; }
+    std::stringstream ss; ss << in.rdbuf();
+    std::string source = ss.str();
+
+    netlist::Netlist nl = section.empty()
+        ? netlist::parse_netlist(rust::Str(source), spice)
+        : netlist::parse_netlist_lib(rust::Str(source), rust::Str(section));
+    if (!nl.errors.empty()) {
+        std::ostringstream os;
+        os << "netlist parse error(s) in '" << path << "': " << nl.errors.size()
+           << " (first at bytes [" << nl.errors[0].start << ", " << nl.errors[0].end << "))";
+        s.set(Status::Syntax, os.str());
+        return false;
+    }
+
+    fs::path absPath;
+    try { absPath = fs::canonical(fp); } catch (...) { absPath = fs::absolute(fp); }
+    std::set<fs::path> visited{ absPath };
+    std::set<std::string> addedModels;
+    if (!mergeNetlist(nl, top, tab, p, absPath.parent_path(), visited, addedModels, s,
+                      /*projectAnalyses=*/false))
+        return false;
+    emitOsdiLoads(tab, top);
     return true;
 }
 
