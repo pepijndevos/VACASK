@@ -178,7 +178,6 @@ std::tuple<bool, double> PssCore::runStabilisation(bool continuePrevious) {
     double period = 0;
     if (continuePrevious) {
         // Continue mode (sweep, homotopy)
-        auto& opSlot = opCore_.coreState(0);
         // Stored solution has no delta forces. 
         if (
             continueState && 

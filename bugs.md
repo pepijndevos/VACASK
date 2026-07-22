@@ -57,15 +57,22 @@ across all areas, ranked most severe first. Check a box once fixed.
   specific defect (correct RHS computed in a comment, then discarded) is a
   concrete, fixable bug distinct from that TODO.
 
-- [ ] **3. `AnnotatedSolution::auxReal_` is never initialized by the default constructor — violates its own "≤0 means unset" contract** *(Area 3: ansolution/core, severe)*
+- [x] **3. `AnnotatedSolution::auxReal_` is never initialized by the default constructor — violates its own "≤0 means unset" contract** *(Area 3: ansolution/core, severe — fixed)*
 
   `include/ansolution.h:88` declares `double auxReal_;` with no
   default-member-initializer, and `lib/ansolution.cpp:9-10`
-  (`AnnotatedSolution::AnnotatedSolution() {}`) leaves it untouched. The
+  (`AnnotatedSolution::AnnotatedSolution() {}`) left it untouched. The
   class comment explicitly states "aux real scalar (period), `<=0` means no
   period given," and `lib/corepss.cpp` relies on exactly that sentinel
   (`period = continueState->solution.auxReal(); if (period<=0) {
   setError(...) }`).
+
+  Fixed by initializing `auxReal_(0)` in the constructor's member
+  initializer list (`lib/ansolution.cpp:9`), so every
+  default-constructed `AnnotatedSolution` — including `CoreStateStorage`
+  slots created via `AnalysisCore::allocateStateStorage()`'s
+  `vector::resize`, which bypasses `Circuit::newStoredSolution()`/`clear()`
+  — now starts with the sentinel value instead of indeterminate garbage.
 
   The only place that reliably zeroes it is `Circuit::newStoredSolution()`
   (`lib/circuit.cpp`), via `.clear()`. But `CoreStateStorage::solution`
@@ -84,10 +91,10 @@ across all areas, ranked most severe first. Check a box once fixed.
   that garbage happens to be `>0`, `corepss.cpp` (twice, ~lines 195 and 224)
   will treat an uninitialized period as real, seeding the
   shooting/stabilization loop with a bogus period instead of falling back
-  to `params.tper` or failing cleanly. Fix is trivial (`double auxReal_
-  {0.0};`), but as written it's a real gap.
+  to `params.tper` or failing cleanly. No longer possible now that the
+  constructor initializes the field.
 
-- [ ] **4. Aliasing hazard in new `product()`/`tproduct()` VectorView overloads** *(Area 2: klumatrix, medium, latent)*
+- [ ] **4. Aliasing hazard in new `product()`/`tproduct()` VectorView overloads** *(Area 2: klumatrix, medium, latent — undecided: a real runtime overlap check is non-trivial and takes time; may or may not do)*
 
   `lib/klumatrix.cpp:185,230` — both new view-based `KluMatrixCore::product()`/
   `tproduct()` carry a `// TODO: check for VectorView overlap` and a doc
@@ -99,34 +106,40 @@ across all areas, ranked most severe first. Check a box once fixed.
   proven to occur today (call sites live in `corepsstran.cpp`), but worth
   enforcing given it's an explicitly-flagged precondition with no guard.
 
-- [ ] **5. `TranCore::rebuild()` hardcodes IC-force writes to slot 2, ignoring the configurable `icForcesSlot`** *(Area 3: coretran, low, latent)*
+- [x] **5. `TranCore::rebuild()` hardcodes IC-force writes to slot 2** *(Area 3: coretran — not a bug, working as designed)*
 
-  `lib/coretran.cpp`'s `rebuild()` unconditionally writes user `ic=` forces
-  into `opCore_.solver().forces(2)` (hardcoded), while the icmode=op setup
-  in `coroutine()` (~lines 856-871) checks
-  `opCore_.solver().forces(icForcesSlot)` and does `enableForces(2, false)`
-  whenever `icForcesSlot != 2`. `TranCore::setIcForcesSlot()` is documented
-  as being repointed to slot 3 by "analyses like PSS." Not currently
-  tripped: PSS's `stabilTran_` sets `icForcesSlot(3)` but leaves its own
-  `params.ic` empty, so slot 2 is never populated for it. But
-  `rebuild()`/`coroutine()` have no coupling enforcing the two slot numbers
-  match, so any future `TranCore` subclass (or PSS path) combining a
-  non-default `icForcesSlot` with a real `ic=` parameter would have those
-  forces silently computed then discarded, falling back to nodesets. Worth
-  a comment/assertion tying the two together; not causing wrong output
-  today.
+  Originally flagged because `lib/coretran.cpp`'s `rebuild()` writes the
+  base `ic=` forces into `opCore_.solver().forces(2)` (hardcoded), while
+  `coroutine()`'s icmode=op setup reads from the configurable
+  `icForcesSlot`, with no coupling enforcing the two match.
 
-- [ ] **6. `AnalysisCore::coreState(size_t)` returns a reference into a resizable vector with no invalidation contract** *(Area 3: core, minor, latent)*
+  Not a bug: slot 2 is `TranCore`'s own base `ic=` handling. `icForcesSlot`
+  exists precisely so a derived core (e.g. PSS's `stabilTran_`, which
+  redirects it to slot 3) can populate a *different* slot itself and point
+  `coroutine()` there instead of slot 2 — that's the intended override
+  mechanism, not a leftover coupling gap. A subclass supplying both a
+  non-default `icForcesSlot` and a real base `params.ic` at the same time
+  would be caller error (asking for two different IC sources at once), not
+  a framework bug.
+
+- [x] **6. `AnalysisCore::coreState(size_t)` returns a reference into a resizable vector with no invalidation contract** *(Area 3: core, minor, latent — fixed)*
 
   `include/core.h:142`: `CoreStateStorage& coreState(size_t ndx) { return
   coreStates.at(ndx); };`. `coreStates` is `std::vector<CoreStateStorage>`,
   and `allocateStateStorage()`/`deallocateStateStorage()` (`lib/core.cpp`)
   `resize()` it, invalidating existing references. `lib/corepss.cpp:181`
-  already holds a local reference from `opCore_.coreState(0)`; it isn't
-  used across a subsequent resize today, so nothing is broken yet, but the
-  API gives no warning that a later allocate/deallocate call invalidates
-  any reference obtained this way — a use-after-free trap for future
+  held a local reference from `opCore_.coreState(0)`; it wasn't used across
+  a subsequent resize, so nothing was broken, but the API gave no warning
+  that a later allocate/deallocate call invalidates any reference obtained
+  this way — a use-after-free trap for future
   callers.
+
+  Fixed by removing the unused `opSlot` local (`auto& opSlot =
+  opCore_.coreState(0);`, dead — never read afterward) from
+  `PssCore::runStabilisation()` in `lib/corepss.cpp`. That was the only
+  call site in the codebase holding a `coreState()` reference, so the
+  concrete hazard is gone; `coreState()`'s signature in `core.h` is
+  unchanged since no current caller is at risk.
 
 - [x] **7. `tsolve`/`tsolveBlock` omit accounting instrumentation present in `solve`/`solveBlock`** *(Area 2: klumatrix, minor — fixed)*
 
@@ -145,12 +158,13 @@ across all areas, ranked most severe first. Check a box once fixed.
   into the same aggregate counters as regular solves, consistent with how
   the rest of the accounting struct treats solve variants.
 
-- [ ] **8. Wrong matrix name in `GTProductFailed` error message** *(Area 1: corepsstran, cosmetic)*
+- [x] **8. Wrong matrix name in `GTProductFailed` error message** *(Area 1: corepsstran, cosmetic — fixed)*
 
   `lib/corepsstran.cpp:580-583` — the `GTProductFailed` case in
-  `formatError()` prints `"PssTranCore: C^T product failed..."`,
-  copy-pasted from the `CTProductFailed` case above it; should say `G^T`.
-  Misleads debugging only, no functional impact.
+  `formatError()` printed `"PssTranCore: C^T product failed..."`,
+  copy-pasted from the `CTProductFailed` case above it; should have said
+  `G^T`. Misled debugging only, no functional impact. Already corrected in
+  the working tree (uncommitted) to `"PssTranCore: G^T product failed..."`.
 
 ## Verified correct (no findings)
 

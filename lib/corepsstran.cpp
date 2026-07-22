@@ -578,7 +578,7 @@ bool PssTranCore::formatError(Status& s) const {
             break;
         case PssTranError::GTProductFailed:
             s.set(Status::Analysis, 
-                "PssTranCore: C^T product failed at backward step k="+std::to_string(pssErrorIndexK)+
+                "PssTranCore: G^T product failed at backward step k="+std::to_string(pssErrorIndexK)+
                 " i="+std::to_string(pssErrorIndexI)+"."
             );
             break;

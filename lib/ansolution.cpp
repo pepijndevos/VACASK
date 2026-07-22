@@ -6,7 +6,7 @@
 
 namespace NAMESPACE {
 
-AnnotatedSolution::AnnotatedSolution() {
+AnnotatedSolution::AnnotatedSolution() : auxReal_(0) {
 }
 
 void AnnotatedSolution::setNames(Circuit& circuit) {
