@@ -203,12 +203,19 @@ add_library(simlib STATIC
     "${BISON_dflparser_OUTPUTS}"
     "${FLEX_dfllexer_OUTPUTS}"
     parser.cpp
-    netlistrs.cpp
 )
 target_include_directories(simlib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_BINARY_DIR}
     ${FLEX_INCLUDE_DIRS}
 )
-target_link_libraries(simlib PUBLIC netlist_cxx_bridge)
+# SPICE/Spectre support is optional (see top-level VACASK_WITH_SPICE). When on,
+# compile the Rust-parser adapter into simlib, define VACASK_WITH_SPICE for the
+# scanner/grammar include-dispatch guards, and link the cxx bridge. The PUBLIC
+# scope propagates the bridge + define to the vacask binary and the demos.
+if(VACASK_WITH_SPICE)
+    target_sources(simlib PRIVATE netlistrs.cpp)
+    target_compile_definitions(simlib PUBLIC VACASK_WITH_SPICE)
+    target_link_libraries(simlib PUBLIC netlist_cxx_bridge)
+endif()
 # target_compile_definitions(dlib PRIVATE BUILDING_SIM_DLL)

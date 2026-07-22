@@ -9,6 +9,9 @@ if (${SIM_PLATFORM} STREQUAL "Windows")
     target_link_options(demo1 PUBLIC -static)
 endif()
 
+# The netlistrs demo and its tests exercise the Rust parser; build them only
+# when SPICE/Spectre support is enabled (netlist_cxx_bridge exists).
+if(VACASK_WITH_SPICE)
 add_executable(demo_netlistrs demo_netlistrs.cpp)
 target_link_libraries(demo_netlistrs PRIVATE simlib netlist_cxx_bridge ${SIM_EXE_LIBRARIES})
 
@@ -278,6 +281,7 @@ if(EXISTS "${SKY130_NFET}" AND EXISTS "${VACASK_MOD_DIR_DEFAULT}/spice/bsim4v8.o
 else()
     message(STATUS "Skipping demo_netlistrs_sky130_nfet_bin (Sky130 nfet model or bsim4v8.osdi absent)")
 endif()
+endif() # VACASK_WITH_SPICE
 
 target_link_libraries(
     demo1

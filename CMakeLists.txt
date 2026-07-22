@@ -13,26 +13,58 @@ endif()
 
 enable_testing()
 
-# --- Rust netlist parser (netlist-cxx via Corrosion) ------------------------
-include(FetchContent)
-FetchContent_Declare(
-    Corrosion
-    GIT_REPOSITORY https://github.com/corrosion-rs/corrosion.git
-    GIT_TAG v0.5.1
-)
-FetchContent_MakeAvailable(Corrosion)
+# --- Rust netlist parser (optional; netlist-cxx via Corrosion) --------------
+# SPICE/Spectre netlist support is optional. When ON (default), the Rust parser
+# is fetched and built with cargo and wired into the vacask binary; when OFF,
+# no Rust toolchain is needed and foreign-format includes report a clean error.
+# Flip the default below to change the out-of-the-box behavior.
+option(VACASK_WITH_SPICE "Build with SPICE/Spectre netlist support (requires a Rust toolchain)" ON)
 
-set(NETLIST_RS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../Cadnip.jl/netlist-parser-rs"
-    CACHE PATH "Path to the netlist-parser-rs workspace (contains crates/netlist-cxx)")
-if(NOT EXISTS "${NETLIST_RS_DIR}/crates/netlist-cxx/Cargo.toml")
-    message(FATAL_ERROR "netlist-parser-rs not found at NETLIST_RS_DIR=${NETLIST_RS_DIR}. "
-                        "Set -DNETLIST_RS_DIR=/path/to/netlist-parser-rs.")
+if(VACASK_WITH_SPICE)
+    find_program(CARGO_EXECUTABLE cargo)
+    if(NOT CARGO_EXECUTABLE)
+        message(FATAL_ERROR
+            "VACASK_WITH_SPICE=ON requires a Rust toolchain (cargo) on PATH. "
+            "Install Rust (https://rustup.rs) or reconfigure with -DVACASK_WITH_SPICE=OFF.")
+    endif()
+
+    include(FetchContent)
+    FetchContent_Declare(
+        Corrosion
+        GIT_REPOSITORY https://github.com/corrosion-rs/corrosion.git
+        GIT_TAG v0.5.1
+    )
+    FetchContent_MakeAvailable(Corrosion)
+
+    # Where the netlist parser workspace lives. By default it is fetched at a
+    # pinned release; pass -DNETLIST_RS_DIR=/path/to/NetlistParse.rs to build
+    # against a local checkout instead (parser development loop).
+    if(NETLIST_RS_DIR)
+        set(_netlistrs_src "${NETLIST_RS_DIR}")
+        message(STATUS "netlist parser: using local checkout ${_netlistrs_src}")
+    else()
+        FetchContent_Declare(
+            NetlistParseRs
+            GIT_REPOSITORY https://github.com/NyanCAD/NetlistParse.rs.git
+            GIT_TAG v0.1.0
+        )
+        FetchContent_MakeAvailable(NetlistParseRs)
+        set(_netlistrs_src "${netlistparsers_SOURCE_DIR}")
+        message(STATUS "netlist parser: fetched ${_netlistrs_src}")
+    endif()
+    if(NOT EXISTS "${_netlistrs_src}/crates/netlist-cxx/Cargo.toml")
+        message(FATAL_ERROR "netlist-cxx not found under ${_netlistrs_src} "
+                            "(expected crates/netlist-cxx/Cargo.toml).")
+    endif()
+
+    corrosion_import_crate(MANIFEST_PATH "${_netlistrs_src}/crates/netlist-cxx/Cargo.toml")
+    corrosion_add_cxxbridge(netlist_cxx_bridge
+        CRATE netlist_cxx
+        FILES lib.rs
+    )
+else()
+    message(STATUS "VACASK_WITH_SPICE=OFF: building without SPICE/Spectre support (no Rust toolchain needed)")
 endif()
-corrosion_import_crate(MANIFEST_PATH "${NETLIST_RS_DIR}/crates/netlist-cxx/Cargo.toml")
-corrosion_add_cxxbridge(netlist_cxx_bridge
-    CRATE netlist_cxx
-    FILES lib.rs
-)
 
 message(STATUS "CMake version ${CMAKE_VERSION}")
 set(PROGRAM_NAME "vacask")
