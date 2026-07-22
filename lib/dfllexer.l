@@ -391,6 +391,7 @@ after INCEND we have
 <LANGVALUE>[ \t]* {} // skip spaces after lang=
 <LANGVALUE>[a-zA-Z_$][0-9a-zA-Z_$]* { // dialect identifier
                 language = yytext;
+                std::transform(language.begin(), language.end(), language.begin(), ::tolower);
                 BEGIN(INCEND);
             }
 <LANGVALUE>\n {
