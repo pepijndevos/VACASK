@@ -98,11 +98,11 @@ public:
         double deriv = leading_ * futureValue;
         // Contribution of past values
         for(Int i=0; i<aScaled_.size(); i++) {
-            deriv -= aScaled_[i] * differentiatorHistory[i][state];
+            deriv += aScaled_[i] * differentiatorHistory[i][state];
         }
         // Contribution of past derivatives
         for(Int i=0; i<bScaled_.size(); i++) {
-            deriv -= bScaled_[i] * differentiatorHistory[i][state+1];
+            deriv += bScaled_[i] * differentiatorHistory[i][state+1];
         }
         return deriv;
     };

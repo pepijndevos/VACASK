@@ -381,10 +381,10 @@ bool IntegratorCoeffs::scaleDifferentiator(double hk) {
     // Scale only implicit algorithm coeffs
     leading_ = 1 / (hk*b1_);
     for(auto& aIt : aScaled_) {
-        aIt *= leading_;
+        aIt *= -leading_;
     }
     for(auto& bIt : bScaled_) {
-        bIt /= b1_;
+        bIt /= -b1_;
     }
 
     return true;
