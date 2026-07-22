@@ -47,6 +47,7 @@ bool buildParserTablesFromFile(const std::string& path,
 // above it does NOT call defaultGround()/setDefaultSubDef().
 // Returns false and populates `s` on error.
 bool mergeForeignFile(const std::string& path, const std::string& section,
+                      const std::string& language,
                       PTSubcircuitDefinition& top, ParserTables& tab,
                       Parser& p, Status& s);
 

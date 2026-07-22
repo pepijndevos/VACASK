@@ -272,7 +272,7 @@ output
     {
         sim::Parser foreignParser(tables);
         for (auto& fi : tables.pendingForeign()) {
-            if (!sim::mergeForeignFile(fi.path, fi.section, $2.def, tables,
+            if (!sim::mergeForeignFile(fi.path, fi.section, fi.language, $2.def, tables,
                                        foreignParser, status)) {
                 YYERROR;
             }

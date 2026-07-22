@@ -73,7 +73,7 @@ using token = NAMESPACE::dflparse::Parser::token;
 %option never-interactive       
 
 /* Exclusive conditions */
-%x LINESTART BODY QUOTED LONGQUOTED INC INCEND LIBSECTION LIBEND SECLOOK SECLOOKNAME SECLOOKEND LONGCOMMENT
+%x LINESTART BODY QUOTED LONGQUOTED INC INCEND LIBSECTION LIBEND SECLOOK SECLOOKNAME SECLOOKEND LANGVALUE LONGCOMMENT
 
 /* State transitions
 -> = push
@@ -284,6 +284,7 @@ after INCEND we have
             }
 <LINESTART>include {
                 // Go to include mode
+                language.clear();
                 yy_push_state(INC);
             }
 <INC>[ \t]* {} // Skip spaces after include
@@ -305,6 +306,10 @@ after INCEND we have
                 return(token::YYerror);
             }
 <INCEND>[ \t]* {} // Skip spaces after quoted string
+<INCEND>lang[ \t]*\= {  // Found lang=
+                language.clear();
+                BEGIN(LANGVALUE);
+            }
 <INCEND>section[ \t]*\= {  // Found section=
                 // Go to LIBSECTION state
                 BEGIN(LIBSECTION);
@@ -327,7 +332,7 @@ after INCEND we have
                 auto pos = tables.fileStack().addFile(std::string(sbuf), Simulator::includePath(), fileStackPosition, loc->begin.line);
                 if (pos!=FileStack::badFileId) {
                     auto& fname = tables.fileStack().canonicalName(pos);
-                    if (isForeignNetlistExt(fname)) {
+                    if (!language.empty() || isForeignNetlistExt(fname)) {
 #ifdef VACASK_WITH_SPICE
                         // Foreign-format (SPICE/Spectre) include: do not lex it
                         // natively. Stash it for the grammar to dispatch to the
@@ -338,7 +343,7 @@ after INCEND we have
                         if (Simulator::fileDebug()) {
                             Simulator::dbg() << "Deferring foreign-format include '" << fname << "'.\n";
                         }
-                        tables.addPendingForeign(fname, "");
+                        tables.addPendingForeign(fname, "", language);
 #else
                         loc->begin = stringStart;
                         error(*loc, std::string("include of SPICE/Spectre file '")+fname+
@@ -396,6 +401,19 @@ after INCEND we have
                 error(*loc, "Syntax error, unexpected string in include directive.");
                 return(token::YYerror);
             }
+<LANGVALUE>[ \t]* {} // skip spaces after lang=
+<LANGVALUE>[a-zA-Z_$][0-9a-zA-Z_$]* { // dialect identifier
+                language = yytext;
+                BEGIN(INCEND);
+            }
+<LANGVALUE>\n {
+                error(*loc, "Syntax error, expected dialect name after lang=.");
+                return(token::YYerror);
+            }
+<LANGVALUE>. {
+                error(*loc, "Syntax error, unexpected string after lang=.");
+                return(token::YYerror);
+            }
 <LIBEND>[ \t]* {} // Skip spaces after include section name
 <LIBEND>\/\/[^\n]* {} // Eat up comment (//), do not include newline
 <LIBEND>\/\* { // Eat up long comment after quoted string
@@ -410,7 +428,7 @@ after INCEND we have
                 auto pos = tables.fileStack().addFile(std::string(sbuf), Simulator::includePath(), fileStackPosition, loc->begin.line);
                 if (pos!=FileStack::badFileId) {
                     auto& fname = tables.fileStack().canonicalName(pos);
-                    if (isForeignNetlistExt(fname)) {
+                    if (!language.empty() || isForeignNetlistExt(fname)) {
 #ifdef VACASK_WITH_SPICE
                         // Foreign-format library include with a section: defer to
                         // the Rust adapter (parse_netlist_lib extracts the
@@ -420,7 +438,7 @@ after INCEND we have
                             Simulator::dbg() << "Deferring foreign-format library include '" << fname
                                 << "', section '" << section << "'.\n";
                         }
-                        tables.addPendingForeign(fname, section);
+                        tables.addPendingForeign(fname, section, language);
                         yy_pop_state(); // pop LIBEND
                         yy_pop_state(); // back to LINESTART
 #else

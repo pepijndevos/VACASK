@@ -143,7 +143,8 @@ static bool spiceBlockToTables(const netlist::SpiceBlock& sb, PTSubcircuitDefini
                                std::set<std::string>& addedModels, Status& s,
                                const std::filesystem::path& baseDir,
                                std::set<std::filesystem::path>& visited,
-                               bool projectAnalyses = true);
+                               bool projectAnalyses = true,
+                               const std::string& language = "");
 
 // Fill a PTSubcircuitDefinition from a netlist::Subckt (has conditionals + ports).
 // Returns false (with `st` set) on any error in nested SPICE-block processing.
@@ -869,7 +870,8 @@ bool mergeNetlist(const netlist::Netlist& nl, PTSubcircuitDefinition& top,
                   const std::filesystem::path& baseDir,
                   std::set<std::filesystem::path>& visited,
                   std::set<std::string>& addedModels,
-                  Status& s, bool projectAnalyses = true);
+                  Status& s, bool projectAnalyses = true,
+                  const std::string& language = "");
 
 // Map one SpiceBlock into a PTSubcircuitDefinition.  `addedModels` is shared
 // across repeated calls so self-alias model cards are emitted only once.
@@ -879,7 +881,8 @@ static bool spiceBlockToTables(const netlist::SpiceBlock& sb, PTSubcircuitDefini
                                std::set<std::string>& addedModels, Status& s,
                                const std::filesystem::path& baseDir,
                                std::set<std::filesystem::path>& visited,
-                               bool projectAnalyses) {
+                               bool projectAnalyses,
+                               const std::string& language) {
     // Top-level .param declarations from the SPICE block.
     auto sp = paramString(sb.params);
     if (!sp.empty()) into.add(p.parseParameters(lc(sp)));
@@ -927,12 +930,13 @@ static bool spiceBlockToTables(const netlist::SpiceBlock& sb, PTSubcircuitDefini
 
         std::string iext = absPath.extension().string();
         std::transform(iext.begin(), iext.end(), iext.begin(), ::tolower);
+        std::string incDialect = language.empty() ? dialectForExt(iext) : language;
         netlist::Netlist sub;
         if (!inc.section.empty()) {
             sub = netlist::parse_netlist_lib(rust::Str(contents), rust::Str(sv(inc.section)),
-                                             rust::Str(dialectForExt(iext)));
+                                             rust::Str(incDialect));
         } else {
-            sub = netlist::parse_netlist(rust::Str(contents), rust::Str(dialectForExt(iext)));
+            sub = netlist::parse_netlist(rust::Str(contents), rust::Str(incDialect));
         }
         if (!sub.errors.empty()) {
             std::ostringstream os;
@@ -945,7 +949,7 @@ static bool spiceBlockToTables(const netlist::SpiceBlock& sb, PTSubcircuitDefini
         }
 
         if (!mergeNetlist(sub, into, tab, p, absPath.parent_path(), visited, addedModels, s,
-                          projectAnalyses))
+                          projectAnalyses, language))
             return false;
     }
     return true;
@@ -963,7 +967,8 @@ bool mergeNetlist(const netlist::Netlist& nl, PTSubcircuitDefinition& top,
                   const std::filesystem::path& baseDir,
                   std::set<std::filesystem::path>& visited,
                   std::set<std::string>& addedModels,
-                  Status& s, bool projectAnalyses) {
+                  Status& s, bool projectAnalyses,
+                  const std::string& language) {
     // Accumulate toplevel params/models/instances/subckts.
     auto sp = paramString(nl.params);
     if (!sp.empty()) top.add(p.parseParameters(sp));
@@ -977,7 +982,7 @@ bool mergeNetlist(const netlist::Netlist& nl, PTSubcircuitDefinition& top,
 
     // SPICE blocks (R/C/L/V/I adapter + nested .subckt/.model + .include resolution).
     for (const auto& sb : nl.spice_blocks) {
-        if (!spiceBlockToTables(sb, top, tab, p, addedModels, s, baseDir, visited, projectAnalyses))
+        if (!spiceBlockToTables(sb, top, tab, p, addedModels, s, baseDir, visited, projectAnalyses, language))
             return false;
     }
 
@@ -1035,12 +1040,13 @@ bool mergeNetlist(const netlist::Netlist& nl, PTSubcircuitDefinition& top,
 
         std::string iext = absPath.extension().string();
         std::transform(iext.begin(), iext.end(), iext.begin(), ::tolower);
+        std::string incDialect = language.empty() ? dialectForExt(iext) : language;
         netlist::Netlist sub;
         if (!inc.section.empty()) {
             sub = netlist::parse_netlist_lib(rust::Str(contents), rust::Str(sv(inc.section)),
-                                             rust::Str(dialectForExt(iext)));
+                                             rust::Str(incDialect));
         } else {
-            sub = netlist::parse_netlist(rust::Str(contents), rust::Str(dialectForExt(iext)));
+            sub = netlist::parse_netlist(rust::Str(contents), rust::Str(incDialect));
         }
         if (!sub.errors.empty()) {
             std::ostringstream os;
@@ -1053,7 +1059,7 @@ bool mergeNetlist(const netlist::Netlist& nl, PTSubcircuitDefinition& top,
         }
 
         if (!mergeNetlist(sub, top, tab, p, absPath.parent_path(), visited, addedModels, s,
-                          projectAnalyses))
+                          projectAnalyses, language))
             return false;
     }
     return true;
@@ -1079,7 +1085,8 @@ bool buildParserTables(const std::string& source, bool startSpice,
     PTSubcircuitDefinition top;
     std::set<std::filesystem::path> visited;
     std::set<std::string> addedModels;
-    if (!mergeNetlist(nl, top, tab, p, std::filesystem::current_path(), visited, addedModels, s))
+    if (!mergeNetlist(nl, top, tab, p, std::filesystem::current_path(), visited, addedModels, s,
+                      /*projectAnalyses=*/true, startSpice ? "ngspice" : "spectre"))
         return false;
     emitOsdiLoads(tab, top);
     tab.setDefaultSubDef(std::move(top));
@@ -1127,7 +1134,8 @@ bool buildParserTablesFromFile(const std::string& path,
         s.set(Status::Syntax, os.str());
         return false;
     }
-    if (!mergeNetlist(nl, top, tab, p, absPath.parent_path(), visited, addedModels, s))
+    if (!mergeNetlist(nl, top, tab, p, absPath.parent_path(), visited, addedModels, s,
+                      /*projectAnalyses=*/true, dialectForExt(ext)))
         return false;
     emitOsdiLoads(tab, top);
     tab.setDefaultSubDef(std::move(top));
@@ -1142,13 +1150,14 @@ bool buildParserTablesFromFile(const std::string& path,
 // else SPICE). Does NOT touch defaultGround()/setDefaultSubDef() — that stays the
 // grammar's responsibility.
 bool mergeForeignFile(const std::string& path, const std::string& section,
+                      const std::string& language,
                       PTSubcircuitDefinition& top, ParserTables& tab,
                       Parser& p, Status& s) {
     namespace fs = std::filesystem;
     fs::path fp(path);
     std::string ext = fp.extension().string();
     std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-    std::string dialect = dialectForExt(ext);
+    std::string dialect = language.empty() ? dialectForExt(ext) : language;
 
     std::ifstream in(path);
     if (!in) { s.set(Status::NotFound, "cannot open foreign include: " + path); return false; }
@@ -1171,7 +1180,7 @@ bool mergeForeignFile(const std::string& path, const std::string& section,
     std::set<fs::path> visited{ absPath };
     std::set<std::string> addedModels;
     if (!mergeNetlist(nl, top, tab, p, absPath.parent_path(), visited, addedModels, s,
-                      /*projectAnalyses=*/false))
+                      /*projectAnalyses=*/false, dialect))
         return false;
     emitOsdiLoads(tab, top);
     return true;

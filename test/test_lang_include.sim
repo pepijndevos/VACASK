@@ -1,0 +1,15 @@
+Explicit lang= foreign include
+
+ground 0
+model vsource vsource
+
+// Minimal ngspice-syntax model file included with an explicit dialect.
+include "lang_include_models.cir" lang=ngspice
+
+r1 (n1 0) resr r=1k
+v1 (n1 0) vsource dc=1.0
+
+control
+  abort always
+  analysis op1 op
+endc

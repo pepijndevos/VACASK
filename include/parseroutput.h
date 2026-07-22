@@ -777,9 +777,9 @@ public:
     // stashes them here and the grammar drains them into the toplevel definition
     // at end-of-parse via the Rust adapter (mergeForeignFile). Kept unconditional
     // (not #ifdef'd) so the class layout is identical in every translation unit.
-    struct PendingForeign { std::string path; std::string section; };
-    ParserTables& addPendingForeign(std::string path, std::string section) & {
-        pendingForeign_.push_back({std::move(path), std::move(section)}); return *this; };
+    struct PendingForeign { std::string path; std::string section; std::string language; };
+    ParserTables& addPendingForeign(std::string path, std::string section, std::string language) & {
+        pendingForeign_.push_back({std::move(path), std::move(section), std::move(language)}); return *this; };
     std::vector<PendingForeign>& pendingForeign() { return pendingForeign_; };
 
     // Control block, no fluent API for now
