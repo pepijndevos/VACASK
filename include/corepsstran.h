@@ -175,6 +175,9 @@ private:
         Int            order;
     };
 
+    // Intermediate vector, holds one column of a C/G * Phi product before
+    // it is scaled and accumulated into phiCurrent_.
+    Vector<double> rhs_colbuf;
 
     // Current sensitivity matrix Phi(t), column-major n×n.
     // Initialised to I in clearTrajectory(), updated at every accepted step.

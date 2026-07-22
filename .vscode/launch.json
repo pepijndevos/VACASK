@@ -66,7 +66,7 @@
             // "args": [ "-df", "-dp", "${workspaceFolder}/test/test_hb3.sim" ],
             // "args": [ "-df", "-dp", "${workspaceFolder}/test/test_hb4.sim" ],
             // "args": [ "-df", "-dp", "${workspaceFolder}/test/test_hb5.sim" ],
-             "args": [ "-df", "-dp", "${workspaceFolder}/test/test_hb6.sim" ],
+            // "args": [ "-df", "-dp", "${workspaceFolder}/test/test_hb6.sim" ],
             // "args": [ "-df", "-dp", "${workspaceFolder}/test/test_hbac1.sim" ],
              "args": [ "-df", "-dp", "${workspaceFolder}/test/test_pss1.sim" ],
             // "args": [ "-df", "-dp", "${workspaceFolder}/test/test_pss2.sim" ],

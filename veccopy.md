@@ -51,37 +51,103 @@ DenseMatrix<double> phiSnap(phiCurrent_);    // copy 2 (n×n)
 phiHist_.push_front(std::move(phiSnap));
 ```
 
-Now: `phiCurrent_ = std::move(rhs);` (`lib/corepsstran.cpp:271`) — `rhs` is
-dead after this point, so the move is safe — followed by the existing
-`phiSnap(phiCurrent_)` copy into history (`lib/corepsstran.cpp:332`): one
-copy + one move instead of two copies. Same fix applied to the Psi side:
-`psiCurrent_ = std::move(psiRhs);` (`lib/corepsstran.cpp:314`) followed by
-the existing `psiHist_.push_front(psiCurrent_)` copy
-(`lib/corepsstran.cpp:343`).
+Final fix: `rhs` is gone entirely. The RHS accumulation loop and the block
+solve now write directly into `phiCurrent_`
+(`phiCurrent_.zero()`/`phiCurrent_.column(j)`/
+`lastAlr_.solveBlock(phiCurrent_.data().data(), n)`, `lib/corepsstran.cpp:231-271`),
+leaving only the one copy that's actually unavoidable —
+`phiSnap(phiCurrent_)` into history (`lib/corepsstran.cpp:332`). This is
+safe because `phiCurrent_`'s incoming value (Phi from the previous step) is
+never read during the build; by the time this call starts it already lives
+on independently as `phiHist_[0]`, pushed at the end of the *previous* call.
+
+Two dead ends on the way here, worth keeping as context:
+- First attempt made `rhs` a persistent scratch member (to avoid
+  reallocating it every call) but kept constructing it fresh in
+  `onTimestepAccepted()`, so the member was inert. Once the local shadowing
+  declarations were actually removed, PSS broke: the RHS accumulates across
+  the `p` loop (`rhs_col[i] += ...`) and used to rely on the *local*
+  variable's constructor zero-filling it on every call. A persistent member
+  is only resized once per shoot in `clearTrajectory()`, and resizing to an
+  unchanged size doesn't clear existing contents — so every step after the
+  first accumulated on top of the previous step's stale values. Fixed at
+  the time by adding an explicit `rhs.zero()` at the top of the function.
+- Second dead end: with `rhs` now a reused scratch member, `phiCurrent_ =
+  std::move(rhs)` became actively wrong (not just non-optimal) —
+  `DenseMatrix::operator=(DenseMatrix&&)` doesn't really move (see item 5
+  below), but *if* that were ever fixed, moving from a buffer that must
+  survive to be reused next call would leave it with a freed/dangling
+  buffer while its size metadata still claimed n×n. Reverted to a plain
+  copy, then eliminated `rhs` altogether as described above.
+
+Same fix applied to the Psi side, which never had these issues since
+`psiCurrent_`/`psiHist_` were already correctly structured:
+`psiCurrent_ = std::move(psiRhs);` (`lib/corepsstran.cpp:314`, `psiRhs` is a
+true local, dead after this point, and `Vector`/`std::vector` move-assignment
+isn't buggy) followed by the existing `psiHist_.push_front(psiCurrent_)`
+copy (`lib/corepsstran.cpp:343`): one copy + one move.
+
+## FIXED 4. Per-column copy into scratch buffers
+
+Was: `phi_colbuf[i] = phi_col[i]` copied each column of `phiHist_[p]`
+(stored `Major::Column`, i.e. stride-1/contiguous) into a temp
+`Vector<double>` before calling `scratchC_.product()`, because
+`KluMatrixCore::product()` only took raw pointers and `VectorView` didn't
+expose one.
+
+Fixed by adding `KluMatrixCore<IndexType, ValueType>::product(VectorView<ValueType>,
+VectorView<ValueType>)` and the equivalent `tproduct()` overload
+(`include/klumatrix.h:311-320`, `lib/klumatrix.cpp`), which walk the CSC
+columns through `VectorView::operator[]` instead of raw pointers, so they
+accept a matrix column directly. The call sites in `onTimestepAccepted()`
+now pass `Phi_kmi.column(j)` straight to `scratchC_.product(...)`
+(`lib/corepsstran.cpp:239,253`) — `phi_colbuf` is gone.
 
 ## 3. `integrateAdjointMonodromy`: copies where a move would do
 
-- `lib/corepsstran.cpp:418` (`omegaHist.push_front(Omega)`)
-- `lib/corepsstran.cpp:528` (`Omega = omegaHist.front();`)
+- `lib/corepsstran.cpp:373` (`omegaHist.push_front(Omega)`)
+- `lib/corepsstran.cpp:483` (`Omega = omegaHist.front();`)
 
 `Omega` is seeded into history by copy even though it isn't read again until
 overwritten at the end, and the final result is copied out of a deque
 (`omegaHist`) that is local scratch destroyed right after. Both are
 `std::move` candidates rather than reference-return material, but they're
-free n×n copies to remove.
+free n×n copies to remove. Still open — not yet worth doing until item 5
+is addressed, since `Omega`/`omegaHist` entries are `DenseMatrix<double>`
+and would hit the same non-moving move-assignment operator.
 
-## 4. (minor, more invasive) Per-column copy into scratch buffers
+## 5. `DenseMatrix::operator=(DenseMatrix&&)` doesn't actually move
 
-- `lib/corepsstran.cpp:233-236` and similar sites
+Found while chasing item 2. `include/densematrix.h:743-751`:
 
-`phi_colbuf[i] = phi_col[i]` copies each column of `phiHist_[p]` (stored
-`Major::Column`, i.e. stride-1/contiguous) into a temp `Vector<double>`
-before calling `scratchC_.product()`. `VectorView` doesn't currently expose
-a raw pointer, so eliminating this needs a small API extension. Lower
-priority than 1-3.
+```cpp
+DenseMatrix<T>& operator=(DenseMatrix<T>&& other) {
+    major_ = other.major_;
+    data_ = other.data_;              // copy-assigns the vector, not move!
+    start_ = std::move(data_.data()); // std::move on a raw pointer is a no-op
+    ...
+};
+```
+
+This is identical to the copy-assignment operator apart from a pointless
+`std::move()` around a raw pointer. The move *constructor* just above it
+(`include/densematrix.h:688-695`) does this correctly
+(`data_ = std::move(A.data_);`), so only the assignment operator is affected.
+Net effect: every `someDenseMatrix = std::move(otherDenseMatrix);` in the
+codebase silently does a full O(n²) copy instead of a move — including the
+still-open item 3 above.
+
+Not fixed yet — explicitly deferred per instruction ("no, just do a copy...")
+when it came up in the context of item 2, since at that point the fix
+under discussion (`phiCurrent_ = std::move(rhs)` with `rhs` as a reused
+scratch member) would have been actively unsafe once this operator were
+corrected. Worth a one-line fix (`data_ = std::move(other.data_);`) on its
+own, independent of PSS, but any code currently relying on
+`DenseMatrix` move-assignment for correctness (not just performance) should
+be re-checked first — this audit didn't find any, but item 3 hasn't been
+converted to use moves yet specifically because of this.
 
 ## Priority
 
-Item 1 is the one most worth fixing: it's a direct "copy where a reference
-would do" case, and it scales with both n² and the outer Newton iteration
-count (`pss_itl`).
+Items 1, 2, and 4 are fixed. Remaining: item 5 (one-line, low risk, but
+audit call sites first) and item 3 (blocked on item 5 to be worth doing).

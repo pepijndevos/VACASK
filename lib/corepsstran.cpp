@@ -106,6 +106,8 @@ bool PssTranCore::clearTrajectory(double T0) {
     psiHist_.clear();
     psiCurrent_.assign(n, 0.0);
 
+    rhs_colbuf.resize(n);
+
     // Get C_0 and q_0 by evaluating the reactive jacobian and residual at this point
     Vector<double> qSnap(n + 1, 0.0);
     jacobian.zero();
@@ -222,19 +224,19 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
     lastB1_    = b.empty() ? 1.0 : integCoeffs.b1();
 
     // Build right-hand side: sum_p (gammaC[p]*C_{k-p} + gammaG[p]*G_{k-p}) * Phi_{k-p}
-    DenseMatrix<double> rhs(n, n, DenseMatrix<double>::Major::Column);
-    Vector<double> phi_colbuf(n);
-    Vector<double> rhs_colbuf(n);
+    // Accumulated directly into phiCurrent_: its incoming value (Phi from the
+    // previous accepted step) is only ever needed as phiHist_[0], a distinct
+    // copy pushed into history at the end of the previous call, so it is safe
+    // to zero and reuse here as the solve buffer for the new Phi_k.
+    phiCurrent_.zero();
     for (int p = 0; p < order; p++) {
         DenseMatrix<double>& Phi_kmi = phiHist_[p];
 
         // C_{k-p} * Phi_{k-p} contribution
         std::copy(cHistData_[p].begin(), cHistData_[p].end(), scratchC_.data());
         for (decltype(n) j = 0; j < n; j++) {
-            auto phi_col = Phi_kmi.column(j);
-            for (decltype(n) i = 0; i < n; i++) phi_colbuf[i] = phi_col[i];
-            double* rhs_col = rhs.data().data() + static_cast<size_t>(j) * n;
-            if (!scratchC_.product(phi_colbuf.data(), rhs_colbuf.data())) {
+            auto rhs_col = phiCurrent_.column(j);
+            if (!scratchC_.product(Phi_kmi.column(j), rhs_colbuf)) {
                 setError(PssTranError::CPhiProductFailed);
                 pssErrorTime = tSolve;
                 pssErrorColumn = j;
@@ -247,10 +249,8 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
         if (gammaG[p] != 0.0) {
             std::copy(gHistData_[p].begin(), gHistData_[p].end(), scratchC_.data());
             for (decltype(n) j = 0; j < n; j++) {
-                auto phi_col = Phi_kmi.column(j);
-                for (decltype(n) i = 0; i < n; i++) phi_colbuf[i] = phi_col[i];
-                double* rhs_col = rhs.data().data() + static_cast<size_t>(j) * n;
-                if (!scratchC_.product(phi_colbuf.data(), rhs_colbuf.data())) {
+                auto rhs_col = phiCurrent_.column(j);
+                if (!scratchC_.product(Phi_kmi.column(j), rhs_colbuf)) {
                     setError(PssTranError::GPhiProductFailed);
                     pssErrorTime = tSolve;
                     pssErrorColumn = j;
@@ -260,15 +260,15 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
             }
         }
     }
-    
+
     // Solve for Phi_k
     // Alr * Phi_k = sum_{i=1}^order (gamma_i * C_k-i * Phi_k-i)
-    if (!lastAlr_.solveBlock(rhs.data().data(), static_cast<Int>(n))) {
+    if (!lastAlr_.solveBlock(phiCurrent_.data().data(), static_cast<Int>(n))) {
         setError(PssTranError::BlockAlrSolveFailed);
         pssErrorTime = tSolve;
         return false;
     }
-    phiCurrent_ = std::move(rhs);   // rhs now holds PhiT at this step
+    // phiCurrent_ now holds PhiT at this step
 
     /// Psi integration
     Vector<double> psiRhs(n, 0.0);
@@ -350,7 +350,6 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
 
     phiValid_ = true;
     return true;
-    // rhs check end
 }
 
 // ----------------------------------------------------------------
