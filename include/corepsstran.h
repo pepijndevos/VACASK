@@ -126,21 +126,20 @@ public:
     // Must be called before run().
     void setShootIC(const Vector<double>& x0);
 
-    // Return the inline-computed PhiT (= phiCurrent_).
-    // Must be called immediately after run() completes, while the circuit
-    // state still holds xT and lastAlr_ holds the factored Alr at xT.
-    bool integrateSensitivity(
-        DenseMatrix<double>& PhiT
-    );
+    // Is sensitivity information valid
+    bool phiValid() { 
+        if (!phiValid_) {
+            setError(PssTranError::NoAcceptedSteps);
+            return false;
+        }    
+        return true; 
+    };
 
-    // Return the inline-computed PhiT (= phiCurrent_) and evaluate PsiT.
-    // Must be called immediately after run() completes, while the circuit
-    // state still holds xT and lastAlr_ holds the factored Alr at xT.
-    bool integrateAugmentedSensitivity(
-        DenseMatrix<double>& PhiT,
-        Vector<double>&      PsiT,
-        Vector<double>&      x_laststep
-    );
+    // Return reference to current Phi
+    DenseMatrix<double>& phiCurrent() { return phiCurrent_; };
+
+    // Return reference to current Psi
+    Vector<double>& psiCurrent() { return psiCurrent_; };
 
     // Enable trajectory capture for the next shoot (call before final runShoot)
     void enableTrajectoryCapture();

@@ -229,14 +229,6 @@ private:
     // pssTran_.trajectory() is populated with G(t) and C(t) snapshots.
     bool runShoot(double T0);
 
-    // Call pssTran_.integrateSensitivity() to produce PhiT and PsiT.
-    // PhiT is the n x n sensitivity matrix dxT/dx0.
-    // PsiT is the n x 1 period sensitivity vector -dxT/dT0.
-    bool runSensitivity(
-        DenseMatrix<double>& PhiT,
-        Vector<double>&      PsiT
-    );
-
     // Build the regular (driven) Newton system from PhiT, x0 and xT. 
     // Solve it and update x0 and T0.
     bool solveNewtonStep(

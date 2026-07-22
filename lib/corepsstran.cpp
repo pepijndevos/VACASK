@@ -268,7 +268,7 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
         pssErrorTime = tSolve;
         return false;
     }
-    phiCurrent_ = rhs;   // rhs now holds PhiT at this step
+    phiCurrent_ = std::move(rhs);   // rhs now holds PhiT at this step
 
     /// Psi integration
     Vector<double> psiRhs(n, 0.0);
@@ -311,7 +311,7 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
         pssErrorTime = tSolve;
         return false;
     }
-    psiCurrent_ = psiRhs;   // psiRhs now holds psi_{k+1}
+    psiCurrent_ = std::move(psiRhs);   // psiRhs now holds psi_{k+1}
 
     // If trajectory capture is enabled, store data needed for adjoint integration.
     // cSnap and gSnap must not be moved yet — the record copies them.
@@ -350,51 +350,7 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
 
     phiValid_ = true;
     return true;
-
-}
-
-// ----------------------------------------------------------------
-// integrateSensitivity
-// ----------------------------------------------------------------
-
-bool PssTranCore::integrateSensitivity(
-    DenseMatrix<double>& PhiT
-) {
-    if (!phiValid_) {
-        setError(PssTranError::NoAcceptedSteps);
-        return false;
-    }
-    // PhiT: the inline-computed sensitivity matrix is ready.
-    PhiT = phiCurrent_;
-    return true;
-}
-
-
-// ----------------------------------------------------------------
-// integrateAugmentedSensitivity
-// ----------------------------------------------------------------
-
-bool PssTranCore::integrateAugmentedSensitivity(
-    DenseMatrix<double>& PhiT,
-    Vector<double>&      PsiT,
-    Vector<double>&      x_laststep
-) {
-    if (!phiValid_) {
-        setError(PssTranError::NoAcceptedSteps);
-        return false;
-    }
-
-    // PhiT: the inline-computed sensitivity matrix is ready.
-    PhiT = phiCurrent_;
-
-    auto n = circuit.unknownCount();
-    PsiT.resize(n + 1);
-    PsiT[0] = 0.0;
-    for (decltype(n) i = 0; i < n; i++) {
-        PsiT[i + 1] = psiCurrent_[i];
-    }
-
-    return true;
+    // rhs check end
 }
 
 // ----------------------------------------------------------------

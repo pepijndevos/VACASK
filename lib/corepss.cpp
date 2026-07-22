@@ -326,34 +326,6 @@ bool PssCore::runShoot(double T0) {
 
 
 // ----------------------------------------------------------------
-// Sensitivity integration
-// ----------------------------------------------------------------
-
-bool PssCore::runSensitivity(
-    DenseMatrix<double>& PhiT,
-    Vector<double>&      PsiT
-) {
-    auto n = circuit.unknownCount();
-    if (!params.driven) {
-        Vector<double> x_laststep(n, 0.0);
-        for (int i=0; i < n; i++)
-            x_laststep[i] = solution.pastVector()[i+1] - solution.vector()[i+1];
-        if (!pssTran_.integrateAugmentedSensitivity(PhiT, PsiT, x_laststep)) {
-            setError(PssError::SensitivityFailed);
-            return false;
-        }
-    } else {
-        if (!pssTran_.integrateSensitivity(PhiT)) {
-            setError(PssError::SensitivityFailed);
-            return false;
-        }
-    }
-
-    return true;
-}
-
-
-// ----------------------------------------------------------------
 // Phase constraint
 // ----------------------------------------------------------------
 
@@ -498,9 +470,17 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
         }
 
         // Obtain sensitivity matrices
-        if (!runSensitivity(phiT_, PsiT)) {
-            // Error was set by runSensitivity()
+        if (!pssTran_.phiValid()) {
+            setError(PssError::SensitivityFailed);
             co_yield CoreState::Aborted;
+        }
+        auto& tmpPhiT = pssTran_.phiCurrent();
+        if (!params.driven) {
+            // Oscillator, add leading zero to psi
+            auto& tmpPsi = pssTran_.psiCurrent();
+            PsiT.resize(n+1);
+            PsiT[0] = 0;
+            std::copy(tmpPsi.begin(), tmpPsi.end(), PsiT.begin() + 1);
         }
         if (debug>0) {
             ss.str(""); 
@@ -508,7 +488,7 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
             ss << "\tPhiT=\n";
             for (decltype(n) i = 0; i < n; i++) {
                 ss << "\t  [ ";
-                for (decltype(n) j = 0; j < n; j++) ss << phiT_.at(i, j) << " ";
+                for (decltype(n) j = 0; j < n; j++) ss << tmpPhiT.at(i, j) << " ";
                 ss << "]\n";
             }
             if(!params.driven) {
@@ -528,7 +508,7 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
         // Jacobian: I - PhiT
         for (decltype(n) i = 0; i < n; i++) {
             for (decltype(n) j = 0; j < n; j++) {
-                Jp.at(i, j) = (i == j ? 1.0 : 0.0) - phiT_.at(i, j);
+                Jp.at(i, j) = (i == j ? 1.0 : 0.0) - tmpPhiT.at(i, j);
             }
         }
 
@@ -611,6 +591,9 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
         co_yield CoreState::Aborted;
     }
 
+    // Store converged monodromy
+    phiT_ = pssTran_.phiCurrent();
+
     if (converged && params.store.length()>0) {
         auto& sol = circuit.newStoredSolution(params.store);
         sol.setTypeTag(OperatingPointCore::solutionTag);
@@ -660,7 +643,7 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
         ss << "\tPhi(T,0) =\n";
         for (decltype(n) i = 0; i < n; i++) {
             ss << "\t  [ ";
-            for (decltype(n) j = 0; j < n; j++) ss << phiT_.at(i, j) << " ";
+            for (decltype(n) j = 0; j < n; j++) ss << pssTran_.phiCurrent().at(i, j) << " ";
             ss << "]\n";
         }
         if (params.adjoint) {
