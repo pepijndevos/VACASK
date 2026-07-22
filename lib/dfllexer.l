@@ -14,6 +14,20 @@
 #include <cmath>
 #include <limits>
 #include <stdexcept>
+#include <algorithm>
+
+/* True if `path` names a foreign-format (SPICE/Spectre) netlist by extension.
+   Such includes are dispatched to the Rust parser instead of being lexed
+   natively (see the INCEND/LIBEND actions). Defined unconditionally so both the
+   SPICE-enabled (stash) and SPICE-disabled (error) branches can test it. */
+static bool isForeignNetlistExt(const std::string& path) {
+    auto dot = path.find_last_of('.');
+    if (dot == std::string::npos) return false;
+    std::string e = path.substr(dot);
+    std::transform(e.begin(), e.end(), e.begin(), ::tolower);
+    return e==".cir"||e==".sp"||e==".spice"||e==".mod"||e==".lib"
+         ||e==".scs"||e==".spectre";
+}
 
 /* Implementation of yyFlexScanner. Specify the prototype of lexer call. */ 
 #include "dflscanner.h"
@@ -312,26 +326,46 @@ after INCEND we have
                 // Switch to include file
                 auto pos = tables.fileStack().addFile(std::string(sbuf), Simulator::includePath(), fileStackPosition, loc->begin.line);
                 if (pos!=FileStack::badFileId) {
-                    fileStackPosition = pos;
-                    
-                    if (Simulator::fileDebug()) {
-                        Simulator::dbg() << "Opening include file '" << tables.fileStack().canonicalName(fileStackPosition) << "'.\n";
-                    }
-                    
-                    auto& fname = tables.fileStack().canonicalName(fileStackPosition);
-                    auto streamPtr = pushStream(fname, *loc);
-                    if (!streamPtr) {
-                        error(*loc, std::string("Failed to open include file '")+fname+"'.");
+                    auto& fname = tables.fileStack().canonicalName(pos);
+                    if (isForeignNetlistExt(fname)) {
+#ifdef VACASK_WITH_SPICE
+                        // Foreign-format (SPICE/Spectre) include: do not lex it
+                        // natively. Stash it for the grammar to dispatch to the
+                        // Rust adapter at end-of-parse. The INC/LINESTART pops
+                        // above already restored state, so simply keep scanning
+                        // the parent file (no buffer switch, fileStackPosition
+                        // unchanged).
+                        if (Simulator::fileDebug()) {
+                            Simulator::dbg() << "Deferring foreign-format include '" << fname << "'.\n";
+                        }
+                        tables.addPendingForeign(fname, "");
+#else
+                        loc->begin = stringStart;
+                        error(*loc, std::string("include of SPICE/Spectre file '")+fname+
+                              "' requires a build with -DVACASK_WITH_SPICE=ON");
                         return(token::YYerror);
+#endif
+                    } else {
+                        fileStackPosition = pos;
+
+                        if (Simulator::fileDebug()) {
+                            Simulator::dbg() << "Opening include file '" << fname << "'.\n";
+                        }
+
+                        auto streamPtr = pushStream(fname, *loc);
+                        if (!streamPtr) {
+                            error(*loc, std::string("Failed to open include file '")+fname+"'.");
+                            return(token::YYerror);
+                        }
+                        yypush_buffer_state(
+                            yy_create_buffer(
+                                *streamPtr, YY_BUF_SIZE
+                            )
+                        );
+                        loc->end.initialize(nullptr, 1, 1, 0);
+                        loc->end.setFileStack(tables.fileStack(), pos);
+                        loc->begin = loc->end;
                     }
-                    yypush_buffer_state(
-                        yy_create_buffer(
-                            *streamPtr, YY_BUF_SIZE
-                        )
-                    );
-                    loc->end.initialize(nullptr, 1, 1, 0);
-                    loc->end.setFileStack(tables.fileStack(), pos);
-                    loc->begin = loc->end;
                 } else {
                     loc->begin = stringStart;
                     error(*loc, "File not found.");
@@ -375,33 +409,56 @@ after INCEND we have
                 // Switch to library file
                 auto pos = tables.fileStack().addFile(std::string(sbuf), Simulator::includePath(), fileStackPosition, loc->begin.line);
                 if (pos!=FileStack::badFileId) {
-                    fileStackPosition = pos;
-                    tables.fileStack().setSection(pos, section);
-
-                    if (Simulator::fileDebug()) {
-                        Simulator::dbg() << "Opening library file '" << tables.fileStack().canonicalName(fileStackPosition) 
-                            << "', section '" << section << "'.\n";
-                    }
-                    
-                    auto& fname = tables.fileStack().canonicalName(fileStackPosition);
-                    auto streamPtr = pushStream(fname, *loc);
-                    if (!streamPtr) {
-                        yy_pop_state(); // Back to LIB
-                        yy_pop_state(); // Back to LINESTART
-                        error(*loc, std::string("Failed to open library file '")+fname+"'.");
+                    auto& fname = tables.fileStack().canonicalName(pos);
+                    if (isForeignNetlistExt(fname)) {
+#ifdef VACASK_WITH_SPICE
+                        // Foreign-format library include with a section: defer to
+                        // the Rust adapter (parse_netlist_lib extracts the
+                        // section). Do not lex natively; pop back to LINESTART and
+                        // keep scanning the parent file.
+                        if (Simulator::fileDebug()) {
+                            Simulator::dbg() << "Deferring foreign-format library include '" << fname
+                                << "', section '" << section << "'.\n";
+                        }
+                        tables.addPendingForeign(fname, section);
+                        yy_pop_state(); // pop LIBEND
+                        yy_pop_state(); // back to LINESTART
+#else
+                        yy_pop_state();
+                        yy_pop_state();
+                        loc->begin = stringStart;
+                        error(*loc, std::string("include of SPICE/Spectre library '")+fname+
+                              "' requires a build with -DVACASK_WITH_SPICE=ON");
                         return(token::YYerror);
+#endif
+                    } else {
+                        fileStackPosition = pos;
+                        tables.fileStack().setSection(pos, section);
+
+                        if (Simulator::fileDebug()) {
+                            Simulator::dbg() << "Opening library file '" << fname
+                                << "', section '" << section << "'.\n";
+                        }
+
+                        auto streamPtr = pushStream(fname, *loc);
+                        if (!streamPtr) {
+                            yy_pop_state(); // Back to LIB
+                            yy_pop_state(); // Back to LINESTART
+                            error(*loc, std::string("Failed to open library file '")+fname+"'.");
+                            return(token::YYerror);
+                        }
+                        yypush_buffer_state(yy_create_buffer(
+                                *streamPtr,
+                                YY_BUF_SIZE
+                            )
+                        );
+                        loc->end.initialize(nullptr, 1, 1, 0);
+                        loc->end.setFileStack(tables.fileStack(), pos);
+                        loc->begin = loc->end;
+                        // LIBEND is a continuation of LIB state
+                        // Go to SECLOOK state
+                        BEGIN(SECLOOK);
                     }
-                    yypush_buffer_state(yy_create_buffer(
-                            *streamPtr,
-                            YY_BUF_SIZE
-                        )
-                    );
-                    loc->end.initialize(nullptr, 1, 1, 0);
-                    loc->end.setFileStack(tables.fileStack(), pos);
-                    loc->begin = loc->end;
-                    // LIBEND is a continuation of LIB state
-                    // Go to SECLOOK state
-                    BEGIN(SECLOOK);
                 } else {
                     yy_pop_state(); // Back to LIB
                     yy_pop_state(); // Back to LINESTART

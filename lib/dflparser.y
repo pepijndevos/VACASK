@@ -106,7 +106,13 @@ typedef struct subckt {
 
 #include "dflscanner.h"
 
-#undef yylex 
+#ifdef VACASK_WITH_SPICE
+// For draining foreign-format (SPICE/Spectre) includes stashed by the scanner
+// into the toplevel definition (see the `output` rule).
+#include "netlistrs.h"
+#endif
+
+#undef yylex
 #define yylex scanner.yylex
 }
  
@@ -258,6 +264,22 @@ output
   : INNETLIST subckt_build END {
     // Toplevel circuit definition
     $2.def.add(std::move($2.parameters));
+#ifdef VACASK_WITH_SPICE
+    // Drain foreign-format (SPICE/Spectre) includes the scanner deferred: parse
+    // each via the Rust adapter and merge its models/subckts/devices into the
+    // toplevel def (auto-emitting the OSDI loads they need). Runs before
+    // setDefaultSubDef/verify so the merged content is committed and checked.
+    {
+        sim::Parser foreignParser(tables);
+        for (auto& fi : tables.pendingForeign()) {
+            if (!sim::mergeForeignFile(fi.path, fi.section, $2.def, tables,
+                                       foreignParser, status)) {
+                YYERROR;
+            }
+        }
+        tables.pendingForeign().clear();
+    }
+#endif
     tables.setDefaultSubDef(std::move($2.def));
     tables.defaultGround();
     // Verify tables (basic level 0 verifications)

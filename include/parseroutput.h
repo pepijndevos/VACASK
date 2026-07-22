@@ -773,6 +773,15 @@ public:
     ParserTables&& defaultGround() && { return std::move(this->defaultGround()); };
     ParserTables&& add(PTEmbed&& e) && { return std::move(this->add(std::move(e))); };
     
+    // Foreign-format (SPICE/Spectre) includes are not lexed natively: the scanner
+    // stashes them here and the grammar drains them into the toplevel definition
+    // at end-of-parse via the Rust adapter (mergeForeignFile). Kept unconditional
+    // (not #ifdef'd) so the class layout is identical in every translation unit.
+    struct PendingForeign { std::string path; std::string section; };
+    ParserTables& addPendingForeign(std::string path, std::string section) & {
+        pendingForeign_.push_back({std::move(path), std::move(section)}); return *this; };
+    std::vector<PendingForeign>& pendingForeign() { return pendingForeign_; };
+
     // Control block, no fluent API for now
     void addCommand(PTCommand&& c) { control_.push_back(std::move(c)); };
     void addCommand(PTAnalysis&& a) {  control_.push_back(std::move(a)); };
@@ -797,8 +806,9 @@ private:
     PTSubcircuitDefinition defaultSubDef_;
     PTIdentifierList globalNodes_; // Order is not important
     PTIdentifierList groundNodes_; // Order matters, first ground node is the name of the ground node, rest are just aliases
-    std::vector<PTLoad> loads_;  
+    std::vector<PTLoad> loads_;
     std::vector<PTEmbed> embed_;
+    std::vector<PendingForeign> pendingForeign_;
     PTControl control_;
 };
 
