@@ -18,6 +18,13 @@ namespace {
 // Convert rust::String to std::string.
 std::string sv(const rust::String& s) { return std::string(s); }
 
+// Transitional: map a file extension to a foreign dialect string for the new
+// FFI. Removed in the lang=-only routing task; retained for the standalone
+// buildParserTables* entries which load a top-level file directly.
+static const char* dialectForExt(const std::string& ext) {
+    return (ext == ".scs" || ext == ".spectre") ? "spectre" : "ngspice";
+}
+
 // SPICE is case-insensitive, but VACASK interns every identifier into a
 // case-sensitive Id (exact strcmp) keyed in unordered_map<Id,…>. To make
 // SPICE-origin names bind, canonicalize them to lowercase here — the netlistrs
@@ -918,14 +925,14 @@ static bool spiceBlockToTables(const netlist::SpiceBlock& sb, PTSubcircuitDefini
         std::stringstream incss; incss << ifs.rdbuf();
         std::string contents = incss.str();
 
+        std::string iext = absPath.extension().string();
+        std::transform(iext.begin(), iext.end(), iext.begin(), ::tolower);
         netlist::Netlist sub;
         if (!inc.section.empty()) {
-            sub = netlist::parse_netlist_lib(rust::Str(contents), rust::Str(sv(inc.section)));
+            sub = netlist::parse_netlist_lib(rust::Str(contents), rust::Str(sv(inc.section)),
+                                             rust::Str(dialectForExt(iext)));
         } else {
-            std::string iext = absPath.extension().string();
-            std::transform(iext.begin(), iext.end(), iext.begin(), ::tolower);
-            bool spice = (iext != ".scs");
-            sub = netlist::parse_netlist(rust::Str(contents), spice);
+            sub = netlist::parse_netlist(rust::Str(contents), rust::Str(dialectForExt(iext)));
         }
         if (!sub.errors.empty()) {
             std::ostringstream os;
@@ -1026,14 +1033,14 @@ bool mergeNetlist(const netlist::Netlist& nl, PTSubcircuitDefinition& top,
         std::stringstream ss; ss << in.rdbuf();
         std::string contents = ss.str();
 
+        std::string iext = absPath.extension().string();
+        std::transform(iext.begin(), iext.end(), iext.begin(), ::tolower);
         netlist::Netlist sub;
         if (!inc.section.empty()) {
-            sub = netlist::parse_netlist_lib(rust::Str(contents), rust::Str(sv(inc.section)));
+            sub = netlist::parse_netlist_lib(rust::Str(contents), rust::Str(sv(inc.section)),
+                                             rust::Str(dialectForExt(iext)));
         } else {
-            std::string iext = absPath.extension().string();
-            std::transform(iext.begin(), iext.end(), iext.begin(), ::tolower);
-            bool spice = (iext != ".scs");
-            sub = netlist::parse_netlist(rust::Str(contents), spice);
+            sub = netlist::parse_netlist(rust::Str(contents), rust::Str(dialectForExt(iext)));
         }
         if (!sub.errors.empty()) {
             std::ostringstream os;
@@ -1058,7 +1065,8 @@ bool buildParserTables(const std::string& source, bool startSpice,
                        ParserTables& tab, Parser& p, Status& s) {
     // Note: relative includes in `source` are resolved against CWD. Prefer
     // buildParserTablesFromFile for sources that contain include directives.
-    netlist::Netlist nl = netlist::parse_netlist(rust::Str(source), startSpice);
+    netlist::Netlist nl = netlist::parse_netlist(rust::Str(source),
+                                                 rust::Str(startSpice ? "ngspice" : "spectre"));
     if (!nl.errors.empty()) {
         std::ostringstream os;
         os << "netlist parse error(s): " << nl.errors.size()
@@ -1110,8 +1118,8 @@ bool buildParserTablesFromFile(const std::string& path,
     }
     std::set<fs::path> visited{ absPath };
     std::set<std::string> addedModels;
-    bool spice = (ext != ".scs");
-    netlist::Netlist nl = netlist::parse_netlist(rust::Str(source), spice);
+    netlist::Netlist nl = netlist::parse_netlist(rust::Str(source),
+                                                 rust::Str(dialectForExt(ext)));
     if (!nl.errors.empty()) {
         std::ostringstream os;
         os << "netlist parse error(s) in '" << path << "': " << nl.errors.size()
@@ -1140,7 +1148,7 @@ bool mergeForeignFile(const std::string& path, const std::string& section,
     fs::path fp(path);
     std::string ext = fp.extension().string();
     std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-    bool spice = (ext != ".scs" && ext != ".spectre");
+    std::string dialect = dialectForExt(ext);
 
     std::ifstream in(path);
     if (!in) { s.set(Status::NotFound, "cannot open foreign include: " + path); return false; }
@@ -1148,8 +1156,8 @@ bool mergeForeignFile(const std::string& path, const std::string& section,
     std::string source = ss.str();
 
     netlist::Netlist nl = section.empty()
-        ? netlist::parse_netlist(rust::Str(source), spice)
-        : netlist::parse_netlist_lib(rust::Str(source), rust::Str(section));
+        ? netlist::parse_netlist(rust::Str(source), rust::Str(dialect))
+        : netlist::parse_netlist_lib(rust::Str(source), rust::Str(section), rust::Str(dialect));
     if (!nl.errors.empty()) {
         std::ostringstream os;
         os << "netlist parse error(s) in '" << path << "': " << nl.errors.size()
