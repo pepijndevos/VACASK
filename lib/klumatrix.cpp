@@ -641,9 +641,38 @@ template<typename IndexType, typename ValueType> bool KluMatrixCore<IndexType, V
     for(IndexType col=0; col<AN; col++) {
         IndexType col1 = AP[col];
         IndexType col2 = AP[col+1];
+        ValueType v = vec[col];
         for(IndexType i=col1; i<col2; i++) {
             auto row = AI[i];
-            res[row] += Ax[i]*vec[col];
+            res[row] += Ax[i]*v;
+        }
+    }
+
+    return true;
+}
+
+// Both views must be distinct
+template<typename IndexType, typename ValueType> bool KluMatrixCore<IndexType, ValueType>::product(VectorView<ValueType> vec, VectorView<ValueType> res) {
+    if (vec.n()!=static_cast<size_t>(AN) || res.n()!=static_cast<size_t>(AN)) {
+        lastError = Error::MulVecSizeMismatch;
+        return false;
+    }
+
+    // TODO: check for VectorView overlap
+
+    // Zero out result
+    for(IndexType i=0; i<AN; i++) {
+        res[i] = 0.0;
+    }
+
+    // Go through entries
+    for(IndexType col=0; col<AN; col++) {
+        IndexType col1 = AP[col];
+        IndexType col2 = AP[col+1];
+        ValueType v = vec[col];
+        for(IndexType i=col1; i<col2; i++) {
+            auto row = AI[i];
+            res[row] += Ax[i]*v;
         }
     }
 
@@ -652,6 +681,30 @@ template<typename IndexType, typename ValueType> bool KluMatrixCore<IndexType, V
 
 // Both vectors must be distinct
 template<typename IndexType, typename ValueType> bool KluMatrixCore<IndexType, ValueType>::tproduct(ValueType* vec, ValueType* res) {
+    for(IndexType i=0; i<AN; i++) {
+        res[i] = 0.0;
+    }
+
+    for(IndexType col=0; col<AN; col++) {
+        IndexType col1 = AP[col];
+        IndexType col2 = AP[col+1];
+        for(IndexType i=col1; i<col2; i++) {
+            res[col] += Ax[i]*vec[AI[i]];
+        }
+    }
+
+    return true;
+}
+
+// Both views must be distinct
+template<typename IndexType, typename ValueType> bool KluMatrixCore<IndexType, ValueType>::tproduct(VectorView<ValueType> vec, VectorView<ValueType> res) {
+    if (vec.n()!=static_cast<size_t>(AN) || res.n()!=static_cast<size_t>(AN)) {
+        lastError = Error::MulVecSizeMismatch;
+        return false;
+    }
+
+    // TODO: check for VectorView overlap
+
     for(IndexType i=0; i<AN; i++) {
         res[i] = 0.0;
     }
@@ -907,6 +960,9 @@ template<typename IndexType, typename ValueType> bool KluMatrixCore<IndexType, V
             }
             txt += ".";
             s.set(Status::LinearSolver, txt);
+            return false;
+        case Error::MulVecSizeMismatch:
+            s.set(Status::LinearSolver, "Matrix-vector multiplication vector size mismatch.");
             return false;
     }
     return true;

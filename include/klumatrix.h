@@ -12,6 +12,7 @@
 #include "hash.h"
 #include "acct.h"
 #include "ansupport.h"
+#include "densematrix.h"
 #include "common.h"
 
 
@@ -186,6 +187,7 @@ public:
         ReciprocalCondEstimate, 
         MatrixInfNan, 
         VectorInfNan, 
+        MulVecSizeMismatch, 
         Solve
     };
     
@@ -306,9 +308,17 @@ public:
     // Matrix-vector product, result is stored in res
     bool product(ValueType* vec, ValueType* res);
 
+    // Matrix-vector product taking views (arbitrary stride, e.g. a matrix
+    // column), result is stored in res. vec and res must not overlap.
+    bool product(VectorView<ValueType> vec, VectorView<ValueType> res);
+
     // Transpose matrix-vector product A^T v, result is stored in res
     bool tproduct(ValueType* vec, ValueType* res);
-    
+
+    // Transpose matrix-vector product A^T v taking views (arbitrary stride,
+    // e.g. a matrix column), result is stored in res. vec and res must not overlap.
+    bool tproduct(VectorView<ValueType> vec, VectorView<ValueType> res);
+
     // Residual (Ax-b), stored in res
     bool residual(ValueType* x, ValueType* b, ValueType* res);
     
