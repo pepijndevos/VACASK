@@ -94,8 +94,7 @@ if(VACASK_WITH_SPICE)
     # checkout is present, so CI without it stays green. The PDK path is baked
     # into a generated deck via configure_file (keeps the committed .sim.in
     # machine-independent).
-    set(SKY130_CONTINUOUS "/home/pepijn/code/nyanodide/skywater-pdk-libs-sky130_fd_pr/combined_models/continuous"
-        CACHE PATH "Sky130 ngspice 'continuous' model directory for the include E2E test")
+    set(SKY130_CONTINUOUS "${SKY130_PDK_ROOT}/combined_models/continuous")
     if(EXISTS "${SKY130_CONTINUOUS}/models_fet/sky130_fd_pr__nfet_01v8.spice")
         set(_sky130_test test_sky130_nfet_include.sim)
         file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${_sky130_test}")

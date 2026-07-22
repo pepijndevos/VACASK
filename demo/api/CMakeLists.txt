@@ -270,10 +270,17 @@ set_tests_properties(demo_netlistrs_spice_warnonly PROPERTIES
 # elaborator cannot evaluate at elaboration (pre-existing limitation, unrelated to
 # binning). The fixture's .param block supplies the corner-factor globals that
 # .lib tt would normally emit.
-set(SKY130_NFET "/home/pepijn/code/nyanodide/skywater-pdk-libs-sky130_fd_pr/combined_models/continuous/models_fet/sky130_fd_pr__nfet_01v8.spice")
-if(EXISTS "${SKY130_NFET}" AND EXISTS "${VACASK_MOD_DIR_DEFAULT}/spice/bsim4v8.osdi")
+# SKY130_PDK_ROOT (top-level CMakeLists) defaults to a sibling checkout; the
+# fixture's absolute include paths are injected at configure time so no machine
+# path is committed.
+set(SKY130_CONTINUOUS "${SKY130_PDK_ROOT}/combined_models/continuous")
+if(EXISTS "${SKY130_CONTINUOUS}/models_fet/sky130_fd_pr__nfet_01v8.spice"
+   AND EXISTS "${VACASK_MOD_DIR_DEFAULT}/spice/bsim4v8.osdi")
+    configure_file(
+        "${CMAKE_CURRENT_SOURCE_DIR}/sky130_nfet_bin.cir.in"
+        "${CMAKE_CURRENT_BINARY_DIR}/sky130_nfet_bin.cir" @ONLY)
     add_test(NAME demo_netlistrs_sky130_nfet_bin
-             COMMAND demo_netlistrs "${CMAKE_CURRENT_SOURCE_DIR}/sky130_nfet_bin.cir"
+             COMMAND demo_netlistrs "${CMAKE_CURRENT_BINARY_DIR}/sky130_nfet_bin.cir"
                                     "${VACASK_MOD_DIR_DEFAULT}")
     set_tests_properties(demo_netlistrs_sky130_nfet_bin PROPERTIES
         WORKING_DIRECTORY "/tmp"

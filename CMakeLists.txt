@@ -66,6 +66,12 @@ else()
     message(STATUS "VACASK_WITH_SPICE=OFF: building without SPICE/Spectre support (no Rust toolchain needed)")
 endif()
 
+# Sky130 ngspice PDK checkout, used by the optional PDK-guarded E2E tests
+# (demo/api and test/). Defaults to a sibling checkout next to this repo; no
+# absolute machine path is committed. Override with -DSKY130_PDK_ROOT=/path.
+set(SKY130_PDK_ROOT "${CMAKE_SOURCE_DIR}/../skywater-pdk-libs-sky130_fd_pr"
+    CACHE PATH "Sky130 ngspice PDK checkout root (for optional PDK-guarded tests)")
+
 message(STATUS "CMake version ${CMAKE_VERSION}")
 set(PROGRAM_NAME "vacask")
 set(PROGRAM_COPYRIGHT "2023-2026")

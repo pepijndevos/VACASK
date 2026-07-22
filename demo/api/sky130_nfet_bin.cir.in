@@ -12,11 +12,11 @@
 .param corner_factor=1
 .param process_mc_factor=1
 .param mismatch_factor=1
-.include "/home/pepijn/code/nyanodide/skywater-pdk-libs-sky130_fd_pr/combined_models/continuous/parameters_fet_tt.spice"
-.include "/home/pepijn/code/nyanodide/skywater-pdk-libs-sky130_fd_pr/combined_models/continuous/parameters_res_nom.spice"
-.include "/home/pepijn/code/nyanodide/skywater-pdk-libs-sky130_fd_pr/combined_models/continuous/parameters_cap_nom.spice"
-.include "/home/pepijn/code/nyanodide/skywater-pdk-libs-sky130_fd_pr/combined_models/continuous/models_global.spice"
-.include "/home/pepijn/code/nyanodide/skywater-pdk-libs-sky130_fd_pr/combined_models/continuous/models_fet/sky130_fd_pr__nfet_01v8.spice"
+.include "@SKY130_CONTINUOUS@/parameters_fet_tt.spice"
+.include "@SKY130_CONTINUOUS@/parameters_res_nom.spice"
+.include "@SKY130_CONTINUOUS@/parameters_cap_nom.spice"
+.include "@SKY130_CONTINUOUS@/models_global.spice"
+.include "@SKY130_CONTINUOUS@/models_fet/sky130_fd_pr__nfet_01v8.spice"
 X1 d g 0 0 sky130_fd_pr__nfet_01v8 l=0.15 w=1.0
 V1 d 0 1.8
 V2 g 0 1.8
