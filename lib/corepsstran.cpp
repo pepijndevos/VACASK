@@ -56,15 +56,25 @@ bool PssTranCore::rebuild(Status& s) {
         return false;
     }
 
-    // Size the q/qdot ring buffers for the worst-case order: computePsiT()
-    // needs up to 'order' past points plus the current one (order+1 slots),
-    // and onTimestepAccepted() additionally needs a distinct "future" slot
-    // to write the new point into before promoting it - so capacity is
+    // Size the q/qdot/Phi ring buffers for the worst-case order: they need
+    // up to 'order' past points plus the current one (order+1 slots), and
+    // onTimestepAccepted() additionally needs a distinct "future" slot to
+    // write the new point into before promoting it - so capacity is
     // order+2, matching the same "+2" margin TranCore uses when sizing its
     // own solution/states repositories for the future/current/past window.
     auto maxOrder = circuit.simulatorOptions().core().tran_maxord;
     qHist_.upsize(maxOrder + 2, n + 1);
     qDotHist_.upsize(maxOrder + 2, n + 1);
+
+    // phiHist_ is a plain CircularBuffer<DenseMatrix<double>>, not a
+    // VectorRepository, so upsize() only grows the slot array - each
+    // matrix must be sized to n x n explicitly (once; upsize() moves
+    // existing slots rather than reallocating them, so this is safe to
+    // call again on a later rebuild() with a larger n too).
+    phiHist_.upsize(maxOrder + 2);
+    for (decltype(phiHist_.size()) i = 0; i < phiHist_.size(); i++) {
+        phiHist_.at(i).resize(n, n, DenseMatrix<double>::Major::Column);
+    }
 
     return true;
 }
@@ -97,27 +107,31 @@ void PssTranCore::setShootIC(const Vector<double>& x0) {
 // ----------------------------------------------------------------
 
 bool PssTranCore::clearTrajectory() {
-    phiHist_.clear();
     phiValid_  = false;
 
     auto n = circuit.unknownCount();
-    phiCurrent_.resize(n, n, DenseMatrix<double>::Major::Column);
-    phiCurrent_.identity();
+
+    // Reset every phiHist_ slot to Identity - Phi(t0) = I exactly, not a
+    // placeholder (see corepsstran.h). Looping at(0)..at(size-1) already
+    // covers the future slot too: at(size-1) and at(-1) are the same
+    // physical slot (walking size-1 steps into the past wraps around to
+    // exactly one step into the future), so no separate future-slot reset
+    // is needed here.
+    for (decltype(phiHist_.size()) i = 0; i < phiHist_.size(); i++) {
+        phiHist_.at(i).identity();
+    }
 
     cHistData_.clear();
     gHistData_.clear();
     prevCValid_ = false;
 
-    // Reset the q/qdot ring buffers: zero every slot, including the future
-    // one, so a fresh shoot never reads stale data left over from a
-    // previous shooting iteration reusing the same fixed-capacity buffers.
-    auto histSize = qHist_.size();
-    for (decltype(histSize) i = 0; i < histSize; i++) {
+    // Reset the q/qdot ring buffers: zero every slot. Same at(size-1)==
+    // at(-1) identity as phiHist_ above means this already covers the
+    // future slot too - no separate zeroFuture() needed.
+    for (decltype(qHist_.size()) i = 0; i < qHist_.size(); i++) {
         qHist_.zero(i);
         qDotHist_.zero(i);
     }
-    qHist_.zeroFuture();
-    qDotHist_.zeroFuture();
 
     psiCurrent_.assign(n, 0.0);
 
@@ -189,13 +203,6 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
         firstStepX_ = solution.vector();
     }
 
-    // Expand phiHist with identity matrices during ramp-up
-    while (phiHist_.size() < order) {
-        DenseMatrix<double> id(n, n, DenseMatrix<double>::Major::Column);
-        id.identity();
-        phiHist_.push_front(std::move(id));
-    }
-
     // Get Alr = G_k + alpha_k * C_k from the factored NR jacobian
     std::copy(jacobian.data(), jacobian.data() + nnz, lastAlr_.data());
     if (!lastAlr_.refactor()) {
@@ -258,18 +265,19 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
     lastStepH_ = hk;
 
     // Build right-hand side: sum_p (gammaC[p]*C_{k-p} + gammaG[p]*G_{k-p}) * Phi_{k-p}
-    // Accumulated directly into phiCurrent_: its incoming value (Phi from the
-    // previous accepted step) is only ever needed as phiHist_[0], a distinct
-    // copy pushed into history at the end of the previous call, so it is safe
-    // to zero and reuse here as the solve buffer for the new Phi_k.
-    phiCurrent_.zero();
+    // Accumulated directly into phiHist_'s future slot (distinct from every
+    // at(p) read below, p=0..order-1 - see corepsstran.h), so it can be
+    // solved in place and then advance()d straight into the current slot,
+    // with no separate phiCurrent_ member and no snapshot-and-push.
+    DenseMatrix<double>& phiFuture = phiHist_.at(-1);
+    phiFuture.zero();
     for (int p = 0; p < order; p++) {
-        DenseMatrix<double>& Phi_kmi = phiHist_[p];
+        DenseMatrix<double>& Phi_kmi = phiHist_.at(p);
 
         // C_{k-p} * Phi_{k-p} contribution
         std::copy(cHistData_[p].begin(), cHistData_[p].end(), scratchC_.data());
         for (decltype(n) j = 0; j < n; j++) {
-            auto rhs_col = phiCurrent_.column(j);
+            auto rhs_col = phiFuture.column(j);
             if (!scratchC_.product(Phi_kmi.column(j), rhs_colbuf)) {
                 setError(PssTranError::CPhiProductFailed);
                 pssErrorTime = tSolve;
@@ -283,7 +291,7 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
         if (gammaG[p] != 0.0) {
             std::copy(gHistData_[p].begin(), gHistData_[p].end(), scratchC_.data());
             for (decltype(n) j = 0; j < n; j++) {
-                auto rhs_col = phiCurrent_.column(j);
+                auto rhs_col = phiFuture.column(j);
                 if (!scratchC_.product(Phi_kmi.column(j), rhs_colbuf)) {
                     setError(PssTranError::GPhiProductFailed);
                     pssErrorTime = tSolve;
@@ -297,12 +305,12 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
 
     // Solve for Phi_k
     // Alr * Phi_k = sum_{i=1}^order (gamma_i * C_k-i * Phi_k-i)
-    if (!lastAlr_.solveBlock(phiCurrent_.data().data(), static_cast<Int>(n))) {
+    if (!lastAlr_.solveBlock(phiFuture.data().data(), static_cast<Int>(n))) {
         setError(PssTranError::BlockAlrSolveFailed);
         pssErrorTime = tSolve;
         return false;
     }
-    // phiCurrent_ now holds PhiT at this step
+    phiHist_.advance();   // phiHist_.at(0) now holds PhiT at this step
 
     // qdot_{k+1} via the standard LMS derivative-form reconstruction
     // (numint.md, "Derivative at the new timepoint"): needed only for the
@@ -330,18 +338,13 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
     }
 
     /* Add values to history deques */
-
-    // Add Phi to history
-    DenseMatrix<double> phiSnap(phiCurrent_);
-    phiHist_.push_front(std::move(phiSnap));
+    // Phi/q_k/qdot_k were already promoted into their ring buffers above.
 
     // Add C_k and G_k to history
     cHistData_.push_front(std::move(cSnap));
     gHistData_.push_front(std::move(gSnap));
-    // q_k/qdot_k were already promoted into qHist_/qDotHist_ above.
 
     // Trim histories
-    while (phiHist_.size() > order + 1) phiHist_.pop_back();
     while (cHistData_.size() > order + 1) cHistData_.pop_back();
     while (gHistData_.size() > order + 1) gHistData_.pop_back();
 

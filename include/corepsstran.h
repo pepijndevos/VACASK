@@ -50,9 +50,10 @@
 //   5. Single block solve: lastAlr_ * PhiT_new = RHS  (klu_solve, nrhs=n).
 //      RHS is column-major so KLU can solve all n columns in one call.
 //
-//   6. Rotate phiHist (circular buffer, depth <= p).
+//   6. advance() phiHist (ring buffer, capacity maxOrder+2): the just-solved
+//      future slot becomes the new current one, at(0).
 //
-// After the shoot completes, phiCurrent_ already holds PhiT directly. PsiT
+// After the shoot completes, phiHist_.at(0) already holds PhiT directly. PsiT
 // (the period sensitivity dxT/dT, theory/pss.md "Computing Psi_T") is a
 // property of the LAST accepted step only, not something to accumulate over
 // the whole shoot - so it is computed once, on demand, by computePsiT(),
@@ -67,10 +68,10 @@
 // onTimestepAccepted() returned for that step.
 //
 // Memory:
-//   phiHist: at most p n×n dense matrices = O(p * n^2) doubles.
+//   phiHist_, qHist_, qDotHist_: fixed-capacity ring buffers (maxOrder+2
+//   slots each), sized once in rebuild() for the worst-case order - no
+//   per-step (re)allocation. phiHist_ alone is O(maxOrder * n^2) doubles.
 //   lastAlr_, scratchC_: two sparse matrices matching jacobian's sparsity.
-//   qHist_, qDotHist_: fixed-capacity ring buffers of q_k, qdot_k, sized
-//   once in rebuild() for the worst-case order - no per-step (re)allocation.
 
 #include "ansupport.h"
 #include "coretran.h"
@@ -127,7 +128,7 @@ public:
     bool rebuild(Status& s = Status::ignore);
 
     // Reset the sensitivity state before a new shooting iteration.
-    // Sets phiCurrent_ = I and clears phiHist_.
+    // Sets every phiHist_ slot to Identity (Phi(t0) = I).
     // Must be called by PssCore before each run().
     bool clearTrajectory();
 
@@ -147,10 +148,10 @@ public:
     };
 
     // Return reference to current Phi
-    DenseMatrix<double>& phiCurrent() { return phiCurrent_; };
+    DenseMatrix<double>& phiCurrent() { return phiHist_.at(0); };
 
     // Return reference to Psi_T. Valid only after computePsiT() has been
-    // called following a converged shoot - unlike phiCurrent_, this is not
+    // called following a converged shoot - unlike phiCurrent(), this is not
     // kept up to date at every accepted step.
     Vector<double>& psiCurrent() { return psiCurrent_; };
 
@@ -177,8 +178,8 @@ public:
 protected:
     // Called by TranCore at every accepted timestep with jacobian holding
     // the factored Alr_k = G_k + alpha_k * C_k from the NR solve.
-    // Evaluates C_k, advances phiCurrent_ through one BDF LMS step using
-    // a block solve, and rotates phiHist_.
+    // Evaluates C_k, advances Phi through one BDF LMS step using a block
+    // solve directly into phiHist_'s future slot, then advance()s it.
     virtual bool onTimestepAccepted(double tSolve, double hk, Int order);
 
     // Clear error
@@ -203,13 +204,8 @@ private:
     };
 
     // Intermediate vector, holds one column of a C/G * Phi product before
-    // it is scaled and accumulated into phiCurrent_.
+    // it is scaled and accumulated into the new Phi.
     Vector<double> rhs_colbuf;
-
-    // Current sensitivity matrix Phi(t), column-major n×n.
-    // Initialised to I in clearTrajectory(), updated at every accepted step.
-    // Equals PhiT after the shoot completes.
-    DenseMatrix<double> phiCurrent_;
 
     // Current period sensitivity vector Psi(t)
     Vector<double> psiCurrent_;
@@ -219,10 +215,16 @@ private:
     Vector<double> firstStepX_;
     double         firstStepH_ {0.0};
 
-    // Circular history of past Phi matrices, depth <= p (BDF order).
-    // phiHist_[0] = Phi at the previous accepted step, etc.
-    // Stored column-major to match phiCurrent_.
-    std::deque<DenseMatrix<double>> phiHist_;
+    // Ring buffer of past Phi matrices, fixed capacity (worst-case order + 2,
+    // sized and pre-resized-to-n×n in rebuild(), like qHist_/qDotHist_).
+    // phiHist_.at(0) is the current PhiT (see phiCurrent()); at(i) for i>=1
+    // is Phi from i steps back. onTimestepAccepted() builds the new Phi
+    // directly into the "future" slot (at(-1)) and solves it in place, then
+    // advance()s - no separate current-Phi member, no snapshot-and-push.
+    // Every slot is seeded to Identity in clearTrajectory() (Phi(t0)=I
+    // exactly, not a placeholder), so there is no ramp-up special case:
+    // reads of "not yet real" past entries correctly return I.
+    CircularBuffer<DenseMatrix<double>> phiHist_;
 
     // Factored Alr = G + alpha*C from the most-recent accepted step.
     // Rebuilt in onTimestepAccepted(), reused in computePsiT() as J_N.
