@@ -9,7 +9,7 @@ the rest of the codebase (`coretran`, `corehb`/`corehbac`, `options`,
 `circuit`, solution store/restore). Findings below are numbered consecutively
 across all areas, ranked most severe first. Check a box once fixed.
 
-- [ ] **1. `psiCurrent_` (Psi_T) is scaled by the whole period `T0_` instead of the local last-step size** *(Area 1: corepss/corepsstran, severe)*
+- [x] **1. `psiCurrent_` (Psi_T) is scaled by the whole period `T0_` instead of the local last-step size** *(Area 1: corepss/corepsstran, severe — fixed)*
 
   `lib/corepsstran.cpp:300-306` (the Psi update in `onTimestepAccepted`)
   computes the forcing term as `(alpha/T0_) * a[p] * qHistData_[p][...]` and
@@ -36,7 +36,16 @@ across all areas, ranked most severe first. Check a box once fixed.
   is not normalized). Expect slow/non-quadratic convergence or outright
   failure to converge on `T` for any autonomous PSS run.
 
-- [ ] **2. Phase-condition residual is hardwired to 0 instead of `alpha^T·x0` — the autonomous Newton system's bottom equation is never actually enforced** *(Area 1: corepss, severe)*
+  Fixed by commit `73677915` ("PhiT computation according to pss.md"), which
+  rewrote `computePsiT()` (`lib/corepsstran.cpp:499-556`) to implement the
+  general sensitivity-based formula from `pss.md`'s "Computing Psi_T"
+  section: it forms `d(qdot_N)/d(h_{N-1})` from
+  `IntegratorCoeffs::computeSensitivities(lastStepH_)` (`aM1Sens`/`aSens`/
+  `bSens`/`bScaled`) and back-solves against the already-factored
+  `lastAlr_` (= J_N). The stale `T0_`/`lastAlpha_`/`lastB1_` fields this
+  finding referenced no longer exist.
+
+- [x] **2. Phase-condition residual is hardwired to 0 instead of `alpha^T·x0` — the autonomous Newton system's bottom equation is never actually enforced** *(Area 1: corepss, severe — not a bug, superseded by design change)*
 
   `lib/corepss.cpp:521-522`:
   ```cpp
@@ -56,6 +65,18 @@ across all areas, ranked most severe first. Check a box once fixed.
   (`lib/corepss.cpp:509`) shows this area is known-unfinished, but this
   specific defect (correct RHS computed in a comment, then discarded) is a
   concrete, fixable bug distinct from that TODO.
+
+  Resolved by commit `d525315b` ("Phase condition cleaned up"), a deliberate
+  redesign rather than a bug fix. `pss.md` itself was rewritten (lines
+  456-494) to state the RHS is exactly 0, not `-alpha^T x0`: the phase
+  condition constrains the Newton *update* `Δx0` (orthogonal to the
+  trajectory velocity `alpha`), not `x0` pinned to a fixed hyperplane
+  through the origin — pinning `x0` directly is explicitly called out as
+  non-equivalent and wrong. Current code
+  (`lib/corepss.cpp:508-533`) matches: `alpha` is computed via forward
+  finite-difference `(x1-x0)/h0` in `computePhaseConstraint`, `Fp[n] = 0`
+  now carries an explanatory comment, and the old
+  `/// TODO: rewrite computePhaseConstraint` comment is gone.
 
 - [x] **3. `AnnotatedSolution::auxReal_` is never initialized by the default constructor — violates its own "≤0 means unset" contract** *(Area 3: ansolution/core, severe — fixed)*
 
