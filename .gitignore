@@ -8,7 +8,6 @@ benchmark/rundir
 *.osdi
 build/
 docs/internals/
-docs/theory/
 build
 .cache
 *.raw
