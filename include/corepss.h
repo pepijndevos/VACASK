@@ -39,7 +39,7 @@
 //
 //   Stabilise: integrate tstab seconds from xDC to obtain x0.
 //
-//   For l = 0, 1, ..., pss_itl:
+//   For l = 0, 1, ..., pss_itl-1 (pss_itl attempts total):
 //
 //     Shoot: set solution = x0, run pssTran_ for T0 seconds.
 //            pssTran_ collects G(t) and C(t) via onTimestepAccepted().

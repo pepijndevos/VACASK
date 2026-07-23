@@ -462,7 +462,7 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
     xT = solution.vector();
 
     // PSS-SHOOT main loop (outer NR)
-    while (iterIndex <= options.pss_itl) {
+    while (iterIndex < options.pss_itl) {
         if (debug>0){
             ss.str(""); 
             ss << "PSS: shoot l=" << iterIndex << "\n";

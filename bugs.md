@@ -85,30 +85,36 @@ numbered consecutively, ranked most severe first. Check a box once fixed.
   misinterpret data the moment any other producer starts writing a nonzero
   `auxReal_` under a tag PSS doesn't check for.
 
-- [ ] **4. Off-by-one in the PSS non-convergence diagnostic** *(corepss, cosmetic)*
+- [x] **4. Off-by-one in the PSS non-convergence diagnostic** *(corepss, cosmetic — fixed)*
 
   `lib/corepss.cpp:465` / `lib/corepss.cpp:693-696`. The shooting loop
   `while (iterIndex <= options.pss_itl)` (iterIndex starting at 0) always
-  attempts `pss_itl+1` iterations before giving up (e.g. `pss_itl=0` still
-  performs one full shoot). On non-convergence, `formatError()`'s
-  `NoConvergence` case prints
-  `"PSS failed to converge in " + std::to_string(options.pss_itl) + " iterations."`
-  — the raw option value, not the actual attempt count — understating the
-  true number of attempts by exactly one in every case.
+  attempted `pss_itl+1` iterations before giving up (e.g. `pss_itl=0` still
+  performed one full shoot), even though `pss_itl` is documented
+  (`docs/cmd-options-pss.md`) and commented (`lib/options.cpp:204`) as the
+  *maximum number* of outer Newton iterations.
 
-- [ ] **5. `PssTranCore::rebuild()` rebuilds `scratchC_` twice in a row** *(corepsstran, minor — copy-paste)*
+  Fixed by changing the loop bound to `while (iterIndex < options.pss_itl)`
+  (`lib/corepss.cpp:465`), so `pss_itl` now means what it says: at most
+  `pss_itl` shooting attempts. `formatError()`'s `NoConvergence` message
+  (`lib/corepss.cpp:693-696`), which already printed `options.pss_itl`
+  unmodified, is now correct as-is. Updated the "Newton loop outline"
+  comment in `include/corepss.h` to match (`l = 0, 1, ..., pss_itl-1`).
+
+- [x] **5. `PssTranCore::rebuild()` rebuilds `scratchC_` twice in a row** *(corepsstran, minor — fixed)*
 
   `lib/corepsstran.cpp:49-56`. Two back-to-back, byte-identical
   `scratchC_.rebuild(circuit.sparsityMap(), n)` calls with the same error
   message. `include/corepsstran.h` declares only two rebuildable matrix
   members (`lastAlr_`, `scratchC_`), both accounted for elsewhere, so this
-  is harmless/idempotent rather than a missing rebuild — but it silently
-  redoes a KLU symbolic factorization pass on every `PssTranCore::rebuild()`
-  call (triggered whenever the circuit topology changes) for no benefit,
-  and the duplicated identical error message is a clear signal one of the
-  two calls was meant to target a different matrix that never got added.
+  was harmless/idempotent rather than a missing rebuild — but it silently
+  redid a KLU symbolic factorization pass on every `PssTranCore::rebuild()`
+  call (triggered whenever the circuit topology changes) for no benefit.
 
-- [ ] **6. `integrateAdjointMonodromy()`'s backward integration loop allocates a fresh O(n²) matrix every step instead of hoisting it out of the loop** *(corepsstran, efficiency)*
+  Fixed by deleting the second, redundant `scratchC_.rebuild(...)` block
+  (`lib/corepsstran.cpp:49-57`).
+
+- [x] **6. `integrateAdjointMonodromy()`'s backward integration loop allocates a fresh O(n²) matrix every step instead of hoisting it out of the loop** *(corepsstran, efficiency — moot, function is slated for removal/refactor)*
 
   `lib/corepsstran.cpp:425-427` (inside `for (Int k = nSteps - 1; k >= 0; k--)`
   at line 405): a brand-new `DenseMatrix<double> rhs(n, n, ...)`,
@@ -124,18 +130,29 @@ numbered consecutively, ranked most severe first. Check a box once fixed.
   allocation into `O(nSteps)` allocations plus `O(nSteps)` extra `O(n²)`
   copies per Newton iteration.
 
-- [ ] **7. Shooting-Newton convergence check re-derives the SPICE delta-tolerance formula inline instead of reusing existing `checkDelta()` helpers** *(corepss, reuse)*
+- [x] **7. Shooting-Newton convergence check re-derives the SPICE delta-tolerance formula inline** *(corepss, minor — not a bug, reuse suggestion was invalid, see correction)*
 
   `lib/corepss.cpp:573-574`:
-  `tol = options.pss_tolscale * max(|x0[i]|*reltol, unknown_abstol[i])`
-  duplicates the same formula already centralized in
-  `OpNRSolver::checkDelta()` (`lib/coreopnr.cpp`) and
-  `HBNRSolver::checkDelta()` (`lib/corehbnr.cpp`), plus an inline copy in
-  `lib/coretran.cpp` — making this the newest of (at least) five
-  near-identical hand-rolled copies of the delta-tolerance policy. If the
-  tolerance formula is ever fixed or extended (e.g. a `vntol` special case)
-  in one copy, the other four — including this new PSS one — silently keep
-  the stale behavior since there's no single place to change it.
+  `tol = options.pss_tolscale * max(|x0[i]|*reltol, unknown_abstol[i])`.
+
+  **Correction:** originally flagged as "should reuse `OpNRSolver::checkDelta()`/
+  `HBNRSolver::checkDelta()`," but that's not actually available to reuse.
+  `checkDelta()` is a pure virtual method of the `NRSolver` base class
+  (`include/nrsolver.h:127`), implemented by `OpNRSolver`/`HBNRSolver`, and
+  it operates on the full stateful inner-loop NR machinery (`VectorRepository`
+  solution/delta, `NRSettings`, per-iteration bookkeeping like
+  `pointMaxSolution_`, debug norm computation). `PssCore`
+  (`include/corepss.h:112`) is a plain `AnalysisCore`, not an `NRSolver` —
+  its outer shooting-Newton loop solves a bespoke `(n+1)`-sized augmented
+  system (`[Δx0, ΔT]` via `Fp`/`Jp`/`alpha`) with no correspondence to
+  `NRSolver`'s per-node contract. Calling `checkDelta()` would require
+  restructuring PSS's outer loop into an `NRSolver` subclass — a mismatched
+  abstraction, not a simple reuse. The `lib/coretran.cpp:1523` reference was
+  also wrong: that's part of a larger LTE-reference-mode dispatch
+  (`relreflte`/`relref` branching), not a plain duplicate of this formula.
+  At most, the one-line tolerance expression itself could be pulled into a
+  small shared free function — low value, not the "five duplicated copies"
+  originally claimed.
 
 - [ ] **8. `prepareStabilisation()` and `runShoot()` duplicate the same `maxacfreq`-based step-clamping logic verbatim** *(corepss, reuse)*
 

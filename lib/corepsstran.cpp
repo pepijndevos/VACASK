@@ -51,11 +51,6 @@ bool PssTranCore::rebuild(Status& s) {
         return false;
     }
 
-    if (!scratchC_.rebuild(circuit.sparsityMap(), n)) {
-        s.set(Status::Analysis, "PssTranCore: failed to rebuild C scratch matrix.");
-        return false;
-    }
-
     // Size the q/qdot/Phi ring buffers for the worst-case order: they need
     // up to 'order' past points plus the current one (order+1 slots), and
     // onTimestepAccepted() additionally needs a distinct "future" slot to
