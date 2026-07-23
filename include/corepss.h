@@ -182,6 +182,11 @@ protected:
     // Prepare stabilisation transient
     void prepareStabilisation(double period);
 
+    // Clamp step/maxstep of tp to respect params.maxacfreq, given the
+    // applicable period (stabilisation period or shoot period T0). Shared
+    // by prepareStabilisation() and runShoot().
+    void clampStepToMaxacfreq(TranParameters& tp, double period) const;
+
     // Clear error
     void clearError() { AnalysisCore::clearError(); lastPssError = PssError::OK; }
 

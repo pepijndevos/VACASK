@@ -151,6 +151,15 @@ bool PssCore::restoreState(size_t ndx) {
 // Both are using the same Jacobian so preMapping()/populateStructutres() 
 // of these two cores will take care of all the reuqired entries. 
 
+void PssCore::clampStepToMaxacfreq(TranParameters& tp, double period) const {
+    if (params.maxacfreq > 0) {
+        double effMaxacfreq = std::max(params.maxacfreq, 40.0 / period);
+        double hmax = std::min(tp.maxstep, 1.0 / (2.0 * effMaxacfreq));
+        tp.maxstep = hmax;
+        tp.step    = std::min(tp.step, hmax);
+    }
+}
+
 void PssCore::prepareStabilisation(double period) {
     auto& options = circuit.simulatorOptions().core();
     if (params.stabstep>0) {
@@ -163,13 +172,8 @@ void PssCore::prepareStabilisation(double period) {
     params.stabilParams.stop    = params.tstab;
     params.stabilParams.maxstep = params.stabilParams.step;
     params.stabilParams.start   = 0.0;
-    
-    if (params.maxacfreq > 0) {
-        double effMaxacfreq = std::max(params.maxacfreq, 40.0 / period);
-        double hmax = std::min(params.stabilParams.maxstep, 1.0 / (2.0 * effMaxacfreq));
-        params.stabilParams.maxstep = hmax;
-        params.stabilParams.step    = std::min(params.stabilParams.step, hmax);
-    }
+
+    clampStepToMaxacfreq(params.stabilParams, period);
 }
 
 // If we ever allow homotopy, move part of this to runSolver()
@@ -308,13 +312,10 @@ bool PssCore::runShoot(double T0) {
     params.shootParams.step    = T0 / options.pss_minpts;
     params.shootParams.maxstep = T0 / options.pss_minpts;
     params.shootParams.start   = 0.0;
-    if (params.maxacfreq > 0) {
-        double effMaxacfreq = std::max(params.maxacfreq, 40.0 / T0);
-        double hmax = std::min(params.shootParams.maxstep, 1.0 / (2.0 * effMaxacfreq));
-        params.shootParams.maxstep = hmax;
-        params.shootParams.step    = std::min(params.shootParams.step, hmax);
-    }
-    
+
+    clampStepToMaxacfreq(params.shootParams, T0);
+
+
     if (!pssTran_.run(false)) {
         setError(PssError::ShootingTranFailed);
         return false;

@@ -154,14 +154,20 @@ numbered consecutively, ranked most severe first. Check a box once fixed.
   small shared free function — low value, not the "five duplicated copies"
   originally claimed.
 
-- [ ] **8. `prepareStabilisation()` and `runShoot()` duplicate the same `maxacfreq`-based step-clamping logic verbatim** *(corepss, reuse)*
+- [x] **8. `prepareStabilisation()` and `runShoot()` duplicate the same `maxacfreq`-based step-clamping logic verbatim** *(corepss, reuse — fixed)*
 
-  `lib/corepss.cpp:154-173` and `lib/corepss.cpp:305-316` both compute
-  `effMaxacfreq = max(maxacfreq, 40/period); hmax = min(maxstep, 1/(2*effMaxacfreq))`
-  plus the surrounding stop/step/start setup, differing only in which
-  `TranParameters` struct (`stabilParams` vs `shootParams`) and period
-  variable (`period` vs `T0`) they write into. A maintainer tuning the
-  step-size policy (e.g. changing the `40.0` constant) has no
-  compiler-visible link between the two copies and can easily update one
-  while leaving the other stale, causing stabilisation and shooting to
-  silently use inconsistent step-size policies.
+  `lib/corepss.cpp:154-173` and `lib/corepss.cpp:305-316` both computed
+  `effMaxacfreq = max(maxacfreq, 40/period); hmax = min(maxstep, 1/(2*effMaxacfreq))`,
+  differing only in which `TranParameters` struct (`stabilParams` vs
+  `shootParams`) and period variable (`period` vs `T0`) they wrote into. A
+  maintainer tuning the step-size policy (e.g. changing the `40.0` constant)
+  had no compiler-visible link between the two copies and could easily
+  update one while leaving the other stale.
+
+  Fixed by extracting the clamp into
+  `PssCore::clampStepToMaxacfreq(TranParameters& tp, double period) const`
+  (declared in `include/corepss.h`, implemented in `lib/corepss.cpp`), now
+  called from both `prepareStabilisation()` (with `params.stabilParams`,
+  `period`) and `runShoot()` (with `params.shootParams`, `T0`). The
+  `stabstep`-override branch in `prepareStabilisation()`, which was never
+  actually duplicated, was left untouched.
