@@ -172,8 +172,10 @@ protected:
     const IntegratorCoeffs& getIntegCoeffs() const { return integCoeffs; }
     const CircularBuffer<double>& getPastTimesteps() const { return pastTimesteps; }
 
-    // Called at every accepted timestep after pastTimesteps and tk are
-    // updated but before solution/states history is advanced.
+    // Called at every accepted timestep before pastTimesteps and tk are
+    // updated, and before solution/states history is advanced - so
+    // getIntegCoeffs()/getPastTimesteps() still reflect exactly the state
+    // used to solve this step, not a history already advanced past it.
     // Return false to abort the analysis.
     virtual bool onTimestepAccepted(double /*tSolve*/, double /*hk*/, Int /*order*/) { return true; }
 

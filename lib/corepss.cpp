@@ -319,6 +319,14 @@ bool PssCore::runShoot(double T0) {
         setError(PssError::ShootingTranFailed);
         return false;
     }
+
+    // Psi_T (period sensitivity) is only needed for the autonomous phase
+    // condition/Jacobian column. Computed once per shoot, here, rather than
+    // at every accepted step inside PssTranCore - see pss.md, "Computing Psi_T".
+    if (!params.driven && !pssTran_.computePsiT()) {
+        setError(PssError::SensitivityFailed);
+        return false;
+    }
     return true;
 }
 
@@ -443,7 +451,7 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
     // Obtain x_T^(0) by running a transient simulation for T_0 seconds
     solution.vector() = x0;
     pssTran_.setShootIC(x0);
-    if (!pssTran_.clearTrajectory(T0)) {
+    if (!pssTran_.clearTrajectory()) {
         setError(PssError::ShootingTranFailed);
         co_yield CoreState::Aborted;
     }
@@ -544,7 +552,7 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
         // Get new xT
         solution.vector() = x0;
         pssTran_.setShootIC(x0);
-        if (!pssTran_.clearTrajectory(T0)) {
+        if (!pssTran_.clearTrajectory()) {
             setError(PssError::ShootingTranFailed);
             co_yield CoreState::Aborted;
         }
@@ -611,7 +619,7 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
     
     solution.vector() = x0;
     pssTran_.setShootIC(x0);
-    if (!pssTran_.clearTrajectory(T0)) {
+    if (!pssTran_.clearTrajectory()) {
         setError(PssError::ShootingTranFailed);
         co_yield CoreState::Aborted;
     }

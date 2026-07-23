@@ -52,13 +52,25 @@
 //
 //   6. Rotate phiHist (circular buffer, depth <= p).
 //
-// After the shoot completes integrateSensitivity() returns phiCurrent_
-// as PhiT and evaluates PsiT = alpha_last * Alr_last^{-1} * g(xT).
+// After the shoot completes, phiCurrent_ already holds PhiT directly. PsiT
+// (the period sensitivity dxT/dT, theory/pss.md "Computing Psi_T") is a
+// property of the LAST accepted step only, not something to accumulate over
+// the whole shoot - so it is computed once, on demand, by computePsiT(),
+// instead of at every onTimestepAccepted() call (which would cost every
+// step of the shoot an extra n-sized solve for a value nothing reads until
+// the shoot is over). computePsiT() differentiates the last step's LMS
+// coefficients with respect to its own step size using the generic,
+// any-order/any-method formulae of theory/numint.md ("Sensitivity of
+// a_{-1}, a_i, b_i to h_k"), applied to a fresh copy of TranCore's own
+// integCoeffs member (getIntegCoeffs()) taken at that point - it still
+// holds exactly the last accepted step's coefficients, untouched since
+// onTimestepAccepted() returned for that step.
 //
 // Memory:
 //   phiHist: at most p n×n dense matrices = O(p * n^2) doubles.
 //   lastAlr_, scratchC_: two sparse matrices matching jacobian's sparsity.
-//   No per-step trajectory (G, C, pastTimesteps snapshots) is stored.
+//   qHist_, qDotHist_: fixed-capacity ring buffers of q_k, qdot_k, sized
+//   once in rebuild() for the worst-case order - no per-step (re)allocation.
 
 #include "ansupport.h"
 #include "coretran.h"
@@ -75,13 +87,12 @@ public:
         OK, 
         EvalCFailed, 
         AlrFactorizationFailed, 
-        CPhiProductFailed, 
-        GPhiProductFailed, 
-        BlockAlrSolveFailed, 
-        CPsiProductFailed, 
-        GPsiProductFailed, 
-        PsiSolveFailed, 
-        NoAcceptedSteps, 
+        CPhiProductFailed,
+        GPhiProductFailed,
+        BlockAlrSolveFailed,
+        PsiSensitivityFailed,
+        PsiSolveFailed,
+        NoAcceptedSteps,
         NoTrajectory, 
         ScratchRebuild, 
         ScratchRefactorFailed, 
@@ -118,7 +129,7 @@ public:
     // Reset the sensitivity state before a new shooting iteration.
     // Sets phiCurrent_ = I and clears phiHist_.
     // Must be called by PssCore before each run().
-    bool clearTrajectory(double T0);
+    bool clearTrajectory();
 
     // Populate preprocessedIc with all circuit unknowns from x0 so that
     // TranCore's UIC branch (nrSolver.setForces then solution = unknownValue_)
@@ -138,8 +149,15 @@ public:
     // Return reference to current Phi
     DenseMatrix<double>& phiCurrent() { return phiCurrent_; };
 
-    // Return reference to current Psi
+    // Return reference to Psi_T. Valid only after computePsiT() has been
+    // called following a converged shoot - unlike phiCurrent_, this is not
+    // kept up to date at every accepted step.
     Vector<double>& psiCurrent() { return psiCurrent_; };
+
+    // Compute Psi_T = dxT/dT (theory/pss.md, "Computing Psi_T") from the
+    // last accepted step of the shoot. Must be called after the shoot has
+    // finished (phiValid() true) and before the next clearTrajectory().
+    bool computePsiT();
 
     // State x1 at the first accepted timepoint of the shoot (index 0 is the
     // ground bucket, same convention as the solution/x0 vectors). Valid after
@@ -206,12 +224,9 @@ private:
     // Stored column-major to match phiCurrent_.
     std::deque<DenseMatrix<double>> phiHist_;
 
-    // Circular history of past Psi matrices
-    std::deque<Vector<double>> psiHist_;
-
     // Factored Alr = G + alpha*C from the most-recent accepted step.
-    // Rebuilt in onTimestepAccepted(), reused in integrateSensitivity()
-    // for the PsiT computation.  Same sparsity as jacobian.
+    // Rebuilt in onTimestepAccepted(), reused in computePsiT() as J_N.
+    // Same sparsity as jacobian.
     KluRealMatrix lastAlr_;
 
     // Scratch matrix for the unscaled reactive Jacobian C_k.
@@ -225,17 +240,25 @@ private:
     // Circular history of past resistive Jacobians G_k = A_k - alpha_k * C_k.
     std::deque<Vector<double>> gHistData_;
 
-    // Circular history of past reactive residuals q_k
-    std::deque<Vector<double>> qHistData_;
+    // Ring buffers of past reactive residuals q_k and their derivatives
+    // qdot_k. Fixed capacity (worst-case order + 2, sized in rebuild()) so
+    // onTimestepAccepted() can write q_{k+1}/qdot_{k+1} straight into the
+    // buffers' own "future" slot (at(-1)) with no extra copy, then just
+    // advance() - see onTimestepAccepted(). qHist_.at(0) / qDotHist_.at(0)
+    // after the shoot's last call are q_N / qdot_N; at(i+1) is q_{N-1-i} /
+    // qdot_{N-1-i} - exactly the history computePsiT() needs.
+    VectorRepository<double> qHist_;
+    VectorRepository<double> qDotHist_;
 
-    // Current period guess (needed for psi integration)
-    double T0_;
-
-    // Leading LMS coefficient alpha and leading quadrature weight b1
-    // from the most-recent accepted step.  Together they give 1/h = alpha*b1,
-    // which is the correct velocity scale for PsiT regardless of method.
-    double lastAlpha_;
-    double lastB1_;
+    // Step size h_k of the most-recent accepted step. TranCore's own
+    // integCoeffs member (read via getIntegCoeffs()) stays valid and
+    // unchanged for that same step from the moment onTimestepAccepted()
+    // returns until the next run() - nothing recomputes it in between - so
+    // computePsiT() can copy it fresh, once, right when it needs to mutate
+    // it (computeSensitivities()/scaleDifferentiatorSensitivities()); no
+    // per-step copy or dedicated member for the coefficients themselves is
+    // needed, only this step size (IntegratorCoeffs has no hk() accessor).
+    double lastStepH_ {0.0};
 
     // True once onTimestepAccepted() has successfully processed at least
     // one step after the last clearTrajectory() call.

@@ -26,8 +26,6 @@ PssTranCore::PssTranCore(
     VectorRepository<double>& states
 ) : TranCore(parentResolver, params, opCore, circuit, commons,
              jacobian, opSolution, solution, states),
-    lastAlpha_(0.0),
-    lastB1_(1.0),
     phiValid_(false),
     captureTrajectory_(false) {
 }
@@ -57,6 +55,17 @@ bool PssTranCore::rebuild(Status& s) {
         s.set(Status::Analysis, "PssTranCore: failed to rebuild C scratch matrix.");
         return false;
     }
+
+    // Size the q/qdot ring buffers for the worst-case order: computePsiT()
+    // needs up to 'order' past points plus the current one (order+1 slots),
+    // and onTimestepAccepted() additionally needs a distinct "future" slot
+    // to write the new point into before promoting it - so capacity is
+    // order+2, matching the same "+2" margin TranCore uses when sizing its
+    // own solution/states repositories for the future/current/past window.
+    auto maxOrder = circuit.simulatorOptions().core().tran_maxord;
+    qHist_.upsize(maxOrder + 2, n + 1);
+    qDotHist_.upsize(maxOrder + 2, n + 1);
+
     return true;
 }
 
@@ -87,11 +96,8 @@ void PssTranCore::setShootIC(const Vector<double>& x0) {
 // clearTrajectory
 // ----------------------------------------------------------------
 
-bool PssTranCore::clearTrajectory(double T0) {
-    T0_ = T0;
-
+bool PssTranCore::clearTrajectory() {
     phiHist_.clear();
-    lastAlpha_ = 0.0;
     phiValid_  = false;
 
     auto n = circuit.unknownCount();
@@ -100,10 +106,19 @@ bool PssTranCore::clearTrajectory(double T0) {
 
     cHistData_.clear();
     gHistData_.clear();
-    qHistData_.clear();
     prevCValid_ = false;
 
-    psiHist_.clear();
+    // Reset the q/qdot ring buffers: zero every slot, including the future
+    // one, so a fresh shoot never reads stale data left over from a
+    // previous shooting iteration reusing the same fixed-capacity buffers.
+    auto histSize = qHist_.size();
+    for (decltype(histSize) i = 0; i < histSize; i++) {
+        qHist_.zero(i);
+        qDotHist_.zero(i);
+    }
+    qHist_.zeroFuture();
+    qDotHist_.zeroFuture();
+
     psiCurrent_.assign(n, 0.0);
 
     firstStepX_.clear();
@@ -111,8 +126,12 @@ bool PssTranCore::clearTrajectory(double T0) {
 
     rhs_colbuf.resize(n);
 
-    // Get C_0 and q_0 by evaluating the reactive jacobian and residual at this point
-    Vector<double> qSnap(n + 1, 0.0);
+    // Get C_0 and q_0 by evaluating the reactive jacobian and residual at
+    // this point. q_0 is written directly into qHist_'s own future slot,
+    // then promoted - no separate temporary. qdot_0 is left at zero
+    // (unavailable at t=0, no step has been taken yet - same reasoning as
+    // the G_0 zero-seed below; confirmed harmless empirically, since qdot_0
+    // is never actually read by the recursion before it's overwritten).
     jacobian.zero();
     EvalSetup es = solver().evalSetup();
     es.evaluateResistiveJacobian = false;
@@ -126,21 +145,21 @@ bool PssTranCore::clearTrajectory(double T0) {
     LoadSetup ls;
     ls.loadReactiveJacobian   = true;
     ls.reactiveJacobianFactor = 1.0;
-    ls.reactiveResidual       = qSnap.data();
+    ls.reactiveResidual       = qHist_.futureData();   // future slot already zeroed above
 
     if (!circuit.evalAndLoad(commons, &es, &ls, nullptr)) {
         setError(PssTranError::EvalCFailed);
         pssErrorTime = 0;
         return false;
     }
+    qHist_.advance();
+
     // Snapshot C_0 and add it to history
     Vector<double> cSnap(jacobian.data(), jacobian.data() + jacobian.nnz());
     cHistData_.push_front(std::move(cSnap));
     // Seed G history with zeros — G_0 unavailable at t=0 (no NR solve yet)
     Vector<double> gZero(jacobian.nnz(), 0.0);
     gHistData_.push_front(std::move(gZero));
-    // Add q_0 to history
-    qHistData_.push_front(std::move(qSnap));
 
     captureTrajectory_= false;
 
@@ -152,9 +171,14 @@ bool PssTranCore::clearTrajectory(double T0) {
 // onTimestepAccepted — inline Phi advancement
 // ----------------------------------------------------------------
 bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
-    IntegratorCoeffs    integCoeffs = getIntegCoeffs();
-    auto                n           = circuit.unknownCount();
-    auto                nnz         = jacobian.nnz();
+    // Read-only for the whole function - every use below (leadingCoeff(),
+    // a(), b(), b1(), aScaled(), bScaled() via differentiate()) only reads
+    // the coefficients TranCore already computed for this step, so a
+    // reference avoids a copy on every accepted step. (computePsiT() is the
+    // only place that ever needs a mutable copy, made once, after the shoot.)
+    const IntegratorCoeffs& integCoeffs = getIntegCoeffs();
+    auto                    n           = circuit.unknownCount();
+    auto                    nnz         = jacobian.nnz();
 
     // First accepted step since clearTrajectory(): capture x1 and h0 for
     // PssCore's phase-vector estimate alpha ~= (x1-x0)/h0 (pss.md, "Choosing alpha").
@@ -172,13 +196,6 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
         phiHist_.push_front(std::move(id));
     }
 
-    // Expand psiHist with zero matrices during ramp-up
-    while (psiHist_.size() < order) {
-        Vector<double> z(n, 0.0);
-        psiHist_.push_front(std::move(z));
-    }
-
-
     // Get Alr = G_k + alpha_k * C_k from the factored NR jacobian
     std::copy(jacobian.data(), jacobian.data() + nnz, lastAlr_.data());
     if (!lastAlr_.refactor()) {
@@ -187,10 +204,10 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
         return false;
     }
 
-    // Allocate buffer for q(x_k) with bucket at index 0
-    Vector<double> qSnap(n + 1, 0.0);
-
-    // Get the current C_k and q(x_k) by using evalAndLoad. C_k will be saved to jacobian
+    // Get the current C_k and q(x_k) by using evalAndLoad. C_k will be saved
+    // to jacobian; q(x_k) is written directly into qHist_'s own future slot
+    // (promoted to current further down, after qdot_k is derived from it) -
+    // no separate temporary.
     jacobian.zero();
     EvalSetup es = solver().evalSetup();
     es.evaluateResistiveJacobian = false;
@@ -204,7 +221,8 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
     LoadSetup ls;
     ls.loadReactiveJacobian   = true;
     ls.reactiveJacobianFactor = 1.0;
-    ls.reactiveResidual       = qSnap.data();
+    qHist_.zeroFuture();   // load targets accumulate (+=); the ring slot may hold stale data from size_ steps ago
+    ls.reactiveResidual       = qHist_.futureData();
 
     if (!circuit.evalAndLoad(commons, &es, &ls, nullptr)) {
         setError(PssTranError::EvalCFailed);
@@ -215,8 +233,8 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
     Vector<double> cSnap(jacobian.data(), jacobian.data() + jacobian.nnz());
 
     double alpha = integCoeffs.leadingCoeff();
-    Vector<double> a = integCoeffs.a();
-    Vector<double> b = integCoeffs.b();
+    const Vector<double>& a = integCoeffs.a();
+    const Vector<double>& b = integCoeffs.b();
 
     // G_k = A_k - alpha_k * C_k  (lastAlr_.data() holds A_k; not modified by refactor)
     Vector<double> gSnap(nnz);
@@ -232,8 +250,12 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
     for (int p = 0; !b.empty() && p < std::min(order, (Int)b.size()); p++)
         gammaG[p] = -(b[p] / integCoeffs.b1());
 
-    lastAlpha_ = alpha;
-    lastB1_    = b.empty() ? 1.0 : integCoeffs.b1();
+    // Retain this step's size - computePsiT() needs h_{N-1} for whichever
+    // step turns out to be the shoot's last. The coefficients themselves
+    // don't need saving here: TranCore's own integCoeffs member stays valid
+    // for this same step until the next run(), so computePsiT() reads it
+    // fresh via getIntegCoeffs() when it actually needs a mutable copy.
+    lastStepH_ = hk;
 
     // Build right-hand side: sum_p (gammaC[p]*C_{k-p} + gammaG[p]*G_{k-p}) * Phi_{k-p}
     // Accumulated directly into phiCurrent_: its incoming value (Phi from the
@@ -282,48 +304,17 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
     }
     // phiCurrent_ now holds PhiT at this step
 
-    /// Psi integration
-    Vector<double> psiRhs(n, 0.0);
-
-    // First sum (history terms): sum_p (gammaC[p]*C_{k-p} + gammaG[p]*G_{k-p}) * psi_{k-p}
-    Vector<double> c_psi(n, 0.0);
-    for (int p = 0; p < order; p++) {
-        // C_{k-p} * psi_{k-p} contribution
-        std::copy(cHistData_[p].begin(), cHistData_[p].end(), scratchC_.data());
-        if (!scratchC_.product(psiHist_[p].data(), c_psi.data())) {
-            setError(PssTranError::CPsiProductFailed);
-            pssErrorTime = tSolve;
-            return false;
-        }
-        for (decltype(n) i = 0; i < n; i++) psiRhs[i] += gammaC[p] * c_psi[i];
-
-        // G_{k-p} * psi_{k-p} contribution (AM methods only)
-        if (gammaG[p] != 0.0) {
-            std::copy(gHistData_[p].begin(), gHistData_[p].end(), scratchC_.data());
-            if (!scratchC_.product(psiHist_[p].data(), c_psi.data())) {
-                setError(PssTranError::GPsiProductFailed);
-                pssErrorTime = tSolve;
-                return false;
-            }
-            for (decltype(n) i = 0; i < n; i++) psiRhs[i] += gammaG[p] * c_psi[i];
-        }
-    }
-
-    // Second sum: \sum_{i=0}^{p-1} \frac{\alpha}{T_0} a_i q_{k-i}
-    for (int p=0; !a.empty() && p < std::min(order, (Int)a.size()); p++) {
-        for (decltype(n) i = 0; i < n; i++) psiRhs[i] -= (alpha / T0_) * a[p] * qHistData_[p][i + 1];
-    }
-
-    // Reactive residual term
-    for (decltype(n) i = 0; i < n; i++) psiRhs[i] += (alpha / T0_) * qSnap[i + 1];
-
-    // Solve for \psi_{k+1}
-    if (!lastAlr_.solve(psiRhs.data())) {
-        setError(PssTranError::PsiSolveFailed);
-        pssErrorTime = tSolve;
-        return false;
-    }
-    psiCurrent_ = std::move(psiRhs);   // psiRhs now holds psi_{k+1}
+    // qdot_{k+1} via the standard LMS derivative-form reconstruction
+    // (numint.md, "Derivative at the new timepoint"): needed only for the
+    // final, last-step Psi_T formula (pss.md, "Computing Psi_T"), evaluated
+    // once after the whole shoot finishes by computePsiT(). q_{k+1} was
+    // already written directly into qHist_'s future slot above (the
+    // evalAndLoad target); qdot_{k+1} is written directly into qDotHist_'s
+    // future slot here - no temporaries either way. Both ring buffers are
+    // promoted (old future becomes new current) right after.
+    integCoeffs.differentiate(qHist_, qDotHist_, qDotHist_.futureVector());
+    qHist_.advance();
+    qDotHist_.advance();
 
     // If trajectory capture is enabled, store data needed for adjoint integration.
     // cSnap and gSnap must not be moved yet — the record copies them.
@@ -347,18 +338,12 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
     // Add C_k and G_k to history
     cHistData_.push_front(std::move(cSnap));
     gHistData_.push_front(std::move(gSnap));
-
-    // Add q(x_k) to history
-    qHistData_.push_front(std::move(qSnap));
-
-    // Add psi to history
-    psiHist_.push_front(psiCurrent_);
+    // q_k/qdot_k were already promoted into qHist_/qDotHist_ above.
 
     // Trim histories
     while (phiHist_.size() > order + 1) phiHist_.pop_back();
     while (cHistData_.size() > order + 1) cHistData_.pop_back();
     while (gHistData_.size() > order + 1) gHistData_.pop_back();
-    while (qHistData_.size() > order + 1) qHistData_.pop_back();
 
     phiValid_ = true;
     return true;
@@ -502,6 +487,70 @@ void PssTranCore::enableTrajectoryCapture() {
 }
 
 // ----------------------------------------------------------------
+// computePsiT
+// ----------------------------------------------------------------
+bool PssTranCore::computePsiT() {
+    auto n = circuit.unknownCount();
+    psiCurrent_.assign(n, 0.0);
+
+    if (!phiValid_) {
+        setError(PssTranError::NoAcceptedSteps);
+        return false;
+    }
+
+    // Coefficient sensitivities to h_{N-1} (the last step's size), using the
+    // generic any-order/any-method formulae of numint.md - not the BDF1/
+    // trapezoidal closed forms pss.md derives only as illustrative special
+    // cases. A fresh copy of TranCore's own integCoeffs is made here, once,
+    // because computeSensitivities()/scaleDifferentiatorSensitivities()
+    // mutate it and getIntegCoeffs() only hands out a const reference; the
+    // live object itself stays valid and unchanged for this same step
+    // until the next run(), so nothing here depends on the (possibly
+    // since-mutated) live transient timestep history.
+    IntegratorCoeffs ic = getIntegCoeffs();
+    if (!ic.computeSensitivities(lastStepH_) || !ic.scaleDifferentiatorSensitivities(lastStepH_)) {
+        setError(PssTranError::PsiSensitivityFailed);
+        return false;
+    }
+
+    const auto& aSens   = ic.aScaledSens();
+    const auto& bSens   = ic.bScaledSens();
+    const auto& bScaled = ic.bScaled();
+    double      aM1Sens = ic.leadingCoeffSens();
+
+    // d(qdot_N)/d(h_{N-1}) at fixed x_N (pss.md, "Computing Psi_T"):
+    //   a_{-1}'*q_N + sum_i a_i'*q_{N-1-i} + sum_i b_i*qdot_{N-1-i}
+    //     + h_{N-1} * sum_i b_i'*qdot_{N-1-i}
+    // qHist_.at(0) / qDotHist_.at(0) are q_N / qdot_N; at(p+1) is
+    // q_{N-1-p} / qdot_{N-1-p} - exactly the indexing the formula needs.
+    Vector<double> rhs(n, 0.0);
+    const Vector<double>& qN = qHist_.at(0);
+    for (decltype(n) i = 0; i < n; i++) {
+        double v = aM1Sens * qN[i + 1];
+        for (Int p = 0; p < (Int)aSens.size(); p++) {
+            v += aSens[p] * qHist_.at(p + 1)[i + 1];
+        }
+        for (Int p = 0; p < (Int)bScaled.size(); p++) {
+            v += bScaled[p] * qDotHist_.at(p + 1)[i + 1];
+        }
+        for (Int p = 0; p < (Int)bSens.size(); p++) {
+            v += lastStepH_ * bSens[p] * qDotHist_.at(p + 1)[i + 1];
+        }
+        rhs[i] = v;
+    }
+
+    // Psi_T = -J_N^{-1} * d(qdot_N)/d(h_{N-1})   (J_N = lastAlr_, already
+    // factored from the last accepted step's Newton solve)
+    if (!lastAlr_.solve(rhs.data())) {
+        setError(PssTranError::PsiSolveFailed);
+        return false;
+    }
+    for (decltype(n) i = 0; i < n; i++) psiCurrent_[i] = -rhs[i];
+
+    return true;
+}
+
+// ----------------------------------------------------------------
 // PSS rawfile output
 // ----------------------------------------------------------------
 
@@ -561,14 +610,11 @@ bool PssTranCore::formatError(Status& s) const {
         case PssTranError::BlockAlrSolveFailed:
             s.set(Status::Analysis, "PssTranCore: block Alr solve failed at t="+std::to_string(pssErrorTime)+".");
             break;
-        case PssTranError::CPsiProductFailed:
-            s.set(Status::Analysis, "PssTranCore: C*psi product failed at t="+std::to_string(pssErrorTime)+".");
-            break;
-        case PssTranError::GPsiProductFailed:
-            s.set(Status::Analysis, "PssTranCore: G*psi product failed at t="+std::to_string(pssErrorTime)+".");
+        case PssTranError::PsiSensitivityFailed:
+            s.set(Status::Analysis, "PssTranCore: Psi_T coefficient sensitivity computation failed.");
             break;
         case PssTranError::PsiSolveFailed:
-            s.set(Status::Analysis, "PssTranCore: psi solve failed at t="+std::to_string(pssErrorTime)+".");
+            s.set(Status::Analysis, "PssTranCore: Psi_T solve failed.");
             break;
         case PssTranError::NoAcceptedSteps:
             s.set(Status::Analysis, "PssTranCore: no accepted steps since clearTrajectory(). PhiT is not available.");

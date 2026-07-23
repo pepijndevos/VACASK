@@ -1771,22 +1771,26 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
 
             setProgress(tSolve, tSolve);
 
-            // Store timestep
-            pastTimesteps.add(hk);
-            
-            // Advance time
-            tk = tSolve; 
-  
             // Notify subclasses (e.g. PssTranCore) of the accepted point.
             // Pass 'order' (the order used by integCoeffs at this step), not
             // 'newOrder' (the order chosen for the next step).  The PSS
             // sensitivity integrator must replay integCoeffs with the same
             // order that was in effect when this step was accepted.
-            // This is a customization function. 
-            // User is responsible for setting the error code and handling it during formatting. 
+            // This is a customization function.
+            // User is responsible for setting the error code and handling it during formatting.
+            // Called before pastTimesteps/tk are updated below, so a
+            // subclass reading getIntegCoeffs()/getPastTimesteps() here sees
+            // exactly the state compute() used for this step - not a buffer
+            // that has already been advanced past it.
             if (!onTimestepAccepted(tSolve, hk, order)) {
                 co_yield CoreState::Aborted;
             }
+
+            // Store timestep
+            pastTimesteps.add(hk);
+
+            // Advance time
+            tk = tSolve;
 
             // Check if we are done
             if (tSolve-params.stop>=-timeRelativeTolerance*params.stop) {

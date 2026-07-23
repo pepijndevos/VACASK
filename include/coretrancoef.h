@@ -114,8 +114,8 @@ public:
         return true;
     };
 
-    // Differentiate state at tk+hk based on 
-    // - future value 
+    // Differentiate state at tk+hk based on
+    // - future value
     // - value history (state) and
     // - derivative history (state+1)
     // To be used with implicit integration algorithms
@@ -131,6 +131,35 @@ public:
             deriv += bScaled_[i] * differentiatorHistory[i][state+1];
         }
         return deriv;
+    };
+
+    // Aggregated-vector variant of differentiate(): same derivative-form
+    // reconstruction (numint.md, "Derivative at the new timepoint"), but
+    // operating directly on a pair of history ring buffers instead of via
+    // GlobalStorageIndex pointers into a device-level states repository.
+    // qHist.at(-1) is read as the future value (already written by the
+    // caller); qHist.at(0..) / qDotHist.at(0..) are read as past value /
+    // past derivative history. Writes straight into 'out' - pass
+    // qDotHist.at(-1) to fill the qdot ring buffer's own future slot with
+    // no extra copy, then advance() both buffers.
+    void differentiate(
+        const CircularBuffer<Vector<double>>& qHist,
+        const CircularBuffer<Vector<double>>& qDotHist,
+        Vector<double>& out
+    ) const {
+        const Vector<double>& future = qHist.at(-1);
+        auto len = future.size();
+        out.assign(len, 0.0);
+        for(size_t u=0; u<len; u++) {
+            double deriv = leading_ * future[u];
+            for(Int i=0; i<aScaled_.size(); i++) {
+                deriv += aScaled_[i] * qHist.at(i)[u];
+            }
+            for(Int i=0; i<bScaled_.size(); i++) {
+                deriv += bScaled_[i] * qDotHist.at(i)[u];
+            }
+            out[u] = deriv;
+        }
     };
 
     // Predict value based on value history 
