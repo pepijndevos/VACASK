@@ -335,7 +335,11 @@ module_path_prefix = [ "$(PDK_ROOT)/$(PDK)/libs.tech/vacask/osdi" ]
     symfiles += [[f, patch_analog] for f in files]
 
     # All .sym files in sg13g2_stdcells
-    directory = Path(xschem_path_pfx) / "sg13g2_stdcells"
+    # Try new path first
+    directory = Path(pdkroot) / pdk / "libs.ref" / "sg13g2_stdcell" / "sym" / "xschem"
+    if not directory.is_dir():
+        # If it is not found, try old path
+        directory = Path(xschem_path_pfx) / "sg13g2_stdcells"
     files = [str(p.resolve()) for p in directory.iterdir() if p.is_file() and p.suffix == ".sym"]
     symfiles += [[f, patch_dig] for f in files]
 
