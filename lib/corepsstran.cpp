@@ -65,6 +65,8 @@ bool PssTranCore::rebuild(Status& s) {
     auto maxOrder = circuit.simulatorOptions().core().tran_maxord;
     qHist_.upsize(maxOrder + 2, n + 1);
     qDotHist_.upsize(maxOrder + 2, n + 1);
+    cHistData_.upsize(maxOrder + 2, nnz);
+    gHistData_.upsize(maxOrder + 2, nnz);
 
     // phiHist_ is a plain CircularBuffer<DenseMatrix<double>>, not a
     // VectorRepository, so upsize() only grows the slot array - each
@@ -121,14 +123,14 @@ bool PssTranCore::clearTrajectory() {
         phiHist_.at(i).identity();
     }
 
-    cHistData_.clear();
-    gHistData_.clear();
     prevCValid_ = false;
 
-    // Reset the q/qdot ring buffers: zero every slot. Same at(size-1)==
+    // Reset the C/G/q/qdot ring buffers: zero every slot. Same at(size-1)==
     // at(-1) identity as phiHist_ above means this already covers the
     // future slot too - no separate zeroFuture() needed.
     for (decltype(qHist_.size()) i = 0; i < qHist_.size(); i++) {
+        cHistData_.zero(i);
+        gHistData_.zero(i);
         qHist_.zero(i);
         qDotHist_.zero(i);
     }
@@ -168,12 +170,14 @@ bool PssTranCore::clearTrajectory() {
     }
     qHist_.advance();
 
-    // Snapshot C_0 and add it to history
-    Vector<double> cSnap(jacobian.data(), jacobian.data() + jacobian.nnz());
-    cHistData_.push_front(std::move(cSnap));
-    // Seed G history with zeros — G_0 unavailable at t=0 (no NR solve yet)
-    Vector<double> gZero(jacobian.nnz(), 0.0);
-    gHistData_.push_front(std::move(gZero));
+    // Snapshot C_0 directly into cHistData_'s future slot, then promote -
+    // no separate temporary (plain std::copy, not an accumulating load
+    // target, so no zeroing needed first).
+    std::copy(jacobian.data(), jacobian.data() + jacobian.nnz(), cHistData_.futureData());
+    cHistData_.advance();
+    // Seed G_0 with zeros — G_0 unavailable at t=0 (no NR solve yet).
+    // Already zeroed by the full-buffer reset above; just promote it.
+    gHistData_.advance();
 
     captureTrajectory_= false;
 
@@ -236,15 +240,18 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
         pssErrorTime = tSolve;
         return false;
     }
-    // Snapshot current C_k
-    Vector<double> cSnap(jacobian.data(), jacobian.data() + jacobian.nnz());
+    // Snapshot current C_k directly into cHistData_'s future slot - no
+    // separate temporary (plain std::copy, not an accumulating load target).
+    std::copy(jacobian.data(), jacobian.data() + nnz, cHistData_.futureData());
+    const Vector<double>& cSnap = cHistData_.futureVector();
 
     double alpha = integCoeffs.leadingCoeff();
     const Vector<double>& a = integCoeffs.a();
     const Vector<double>& b = integCoeffs.b();
 
-    // G_k = A_k - alpha_k * C_k  (lastAlr_.data() holds A_k; not modified by refactor)
-    Vector<double> gSnap(nnz);
+    // G_k = A_k - alpha_k * C_k (lastAlr_.data() holds A_k; not modified by
+    // refactor), written directly into gHistData_'s future slot.
+    Vector<double>& gSnap = gHistData_.futureVector();
     for (Int j = 0; j < nnz; j++)
         gSnap[j] = lastAlr_.data()[j] - alpha * cSnap[j];
 
@@ -275,7 +282,7 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
         DenseMatrix<double>& Phi_kmi = phiHist_.at(p);
 
         // C_{k-p} * Phi_{k-p} contribution
-        std::copy(cHistData_[p].begin(), cHistData_[p].end(), scratchC_.data());
+        std::copy(cHistData_.at(p).begin(), cHistData_.at(p).end(), scratchC_.data());
         for (decltype(n) j = 0; j < n; j++) {
             auto rhs_col = phiFuture.column(j);
             if (!scratchC_.product(Phi_kmi.column(j), rhs_colbuf)) {
@@ -289,7 +296,7 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
 
         // G_{k-p} * Phi_{k-p} contribution (AM methods only; gammaG[p]==0 for BDF)
         if (gammaG[p] != 0.0) {
-            std::copy(gHistData_[p].begin(), gHistData_[p].end(), scratchC_.data());
+            std::copy(gHistData_.at(p).begin(), gHistData_.at(p).end(), scratchC_.data());
             for (decltype(n) j = 0; j < n; j++) {
                 auto rhs_col = phiFuture.column(j);
                 if (!scratchC_.product(Phi_kmi.column(j), rhs_colbuf)) {
@@ -324,8 +331,10 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
     qHist_.advance();
     qDotHist_.advance();
 
-    // If trajectory capture is enabled, store data needed for adjoint integration.
-    // cSnap and gSnap must not be moved yet — the record copies them.
+    // If trajectory capture is enabled, store data needed for adjoint
+    // integration. rec.cData/gData copy cSnap/gSnap (references into the
+    // ring buffers' future slots); StepRecord needs its own independent
+    // copy regardless, since those slots get reused later in the shoot.
     if (captureTrajectory_) {
         StepRecord rec;
         rec.aData  = Vector<double>(lastAlr_.data(), lastAlr_.data() + nnz);
@@ -337,16 +346,11 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
         trajectory_.push_back(std::move(rec));
     }
 
-    /* Add values to history deques */
-    // Phi/q_k/qdot_k were already promoted into their ring buffers above.
-
-    // Add C_k and G_k to history
-    cHistData_.push_front(std::move(cSnap));
-    gHistData_.push_front(std::move(gSnap));
-
-    // Trim histories
-    while (cHistData_.size() > order + 1) cHistData_.pop_back();
-    while (gHistData_.size() > order + 1) gHistData_.pop_back();
+    // Phi/C_k/G_k/q_k/qdot_k were all built directly into their ring
+    // buffers' future slots above; promote C_k/G_k now (the others were
+    // already advance()d where they were produced).
+    cHistData_.advance();
+    gHistData_.advance();
 
     phiValid_ = true;
     return true;

@@ -59,3 +59,9 @@
 - Look at suggested .h files and the corresponding .cpp file
 - Sometimes extra .cpp files are also listed that neeed to be documented
 
+## Theory documentation
+- In docs/theory
+- Always checked manually.
+- Do not edit without explicit permission. 
+- Read at will, use as needed. 
+

@@ -78,7 +78,6 @@
 #include "densematrix.h"
 #include "klumatrix.h"
 #include "common.h"
-#include <deque>
 
 namespace NAMESPACE {
 
@@ -236,11 +235,16 @@ private:
     // Used to form the Phi RHS columns.  Same sparsity as jacobian.
     KluRealMatrix scratchC_;
 
-    // Circular history of past reactive Jacobians C_k.
-    std::deque<Vector<double>> cHistData_;
-
-    // Circular history of past resistive Jacobians G_k = A_k - alpha_k * C_k.
-    std::deque<Vector<double>> gHistData_;
+    // Ring buffers of past reactive Jacobians C_k and resistive Jacobians
+    // G_k = A_k - alpha_k * C_k (nnz-length raw KLU data arrays). Same
+    // fixed-capacity/future-slot-then-advance() pattern as qHist_/qDotHist_
+    // below: onTimestepAccepted() copies C_k straight from jacobian.data()
+    // into cHistData_'s future slot (plain std::copy, not an accumulating
+    // evalAndLoad target, so no zeroing needed first - see clearTrajectory()/
+    // onTimestepAccepted()), computes G_k straight into gHistData_'s future
+    // slot, then advance()s both.
+    VectorRepository<double> cHistData_;
+    VectorRepository<double> gHistData_;
 
     // Ring buffers of past reactive residuals q_k and their derivatives
     // qdot_k. Fixed capacity (worst-case order + 2, sized in rebuild()) so
