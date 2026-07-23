@@ -7,8 +7,8 @@ bug
 benchmark/rundir
 *.osdi
 build/
-theory
 docs/internals/
+docs/theory/
 build
 .cache
 *.raw

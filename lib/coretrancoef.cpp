@@ -364,10 +364,159 @@ bool IntegratorCoeffs::compute(CircularBuffer<double>& pastSteps, double newStep
     return true;
 }
 
+bool IntegratorCoeffs::computeSensitivities(double newStep) {
+    // normalizedTimePoint (theta_i) is reused as-is from the preceding
+    // compute() call for this newStep - not recomputed here, so this can be
+    // called without access to the pastSteps history compute() used (the
+    // caller may no longer have it in the right shape, e.g. once a new step
+    // has since been appended to a shared history buffer).
+
+    // Coeffs are 0.0 by default
+    aSens_.assign(numX_, 0.0);
+    b1Sens_ = 0.0;
+    bSens_.assign(numXdot_, 0.0);
+
+    rhs.resize(n_);
+
+    // Differentiating the order conditions wrt hk (past step sizes held
+    // fixed) yields a linear system for the primed coefficients with the
+    // exact same matrix as compute() - only the RHS changes. See
+    // theory/numint.md, "Sensitivity of the coefficients to h_k". compute()
+    // must already have been called for this (pastSteps, newStep): wherever
+    // it solved a linear system, matrix/rowPerm_ still hold the LU
+    // decomposition from that solve() call, reused here via luSolve() with
+    // only the RHS rebuilt - no new factorization, matrix is never rebuilt.
+    // Wherever compute() instead took a constant-coefficient shortcut
+    // (backward Euler, trapezoidal, BDF1, forward Euler), those coefficients
+    // don't depend on hk at all, so the sensitivities are zero - already the
+    // default set above - and there is no factorization to reuse.
+    switch (method_) {
+    case Method::AdamsMoulton:
+        switch (order_) {
+        case 1:
+        case 2:
+            // Backward Euler / trapezoidal: constant coefficients
+            break;
+        default: {
+            // Unknowns: b_{-1}', b_0', ..., b_{numXdot_-1}'
+            for(Int j=1; j<=order_; j++) {
+                double s = 0.0;
+                for(Int i=1; i<numXdot_; i++) {
+                    s += b_[i]*pow(normalizedTimePoint[i], j-1);
+                }
+                rhs[j-1] = (j/newStep)*(j-1)*s;
+            }
+
+            if (!solveSensitivity()) {
+                return false;
+            }
+
+            b1Sens_ = rhs[0];
+            for(Int i=1; i<=numXdot_; i++) {
+                bSens_[i-1] = rhs[i];
+            }
+            break;
+        }
+        }
+        break;
+
+    case Method::BDF:
+        switch (order_) {
+        case 1:
+            // Backward Euler: constant coefficients
+            break;
+        default: {
+            // Unknowns: a_0', a_1', ..., a_{numX_-1}', b_{-1}'
+            rhs[0] = 0.0;
+            for(Int j=1; j<=order_; j++) {
+                // BDF has no b_i for i>=0, so the b-part of the RHS is always empty
+                double s = 0.0;
+                for(Int i=1; i<numX_; i++) {
+                    s += a_[i]*pow(normalizedTimePoint[i], j);
+                }
+                rhs[j] = (j/newStep)*s;
+            }
+
+            if (!solveSensitivity()) {
+                return false;
+            }
+
+            for(Int i=0; i<numX_; i++) {
+                aSens_[i] = rhs[i];
+            }
+            b1Sens_ = rhs[numX_];
+            break;
+        }
+        }
+        break;
+
+    case Method::AdamsBashforth:
+        switch (order_) {
+        case 1:
+            // Forward Euler: constant coefficient
+            break;
+        default: {
+            // Unknowns: b_0', b_1', ..., b_{numXdot_-1}'
+            for(Int j=1; j<=order_; j++) {
+                double s = 0.0;
+                for(Int i=1; i<numXdot_; i++) {
+                    s += b_[i]*pow(normalizedTimePoint[i], j-1);
+                }
+                rhs[j-1] = (j/newStep)*(j-1)*s;
+            }
+
+            if (!solveSensitivity()) {
+                return false;
+            }
+
+            for(Int i=0; i<numXdot_; i++) {
+                bSens_[i] = rhs[i];
+            }
+            break;
+        }
+        }
+        break;
+
+    case Method::PolynomialExtrapolation: {
+        // No constant-coefficient shortcut for this method; always solved
+        // Unknowns: a_0', a_1', ..., a_{numX_-1}'
+        rhs[0] = 0.0;
+        for(Int j=1; j<=order_; j++) {
+            double s = 0.0;
+            for(Int i=1; i<numX_; i++) {
+                s += a_[i]*pow(normalizedTimePoint[i], j);
+            }
+            rhs[j] = (j/newStep)*s;
+        }
+
+        if (!solveSensitivity()) {
+            return false;
+        }
+
+        for(Int i=0; i<numX_; i++) {
+            aSens_[i] = rhs[i];
+        }
+        break;
+    }
+    }
+
+    return true;
+}
+
 bool IntegratorCoeffs::solve(Int n) {
-    // auto dmv = DenseMatrixView(matrix.data(), n, n, n, 1);
+    rowPerm_.resize(n);
+    VectorView<size_t> rowPermView(rowPerm_);
+    if (!matrix.factor(rowPermView)) {
+        return false;
+    }
     auto vv = VectorView(rhs.data(), n, 1);
-    return matrix.destructiveSolve(vv);
+    return matrix.luSolve(vv, rowPermView);
+}
+
+bool IntegratorCoeffs::solveSensitivity() {
+    VectorView<size_t> rowPermView(rowPerm_);
+    auto vv = VectorView(rhs.data(), n_, 1);
+    return matrix.luSolve(vv, rowPermView);
 }
 
 bool IntegratorCoeffs::scaleDifferentiator(double hk) {
@@ -385,6 +534,29 @@ bool IntegratorCoeffs::scaleDifferentiator(double hk) {
     }
     for(auto& bIt : bScaled_) {
         bIt /= -b1_;
+    }
+
+    return true;
+}
+
+bool IntegratorCoeffs::scaleDifferentiatorSensitivities(double hk) {
+    if (hk==0.0) {
+        return false;
+    }
+    aScaledSens_ = aSens_;
+    bScaledSens_ = bSens_;
+
+    // Common factor 1/hk + bbar_{-1}'/bbar_{-1}, shared by a_{-1}' and a_i'
+    // (theory/numint.md, "Sensitivity of a_{-1}, a_i, b_i to h_k")
+    double leadingLocal = 1 / (hk*b1_);
+    double factor = 1/hk + b1Sens_/b1_;
+
+    leadingSens_ = -leadingLocal*factor;
+    for(Int i=0; i<aScaledSens_.size(); i++) {
+        aScaledSens_[i] = leadingLocal*(a_[i]*factor - aSens_[i]);
+    }
+    for(Int i=0; i<bScaledSens_.size(); i++) {
+        bScaledSens_[i] = (b_[i]*(b1Sens_/b1_) - bSens_[i]) / b1_;
     }
 
     return true;
@@ -530,6 +702,63 @@ bool IntegratorCoeffs::test() {
         std::cout << "Polynomial extrapolation failed\n";
         ok = false;
     }
+    // Sensitivities of the scaled differentiator coefficients (a_{-1}, a_i,
+    // b_i) to hk, verified against central finite differences of
+    // scaleDifferentiator() itself (past step sizes held fixed). Implicit
+    // methods only - scaleDifferentiator() divides by b1_, which is 0 for
+    // explicit methods.
+    auto checkDiffSens = [&](Method method, Int ord, const char* label) {
+        CircularBuffer<double> steps(ord);
+        for(int i=0; i<ord; i++) {
+            steps.add(0.1);
+        }
+        double hk = 0.1;
+        double eps = 1e-6;
+
+        IntegratorCoeffs c, cP, cM;
+        c.setMethod(method, ord);
+        cP.setMethod(method, ord);
+        cM.setMethod(method, ord);
+
+        if (!c.compute(steps, hk) || !c.computeSensitivities(hk) ||
+            !c.scaleDifferentiator(hk) || !c.scaleDifferentiatorSensitivities(hk)) {
+            std::cout << label << " sensitivity test: compute FAILED\n";
+            ok = false;
+            return;
+        }
+        cP.compute(steps, hk+eps);
+        cP.scaleDifferentiator(hk+eps);
+        cM.compute(steps, hk-eps);
+        cM.scaleDifferentiator(hk-eps);
+
+        double maxDiff = 0;
+        for(Int i=0; i<c.aScaledSens().size(); i++) {
+            double fd = (cP.aScaled()[i]-cM.aScaled()[i])/(2*eps);
+            maxDiff = std::max(maxDiff, std::abs(fd-c.aScaledSens()[i]));
+        }
+        for(Int i=0; i<c.bScaledSens().size(); i++) {
+            double fd = (cP.bScaled()[i]-cM.bScaled()[i])/(2*eps);
+            maxDiff = std::max(maxDiff, std::abs(fd-c.bScaledSens()[i]));
+        }
+        {
+            double fd = (cP.leadingCoeff()-cM.leadingCoeff())/(2*eps);
+            maxDiff = std::max(maxDiff, std::abs(fd-c.leadingCoeffSens()));
+        }
+
+        std::cout << label << " scaled differentiator sensitivity maxDiff vs FD = " << maxDiff << "\n";
+        if (maxDiff > 1e-5) {
+            ok = false;
+            std::cout << label << " sensitivity FAILED\n";
+        }
+    };
+
+    checkDiffSens(Method::AdamsMoulton, 1, "AM1 (Backward Euler)");
+    checkDiffSens(Method::AdamsMoulton, 2, "AM2 (Trapezoidal)");
+    checkDiffSens(Method::AdamsMoulton, 3, "AM3");
+    checkDiffSens(Method::BDF, 1, "BDF1");
+    checkDiffSens(Method::BDF, 2, "BDF2");
+    checkDiffSens(Method::BDF, 3, "BDF3");
+
     std::cout << "Integrator coeffs test " << (ok ? "OK" : "FAILED") << "\n";
     return ok;
 }

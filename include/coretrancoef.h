@@ -36,7 +36,13 @@ public:
 
     // Compute coefficients
     bool compute(CircularBuffer<double>& pastSteps, double newStep);
-    
+
+    // Compute a_, b_, and b1_ coefficient sensitivities to newStep
+    // compute() must already have been called for this newStep (with
+    // whatever pastSteps it used) - reuses its normalizedTimePoint, and,
+    // where compute() solved a linear system, its LU factorization too
+    bool computeSensitivities(double newStep);
+
     // Coefficients for past values
     const std::vector<double>& a() const { return a_; };
 
@@ -46,14 +52,34 @@ public:
     // Coefficient for new derivative
     double b1() const { return b1_; };
 
+    // Sensitivities of a_ to newStep (past step sizes held fixed)
+    const std::vector<double>& aSens() const { return aSens_; };
+
+    // Sensitivities of b_ to newStep (past step sizes held fixed)
+    const std::vector<double>& bSens() const { return bSens_; };
+
+    // Sensitivity of b1_ to newStep (past step sizes held fixed)
+    double b1Sens() const { return b1Sens_; };
+
     // Compute scaled coefficients
     bool scaleDifferentiator(double hk);
     bool scalePredictor(double hk);
 
+    // Compute sensitivities of the scaled differentiator coefficients to hk
+    // Requires a_, b_, b1_ and their sensitivities (aSens_, bSens_, b1Sens_)
+    // to already have been computed for this hk, via compute() and
+    // computeSensitivities()
+    bool scaleDifferentiatorSensitivities(double hk);
+
     // Scaled coefficients
     const std::vector<double> aScaled() const { return aScaled_; };
     const std::vector<double> bScaled() const { return bScaled_; };
-    double leadingCoeff() const { return leading_; }; 
+    double leadingCoeff() const { return leading_; };
+
+    // Sensitivities of the scaled differentiator coefficients to hk
+    const std::vector<double>& aScaledSens() const { return aScaledSens_; };
+    const std::vector<double>& bScaledSens() const { return bScaledSens_; };
+    double leadingCoeffSens() const { return leadingSens_; };
 
     // Minimal number of past points needed by the predictor
     size_t minimalPredictorHistory() {
@@ -146,6 +172,7 @@ public:
 private:
     bool size();
     bool solve(Int n);
+    bool solveSensitivity();
 
     Method method_;
     Int order_;
@@ -157,8 +184,9 @@ private:
     
     // Number of equations, matrix (ordered by rows), and RHS
     Int n_;
-    DenseMatrix<double> matrix; // row1, row2, ...
+    DenseMatrix<double> matrix; // row1, row2, ... - holds the LU decomposition after solve()
     std::vector<double> rhs;
+    std::vector<size_t> rowPerm_; // Row permutation from factor(), valid after solve()
     
     // New timepoint: 
     //   t_{k+1} = h_k 
@@ -176,10 +204,21 @@ private:
     std::vector<double> b_; // Coeffs for xdot(t_{k-i}), i>=0
     double b1_;             // Coeff for xdot(t_{k+1})
     double err_;            // Error coefficient multiplied by (order+1)!
+
+    // Sensitivities of a_, b_, b1_ to newStep (a_i', b_i', b_{-1}')
+    std::vector<double> aSens_;
+    std::vector<double> bSens_;
+    double b1Sens_;
     std::vector<double> aScaled_; // a_ / (h_k b_{-1})
     std::vector<double> bScaled_; // b_ / b_{-1}
     double hk_;
     double leading_;
+
+    // Sensitivities of aScaled_, bScaled_, leading_ to h_k (a_i', b_i', a_{-1}')
+    std::vector<double> aScaledSens_;
+    std::vector<double> bScaledSens_;
+    double leadingSens_;
+
     CircularBuffer<double>* pastSteps_;
 
     // History - fast pointers
