@@ -230,13 +230,15 @@ private:
 
     // Compute the phase constraint vector alpha.
     // alpha fixes the phase of the PSS solution so the (n+1) x (n+1)
-    // augmented system is square and non-singular. alpha is set
-    // proportional to PsiT, which approximates xdot_s(t0) from the
-    // circuit equations. Normalised to unit length for conditioning.
+    // augmented system is square and non-singular. alpha is estimated as the
+    // forward finite difference (x1-x0)/h0 between the initial shoot state
+    // x0 and the state x1 at the first accepted timepoint of the shoot,
+    // which approximates xdot_s(t0) (pss.md, "Choosing alpha"). Normalised
+    // to unit length for conditioning.
     void computePhaseConstraint(
         const Vector<double>& x0,
-        double T0,
-        const Vector<double>& PsiT,
+        const Vector<double>& x1,
+        double h0,
         Vector<double>& alpha
     );
 };

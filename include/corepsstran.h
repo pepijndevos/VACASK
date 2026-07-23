@@ -141,6 +141,15 @@ public:
     // Return reference to current Psi
     Vector<double>& psiCurrent() { return psiCurrent_; };
 
+    // State x1 at the first accepted timepoint of the shoot (index 0 is the
+    // ground bucket, same convention as the solution/x0 vectors). Valid after
+    // the first onTimestepAccepted() call since the last clearTrajectory().
+    // Used by PssCore to estimate the phase vector alpha ~= (x1-x0)/h0.
+    const Vector<double>& firstStepX() const { return firstStepX_; };
+
+    // Step size h0 of the first accepted step of the shoot (t1-t0).
+    double firstStepH() const { return firstStepH_; };
+
     // Enable trajectory capture for the next shoot (call before final runShoot)
     void enableTrajectoryCapture();
 
@@ -186,6 +195,11 @@ private:
 
     // Current period sensitivity vector Psi(t)
     Vector<double> psiCurrent_;
+
+    // State at the first accepted timepoint of the shoot, and its step size.
+    // Captured once per shoot (see onTimestepAccepted()), reset by clearTrajectory().
+    Vector<double> firstStepX_;
+    double         firstStepH_ {0.0};
 
     // Circular history of past Phi matrices, depth <= p (BDF order).
     // phiHist_[0] = Phi at the previous accepted step, etc.

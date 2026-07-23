@@ -77,7 +77,7 @@ bool PssCore::rebuild(Status& s) {
 
     auto n = circuit.unknownCount();    
     Fp.resize(n+1);
-    alpha.resize(n+1);
+    alpha.resize(n);
     Jp.resize(n+1, n+1);
     
     return true;
@@ -329,8 +329,8 @@ bool PssCore::runShoot(double T0) {
 
 void PssCore::computePhaseConstraint(
     const Vector<double>& x0,
-    double T0,
-    const Vector<double>& PsiT,
+    const Vector<double>& x1,
+    double h0,
     Vector<double>& alpha
 ) {
     // alpha is the phase-pinning vector. The augmented Newton row
@@ -340,35 +340,38 @@ void PssCore::computePhaseConstraint(
     // (I - PhiT)). alpha must not be in the image of (I - PhiT), so it should
     // be proportional to xdot_s(t0), the circuit velocity at t0.
     //
-    // From the circuit DAE: g(x) + C(x)*xdot = 0, so
-    //   xdot_s(t0) = -C(x0)^{-1} * g(x0)
-    //
-    // PsiT = alphaLast * Alr^{-1} * g(xT) ≈ -xdot_s(t0) (same approximation
-    // as the period sensitivity vector: C^{-1} ≈ alphaLast * Alr^{-1}).
-    // Using PsiT as alpha avoids extra evalAndLoad calls and is consistent.
+    // Estimated by a forward finite difference between the first two points
+    // of the shoot itself (pss.md, "Choosing alpha"):
+    //   alpha ~= (x1 - x0) / h0
+    // This needs no extra evalAndLoad call and carries no periodicity
+    // assumption, unlike reusing PsiT (a t=T quantity, only equal to
+    // xdot_s(0) at convergence, and even then only up to the O(h)
+    // discretization error of the last step).
     // Normalised to unit length for numerical conditioning.
 
     auto n = circuit.unknownCount();
-    alpha.assign(n + 1, 0.0);
+    alpha.assign(n, 0.0);
 
     double norm = 0.0;
     for (decltype(n) i = 0; i < n; i++) {
-        norm += PsiT[i] * PsiT[i];
+        double d = (x1[i + 1] - x0[i + 1]) / h0;
+        alpha[i] = d;
+        norm += d * d;
     }
     norm = std::sqrt(norm);
 
     if (norm > 0.0) {
         for (decltype(n) i = 0; i < n; i++) {
-            alpha[i+1] = PsiT[i] / norm;
+            alpha[i] /= norm;
         }
     } else {
         if (circuit.simulatorOptions().core().pss_debug) {
-            Simulator::dbg() << "PsiT is zero\n";
+            Simulator::dbg() << "x1-x0 is zero, cannot estimate phase velocity\n";
         }
-        // PsiT is zero (purely resistive circuit or degenerate first step).
+        // Degenerate first step (e.g. purely resistive circuit).
         // Fall back to pinning the first unknown.
         if (n >= 1) {
-            alpha[1] = 1.0;
+            alpha[0] = 1.0;
         }
     }
 }
@@ -505,25 +508,25 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
         }
 
         // Compute phase constraint for autonomous circuits
-        /// TODO: rewrite computePhaseConstraint without weird approximations
         if (!params.driven){
             auto& tmpPsiT = pssTran_.psiCurrent();
-            computePhaseConstraint(x0, T0, tmpPsiT, alpha);
+            computePhaseConstraint(x0, pssTran_.firstStepX(), pssTran_.firstStepH(), alpha);
             if (debug>0){
-                ss.str(""); 
+                ss.str("");
                 ss << "\talpha=[ ";
-                for (decltype(n) i = 0; i <= n; i++) ss << alpha[i] << " ";
+                for (decltype(n) i = 0; i < n; i++) ss << alpha[i] << " ";
                 ss << "]\n";
                 Simulator::dbg() << ss.str();
             }
             // Add alpha^Tx_0 to the Fp map
             Fp[n] = 0;
-            //for (decltype(n) i = 0; i <= n; i++) Fp[n] += alpha[i] * x0[i];
+            // Residual of the phase condition equation is 0 because
+            // we are forcing orthogonality of the solver step. 
             // Augment the Jacobian
             // Right column: PsiT
             for (decltype(n) i = 0; i < n; i++) Jp.at(i, n) = -tmpPsiT[i];
             // Bottom row: alpha^T
-            for (decltype(n) j = 0; j < n; j++) Jp.at(n, j) = alpha[j + 1];
+            for (decltype(n) j = 0; j < n; j++) Jp.at(n, j) = alpha[j];
         }
         // If the circuit is driven, make sure Jp is not singular by setting the corner to 1
         Jp.at(n, n) = params.driven ? 1.0 : 0.0;

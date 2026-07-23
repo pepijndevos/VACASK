@@ -106,6 +106,9 @@ bool PssTranCore::clearTrajectory(double T0) {
     psiHist_.clear();
     psiCurrent_.assign(n, 0.0);
 
+    firstStepX_.clear();
+    firstStepH_ = 0.0;
+
     rhs_colbuf.resize(n);
 
     // Get C_0 and q_0 by evaluating the reactive jacobian and residual at this point
@@ -152,6 +155,15 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
     IntegratorCoeffs    integCoeffs = getIntegCoeffs();
     auto                n           = circuit.unknownCount();
     auto                nnz         = jacobian.nnz();
+
+    // First accepted step since clearTrajectory(): capture x1 and h0 for
+    // PssCore's phase-vector estimate alpha ~= (x1-x0)/h0 (pss.md, "Choosing alpha").
+    // phiValid_ is still false here; it is only set true at the end of this
+    // function, so !phiValid_ identifies the first call after a reset.
+    if (!phiValid_) {
+        firstStepH_ = hk;
+        firstStepX_ = solution.vector();
+    }
 
     // Expand phiHist with identity matrices during ramp-up
     while (phiHist_.size() < order) {
