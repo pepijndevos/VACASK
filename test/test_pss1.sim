@@ -1,73 +1,52 @@
-Van der Pol LC oscillator - PSS convergence test
+Single tone driven PSS of a resistive circuit
+// Mirrors test_hb1.sim
 
-// Circuit
-// -------
-// A single-node LC oscillator with a Van der Pol nonlinear conductance
-//
-//   C  = 1 nF  (ddt)
-//   L  = 1 uH  (idt, IL(0)=0)
-//   VdP: I(V) = (-G0 + G1*V^2)*V
-//        G0 = 0.01 S, G1 = 0.01 S/V^2  => amplitude ~ sqrt(4*G0/(3*G1)) ~ 1.15 V
-//
-// Resonant frequency:
-//   f0 = 1 / (2*pi*sqrt(L*C)) = 1 / (2*pi*sqrt(1e-6*1e-9)) ~= 5.033 MHz
-//   T0 ~= 198.69 ns
-//
-// To kick the oscillation, ic={"1", 0.9} sets V(1)=0.9 V at t=0.
-//
-// PSS parameters
-// --------------
-//   Tper  = 200ns  (initial guess, ~1% above exact T0)
-//   Tstab = 5us    (25 periods; enough for the oscillation to settle)
-
-ground 0
-
-embed "vdposc.va" <<<FILE
+embed "nl3.va" <<<FILE
 `include "constants.vams"
 `include "disciplines.vams"
 
-// Full LC-VdP oscillator in one module.
-// Implements:
-//   - Capacitor: I <+ ddt(C * V)
-//   - Inductor:  I <+ idt(V/L, 0)   [IL(0)=0]
-//   - VdP conductance: I <+ (-G0 + G1*V^2)*V
-// Hardcoded values (VACASK Verilog-A parameters are not yet settable from
-// the netlist for embedded compiled models):
-//   C=1e-9 F, L=1e-6 H, G0=0.01 S, G1=0.01 S/V^2
-module vdposc(A, B);
+module nl3(A,B);
+    // Simplified SPICE diode, used for validation purposes
+    
+    // Terminals and internal nodes
     inout A, B;
-    electrical A, B;
-
+    electrical A,B;
+    
     analog begin
-        // Capacitor
-        I(A,B) <+ ddt(1e-9 * V(A,B));
-        // Inductor (IL(0)=0)
-        I(A,B) <+ idt(V(A,B) / 1e-6, 0);
-        // Van der Pol nonlinear conductance
-        I(A,B) <+ (-0.01 + 0.01 * pow(V(A,B), 2)) * V(A,B);
+        I(A,B) <+ 0.5 + pow(V(A,B), 3);
     end
 endmodule
 >>>FILE
 
-load "vdposc.va"
-model vdposc vdposc
-osc1 (1 0) vdposc
+ground 0 
+
+load "nl3.va"
+
+model vsource vsource
+model nl3 nl3
+
+v1 (1 0) vsource dc=0 type="sine" sinedc=0.0 ampl=1 freq=1k
+nl1 (1 0) nl3
+
+// Excitation 
+//   x = sin(t)
+// Nonlinearity 
+//   0.5+x^3
+// Response
+//   0.5 + sin(t)**3 = 0.5 + 3/4 sin(t) - 1/4 sin(3t)
+// Spectrum of response
+//   mag   0.5 0.75 0 0.25
+//   phase 0   -90  0 +90
 
 control
-  abort never
-
   options rawfile="binary" strictsave=1
-  options pss_debug=2
-  options pss_tolscale=1e-2
+  options pss_debug=0
+  options pss_tolscale=1e-3
 
   save default
 
-  // ic={"1", 0.9}: start stabilisation from V(1)=0.9V (away from the DC
-  // fixed point at V=0) so the oscillation grows to the limit cycle.
-  analysis pss1 pss tper=200n tstab=5u ic={"1", 0.9} writestab=1 store="pss"
-
-  // analysis pss2 pss writestab=1 ic="pss"
-
+  analysis pss1 pss driven=1 tper=1m tstab=10m writestab=1
+  
   postprocess(PYTHON, "runme.py")
 endc
 
@@ -76,78 +55,120 @@ from rawfile import rawread
 from runtest import *
 import numpy as np
 import sys
-import matplotlib.pyplot as plt
 
-V_exact  = np.sqrt(4.0 * 0.01 / (3.0 * 0.01))  # ~1.155 V
-T0_exact = 2 * np.pi * np.sqrt(1e-6 * 1e-9)
+# -------------------------------------------------------------------
+# Transient results
+# -------------------------------------------------------------------
+plot  = rawread('pss1.tran.raw').get()
+t     = plot['time']
+v1    = plot['1']
+i1    = -plot['v1:flow(br)']
 
-# --- Stabilisation transient (always present) ---
-stab = rawread('pss1.tran.raw').get()
-ts   = np.real(stab['time'])
-vs   = np.real(stab['1'])
-V_final = np.max(np.abs(vs[-200:]))
-print(f"Stab: {len(ts)} points, final Vpp envelope ~{V_final:.4f} V "
-      f"(expected {V_exact:.4f} V)")
+tests = []
 
-# --- PSS result (may be absent if PSS did not write output) ---
-tests  = []
+status = bool(np.all(np.isfinite(v1)) and len(t) > 10)
+tests.append(status)
+print(f"Tran: simulation completed ({len(t)} points): {status}")
+
+n_half = len(t) // 2
+i1_2h  = i1[n_half:]
+amp_pp = float(np.max(i1_2h) - np.min(i1_2h))
+status = amp_pp > 0.01
+tests.append(status)
+print(f"Tran: peak-to-peak in 2nd half = {amp_pp*1e3:.1f} mA (expect > 10 mA): {status}")
+
+# -------------------------------------------------------------------
+# PSS results (gracefully skipped if PSS not yet converging)
+# -------------------------------------------------------------------
 pss_ok = False
 try:
-    pss1 = rawread('pss1.raw').get()
-    time = np.real(pss1['time'])
-    v1   = np.real(pss1['1'])
+    ppss  = rawread('pss1.raw').get()
+    tp    = ppss['time']
+    vp    = ppss['1']
+    ip    = -ppss['v1:flow(br)']
+    T0    = float(tp[-1] - tp[0])
+    f0    = 1.0 / T0
+    ipp   = float(ip.max() - ip.min())
+    print(f"PSS:  converged T0={T0:.4e} s  f0={f0:.1f} Hz  Ipp={ipp*1e3:.0f} mA")
     pss_ok = True
+except Exception as e:
+    print(f"PSS:  not available ({e})")
 
-    T0_sim  = time[-1]
-    T0_err  = abs(T0_sim - T0_exact) / T0_exact
-    status1 = T0_err < 0.02
-    print(f"T0_exact={T0_exact*1e9:.4f} ns  T0_sim={T0_sim*1e9:.4f} ns  "
-          f"rel_err={T0_err:.4e}  {'PASS' if status1 else 'FAIL'}")
-    tests.append(status1)
+status = pss_ok
+tests.append(status)
+print(f"PSS:  converged: {status}")
 
-    V_peak  = np.max(np.abs(v1))
-    V_err   = abs(V_peak - V_exact) / V_exact
-    status2 = V_err < 0.10
-    print(f"V_peak={V_peak:.4f} V  V_exact={V_exact:.4f} V  "
-          f"rel_err={V_err:.4e}  {'PASS' if status2 else 'FAIL'}")
-    tests.append(status2)
+# -------------------------------------------------------------------
+# Spectrum from PSS waveform (exact harmonics, no leakage)
+# -------------------------------------------------------------------
+if pss_ok:
+    N_fft  = 1024
+    tp_uni = np.linspace(float(tp[0]), float(tp[0]) + T0, N_fft, endpoint=False)
+    ip_uni = np.interp(tp_uni, tp, ip)
+    fft_ip_uni = np.fft.rfft(ip_uni) / N_fft
+    if N_fft%2==0:
+        # Even
+        fft_ip_uni[1:-1] *= 2
+    else:
+        # Odd
+        fft_ip_uni[1:] *= 2
 
-    match = np.abs(v1[-1]-v1[0])/np.abs(v1).max()
-    ok = match<1e-6
+    fmag   = np.abs(fft_ip_uni)
+    freqs  = np.arange(len(fmag)) * f0      # harmonic frequencies in Hz
+    iph = np.angle(fft_ip_uni) * 180 / np.pi
+
+    # Expected: DC=0.5, f0=0.75, 2f0=0, 3f0=0.25
+    h1_amp = float(fmag[1])
+    h3_amp = float(fmag[3])
+    print(f"PSS:  H1 amplitude = {h1_amp:.4f} (expect 0.75)")
+    print(f"PSS:  H3 amplitude = {h3_amp:.4f} (expect 0.25)")
+
+    exactmag = np.zeros(fmag.size)
+    exactph = np.zeros(fmag.size)
+    exactmag[0] = 0.5
+    exactmag[1] = 0.75
+    exactmag[3] = 0.25
+    exactph[1] = -90
+    exactph[3] = 90
+
+    exact = exactmag*(np.cos(exactph*np.pi/180)+1j*np.sin(exactph*np.pi/180))
+    delta = np.abs(fft_ip_uni-exact).max()
+    ok = delta<1e-4
+    print("Spectrum delta:", delta, "PASS" if ok else "")
+    tests.append(delta<1e-4)
+
+    match = np.abs(vp[-1]-vp[0])/np.abs(vp).max()
+    ok    = match<1e-9
     print("Endpoint relative delta:", match, "PASS" if ok else "")
     tests.append(ok)
 
-except FileNotFoundError:
-    print("pss1.raw not found — PSS did not produce output")
-    tests.append(False)
-except KeyError:
-    print("pss1.raw does not contain the correct key names")
-    tests.append(False)
-
+    
 if isTest():
     sys.exit(not all(tests))
+elif pss_ok:
+    import matplotlib.pyplot as plt
 
-n_panels = 2 if pss_ok else 1
-fig, axes = plt.subplots(n_panels, 1, figsize=(10, 4 * n_panels), dpi=100, squeeze=False)
-axes = axes.flatten()
+    n_panels = 3
+    fig, axes = plt.subplots(n_panels, 1, figsize=(9, 4 * n_panels), constrained_layout=True)
+    fig.suptitle("Single tone driven PSS of a resistive circuit")
 
-axes[0].set_title('Van der Pol LC oscillator - stabilisation transient')
-axes[0].set_xlabel('time [µs]')
-axes[0].set_ylabel('V(1) [V]')
-axes[0].plot(ts * 1e6, vs, lw=0.5)
-axes[0].axhline( V_exact, color='r', linestyle='--', label=f'limit-cycle ±{V_exact:.3f} V')
-axes[0].axhline(-V_exact, color='r', linestyle='--')
-axes[0].legend()
+    axes[0].plot(tp * 1e3, ip, lw=1.2, color='C1')
+    axes[0].axhline(ip[0], ls='--', alpha=0.2)
+    axes[0].set_xlabel("time [ms]")
+    axes[0].set_ylabel("I(1) [A]")
+    axes[0].set_title(f"PSS periodic response  f0={f0:.1f} Hz")
 
-if pss_ok:
-    axes[1].set_title('Van der Pol LC oscillator - PSS steady-state trajectory')
-    axes[1].set_xlabel('time [ns]')
-    axes[1].set_ylabel('V(1) [V]')
-    axes[1].plot(time * 1e9, v1, marker='.', markersize=3)
-    axes[1].axhline( V_exact, color='r', linestyle='--', label=f'±{V_exact:.3f} V limit')
-    axes[1].axhline(-V_exact, color='r', linestyle='--')
-    axes[1].legend()
+    axes[1].stem(freqs / 1e3, fmag)
+    axes[1].set_xlabel("frequency [kHz]")
+    axes[1].set_ylabel("|FFT| amplitude [A]")
+    axes[1].set_xlim(left=-1, right=12.5)
+    axes[1].set_title("PSS spectrum")
 
-plt.tight_layout()
-plt.show()
+    axes[2].stem(freqs / 1e3, iph)
+    axes[2].set_xlabel("frequency [kHz]")
+    axes[2].set_ylabel("Phase [deg]")
+    axes[2].set_xlim(left=-1, right=12.5)
+    axes[2].set_title("PSS spectrum (phase)")
+
+    plt.show()
 >>>FILE

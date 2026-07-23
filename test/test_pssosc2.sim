@@ -1,0 +1,119 @@
+IHP SG13G2 Colpitts oscillator - transient and PSS
+
+// Common-base Colpitts oscillator using npn13G2 HBT.
+//
+// Tank: L=10 nH, C1=C2=6.3 pF -> C_eff=3.15 pF
+//   f0 = 1/(2*pi*sqrt(10n * 3.15p)) = 896 MHz,  T0 = 1.117 ns
+//
+// DC bias (common-base):
+//   VCC = 1.2 V
+//   R_b1=3k, R_b2=10k  ->  V_base = 1.2*10/13 = 0.923 V
+//   V_em = V_base - V_BE_on ~= 0.22 V
+//   I_em = V_em / R_em = 0.22/100 = 2.2 mA
+//   gm = I_em / V_T ~= 85 mS  (excess loop gain >> 1)
+//
+//
+// PSS:
+//   colpitts_osc_pss uses i_kick with delay=1.5 ns: fires during tstab to
+//   kick the LC tank, but NOT during the 1.117 ns shooting window.
+//   tper=1.117e-9 is the initial period guess; Newton refines it.
+
+ground 0
+
+include "sg13g2_vacask_common.lib"
+include "cornerHBT.lib" section=hbt_typ
+
+model vsrc  vsource
+model isrc  isource
+
+subckt colpitts_osc_pss()
+    vcc_src  (vcc 0)    vsrc                 dc=1.2
+    r_b1     (vcc base) sg13g2_default_mod_r r=3k
+    r_b2     (base 0)   sg13g2_default_mod_r r=10k
+    c_bypass (base 0)   sg13g2_default_mod_c c=100p
+    l1       (vcc col)  sg13g2_default_mod_l l=10n
+    c1       (col em)   sg13g2_default_mod_c c=6.3p
+    c2       (em 0)     sg13g2_default_mod_c c=6.3p
+    r_em     (em 0)     sg13g2_default_mod_r r=100
+    q1       (col base em 0) npn13G2
+    // Kick at 1.5 ns: fires during tstab (circuit at correct OP, kicks LC tank)
+    //   but NOT during the 1.117 ns PSS shooting window.
+    // gm≈85 mS, loop gain >> 1, and oscillation grows after the 1.5 ns kick.
+    i_kick   (col 0)    isrc type="pulse" val0=0 val1=1m rise=0.05n fall=0.05n width=0.5n delay=1.5n
+ends
+
+control
+    elaborate circuit("colpitts_osc_pss")
+
+    options rawfile="binary" strictsave=1
+    options pss_debug=1
+    options pss_tolscale=1e-2
+
+    save default
+
+    analysis pss1 pss tper=1.117n tstab=50n writestab=1
+
+    postprocess(PYTHON, "runme.py")
+endc
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+from runtest import *
+import numpy as np
+import sys
+
+# -------------------------------------------------------------------
+# Transient results
+# -------------------------------------------------------------------
+plot  = rawread('pss1.tran.raw').get()
+t     = plot['time']
+vcol  = plot['col']
+
+tests = []
+
+status = bool(np.all(np.isfinite(vcol)) and len(t) > 10)
+tests.append(status)
+print(f"Tran: simulation completed ({len(t)} points): {status}")
+
+n_half  = len(t) // 2
+vcol_2h = vcol[n_half:]
+amp_pp  = float(np.max(vcol_2h) - np.min(vcol_2h))
+status  = amp_pp > 0.1
+tests.append(status)
+print(f"Tran: peak-to-peak in 2nd half = {amp_pp*1e3:.1f} mV (expect > 100 mV): {status}")
+
+ppss  = rawread('pss1.raw').get()
+tp    = ppss['time']
+vp    = ppss['col']
+T0    = float(tp[-1] - tp[0])
+f0    = 1.0 / T0
+vpp   = float(vp.max() - vp.min())
+print(f"PSS:  converged T0={T0:.4e} s  f0={f0/1e6:.1f} MHz  Vpp={vpp*1e3:.0f} mV")
+
+match = np.abs(vp[-1]-vp[0])/np.abs(vp).max()
+ok    = match<1e-9
+print("Endpoint relative delta:", match, "PASS" if ok else "")
+tests.append(ok)
+
+if isTest():
+    sys.exit(not all(tests))
+else:
+    import matplotlib.pyplot as plt
+
+    n_panels  = 2
+    fig, axes = plt.subplots(n_panels, 1, figsize=(9, 4 * n_panels))
+    fig.suptitle("IHP SG13G2 Colpitts 896 MHz")
+
+    axes[0].plot(t * 1e9, vcol, lw=0.8)
+    axes[0].set_xlabel("time [ns]")
+    axes[0].set_ylabel("V(col) [V]")
+    axes[0].set_title(f"Transient  (Vpp = {amp_pp*1e3:.0f} mV)")
+
+    axes[1].plot(tp * 1e9, vp, lw=1.2, color='C1')
+    axes[1].set_xlabel("time [ns]")
+    axes[1].set_ylabel("V(col) [V]")
+    axes[1].set_title(f"PSS converged limit cycle  f0={f0/1e6:.1f} MHz")
+
+    plt.tight_layout()
+    plt.show()
+>>>FILE

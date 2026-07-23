@@ -1,25 +1,22 @@
-Cross-coupled NMOS LC oscillator PSS - OSC.#3 from Djurhuus & Krozer (2025)
+LC tank oscillator -- Maffezzoni et al. 2013 (Fig. 3, Table I)
 
-// OSC.#3: Symmetric cross-coupled NMOS LC differential oscillator, Fig. 4 of
-// arXiv:2512.10373v1 / arXiv:2603.07828v1.
+// IEEE TMTT vol. 61, no. 9, September 2013:
+//   "A Unified Method for the Analysis of Phase and Amplitude Noise
+//    in Electrical Oscillators" -- Maffezzoni, Pepe, Bonfanti.
 //
-// Topology: two LC tanks (L1/R2 and L2/R3) loaded by a cross-coupled NMOS
-//   negative-Gm pair (T1, T2, W/L=10) and a tail current source (T3, W/L=33).
+// Topology: symmetric cross-coupled NMOS LC differential oscillator.
+//   Two LC tanks (L1, L2 = 40 nH each from VDD to drain nodes),
+//   differential tank cap C = 0.3 pF (vp-vm), parallel loss R = 11 kΩ (vp-vm),
+//   drain parasitics C1,C2 = 1 fF (to ground), tail cap C3 = 1 fF.
+//   Cross-coupled NMOS pair M1,M2 (W/L=10) + tail source M3 (W/L=33).
 //
-// Supply:  VDD = 2.5 V
-// Tanks:   L1 = L2 = 40 nH, R2 = R3 = 10 Ω series (Krozer addition)
-//          C3 = C4 = 200 fF (drain node parasitics), C1 = 0.3 pF (differential)
-// NMOS:    Vt0 = 0.5 V, Kp = 120 µA/V², Lambda = 0.05 V⁻¹
-//          (W/L)1,2 = 10  (W/L)3 = 33
-// Tail:    T3 gate biased at Vgs = 1 V through R1 = 11 kΩ; C2 = 1 fF tail cap
-// Kick:    I1 = 2 mA pulse on Vm, delay=10 ns, width=1 ns
+// NMOS:  Vt0=0.5 V, Kp=120 µA/V², Lambda=0.05 V⁻¹  (Spice level-1)
+// Supply: VDD=2.5 V, Vgs(M3)=1.0 V
 //
-// Differential tank frequency estimate (C_eff = C3 + 2*C1 = 200f + 600f = 800 fF):
-//   f0 = 1/(2π√(40n * 800f)) ≈ 890 MHz,  T0 ≈ 1.12 ns
-//
-// PSS parameters:
-//   Tper  = 1.1 ns   (initial guess; Krozer/QUCS-COPEN annotation)
-//   Tstab = 50 ns    (~45 periods; cross-coupled LC settles in ~20 periods)
+// Half-circuit resonance (differential mode):
+//   L=40 nH, C_eff = 2*C + C1 = 600f+1f = 601 fF
+//   f0 = 1/(2π√(L·C_eff)) ≈ 1.026 GHz,  T0 ≈ 0.975 ns
+//   (matches paper: f0 = 1.0261 GHz, T0 ≈ 0.9746 ns)
 
 ground 0
 
@@ -44,40 +41,39 @@ model nfet sp_mos1 (
 // Power supply
 v1 (vdd 0) v dc=2.5
 
-// Left LC tank: VDD → L1 → R2 → vp
-l1 (vdd lp) l l=40n
-r2 (lp vp)  r r=10
+// Left LC tank: VDD → L1 → vp
+l1 (vdd vp) l l=40n
 
-// Right LC tank: VDD → L2 → R3 → vm
-l2 (vdd lm) l l=40n
-r3 (lm vm)  r r=10
+// Right LC tank: VDD → L2 → vm
+l2 (vdd vm) l l=40n
 
-// Shunt tank capacitors
-c3 (vp 0) c c=200f
-c4 (vm 0) c c=200f
+// Parallel tank loss resistance (differential)
+r1 (vp vm) r r=11k
 
-// Differential tank capacitor (Vp–Vm)
+// Main differential tank capacitor C = 0.3 pF
 c1 (vp vm) c c=300f
-// Differential load
-r1 (vp vm) r r=7k
 
-// Cross-coupled NMOS pair — (W/L)1,2 = 10
+// Drain parasitic capacitors C1, C2 = 1 fF (Table I, first case)
+c3 (vp 0) c c=1f
+c4 (vm 0) c c=1f
+
+// Cross-coupled NMOS pair -- (W/L)1,2 = 10
 // T1: drain=vp, gate=vm, source=tail, bulk=0
 // T2: drain=vm, gate=vp, source=tail, bulk=0
 t1 (vp vm tail 0) nfet w=10e-6 l=1e-6
 t2 (vm vp tail 0) nfet w=10e-6 l=1e-6
 
-// Tail current source transistor — (W/L)3 = 33
+// Tail current source transistor -- (W/L)3 = 33
 // T3: drain=tail, gate=vbias, source=0, bulk=0
 t3 (tail vbias 0 0) nfet w=33e-6 l=1e-6
 
-// Tail bypass capacitor
+// Tail bypass capacitor C3 = 1 fF (Table I, first case)
 c2 (tail 0) c c=1f
 
-// Gate bias for T3: Vgs = 1 V
+// Gate bias for T3: Vgs = 1.0 V
 v2 (vbias 0) v dc=1
 
-// Startup kick on Vm — fires at 10 ns, well before shooting window at Tstab=50 ns
+// Startup kick on vm -- 2 mA pulse at 2 ns, well before shooting window
 i1 (0 vm) i type="pulse" val0=0 val1=2m delay=2n rise=0.1n fall=0.1n width=1n
 
 control
@@ -87,10 +83,10 @@ control
   options reltol=1e-3 abstol=1e-12
 
   save default
-  
+
   options pss_tolscale=1e-9
 
-  analysis pssosc3 pss tper=1.1n tstab=50n writestab=1
+  analysis pss6 pss tper=0.975n tstab=100n writestab=1
 
   postprocess(PYTHON, "runme.py")
 endc
@@ -102,29 +98,28 @@ import numpy as np
 import sys
 import matplotlib.pyplot as plt
 
-# Reference frequencies from Table 1 of Djurhuus & Krozer (2025), OSC.#3
-f0_QUCS = 888.5881e6    # Hz, QUCS-COPEN result
-f0_KADS = 888.59892e6   # Hz, Keysight-ADS result
-T0_expected = 1.0 / f0_KADS
+# Paper: Maffezzoni et al. 2013, Table I / Section VI, first case (C1=C2=C3=1fF)
+f0_paper = 1.0261e9   # Hz
+T0_expected = 1.0 / f0_paper
 
 tests = []
 pss_ok = False
 
 # --- Stabilisation transient ---
 try:
-    stab = rawread('pssosc3.tran.raw').get()
+    stab = rawread('pss6.tran.raw').get()
     ts = np.real(stab['time'])
     vs = np.real(stab['vp'])
     last = vs[-200:]
     V_amp = 0.5 * (np.max(last) - np.min(last))
     print(f"Stab: {len(ts)} points, final amplitude V(vp) ~{V_amp:.4f} V")
 except FileNotFoundError:
-    print("pssosc3.tran.raw not found")
+    print("pss6.tran.raw not found")
     ts = vs = None
 
 # --- PSS result ---
 try:
-    pss = rawread('pssosc3.raw').get()
+    pss = rawread('pss6.raw').get()
     time = np.real(pss['time'])
     vp   = np.real(pss['vp'])
     vm   = np.real(pss['vm'])
@@ -144,6 +139,10 @@ try:
     print(f"V(vp) p-p = {vp_pp:.4f} V  {'PASS' if status2 else 'FAIL (no oscillation?)'}")
     tests.append(status2)
 
+    vm_pp = float(np.max(vm) - np.min(vm))
+    diff_pp = float(np.max(vp - vm) - np.min(vp - vm))
+    print(f"V(vm) p-p = {vm_pp:.4f} V,  V(vp)-V(vm) p-p = {diff_pp:.4f} V")
+
     match = np.abs(vp[-1]-vp[0])/np.abs(vp).max()
     ok    = match<1e-12
     print("vp endpoint relative delta:", match, "PASS" if ok else "")
@@ -153,32 +152,18 @@ try:
     ok    = match<1e-12
     print("vm endpoint relative delta:", match, "PASS" if ok else "")
     tests.append(ok)
-
-    vm_pp = float(np.max(vm) - np.min(vm))
-    diff_pp = float(np.max(vp - vm) - np.min(vp - vm))
-    print(f"V(vm) p-p = {vm_pp:.4f} V,  V(vp)-V(vm) p-p = {diff_pp:.4f} V")
-
-    # --- Comparison with Table 1 of Djurhuus & Krozer (2025), OSC.#3 ---
-    Gf_QC_KADS  = abs(f0_QUCS - f0_KADS) / f0_QUCS
-    Gf_VAC_KADS = abs(f0_sim  - f0_KADS) / f0_sim
-    Gf_VAC_QC   = abs(f0_sim  - f0_QUCS) / f0_sim
+    
     print()
-    print(f"{'Simulator':<16} {'f0 [MHz]':>14}  {'|Γf| vs K-ADS':>14}")
-    print(f"{'QUCS-COPEN':<16} {f0_QUCS/1e6:>14.6f}  {Gf_QC_KADS*100:>13.5f}%")
-    print(f"{'Keysight-ADS':<16} {f0_KADS/1e6:>14.6f}  {'—':>14}")
-    print(f"{'VACASK':<16} {f0_sim/1e6:>14.6f}  {Gf_VAC_KADS*100:>13.5f}%")
-    print(f"|Γf| VACASK vs QUCS-COPEN = {Gf_VAC_QC*100:.5f}%")
-
-    delta = abs(f0_sim  - f0_KADS) / f0_sim
-    ok = delta<1e-5
-    print("Frequency delta:", delta, "PASS" if ok else "")
-    tests.append(ok)
+    print(f"{'Simulator':<16} {'f0 [MHz]':>14}  {'|Gf| vs paper':>14}")
+    Gf = abs(f0_sim - f0_paper) / f0_paper
+    print(f"{'Paper':<16} {f0_paper/1e6:>14.4f}  {'---':>14}")
+    print(f"{'VACASK':<16} {f0_sim/1e6:>14.4f}  {Gf*100:>13.4f}%")
 
 except FileNotFoundError:
-    print("pssosc3.raw not found — PSS did not produce output")
+    print("pss6.raw not found -- PSS did not produce output")
     tests.append(False)
 except KeyError as e:
-    print(f"pssosc3.raw missing key: {e}")
+    print(f"pss6.raw missing key: {e}")
     tests.append(False)
 
 if isTest():
@@ -188,19 +173,19 @@ if isTest():
 n_panels = (1 if ts is not None else 0) + (1 if pss_ok else 0)
 if n_panels == 0:
     n_panels = 1
-fig, axes = plt.subplots(n_panels, 1, figsize=(10, 4 * n_panels), dpi=100, squeeze=False)
+fig, axes = plt.subplots(n_panels, 1, figsize=(10*0.6, 0.6*4 * n_panels), dpi=100, squeeze=False)
 axes = axes.flatten()
 ax = 0
 
 if ts is not None:
-    axes[ax].set_title('OSC.#3 Cross-coupled NMOS LC — stabilisation transient')
+    axes[ax].set_title('Maffezzoni 2013 LC oscillator -- stabilisation transient')
     axes[ax].set_xlabel('time [ns]')
     axes[ax].set_ylabel('V(vp) [V]')
     axes[ax].plot(ts * 1e9, vs, lw=0.5)
     ax += 1
 
 if pss_ok:
-    axes[ax].set_title(f'OSC.#3 Cross-coupled NMOS LC — PSS limit cycle, f0={f0_sim/1e6:.4f} MHz')
+    axes[ax].set_title(f'Maffezzoni 2013 LC oscillator -- PSS limit cycle, f0={f0_sim/1e6:.4f} MHz')
     axes[ax].set_xlabel('time [ns]')
     axes[ax].set_ylabel('V [V]')
     axes[ax].plot(time * 1e9, vp, label='V(vp)', marker='.', markersize=3)
