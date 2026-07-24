@@ -74,23 +74,26 @@ numbered consecutively, ranked most severe first. Check a box once fixed.
   `storeDetails=false` back at the three homotopy call sites
   (`lib/hmtpgmin.cpp:90`, `lib/hmtpsrc.cpp:97,128`).
 
-- [ ] **3. Stored-solution period lookup for `ic=` skips the `typeTag()` check present at the other two lookup sites in the same file** *(corepss, minor — latent)*
+- [x] **3. Stored-solution period lookup for `ic=` skips the `typeTag()` check present at the other two lookup sites in the same file** *(corepss, minor — latent, fixed)*
 
-  `lib/corepss.cpp:272` (`PssCore::determineInitialPeriod`, ordinary/
-  non-continue mode). `circuit.storedSolution(solutionName)` returns any
-  solution regardless of producer; lines 185 and 215 in the same file
-  correctly gate on `typeTag()==OperatingPointCore::solutionTag` before
-  trusting the payload, but line 272-275 reads `solPtr->auxReal()`
+  `lib/corepss.cpp:280-283` (`PssCore::runStabilisation`, ordinary/
+  non-continue mode, `ic=` string lookup). `circuit.storedSolution(solutionName)`
+  returns any solution regardless of producer; lines 193 and 223 in the same
+  function correctly gate on `typeTag()==OperatingPointCore::solutionTag`
+  before trusting the payload, but lines 280-283 read `solPtr->auxReal()`
   unguarded.
 
   Currently latent: only `lib/corepss.cpp` itself ever calls `setAuxReal()`
   with a meaningful nonzero value, and PSS's own stored solutions already
   share `OperatingPointCore::solutionTag`, so a mismatched-type lookup today
   just yields the default `auxReal_=0.0`, caught by the `period<=0` check at
-  line 280. But it's the one lookup path in this feature that omits the
+  line 288. But it's the one lookup path in this feature that omits the
   type-tag guard the rest of the PR applies consistently, and will silently
   misinterpret data the moment any other producer starts writing a nonzero
   `auxReal_` under a tag PSS doesn't check for.
+
+  Fixed by adding the same `typeTag()==OperatingPointCore::solutionTag`
+  guard to the `ic=` lookup (`lib/corepss.cpp:281`).
 
 - [x] **4. Off-by-one in the PSS non-convergence diagnostic** *(corepss, cosmetic — fixed)*
 

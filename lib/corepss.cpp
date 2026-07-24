@@ -278,7 +278,7 @@ std::tuple<bool, double> PssCore::runStabilisation(bool continuePrevious) {
             String& solutionName = params.stabilParams.ic.val<String>();
             if (solutionName.length()>0) {
                 auto solPtr = circuit.storedSolution(solutionName);
-                if (solPtr && period<=0) {
+                if (solPtr && solPtr->typeTag()==OperatingPointCore::solutionTag && period<=0) {
                     // Default to value from stored solution
                     period = solPtr->auxReal();
                 }
