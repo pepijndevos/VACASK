@@ -222,6 +222,11 @@ private:
     Vector<double>      alpha;
     DenseMatrix<double> Jp;
 
+    // Shooting Newton state, sized in rebuild(); the main loop only assigns
+    // into them (no local reallocation).
+    Vector<double>      x0;
+    Vector<double>      xT;
+
     // Run the DC operating point and the stabilisation transient.
     // On return, solution_.vector() holds the initial guess x0 for the
     // Newton loop.

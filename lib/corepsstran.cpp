@@ -250,14 +250,16 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
     for (Int j = 0; j < nnz; j++)
         gSnap[j] = lastAlr_.data()[j] - alpha * cSnap[j];
 
-    // gammaC[p] = alpha * a[p]    — coefficient for the C term
-    // gammaG[p] = -(b[p] / b1)   — coefficient for the G term (zero for BDF)
-    Vector<double> gammaC(order, 0.0);
-    Vector<double> gammaG(order, 0.0);
+    // gammaC_[p] = alpha * a[p]    — coefficient for the C term
+    // gammaG_[p] = -(b[p] / b1)   — coefficient for the G term (zero for BDF)
+    // Resized (not reallocated when order is unchanged from the last step,
+    // the common case) rather than freshly constructed every call.
+    gammaC_.assign(order, 0.0);
+    gammaG_.assign(order, 0.0);
     for (int p = 0; !a.empty() && p < std::min(order, (Int)a.size()); p++)
-        gammaC[p] = alpha * a[p];
+        gammaC_[p] = alpha * a[p];
     for (int p = 0; !b.empty() && p < std::min(order, (Int)b.size()); p++)
-        gammaG[p] = -(b[p] / integCoeffs.b1());
+        gammaG_[p] = -(b[p] / integCoeffs.b1());
 
     // Retain this step's size - computePsiT() needs h_{N-1} for whichever
     // step turns out to be the shoot's last. The coefficients themselves
@@ -286,11 +288,11 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
                 pssErrorColumn = j;
                 return false;
             }
-            for (decltype(n) i = 0; i < n; i++) rhs_col[i] += gammaC[p] * rhs_colbuf[i];
+            for (decltype(n) i = 0; i < n; i++) rhs_col[i] += gammaC_[p] * rhs_colbuf[i];
         }
 
-        // G_{k-p} * Phi_{k-p} contribution (AM methods only; gammaG[p]==0 for BDF)
-        if (gammaG[p] != 0.0) {
+        // G_{k-p} * Phi_{k-p} contribution (AM methods only; gammaG_[p]==0 for BDF)
+        if (gammaG_[p] != 0.0) {
             std::copy(gHistData_.at(p).begin(), gHistData_.at(p).end(), scratchC_.data());
             for (decltype(n) j = 0; j < n; j++) {
                 auto rhs_col = phiFuture.column(j);
@@ -300,7 +302,7 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
                     pssErrorColumn = j;
                     return false;
                 }
-                for (decltype(n) i = 0; i < n; i++) rhs_col[i] += gammaG[p] * rhs_colbuf[i];
+                for (decltype(n) i = 0; i < n; i++) rhs_col[i] += gammaG_[p] * rhs_colbuf[i];
             }
         }
     }
@@ -335,8 +337,8 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
         rec.aData  = Vector<double>(lastAlr_.data(), lastAlr_.data() + nnz);
         rec.cData  = cSnap;
         rec.gData  = gSnap;
-        rec.gammaC = gammaC;
-        rec.gammaG = gammaG;
+        rec.gammaC = gammaC_;
+        rec.gammaG = gammaG_;
         rec.order  = order;
         trajectory_.push_back(std::move(rec));
     }
@@ -528,7 +530,7 @@ bool PssTranCore::computePsiT() {
     //   leading_'*q_N + sum_i aScaled_'[i]*q_{N-1-i} + sum_i bScaled_'[i]*qdot_{N-1-i}
     // qHist_.at(0) / qDotHist_.at(0) are q_N / qdot_N; at(p+1) is
     // q_{N-1-p} / qdot_{N-1-p} - exactly the indexing the formula needs.
-    Vector<double> rhs(n, 0.0);
+    psiTrhs_.assign(n, 0.0);
     const Vector<double>& qN = qHist_.at(0);
     for (decltype(n) i = 0; i < n; i++) {
         double v = aM1Sens * qN[i + 1];
@@ -538,16 +540,16 @@ bool PssTranCore::computePsiT() {
         for (Int p = 0; p < (Int)bSens.size(); p++) {
             v += bSens[p] * qDotHist_.at(p + 1)[i + 1];
         }
-        rhs[i] = v;
+        psiTrhs_[i] = v;
     }
 
     // Psi_T = -J_N^{-1} * d(qdot_N)/d(h_{N-1})   (J_N = lastAlr_, already
     // factored from the last accepted step's Newton solve)
-    if (!lastAlr_.solve(rhs.data())) {
+    if (!lastAlr_.solve(psiTrhs_.data())) {
         setError(PssTranError::PsiSolveFailed);
         return false;
     }
-    for (decltype(n) i = 0; i < n; i++) psiCurrent_[i] = -rhs[i];
+    for (decltype(n) i = 0; i < n; i++) psiCurrent_[i] = -psiTrhs_[i];
 
     return true;
 }

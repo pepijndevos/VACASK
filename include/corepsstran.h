@@ -206,6 +206,16 @@ private:
     // it is scaled and accumulated into the new Phi.
     Vector<double> rhs_colbuf;
 
+    // Scratch coefficients for onTimestepAccepted(), reused across calls and
+    // resized (not reallocated - same size in, no-op) to the current order
+    // each time; a copy is taken into StepRecord for the accepted step.
+    Vector<double> gammaC_;
+    Vector<double> gammaG_;
+
+    // Scratch RHS for computePsiT(), reused across calls and resized (not
+    // reallocated - same size in, no-op) to n each time.
+    Vector<double> psiTrhs_;
+
     // Current period sensitivity vector Psi(t)
     Vector<double> psiCurrent_;
 

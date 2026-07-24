@@ -75,11 +75,13 @@ bool PssCore::rebuild(Status& s) {
     // OP IC forces
     opCore_.solver().setForcesFactor(3, options.nr_force);
 
-    auto n = circuit.unknownCount();    
+    auto n = circuit.unknownCount();
     Fp.resize(n+1);
     alpha.resize(n);
     Jp.resize(n+1, n+1);
-    
+    x0.resize(n+1);
+    xT.resize(n+1);
+
     return true;
 }
 
@@ -410,8 +412,6 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
 
     Int    iterIndex  = 0;
     double worstRatio = 0.0;
-    Vector<double>  x0;
-    Vector<double>  xT;
     double          T0;
 
     T0_converged_ = 0.0;
