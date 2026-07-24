@@ -86,7 +86,7 @@ install(FILES "LICENSE" DESTINATION "${docs_directory}"
     PERMISSIONS ${install_permissions_file}
 )
 
-# Library: python files
+# Documentation
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/docs" DESTINATION "${docs_directory}"
 	FILE_PERMISSIONS ${install_permissions_file}
 	DIRECTORY_PERMISSIONS ${install_permissions_directory}
