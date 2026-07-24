@@ -129,13 +129,13 @@ the right. Here
 
 Rearranging the derivative-form gives
 
-$$\dot q_{k+1} = a_{-1}\, q_{k+1} + a_0\, q_k + h_k\, b_0\, \dot q_k + s_k, \qquad
-  s_k = \sum_{i=1}^{m-1} a_i\, q_{k-i} + h_k \sum_{i=1}^{m-1} b_i\, \dot q_{k-i}.$$
+$$\dot q_{k+1} = a_{-1}\, q_{k+1} + a_0\, q_k + b_0\, \dot q_k + s_k, \qquad
+  s_k = \sum_{i=1}^{m-1} a_i\, q_{k-i} + \sum_{i=1}^{m-1} b_i\, \dot q_{k-i}.$$
 
 Three groups appear, distinguished by what they depend on:
 
 - $a_{-1}\, q_{k+1}$ - the implicit term; depends on the unknown $x_{k+1}$.
-- $a_0\, q_k + h_k\, b_0\, \dot q_k$ - depends on the previous state $x_k$ through
+- $a_0\, q_k + b_0\, \dot q_k$ - depends on the previous state $x_k$ through
   $q_k = q(x_k)$ and the stored derivative $\dot q_k$. This is constant during the
   Newton solve at $t_{k+1}$, but **not** constant when differentiating with
   respect to $x_k$. It must be kept explicit for the one-step sensitivity
@@ -155,25 +155,26 @@ This single form covers the methods VACASK already supports:
 The current step reuses $\dot q_k$, the derivative stored at $t_k$. That value was
 produced by the **previous step** (from $t_{k-1}$ to $t_k$). Adaptive order/step
 control means the previous step may use a different method, order, and step size,
-hence different coefficients - mark them with a prime. Applying the same general
-formula one step earlier,
+hence different coefficients - mark them with a hat (prime is reserved for
+$\partial/\partial h_{N-1}$, introduced later in
+[Computing $\Psi_T$](#computing-psi_t)). Applying the same general formula one
+step earlier,
 
-$$\dot q_k = a_{-1}'\, q_k + a_0'\, q_{k-1} + h_{k-1}\, b_0'\, \dot q_{k-1} + s_{k-1}',
-  \qquad s_{k-1}' = \sum_{i=1}^{m'-1} a_i'\, q_{k-1-i} + h_{k-1} \sum_{i=1}^{m'-1} b_i'\, \dot q_{k-1-i},$$
+$$\dot q_k = \hat a_{-1}\, q_k + \hat a_0\, q_{k-1} + \hat b_0\, \dot q_{k-1} + \hat s_{k-1},
+  \qquad \hat s_{k-1} = \sum_{i=1}^{\hat m-1} \hat a_i\, q_{k-1-i} + \sum_{i=1}^{\hat m-1} \hat b_i\, \dot q_{k-1-i},$$
 
-where $a_{-1}'$ is the previous step's leading coefficient,
-$h_{k-1} = t_k - t_{k-1}$ is the previous step size, and $m'$ is its number of
-steps. The explicit $h_{k-1}$ on the $\dot q$ sums uses the **previous** step
-size, consistent with the convention applied one step earlier.
+where $\hat a_{-1}$ is the previous step's leading coefficient, $h_{k-1} = t_k -
+t_{k-1}$ is the previous step size (folded into $\hat a_i, \hat b_i$
+themselves, per their definition), and $\hat m$ is its number of steps.
 
-Of these terms only $a_{-1}'\, q_k$ depends on $x_k$; everything else comes from
+Of these terms only $\hat a_{-1}\, q_k$ depends on $x_k$; everything else comes from
 $t_{k-1}$ and earlier. So the dependence of the stored derivative on $x_k$ is
 
-$$\frac{\partial \dot q_k}{\partial x_k} = a_{-1}'\, C(x_k),$$
+$$\frac{\partial \dot q_k}{\partial x_k} = \hat a_{-1}\, C(x_k),$$
 
 which is exactly what the one-step sensitivity $dx_{k+1}/dx_k$ needs. The
 implementation must therefore keep, alongside $\dot q_k$, the previous step's
-leading coefficient $a_{-1}'$.
+leading coefficient $\hat a_{-1}$.
 
 ### Per-timepoint nonlinear system
 
@@ -181,7 +182,7 @@ Substituting the derivative approximation into the DAE
 $f(x_{k+1}, t_{k+1}) + \dot q_{k+1} = 0$ gives a nonlinear algebraic system in
 the single unknown $x_{k+1}$:
 
-$$R(x_{k+1}) \equiv f(x_{k+1}, t_{k+1}) + a_{-1}\, q(x_{k+1}) + a_0\, q_k + h_k\, b_0\, \dot q_k + s_k = 0.$$
+$$R(x_{k+1}) \equiv f(x_{k+1}, t_{k+1}) + a_{-1}\, q(x_{k+1}) + a_0\, q_k + b_0\, \dot q_k + s_k = 0.$$
 
 During the Newton solve at $t_{k+1}$ the last three terms come from earlier
 timepoints and are constant; only $f$ and $a_{-1}\, q$ vary with $x_{k+1}$.
@@ -190,15 +191,16 @@ Newton-Raphson solves it. Each iteration solves the linear system
 
 $$J(x_{k+1})\, \Delta x = -R(x_{k+1}), \qquad x_{k+1} \leftarrow x_{k+1} + \Delta x,$$
 
-with the iteration matrix
+with the iteration matrix - $R$'s derivative with respect to $x_{k+1}$ alone,
+$q_k$, $\dot q_k$ and $s_k$ held fixed at their converged, previous-step values -
 
-$$J(x_{k+1}) = G(x_{k+1}) + a_{-1}\, C(x_{k+1}),$$
+$$J(x_{k+1}) = \frac{\partial R}{\partial x_{k+1}} = G(x_{k+1}) + a_{-1}\, C(x_{k+1}),$$
 
 where $G = \partial f/\partial x$ and $C = \partial q/\partial x$. This is exactly
 the matrix VACASK already assembles for a transient timepoint, with $a_{-1}$ the
 integration coefficient supplied by the chosen method.
 
-After convergence, $\dot q_{k+1} = a_{-1} q_{k+1} + a_0 q_k + h_k\, b_0 \dot q_k + s_k$ is
+After convergence, $\dot q_{k+1} = a_{-1} q_{k+1} + a_0 q_k + b_0 \dot q_k + s_k$ is
 stored so it can serve as a past derivative $\dot q$ in the history term of
 subsequent steps (needed by Adams-type methods).
 
@@ -219,21 +221,21 @@ The two partials reuse quantities the per-timepoint Newton already produced:
 
 - $\dfrac{\partial R}{\partial x_{k+1}} = J = G(x_{k+1}) + a_{-1}\, C(x_{k+1})$ - the
   converged Newton iteration matrix, already assembled and factored.
-- $\dfrac{\partial R}{\partial x_k}$ - only the $i=0$ terms $a_0\, q_k + h_k\, b_0\, \dot q_k$
+- $\dfrac{\partial R}{\partial x_k}$ - only the $i=0$ terms $a_0\, q_k + b_0\, \dot q_k$
   in $R$ depend on $x_k$. With $\partial q_k/\partial x_k = C(x_k)$ and
-  $\partial \dot q_k/\partial x_k = a_{-1}'\, C(x_k)$ from the previous step,
+  $\partial \dot q_k/\partial x_k = \hat{a}_{-1}\, C(x_k)$ from the previous step,
 
-$$\frac{\partial R}{\partial x_k} = a_0\, C(x_k) + h_k\, b_0\, a_{-1}'\, C(x_k)
-  = (a_0 + h_k\, b_0\, a_{-1}')\, C(x_k).$$
+$$\frac{\partial R}{\partial x_k} = a_0\, C(x_k) + b_0\, \hat{a}_{-1}\, C(x_k)
+  = (a_0 + b_0\, \hat{a}_{-1})\, C(x_k).$$
 
 Hence the one-step sensitivity is
 
-$$\frac{dx_{k+1}}{dx_k} = -J^{-1} (a_0 + h_k\, b_0\, a_{-1}')\, C(x_k)
-  = -\big(G(x_{k+1}) + a_{-1}\, C(x_{k+1})\big)^{-1} (a_0 + h_k\, b_0\, a_{-1}')\, C(x_k).$$
+$$\frac{dx_{k+1}}{dx_k} = -J^{-1} (a_0 + b_0\, \hat{a}_{-1})\, C(x_k)
+  = -\big(G(x_{k+1}) + a_{-1}\, C(x_{k+1})\big)^{-1} (a_0 + b_0\, \hat{a}_{-1})\, C(x_k).$$
 
 The same factored $J$ from the last Newton iteration is reused, so no extra
 factorization is needed - only solves against the right-hand side
-$(a_0 + h_k\, b_0\, a_{-1}')\, C(x_k)$. This is the per-step factor of the monodromy matrix
+$(a_0 + b_0\, \hat{a}_{-1})\, C(x_k)$. This is the per-step factor of the monodromy matrix
 that the shooting method accumulates over one period.
 
 For a multistep method of order > 2, $R$ also depends on $x_{k-1}, x_{k-2}, \ldots$
@@ -274,14 +276,14 @@ the open-source qucsator transient engine, for both driven and autonomous circui
   "in parallel with the full solution," and require it to follow "the exact same
   LMS method & order, time-step mesh, and histories" as the transient solver - but
   they give no explicit per-step update. Our
-  $dx_{k+1}/dx_k = -(G + a_{-1} C)^{-1}(a_0 + h_k\,b_0\,a_{-1}')\,C(x_k)$ is exactly that
+  $dx_{k+1}/dx_k = -(G + a_{-1} C)^{-1}(a_0 + b_0\,\hat{a}_{-1})\,C(x_k)$ is exactly that
   update: differentiating the converged discrete step (internal differentiation)
   is the discretization of their LR equation under the same LMS scheme, so the
   LMS-matching they demand holds by construction rather than by careful bookkeeping.
 - **Factorization reuse.** We reuse the already-factored timepoint $J$ for the
   sensitivity back-solves; the paper does not discuss factorization caching.
 - **Variable order/step + stored derivative.** We carry the previous step's leading
-  coefficient $a_{-1}'$ (and the $a_0, b_0$ split) so the sensitivity stays correct
+  coefficient $\hat{a}_{-1}$ (and the $a_0, b_0$ split) so the sensitivity stays correct
   across order/step changes. The paper only states the meshes must match.
 
 ### Krozer's LR integration, discretized
@@ -306,50 +308,48 @@ $G\,\delta x$ (now linear in $\delta x$) plus reactive term $\delta q$. Krozer
 requires the LR integration to reuse the nominal LMS method, order, mesh, and
 histories - so apply the same integration formula to $\delta q$ at $t_{k+1}$:
 
-$$\dot{\delta q}_{k+1} = a_{-1}\,\delta q_{k+1} + a_0\,\delta q_k + h_k\,b_0\,\dot{\delta q}_k + s_k^{\delta},
-  \qquad s_k^{\delta} = \sum_{i=1}^{m-1} a_i\,\delta q_{k-i} + h_k \sum_{i=1}^{m-1} b_i\,\dot{\delta q}_{k-i},$$
+$$\dot{\delta q}_{k+1} = a_{-1}\,\delta q_{k+1} + a_0\,\delta q_k + b_0\,\dot{\delta q}_k + s_k^{\delta},
+  \qquad s_k^{\delta} = \sum_{i=1}^{m-1} a_i\,\delta q_{k-i} + \sum_{i=1}^{m-1} b_i\,\dot{\delta q}_{k-i},$$
 
-with the **same** coefficients $a_i, b_i$ (and the same explicit $h_k$ scaling on
-the $\dot{\delta q}$ sums) as the nominal step. Substituting into the discretized
+with the **same** coefficients $a_i, b_i$ as the nominal step. Substituting into the discretized
 LR equation $G_{k+1}\,\delta x_{k+1} + \dot{\delta q}_{k+1} = 0$ and using
 $\delta q_j = C_j\,\delta x_j$,
 
 $$\underbrace{(G_{k+1} + a_{-1} C_{k+1})}_{J_{k+1}}\,\delta x_{k+1}
-  + a_0 C_k\,\delta x_k + h_k\,b_0\,\dot{\delta q}_k + s_k^{\delta} = 0.$$
+  + a_0 C_k\,\delta x_k + b_0\,\dot{\delta q}_k + s_k^{\delta} = 0.$$
 
-Substitute $\dot{\delta q}_k$ from the previous step's integration formula (primed
-coefficients because the previous step may use a different method and order,
-mirroring the nominal $\dot q_k$ expansion, with the explicit factor $h_{k-1}$ on
-the $\dot{\delta q}$ sums):
+Substitute $\dot{\delta q}_k$ from the previous step's integration formula
+(hat-marked coefficients because the previous step may use a different method
+and order, mirroring the nominal $\dot q_k$ expansion):
 
-$$\dot{\delta q}_k = a_{-1}'\,\delta q_k + a_0'\,\delta q_{k-1}
-  + h_{k-1}\,b_0'\,\dot{\delta q}_{k-1} + s_{k-1}^{\delta'},
-  \qquad s_{k-1}^{\delta'} = \sum_{i=1}^{m'-1} a_i'\,\delta q_{k-1-i}
-  + h_{k-1} \sum_{i=1}^{m'-1} b_i'\,\dot{\delta q}_{k-1-i}.$$
+$$\dot{\delta q}_k = \hat{a}_{-1}\,\delta q_k + \hat{a}_0\,\delta q_{k-1}
+  + \hat{b}_0\,\dot{\delta q}_{k-1} + \hat{s}_{k-1}^{\delta},
+  \qquad \hat{s}_{k-1}^{\delta} = \sum_{i=1}^{\hat m-1} \hat{a}_i\,\delta q_{k-1-i}
+  + \sum_{i=1}^{\hat m-1} \hat{b}_i\,\dot{\delta q}_{k-1-i}.$$
 
 Using $\delta q_j = C_j\,\delta x_j$ and inserting into the equation above:
 
 $$J_{k+1}\,\delta x_{k+1}
-  + \underbrace{(a_0 + h_k\,b_0 a_{-1}')\,C_k\,\delta x_k}_{\text{depends on }t_k}
-  + \underbrace{h_k\,b_0\,a_0'\,C_{k-1}\,\delta x_{k-1}
-    + h_k\,h_{k-1}\,b_0 b_0'\,\dot{\delta q}_{k-1}
-    + h_k\,b_0\,s_{k-1}^{\delta'} + s_k^{\delta}}_{\text{depends on }t_{k-1}\text{ and earlier}}
+  + \underbrace{(a_0 + b_0 \hat{a}_{-1})\,C_k\,\delta x_k}_{\text{depends on }t_k}
+  + \underbrace{b_0\,\hat{a}_0\,C_{k-1}\,\delta x_{k-1}
+    + b_0 \hat{b}_0\,\dot{\delta q}_{k-1}
+    + b_0\,\hat{s}_{k-1}^{\delta} + s_k^{\delta}}_{\text{depends on }t_{k-1}\text{ and earlier}}
   = 0.$$
 
-Every term after $(a_0 + h_k\,b_0 a_{-1}')\,C_k\,\delta x_k$ belongs to timepoints
+Every term after $(a_0 + b_0\,\hat{a}_{-1})\,C_k\,\delta x_k$ belongs to timepoints
 $t_{k-1}$ and earlier. Differentiating with respect to $\delta x_k$ those terms
 have zero partial, so
 
 $$J_{k+1}\,\frac{\partial\,\delta x_{k+1}}{\partial\,\delta x_k}
-  + (a_0 + h_k\,b_0 a_{-1}')\,C_k = 0.$$
+  + (a_0 + b_0 \hat{a}_{-1})\,C_k = 0.$$
 
 The per-step sensitivity is therefore
 
 $$\boxed{\frac{\partial\,\delta x_{k+1}}{\partial\,\delta x_k}
-  = M_k = -J_{k+1}^{-1}\,(a_0 + h_k\,b_0\,a_{-1}')\,C_k.}$$
+  = M_k = -J_{k+1}^{-1}\,(a_0 + b_0\,\hat{a}_{-1})\,C_k.}$$
 
 After the $\dot{\delta q}_k$ substitution the $\delta x_k$ dependence is fully
-isolated in the single term $(a_0+h_k\,b_0 a_{-1}')\,C_k\,\delta x_k$, so the partial
+isolated in the single term $(a_0+b_0\,\hat{a}_{-1})\,C_k\,\delta x_k$, so the partial
 is exact and complete. The result is identical to the one-step sensitivity derived
 from the nonlinear residual in the section above, confirming that differentiating
 the converged discrete step and discretizing the continuous LR equation with the
@@ -376,12 +376,12 @@ Computationally $\Phi_T$ is built by applying the per-step propagator $M_k$ to a
 running matrix, initialized to the identity, in the same forward sweep as the
 nominal transient integration:
 
-$$\Phi_0 = I, \qquad \Phi_{k+1} = M_k\,\Phi_k = -J_{k+1}^{-1}(a_0 + h_k\,b_0\,a_{-1}')\,C_k\,\Phi_k.$$
+$$\Phi_0 = I, \qquad \Phi_{k+1} = M_k\,\Phi_k = -J_{k+1}^{-1}(a_0 + b_0\,\hat{a}_{-1})\,C_k\,\Phi_k.$$
 
 After $N$ steps $\Phi_T = \Phi_N$ is the monodromy. The four operations per step are:
 
-1. **Scale and multiply:** $W = (a_0 + h_k\,b_0\,a_{-1}')\,C_k\,\Phi_k$.
-   $C_k$ is sparse and already evaluated at the converged $x_k$; $(a_0+h_k\,b_0 a_{-1}')$
+1. **Scale and multiply:** $W = (a_0 + b_0\,\hat{a}_{-1})\,C_k\,\Phi_k$.
+   $C_k$ is sparse and already evaluated at the converged $x_k$; $(a_0+b_0 \hat{a}_{-1})$
    is a scalar. This is a sparse $\times$ dense product, $O(nnz(C_k)\cdot n)$.
 2. **Negate:** $W \leftarrow -W$.
 3. **Solve:** $J_{k+1}\,\Phi_{k+1} = W$, i.e. $n$ back-solves against the
@@ -397,8 +397,8 @@ so the formula reduces to
 
 $$M_0 = -J_1^{-1}\,a_0\,C_0, \qquad a_0 = -\frac{1}{h_0},$$
 
-and $a_{-1}'$ does not appear. From step $k=1$ onward the integrator has a genuine
-predecessor step and $a_{-1}'$ is the leading coefficient of that predecessor.
+and $\hat{a}_{-1}$ does not appear. From step $k=1$ onward the integrator has a genuine
+predecessor step and $\hat{a}_{-1}$ is the leading coefficient of that predecessor.
 
 The factorization of $J_{k+1}$ is reused from the last Newton iteration of the
 nominal transient step - so the sensitivity propagation adds only back-solves,
@@ -513,15 +513,15 @@ velocity $\dot x_s(T)$.
 
 $$f(x_N) + \dot q_N = 0,$$
 
-with $\dot q_N$ supplied by the LMS reconstruction (with the explicit $h_{N-1}$
-factor on the $\dot q$ contribution as introduced earlier):
+with $\dot q_N$ supplied by the LMS reconstruction, the derivative form derived
+earlier:
 
 $$\dot q_N = a_{-1}(h_{N-1})\,q(x_N) + \sum_{i\ge0} a_i(h_{N-1})\,q_{N-1-i}
-  + h_{N-1}\sum_{i\ge0} b_i(h_{N-1})\,\dot q_{N-1-i}.$$
+  + \sum_{i\ge0} b_i(h_{N-1})\,\dot q_{N-1-i}.$$
 
 The coefficients $a_i, b_i$ are fixed by the LMS method, its order, and the past
-step ratios; their (and the explicit $h_{N-1}$ factor's) dependence on $h_{N-1}$ is
-all we will need. Every retained $a_i, b_i$ depends on $h_{N-1}$ this way - not
+step ratios; their dependence on $h_{N-1}$ is all we will need. Every retained
+$a_i, b_i$ depends on $h_{N-1}$ this way - not
 just $a_0, b_0$, but also $a_1, a_2, \ldots$ and $b_1, b_2, \ldots$ whenever the
 method retains more than one past point (BDF order $\ge2$, Adams-Moulton order
 $\ge3$). Only the data $q_{N-1-i}, \dot q_{N-1-i}$ these coefficients multiply is
@@ -555,18 +555,16 @@ $$\frac{d \dot q_N}{dT}
   = \underbrace{a_{-1}\,C(x_N)\,\frac{dx_N}{dT}}_{\text{via $x_N$ in }a_{-1}\,q(x_N)}
    + \underbrace{\frac{\partial \dot q_N}{\partial h_{N-1}}\bigg|_{x_N}}_{\text{via coefficients, $x_N$ frozen}},$$
 
-where the coefficient-driven part is (applying $\partial/\partial h_{N-1}$ to the
-explicit $h_{N-1}$ factor in front of the $\dot q$ sum as well). From here on,
-within this "Computing $\Psi_T$" section only, a prime denotes
+where the coefficient-driven part is obtained by applying $\partial/\partial h_{N-1}$
+to each coefficient in turn, with $q(x_N), q_{N-1-i}, \dot q_{N-1-i}$ held fixed.
+From here on, within this "Computing $\Psi_T$" section only, a prime denotes
 $\partial/\partial h_{N-1}$ - matching [numint.md](numint.md)'s
-$a_{-1}', a_i', b_i'$ convention - **not** the "previous step's coefficient"
-prime used in [Monodromy accumulation](#monodromy-accumulation) above:
+$a_{-1}', a_i', b_i'$ convention:
 
 $$\frac{\partial \dot q_N}{\partial h_{N-1}}\bigg|_{x_N}
   = a_{-1}'\,q(x_N)
    + \sum_{i\ge 0} a_i'\,q_{N-1-i}
-   + \sum_{i\ge 0} b_i\,\dot q_{N-1-i}
-   + h_{N-1}\sum_{i\ge 0} b_i'\,\dot q_{N-1-i}.$$
+   + \sum_{i\ge 0} b_i'\,\dot q_{N-1-i}.$$
 
 Note that $q_{N-1}, \dot q_{N-1}$ etc. carry no $T$-dependence (they sit at frozen
 earlier states), so the only thing the coefficients multiply that could move with
@@ -607,8 +605,9 @@ $$\frac{\partial \dot q_N}{\partial h_{N-1}}\bigg|_{x_N}
   \Psi_T^{\text{BDF1}} = \frac{1}{h_{N-1}}\,J_N^{-1}\,\dot q_N.$$
 
 **BDF order $\ge 2$ (Gear) - the above does not carry over.** For $p\ge 2$
-past $q$-values, $a_0,\ldots,a_{p-1}$ are the solution of the linear system in
-[General integration formula](#general-integration-formula), whose entries are
+past $q$-values, $a_0,\ldots,a_{p-1}$ are the solution of the order-condition
+linear system in [numint.md, "Computing the
+coefficients"](numint.md#computing-the-coefficients), whose entries are
 built from the *normalized* past time points $t_{N-1-i}/h_{N-1}$ - i.e. from
 the ratios of the past step sizes $h_{N-2}, h_{N-3},\ldots$ to $h_{N-1}$.
 Computing $\Psi_T$ holds $t_{N-2}, t_{N-3},\ldots$ (hence $h_{N-2},
@@ -650,38 +649,44 @@ $\overline b_0$ for trapezoidal) are hardcoded constants - fixed by the method
 definition or the $x_\mu$ parameter, never solved from an $h_{N-1}$-dependent
 system - so $\overline b_{-1}'=\overline b_i'=0$ identically, and with it
 $b_i'=0$ ([numint.md](numint.md) verifies this in closed form). The
-$h_{N-1}\sum_{i\ge0} b_i'\,\dot q_{N-1-i}$ term therefore drops out entirely
-(it does not "cancel" against anything), leaving
+$\sum_{i\ge0} b_i'\,\dot q_{N-1-i}$ term in the general formula therefore drops
+out entirely **for both methods** - not because it "cancels" against
+anything, but because every $b_i'$ it multiplies is zero - leaving
 
 $$\frac{\partial \dot q_N}{\partial h_{N-1}}\bigg|_{x_N}
-  = a_{-1}'\,q_N + a_0'\,q_{N-1} + \sum_{i\ge 0} b_i\,\dot q_{N-1-i}
-  = a_{-1}'\,(q_N - q_{N-1}) + \sum_{i\ge 0} b_i\,\dot q_{N-1-i},$$
+  = a_{-1}'\,q_N + a_0'\,q_{N-1}
+  = a_{-1}'\,(q_N - q_{N-1}),$$
 
-using $a_0'=-a_{-1}'$. The two methods differ only in how many terms the
-$\sum_{i\ge0} b_i\,\dot q_{N-1-i}$ sum has left to contribute.
+using $a_0'=-a_{-1}'$. The two methods differ only in the *value* of
+$a_{-1}'$, not in this structure - in particular, trapezoidal's nonzero $b_0$
+itself never re-enters, since only $b_0'$ (which is zero) appears here.
 
-*Backward Euler* has $b_i\equiv0$ (no $\dot q$ sum at all - same method as
-BDF1), so the sum drops out and this is exactly the BDF1 result already
-derived:
+*Backward Euler* also has $b_i\equiv0$ (no $\dot q$ sum at all in $\dot q_N$
+itself - same method as BDF1), so $\dot q_N = a_{-1}(q_N-q_{N-1})$ and this is
+exactly the BDF1 result already derived:
 
 $$\frac{\partial \dot q_N}{\partial h_{N-1}}\bigg|_{x_N}
   = a_{-1}'\,(q_N-q_{N-1}) = -\frac{\dot q_N}{h_{N-1}},
   \qquad
   \Psi_T^{\text{BE}} = \frac{1}{h_{N-1}}\,J_N^{-1}\,\dot q_N.$$
 
-*Trapezoidal* has exactly one nonzero $b_i$ ($b_0$, $m=1$), so the sum keeps
-its single $i=0$ term:
+*Trapezoidal* has $\overline b_{-1}=\overline b_0=x_\mu$ both constant, so
+$\overline b_{-1}'=0$ and the same "$a_{-1}'=-a_{-1}/h_{N-1}$" shortcut used
+for BDF1 applies here too (it only relied on $\overline b_{-1}'=0$, not on
+BDF1 specifically):
 
-$$\frac{\partial \dot q_N}{\partial h_{N-1}}\bigg|_{x_N}
-  = a_{-1}'\,(q_N-q_{N-1}) + b_0\,\dot q_{N-1},
+$$a_{-1}' = -\frac{a_{-1}}{h_{N-1}} = -\frac{2}{h_{N-1}^2}, \qquad
+  \frac{\partial \dot q_N}{\partial h_{N-1}}\bigg|_{x_N}
+  = -\frac{2}{h_{N-1}^2}\,(q_N-q_{N-1}),
   \qquad
-  \Psi_T^{\text{Trap}} = -J_N^{-1}\Big(a_{-1}'\,(q_N-q_{N-1}) + b_0\,\dot q_{N-1}\Big),$$
+  \Psi_T^{\text{Trap}} = \frac{2}{h_{N-1}^2}\,J_N^{-1}\,(q_N-q_{N-1}).$$
 
-with $a_{-1}' = -2/h_{N-1}^2$ and $b_0 = -\overline b_0/\overline b_{-1}$
-(e.g. $b_0=-1$ for pure trapezoidal, $x_\mu=1/2$). Unlike backward Euler, this
-does **not** collapse into a bare multiple of $\dot q_N$ - the surviving
-$b_0\,\dot q_{N-1}$ term is a genuine, separate contribution, not something a
-naive "$b_i'=-b_i/h_{N-1}$" shortcut would have produced.
+Unlike backward Euler, this does **not** collapse into a bare multiple of
+$\dot q_N$: trapezoidal's own $\dot q_N = a_{-1}(q_N-q_{N-1}) + b_0\,\dot
+q_{N-1}$ (with $b_0=-\overline b_0/\overline b_{-1}=-1$) carries an extra
+$b_0\,\dot q_{N-1}$ contribution that $\Psi_T^{\text{Trap}}$ does **not**
+inherit - precisely because that contribution enters $\dot q_N$ through the
+constant $b_0$, while $\Psi_T$ only ever sees $b_0'=0$.
 
 **Continuous limit.** As $h_{N-1} \to 0$,
 $J_N \to a_{-1}\,C(x_N) = C(x_N)/(h_{N-1}\overline b_{-1})$
@@ -746,7 +751,7 @@ alone is still unsafe to reuse.
 Because $I - \Phi_T$ is singular, the $(n+1)\times(n+1)$ augmented system must be
 solved as a whole. Form $\tilde J_p$ explicitly and factor it with standard dense LU:
 
-$$\tilde J_p = \begin{bmatrix} I - \Phi_T & -\alpha \\ \alpha^T & 0 \end{bmatrix}.$$
+$$\tilde J_p = \begin{bmatrix} I - \Phi_T & -\Psi_T \\ \alpha^T & 0 \end{bmatrix}.$$
 
 The extra row and column add negligible cost to the $O(n^3)$ factorization since
 $\Phi_T$ is already dense. Solve gives $[\Delta x_0,\ \Delta T]^T$ directly.

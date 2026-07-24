@@ -8,7 +8,7 @@ its call-outs into shared infrastructure (`coretrancoef`, `klumatrix`,
 (`coreop`/`corehb`) touched by the `AnnotatedSolution` refactor. Findings are
 numbered consecutively, ranked most severe first. Check a box once fixed.
 
-- [ ] **1. `computePsiT()` adds a spurious un-differentiated `bScaled` term (plus a wrongly `h`-scaled `bSens` term) to `d(qdot_N)/dh`, corrupting `Psi_T` for LMS methods with nonzero `b` coefficients (e.g. trapezoidal/AM2, the common default)** *(corepsstran, severe)*
+- [x] **1. `computePsiT()` adds a spurious un-differentiated `bScaled` term (plus a wrongly `h`-scaled `bSens` term) to `d(qdot_N)/dh`, corrupting `Psi_T` for LMS methods with nonzero `b` coefficients (e.g. trapezoidal/AM2, the common default)** *(corepsstran, severe, fixed)*
 
   `lib/corepsstran.cpp:540-546`. The `qdot_N` reconstruction used elsewhere
   in this same diff (`IntegratorCoeffs::differentiate()`,
@@ -47,6 +47,13 @@ numbered consecutively, ranked most severe first. Check a box once fixed.
   a `h_{N-1}*b_i'` term — that convention was copied verbatim into code that
   uses the codebase's own `bScaled_`/`bScaledSens_`, which already have that
   `h` factor accounted for differently, producing the mismatch.
+
+  Fixed by dropping the spurious `bScaled[p]*qDotHist_...` term and the
+  extra `lastStepH_*` factor on the `bSens` term
+  (`lib/corepsstran.cpp:523-541`), so the RHS is now exactly
+  `leadingSens_*q_N + sum aScaledSens_[i]*q_hist[i] + sum bScaledSens_[i]*qdot_hist[i]`,
+  matching `IntegratorCoeffs::differentiate()`'s own formula differentiated
+  term-by-term.
 
 - [x] **2. `storeState()` lost its cheap "skip name rebuild" fast path — homotopy loops now pay full `O(n)` name-rebuild cost on every iteration** *(coreop/corehb, moderate — performance regression, fixed)*
 

@@ -517,12 +517,15 @@ bool PssTranCore::computePsiT() {
 
     const auto& aSens   = ic.aScaledSens();
     const auto& bSens   = ic.bScaledSens();
-    const auto& bScaled = ic.bScaled();
     double      aM1Sens = ic.leadingCoeffSens();
 
-    // d(qdot_N)/d(h_{N-1}) at fixed x_N (pss.md, "Computing Psi_T"):
-    //   a_{-1}'*q_N + sum_i a_i'*q_{N-1-i} + sum_i b_i*qdot_{N-1-i}
-    //     + h_{N-1} * sum_i b_i'*qdot_{N-1-i}
+    // d(qdot_N)/d(h_{N-1}) at fixed x_N (pss.md, "Computing Psi_T"), expressed
+    // in terms of the codebase's own scaled coefficients: aScaledSens_/
+    // bScaledSens_ already are d(aScaled_)/dh_{N-1}, d(bScaled_)/dh_{N-1}
+    // (verified by scaleDifferentiatorSensitivities()'s own finite-difference
+    // self-test, checkDiffSens() in coretrancoef.cpp), so no separate
+    // un-differentiated bScaled term or extra h_{N-1} factor belongs here:
+    //   leading_'*q_N + sum_i aScaled_'[i]*q_{N-1-i} + sum_i bScaled_'[i]*qdot_{N-1-i}
     // qHist_.at(0) / qDotHist_.at(0) are q_N / qdot_N; at(p+1) is
     // q_{N-1-p} / qdot_{N-1-p} - exactly the indexing the formula needs.
     Vector<double> rhs(n, 0.0);
@@ -532,11 +535,8 @@ bool PssTranCore::computePsiT() {
         for (Int p = 0; p < (Int)aSens.size(); p++) {
             v += aSens[p] * qHist_.at(p + 1)[i + 1];
         }
-        for (Int p = 0; p < (Int)bScaled.size(); p++) {
-            v += bScaled[p] * qDotHist_.at(p + 1)[i + 1];
-        }
         for (Int p = 0; p < (Int)bSens.size(); p++) {
-            v += lastStepH_ * bSens[p] * qDotHist_.at(p + 1)[i + 1];
+            v += bSens[p] * qDotHist_.at(p + 1)[i + 1];
         }
         rhs[i] = v;
     }
