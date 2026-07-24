@@ -30,7 +30,7 @@ with Newton-Raphson iteration. The analysis proceeds in three stages:
 
    is integrated with the same integration scheme, where $G(t)$ and $C(t)$ are the resistive and reactive Jacobians along the trajectory. The result $\Phi_T = d\phi_T/dx_0$ is the monodromy (state-transition) matrix. It yields the Newton step
 
-   $$(I - \Phi_T)\, \Delta x_0 = x_0 - x_T$$
+   $$(I - \Phi_T)\, \Delta x_0 = x_0 - x_T, \qquad x_0^{(l+1)} = x_0^{(l)} - \Delta x_0$$
 
    where $x_T = \phi_T(x_0)$ is the endpoint of the shot.
 
@@ -40,7 +40,7 @@ After convergence one final period is integrated with output enabled and written
 
 For oscillators (`driven=0`, the default) the period $T$ is an additional unknown and `tper` is only its initial guess. Each Newton iteration solves the augmented $(n+1) \times (n+1)$ system
 
-$$\begin{pmatrix} I - \Phi_T & \Psi_T \\ \alpha^T & 0 \end{pmatrix} \begin{pmatrix} \Delta x_0 \\ \Delta T \end{pmatrix} = \begin{pmatrix} x_0 - x_T \\ 0 \end{pmatrix}$$
+$$\begin{pmatrix} I - \Phi_T & \Psi_T \\ \alpha^T & 0 \end{pmatrix} \begin{pmatrix} \Delta x_0 \\ \Delta T \end{pmatrix} = \begin{pmatrix} x_0 - x_T \\ 0 \end{pmatrix}, \qquad x_0^{(l+1)} = x_0^{(l)} - \Delta x_0, \quad T^{(l+1)} = T^{(l)} - \Delta T$$
 
 where $\Psi_T = -dx_T/dT$ is the period sensitivity vector and $\alpha$ is a phase constraint vector. The phase constraint removes the underdetermination caused by time-shift invariance (any time-shifted copy of a periodic solution is also a solution); $\alpha$ is chosen proportional to the circuit velocity $\dot{x}(t_0)$ so the Newton correction does not move along the orbit.
 
