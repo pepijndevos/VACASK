@@ -114,8 +114,8 @@ void HB::deallocateAnalysisStateStorage(size_t n) {
     core.deallocateStateStorage(n);
 }
 
-bool HB::storeState(size_t ndx) {
-    return core.storeState(ndx);
+bool HB::storeState(size_t ndx, bool storeDetails) {
+    return core.storeState(ndx, storeDetails);
 }
 
 bool HB::restoreState(size_t ndx) {

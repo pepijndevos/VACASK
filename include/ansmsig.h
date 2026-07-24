@@ -95,7 +95,7 @@ protected:
     virtual size_t analysisStateStorageSize() const;
     virtual size_t allocateAnalysisStateStorage(size_t n);
     virtual void deallocateAnalysisStateStorage(size_t n=0);
-    virtual bool storeState(size_t ndx);
+    virtual bool storeState(size_t ndx, bool storeDetails=true);
     virtual bool restoreState(size_t ndx);
     virtual void makeStateIncoherent(size_t ndx);
 
@@ -306,9 +306,9 @@ void SmallSignal<CoreClass, DataMixin>::deallocateAnalysisStateStorage(size_t n)
 }
 
 template<typename CoreClass, typename DataMixin> 
-bool SmallSignal<CoreClass, DataMixin>::storeState(size_t ndx) {
+bool SmallSignal<CoreClass, DataMixin>::storeState(size_t ndx, bool storeDetails) {
     // Only op core has storage
-    return opCore.storeState(ndx);
+    return opCore.storeState(ndx, storeDetails);
 }
 
 template<typename CoreClass, typename DataMixin> 

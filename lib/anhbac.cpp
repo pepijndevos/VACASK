@@ -194,8 +194,8 @@ void HBAC::deallocateAnalysisStateStorage(size_t n) {
     hbCore.deallocateStateStorage(n);
 }
 
-bool HBAC::storeState(size_t ndx) {
-    return hbCore.storeState(ndx);
+bool HBAC::storeState(size_t ndx, bool storeDetails) {
+    return hbCore.storeState(ndx, storeDetails);
 }
 
 bool HBAC::restoreState(size_t ndx) {

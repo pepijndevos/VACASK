@@ -132,14 +132,14 @@ public:
     virtual void deallocateStateStorage(size_t n=0);
     // Store state in slot ndx, mark as coherent
     // Override in derived classes if needed
-    virtual bool storeState(size_t ndx) { return true; };
+    virtual bool storeState(size_t ndx, bool storeDetails=true) { return true; };
     // Restore state from slot ndx
     // Override in derived classes if needed
     virtual bool restoreState(size_t ndx) { return true; };
     // Make state in slot ndx incoherent
     virtual void makeStateIncoherent(size_t ndx);
     // Get core state
-    CoreStateStorage& coreState(size_t ndx) { return coreStates.at(ndx); };
+    CoreStateStorage& coreState(size_t ndx, bool storeDetails=true) { return coreStates.at(ndx); };
 
     // Homotopy interface
     // Return value: coverged, abort

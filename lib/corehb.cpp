@@ -180,12 +180,16 @@ bool HBCore::deleteOutputs(Id name, Status& s) {
     return true;
 }
 
-bool HBCore::storeState(size_t ndx) {
+bool HBCore::storeState(size_t ndx, bool storeDetails) {
     auto& repo = coreStates.at(ndx);
     repo.solution.setTypeTag(solutionTag);
 
     // Store current solution as annotated solution
-    repo.solution.setNames(circuit);
+    if (storeDetails) {
+        repo.solution.setNames(circuit);
+    } else {
+        repo.solution.clearNames();
+    }
     
     // Store solution in frequency domain (complex spectrum)
     repo.solution.setCxValues(solutionFD);
@@ -608,7 +612,8 @@ std::tuple<bool, bool> HBCore::runSolver(bool continuePrevious) {
             continueState->solution.spurs().spectrum().size()==spurs_.spectrum().size()
         ) {
             // Continue a state
-            // State is valid, coherent, and its lengths match those of the solver vectors
+            // State is valid, coherent, its lengths match those of the solver vectors, 
+            // and the spurs structure is identical to the analysis spurs structure. 
             // Restore current state
             // Solution values are complex, unpack them in a real vector of re DC + re/im magnitudes
             auto& data = continueState->solution.cxValues();

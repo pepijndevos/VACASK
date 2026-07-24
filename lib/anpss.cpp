@@ -195,9 +195,9 @@ void Pss::deallocateAnalysisStateStorage(size_t n) {
     pssCore_.deallocateStateStorage(n);
 }
 
-bool Pss::storeState(size_t ndx) {
+bool Pss::storeState(size_t ndx, bool storeDetails) {
     // Only op core has storage
-    return pssCore_.storeState(ndx);
+    return pssCore_.storeState(ndx, storeDetails);
 }
 
 bool Pss::restoreState(size_t ndx) {

@@ -94,7 +94,7 @@ std::tuple<bool, bool> SourceStepping::run() {
         continuation = true;
 
         // Store old solution
-        core.storeState(stateNdx);
+        core.storeState(stateNdx, false);
         
         // Source stepping loop
         while (true) {
@@ -125,7 +125,7 @@ std::tuple<bool, bool> SourceStepping::run() {
                 // Converged
                 // Store point
                 goodFactor = srcfactor;
-                core.storeState(stateNdx);
+                core.storeState(stateNdx, false);
                 
                 if (goodFactor >= 1.0) {
                     // Success

@@ -189,9 +189,9 @@ void Tran::deallocateAnalysisStateStorage(size_t n) {
     opCore.deallocateStateStorage(n);
 }
 
-bool Tran::storeState(size_t ndx) {
+bool Tran::storeState(size_t ndx, bool storeDetails) {
     // Only op core has storage
-    return opCore.storeState(ndx);
+    return opCore.storeState(ndx, storeDetails);
 }
 
 bool Tran::restoreState(size_t ndx) {

@@ -52,6 +52,7 @@ public:
     // Names of unknowns
     const std::vector<Id>& names() const { return names_; };
     void setNames(Circuit& circuit);
+    void clearNames() { names_.clear(); };
     
     // AUX data
     void setAuxRealVector(const Vector<double>& vec) { realVec_ = vec; };

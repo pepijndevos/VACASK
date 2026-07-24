@@ -48,7 +48,7 @@ numbered consecutively, ranked most severe first. Check a box once fixed.
   uses the codebase's own `bScaled_`/`bScaledSens_`, which already have that
   `h` factor accounted for differently, producing the mismatch.
 
-- [ ] **2. `storeState()` lost its cheap "skip name rebuild" fast path — homotopy loops now pay full `O(n)` name-rebuild cost on every iteration** *(coreop/corehb, moderate — performance regression)*
+- [x] **2. `storeState()` lost its cheap "skip name rebuild" fast path — homotopy loops now pay full `O(n)` name-rebuild cost on every iteration** *(coreop/corehb, moderate — performance regression, fixed)*
 
   `lib/coreop.cpp:130` (`OperatingPointCore::storeState`) and
   `lib/corehb.cpp:183` (`HBCore::storeState`). The old signature
@@ -66,6 +66,13 @@ numbered consecutively, ranked most severe first. Check a box once fixed.
   every iteration — a silent performance regression on large circuits with
   hard convergence, not caught by any test since it doesn't change output
   correctness.
+
+  Fixed by restoring the `bool storeDetails=true` parameter on
+  `storeState()` (`include/coreop.h`, `include/corehb.h`,
+  `lib/coreop.cpp`, `lib/corehb.cpp`) and `clearNames()` on
+  `AnnotatedSolution` (`include/ansolution.h`), and passing
+  `storeDetails=false` back at the three homotopy call sites
+  (`lib/hmtpgmin.cpp:90`, `lib/hmtpsrc.cpp:97,128`).
 
 - [ ] **3. Stored-solution period lookup for `ic=` skips the `typeTag()` check present at the other two lookup sites in the same file** *(corepss, minor — latent)*
 

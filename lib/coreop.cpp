@@ -127,10 +127,14 @@ bool OperatingPointCore::deleteOutputs(Id name, Status &s) {
     return true;
 }
 
-bool OperatingPointCore::storeState(size_t ndx) {
+bool OperatingPointCore::storeState(size_t ndx, bool storeDetails) {
     auto& repo = coreStates.at(ndx);
     repo.solution.setTypeTag(solutionTag);
-    repo.solution.setNames(circuit);
+    if (storeDetails) {
+        repo.solution.setNames(circuit);
+    } else {
+        repo.solution.clearNames();
+    }
     repo.solution.setValues(solution.vector());
     repo.solution.setAuxRealVector(states.vector());
     // Stored state is coherent and valid

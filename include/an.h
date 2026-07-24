@@ -233,7 +233,9 @@ protected:
     
     // Store analysis state in internal repository 
     // Used for homotopy and sweeps
-    virtual bool storeState(size_t ndx) { return true; };
+    // storeDetails=false does not store the names of the results. 
+    // It is used by homotopy algorithms to rapidly store/restore state. 
+    virtual bool storeState(size_t ndx, bool storeDetails=true) { return true; };
 
     // Restore analysis state from internal repository 
     // Used for homotopy and sweeps

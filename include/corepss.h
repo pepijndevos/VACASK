@@ -158,7 +158,7 @@ public:
     bool finalizeOutputs(Status& s = Status::ignore);
     bool deleteOutputs(Id name, Status& s = Status::ignore);
 
-    virtual bool storeState(size_t ndx);
+    virtual bool storeState(size_t ndx, bool storeDetails=true);
     virtual bool restoreState(size_t ndx);
     
     void dump(std::ostream& os) const;

@@ -108,12 +108,16 @@ bool PssCore::deleteOutputs(Id name, Status& s) {
     return true;
 }
 
-bool PssCore::storeState(size_t ndx) {
+bool PssCore::storeState(size_t ndx, bool storeDetails) {
     auto& repo = coreStates.at(ndx);
     repo.solution.setTypeTag(OperatingPointCore::solutionTag);
 
     // Store current solution as annotated solution
-    repo.solution.setNames(circuit);
+    if (storeDetails) {
+        repo.solution.setNames(circuit);
+    } else {
+        repo.solution.clearNames();
+    }
     
     // Store time domain solution
     repo.solution.setValues(solution.vector());
