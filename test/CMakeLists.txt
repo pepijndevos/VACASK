@@ -1,13 +1,17 @@
 # Testing - requires a working installation of python3 and openvaf
 
-# Directory where the python script that runs a test can be found
-# Use staging directory to keep source clean
-set(PYTHON_LIB "${STAGED_LIBRARY_DIRECTORY}/python")
-message("Python library path for testing: ${PYTHON_LIB}")
+set(TEST_DEPENDENCIES
+    diocalc.py
+    ../demo/ihp-sg13g2/.vacaskrc.toml
+)
 
 # macro that sets up a test
 macro(prepare_netlist_test simfile)
-file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${simfile}")
+    file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${simfile}")
+    foreach(item IN ITEMS ${TEST_DEPENDENCIES})
+        file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/${item} DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/${simfile}")
+    endforeach()
+    
     add_test(NAME "${simfile}"
         COMMAND $<TARGET_FILE:sim> -dp "${CMAKE_CURRENT_SOURCE_DIR}/${simfile}"
         WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${simfile}"
@@ -29,12 +33,7 @@ endmacro()
 # Create directory for manually running tests from vscode
 file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/manual_run")
 
-set(TEST_DEPENDENCIES
-    diocalc.py
-)
-
 foreach(item IN ITEMS ${TEST_DEPENDENCIES})
-    file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/${item} DESTINATION "${CMAKE_CURRENT_BINARY_DIR}")
     file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/${item} DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/manual_run")
 endforeach()
 
