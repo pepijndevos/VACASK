@@ -169,7 +169,6 @@ Node* Instance::getInternalNode(Circuit& circuit, const std::string& name, Node:
     }
     // Residual check is not performed on internal nodes. 
     node->setFlags(Node::Flags::InternalDeviceNode);
-    node->clearFlags(Node::Flags::ResidualCheck);
     return node;
 }
 

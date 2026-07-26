@@ -1161,6 +1161,11 @@ template<> bool BuiltinVSourceInstance::populateStructuresCore(Circuit& circuit,
     if (auto [_, ok] = circuit.createJacobianEntry(nodes_[2], nodes_[1], EntryFlags::Resistive, s); !ok) {
         return false;
     }
+    
+    circuit.newResistiveContribution(nodes_[0]);
+    circuit.newResistiveContribution(nodes_[1]);
+    circuit.newResistiveContribution(nodes_[2]);
+    
     // No states to reserve
     return true;
 }
@@ -1168,6 +1173,10 @@ template<> bool BuiltinVSourceInstance::populateStructuresCore(Circuit& circuit,
 template<> bool BuiltinISourceInstance::populateStructuresCore(Circuit& circuit, Status& s) {
     // No Jacobian entries
     // No states to reserve
+
+    circuit.newResistiveContribution(nodes_[0]);
+    circuit.newResistiveContribution(nodes_[1]);
+    
     return true;
 }
 

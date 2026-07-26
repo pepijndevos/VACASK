@@ -210,6 +210,10 @@ template<> bool BuiltinVccsInstance::populateStructuresCore(Circuit& circuit, St
         return false;
     }
     // No states to reserve
+
+    circuit.newResistiveContribution(nodes_[0]);
+    circuit.newResistiveContribution(nodes_[1]);
+
     return true;
 }
 
@@ -360,6 +364,11 @@ template<> bool BuiltinVcvsInstance::populateStructuresCore(Circuit& circuit, St
         return false;
     }
     // No states to reserve
+
+    circuit.newResistiveContribution(nodes_[0]);
+    circuit.newResistiveContribution(nodes_[1]);
+    circuit.newResistiveContribution(nodes_[4]);
+
     return true;
 }
 
@@ -526,6 +535,10 @@ template<> bool BuiltinCccsInstance::populateStructuresCore(Circuit& circuit, St
         return false;
     }
     // No states to reserve
+
+    circuit.newResistiveContribution(nodes_[0]);
+    circuit.newResistiveContribution(nodes_[1]);
+
     return true;
 }
 
@@ -690,6 +703,11 @@ template<> bool BuiltinCcvsInstance::populateStructuresCore(Circuit& circuit, St
         return false;
     }
     // No states to reserve
+
+    circuit.newResistiveContribution(nodes_[0]);
+    circuit.newResistiveContribution(nodes_[1]);
+    circuit.newResistiveContribution(nodes_[2]);
+
     return true;
 }
 
@@ -1027,7 +1045,10 @@ template<> bool BuiltinMutualInstance::bindCore(
         jacEntryPtr(d.jacReact12, d.uFlow1, d.uFlow2, matReact, compReact, mepReact);
         jacEntryPtr(d.jacReact21, d.uFlow2, d.uFlow1, matReact, compReact, mepReact);
     }
-        
+
+    circuit.newReactiveContribution(d.ctlNode1);
+    circuit.newReactiveContribution(d.ctlNode2);
+    
     return true;
 }
 

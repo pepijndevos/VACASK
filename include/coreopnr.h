@@ -84,6 +84,8 @@ public:
     // Set forces based on preprocessed user forces
     bool setForces(Int ndx, const PreprocessedUserForces& preprocessed, bool uicMode, bool abortOnError);
     
+    virtual void rebuildCheckResidualFlags();
+    
     virtual bool rebuild(size_t nSolComp) override;
     virtual bool initialize(bool continuePrevious) override;
     virtual bool preIteration(bool continuePrevious) override;
@@ -170,6 +172,9 @@ protected:
 
     // Flags indicating shuntable nodes
     Vector<bool> shuntable;
+
+    // Flags indicating nodes for which residual can be checked
+    Vector<bool> residualCheckable;
 
     // Solution natures and residual natures are currently limited to 
     //   0 .. voltage

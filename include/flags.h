@@ -59,6 +59,7 @@ public:
             static_cast<NumType>(flags_) & static_cast<NumType>(mask)); 
     };
     constexpr bool checkFlags(Flags f) { return maskedFlags(f) == f; }; 
+    constexpr bool anyFlags(Flags f) { return static_cast<NumType>(maskedFlags(f)); }; 
     void setFlags(Flags f) { 
         flags_ = static_cast<EnumType>(static_cast<NumType>(flags_) | static_cast<NumType>(f)); 
     };

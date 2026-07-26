@@ -533,6 +533,21 @@ bool OsdiInstance::populateStructuresCore(Circuit& circuit, Status& s) {
         model()->device()->nonzeroReactiveResiduals().size();
     offsDeviceStates = circuit.allocateDeviceStates(deviceStateCount);
     
+    // Increment residual contribution counters
+    auto nodeCount = descr->num_nodes;
+    for(decltype(nodeCount) i=0; i<nodeCount; i++) {
+        auto nPtr = descr->nodes+i;
+        auto node = nodes_[i];
+        if (node) {
+            if (nPtr->resist_residual_off!=UINT32_MAX) {
+                circuit.newResistiveContribution(node);
+            }
+            if (nPtr->react_residual_off!=UINT32_MAX) {
+                circuit.newReactiveContribution(node);
+            }
+        }
+    }
+
     return true;
 }
 

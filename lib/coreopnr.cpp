@@ -391,6 +391,15 @@ bool OpNRSolver::setForceOnUnknown(Forces& f, Node* node, double value) {
     return true;
 }
 
+void OpNRSolver::rebuildCheckResidualFlags() {
+    // Build flags indicating residual can be checked for a node
+    auto n = circuit.unknownCount();
+    residualCheckable.assign(n+1, false);
+    for(decltype(n) i=1; i<=n; i++) {
+        residualCheckable[i] = circuit.checkDcResidual(i) &&
+            !circuit.reprNode(i)->checkFlags(Node::Flags::InternalDeviceNode);
+    }
+}
 
 bool OpNRSolver::rebuild(size_t nSolComp) {
     // Call parent's rebuild
@@ -442,12 +451,15 @@ bool OpNRSolver::rebuild(size_t nSolComp) {
     }
 
     // Build flags indicating a shunt can be applied to node
-    shuntable.resize(n+1);
+    shuntable.assign(n+1, false);
     for(decltype(n) i=1; i<=n; i++) {
         auto* node = circuit.reprNode(i);
         shuntable[i] = node->checkFlags(Node::Flags::Shuntable);
     }
-    
+
+    // Build flags indicating residual can be checked for a node
+    rebuildCheckResidualFlags();
+
     return true;
 }
 
@@ -866,7 +878,7 @@ std::tuple<bool, bool> OpNRSolver::checkResidual() {
         // Representative node, associated flow nature index
         auto rn = circuit.reprNode(i);
         // Skip this node if residual check is not allowed
-        if (!rn->checkFlags(Node::Flags::ResidualCheck)) {
+        if (!residualCheckable[i]) {
             continue;
         }
         // Get residual nature index

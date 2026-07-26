@@ -427,6 +427,23 @@ public:
     // - a new entry has been created
     // - ok
     std::tuple<bool, bool> createJacobianEntry(Node* ne, Node* nu, EntryFlags f = EntryFlags::ResistiveReactive, Status& s=Status::ignore);
+    void newResistiveContribution(Node* n) {
+        auto at = resistiveResidualContribCount[n->unknownIndex()];
+        resistiveResidualContribCount[n->unknownIndex()] = at<2 ? at+1 : at;
+    };
+    void newReactiveContribution(Node* n) {
+        auto at = reactiveResidualContribCount[n->unknownIndex()];
+        reactiveResidualContribCount[n->unknownIndex()] = at<2 ? at+1 : at;
+    };
+    bool checkDcResidual(EquationIndex ndx) {
+        return resistiveResidualContribCount[ndx]>1;
+    }
+    bool checkResidual(EquationIndex ndx) {
+        return (
+            resistiveResidualContribCount[ndx]+
+            reactiveResidualContribCount[ndx]
+        )>1;
+    }
     // Allocate n entries in state vector, return global state index of first allocated entry
     GlobalStorageIndex allocateStates(LocalStorageIndex n);
     GlobalStorageIndex allocateDeviceStates(LocalStorageIndex n);
@@ -549,6 +566,10 @@ private:
     
     // Mapping from unknown to representative node
     std::vector<Node*> unknownToReprNode;
+
+    // Flags indicatin if an equation has 0, 1, or 2+ residual contributions
+    std::vector<uint8_t> resistiveResidualContribCount;
+    std::vector<uint8_t> reactiveResidualContribCount;
 
     // Ordered map of Jacobian entries
     // Ordering is by column (unknown) first

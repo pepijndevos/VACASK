@@ -68,6 +68,9 @@ public:
     // Returns RealVector (solution contribution of noise)
     const RealVector& noiseSolutionContribution() { return noiseResidual; };
 
+    // Override method for deciding which residual to check
+    virtual void rebuildCheckResidualFlags() override;
+
     virtual bool initialize(bool continuePrevious) override;
 
     // No need to override buildSysten() and computeResidual() to set 

@@ -24,12 +24,10 @@ enum class NodeFlags : uint8_t {
 
     // This node can be shunted
     Shuntable = 2, 
-    // Skip residual convergence check for corresponding equation
-    ResidualCheck = 4, 
     // Internal device node, avoid them when choosing representative nodes for unknowns
-    InternalDeviceNode = 8,
+    InternalDeviceNode = 4,
     // Ground node, in node ordering ground nodes come before all others
-    Ground = 16,
+    Ground = 8,
 };
 DEFINE_FLAG_OPERATORS(NodeFlags);
 
