@@ -386,19 +386,22 @@ InterpreterExitStatus cmd_postprocess(CommandInterpreter& interpreter, PTCommand
         if (!interpreter.variableEvaluator().evaluate(it, v, ctx, s)) {
             return InterpreterExitStatus::Error;
         }
-        if (v.type()!=Value::Type::String) {
-            if (first) {
-                s.set(Status::BadArguments, "Program name must be a string.");
-            } else {
-                s.set(Status::BadArguments, "Program arguments must be strings.");
-            }
+        if (first && v.type()!=Value::Type::String) {
+            s.set(Status::BadArguments, "Program name must be a string.");
             return InterpreterExitStatus::Error;
         }
         if (first) {
             prog = v.val<String>();
             first = false;
         } else {
-            args.push_back(v.val<String>());
+            if (v.type()==Value::Type::String) {
+                // Scalar strings are unquoted
+                args.push_back(v.val<String>());
+            } else {
+                // Everything else is stringified
+                // Strings in vectors and lists are quoted
+                args.push_back(v.str());
+            }
         }
     }
 

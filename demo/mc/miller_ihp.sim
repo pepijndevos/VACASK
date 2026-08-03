@@ -16,8 +16,20 @@ model isource isource
 model vsource vsource
 model vcvs vcvs
 
-// DUT definition
-include "miller_ihp.inc"
+// Miller OTA definition, IHP SG13G2 devices
+subckt miller(inp inn out vdd vss)
+  i0 (vdd net002) isource dc=ibias
+  xmn3 (net002 net002 vss vss) sg13_lv_nmos w=mirr_w  l=mirr_l  m=mirr_m
+  xmn4 (net003 net002 vss vss) sg13_lv_nmos w=mirr_wd l=mirr_ld m=mirr_md
+  xmn5 (out net002 vss vss)    sg13_lv_nmos w=mirr_wo l=mirr_l  m=mirr_mo
+  xmp1 (net005 net005 vdd vdd) sg13_lv_pmos w=load_w  l=load_l  m=load_m
+  xmp2 (net004 net005 vdd vdd) sg13_lv_pmos w=load_w  l=load_l  m=load_m
+  xmp3 (out net004 vdd vdd)    sg13_lv_pmos w=out_w   l=out_l   m=out_m
+  r1 (out net001) resistor r=r_out
+  c1 (net001 net004) capacitor c=c_out
+  xmn1 (net005 inn net003 vss) sg13_lv_nmos w=diff_w  l=diff_l  m=diff_m
+  xmn2 (net004 inp net003 vss) sg13_lv_nmos w=diff_w  l=diff_l  m=diff_m
+ends
 
 // Global hierarchical parameters
 parameters vdd=1.2 ibias=50u rload=100M cload=1p
@@ -52,55 +64,39 @@ control
   elaborate circuit("dctest")
   print hierarchy
 
-  save (
-    default
-    // Diff pair
-    p('x1:xmn1:nsg13_lv_nmos',vgs) p('x1:xmn1:nsg13_lv_nmos',vds) p('x1:xmn1:nsg13_lv_nmos',vth) p('x1:xmn1:nsg13_lv_nmos',vdss) p('x1:xmn1:nsg13_lv_nmos',ids)
-    p('x1:xmn2:nsg13_lv_nmos',vgs) p('x1:xmn2:nsg13_lv_nmos',vds) p('x1:xmn2:nsg13_lv_nmos',vth) p('x1:xmn2:nsg13_lv_nmos',vdss) p('x1:xmn2:nsg13_lv_nmos',ids)
-    // Mirrors
-    p('x1:xmn3:nsg13_lv_nmos',vgs) p('x1:xmn3:nsg13_lv_nmos',vds) p('x1:xmn3:nsg13_lv_nmos',vth) p('x1:xmn3:nsg13_lv_nmos',vdss) p('x1:xmn3:nsg13_lv_nmos',ids)
-    p('x1:xmn4:nsg13_lv_nmos',vgs) p('x1:xmn4:nsg13_lv_nmos',vds) p('x1:xmn4:nsg13_lv_nmos',vth) p('x1:xmn4:nsg13_lv_nmos',vdss) p('x1:xmn4:nsg13_lv_nmos',ids)
-    p('x1:xmn5:nsg13_lv_nmos',vgs) p('x1:xmn5:nsg13_lv_nmos',vds) p('x1:xmn5:nsg13_lv_nmos',vth) p('x1:xmn5:nsg13_lv_nmos',vdss) p('x1:xmn5:nsg13_lv_nmos',ids)
-    // Active load
-    p('x1:xmp1:nsg13_lv_pmos',vgs) p('x1:xmp1:nsg13_lv_pmos',vds) p('x1:xmp1:nsg13_lv_pmos',vth) p('x1:xmp1:nsg13_lv_pmos',vdss) p('x1:xmp1:nsg13_lv_pmos',ids)
-    p('x1:xmp2:nsg13_lv_pmos',vgs) p('x1:xmp2:nsg13_lv_pmos',vds) p('x1:xmp2:nsg13_lv_pmos',vth) p('x1:xmp2:nsg13_lv_pmos',vdss) p('x1:xmp2:nsg13_lv_pmos',ids)
-    // Output stage
-    p('x1:xmp3:nsg13_lv_pmos',vgs) p('x1:xmp3:nsg13_lv_pmos',vds) p('x1:xmp3:nsg13_lv_pmos',vth) p('x1:xmp3:nsg13_lv_pmos',vdss) p('x1:xmp3:nsg13_lv_pmos',ids)
-  )
-
   analysis op1 op
 
-  sweep vid instance="vid1" parameter="dc" from=-50m to=50m mode="lin" points=1000
+  sweep vid instance="vid1" parameter="dc" from=-10m to=10m mode="lin" points=1000
     analysis dc1 op
 
+  // We are going to pass this to mc and postprocess  
+  var ns=8000
+
   // By default uses Latin hypercube sampling
-  mc mc1 samples=500 debug=0
+  mc mc1 samples=ns debug=0
     sweep vid instance="vid1" parameter="dc" from=-10m to=10m mode="lin" points=200
       analysis dc2 op
   endmc
 
-  postprocess(PYTHON, "runme.py")
+  postprocess(PYTHON, "runme.py", ns)
 endc
 
 embed "runme.py" <<<FILE
 from rawfile import rawread
 import numpy as np
 import matplotlib.pyplot as plt
+import sys
+
+nsamples = int(sys.argv[1])
+print("Number of samples to postprocess:", nsamples)
+sys.stdout.flush()
 
 plot = rawread('op1.raw').get()
 print("Output operating point:", plot["out"])
-for name in [ "mn1", "mn2", "mn3", "mn4", "mn5", "mp1", "mp2", "mp3" ]:
-    if name.startswith("mn"):
-      devname = "x1:x"+name+":nsg13_lv_nmos"
-    else:
-      devname = "x1:x"+name+":nsg13_lv_pmos"
-    vgsov = plot[devname+".vgs"]-plot[devname+".vth"]
-    vdsov = plot[devname+".vds"]-plot[devname+".vdss"]
-    print(name, "ids=", plot[devname+".ids"], "vgs-vth=", vgsov, "vds-vdsat=", vdsov)
 
 plot = rawread('dc1.raw').get()
 
-fig1 = plt.figure(figsize=(10, 8))
+fig1 = plt.figure(figsize=(8, 6))
 ax_dict = fig1.subplot_mosaic("""
 AB
 CC
@@ -111,8 +107,6 @@ ax_dict["A"].set_ylabel('Vout [V]')
 ax_dict["A"].set_xlabel('Vp-Vn [mV]')
 ax_dict["A"].plot((plot['inp']-plot['inn'])*1e3, plot['out'])
 ax_dict["A"].grid(True)
-
-nsamples = 500
 
 # Zero crossings (input-referred offset) collected while scanning MC samples
 crossings = []
