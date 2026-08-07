@@ -10,6 +10,7 @@ static Id  tempId = Id::createStatic("$temp");
 static Id  scaleId = Id::createStatic("$scale");
 static Id  abstimeId = Id::createStatic("$abstime");
 static Id  vId = Id::createStatic("v");
+static Id  iId = Id::createStatic("i");
 
 // VACASK operator tokens and precedence were verified to already match
 // Verilog-AMS LRM Table 4-3 (unary tighter than **, everything else in the
@@ -31,8 +32,8 @@ std::tuple<bool, std::string> Rpn::verilogA(Status& s) const {
     std::unordered_map<Id, std::tuple<std::string, size_t>> nodeMap;
     // Controlling current instance map
     // Format: __i<number>_<identifier>
-    std::unordered_map<Id, std::string> flowMap;
-    std::vector<Id> ctlInstanceOrder;
+    // Maps original identifier to tuple (Verilog-A name, consecutive number)
+    std::unordered_map<Id, std::tuple<std::string, size_t>> flowMap;
 
     OpCode code;
     size_t idx = 0;
@@ -173,6 +174,8 @@ std::tuple<bool, std::string> Rpn::verilogA(Status& s) const {
                 // and indicate the corresponding Verilog-A parameter type.
                 // v(a) and v(a,b) take a node name (identifier or integer) argument
                 // and translate to V(A) / V(A,B), a and b are added to the node map
+                // i(a) takes a single identifier argument (controlling instance name)
+                // and translates to V(A), a is added to the flow map
                 auto name = e->get<FunctionCall>().name;
                 auto n = e->get<FunctionCall>().arity;
                 if (name==intParamId || name==realParamId) {
@@ -232,6 +235,28 @@ std::tuple<bool, std::string> Rpn::verilogA(Status& s) const {
                     }
                     txt += ")";
                     sstack.push_back({std::move(txt), false, idx});
+                    continue;
+                }
+                if (name==iId) {
+                    if (n!=1 || !std::get<1>(sstack.back())) {
+                        s.set(Status::Unsupported, "i() requires a single identifier argument.");
+                        s.extend(location(*e));
+                        return std::make_tuple(false, "");
+                    }
+                    // Controlling instance name: no longer a parameter
+                    Id origId = expr.at(std::get<2>(sstack.back())).get<Identifier>().name;
+                    paramMap.erase(origId);
+                    auto fit = flowMap.find(origId);
+                    std::string flowText;
+                    if (fit!=flowMap.end()) {
+                        flowText = std::get<0>(fit->second);
+                    } else {
+                        size_t num = flowMap.size();
+                        flowText = std::string("__i")+std::to_string(num)+"_"+std::string(origId);
+                        flowMap.emplace(origId, std::make_tuple(flowText, num));
+                    }
+                    sstack.pop_back();
+                    sstack.push_back({"V("+flowText+")", false, idx});
                     continue;
                 }
                 std::string txt = std::string(name)+"(";
