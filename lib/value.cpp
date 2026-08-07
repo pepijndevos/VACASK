@@ -1,4 +1,5 @@
 #include <sstream>
+#include <limits>
 #include "value.h"
 #include "common.h"
 
@@ -228,6 +229,8 @@ std::string Value::str() const {
 }
 
 std::ostream& operator<<(std::ostream& os, const Value& obj) {
+    // Use full round-trip precision for Real, restore caller's precision afterwards
+    auto oldPrecision = os.precision(std::numeric_limits<double>::max_digits10);
     switch(obj.type_) {
         case Value::Type::Int: os << obj.iVal; break;
         case Value::Type::Real: os << obj.rVal; break;
@@ -273,6 +276,7 @@ std::ostream& operator<<(std::ostream& os, const Value& obj) {
             os << "}";
             break;
     }
+    os.precision(oldPrecision);
     return os;
 }
 
