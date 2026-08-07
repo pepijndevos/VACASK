@@ -5,6 +5,7 @@
 #include <limits>
 #include "value.h"
 #include "identifier.h"
+#include "status.h"
 #include "common.h"
 
 
@@ -183,6 +184,8 @@ public:
     inline const Rpn::Entry& operator[](size_t i) const { return expr[i]; }
 
     std::string str() const;
+
+    std::tuple<bool, std::string> verilogA(Status& s=Status::ignore) const;
     
     friend std::ostream& operator<<(std::ostream& os, const Rpn& expr);
 

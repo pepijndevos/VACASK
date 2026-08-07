@@ -138,6 +138,7 @@ add_library(simlib STATIC
     pool.cpp
     identifier.cpp
     rpnexpr.cpp
+    rpnexprva.cpp
     rpnbuiltin.cpp
     context.cpp
     rpnstack.cpp
