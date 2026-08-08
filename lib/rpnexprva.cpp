@@ -116,7 +116,7 @@ static std::unordered_map<VAFuncKey, VAFuncTranslator, VAFuncKeyHash> vaFuncMap 
 // VACASK operator tokens and precedence were verified to already match
 // Verilog-AMS LRM Table 4-3 (unary tighter than **, everything else in the
 // same relative order), so the same opMap used by str() applies here too.
-std::tuple<bool, std::string> Rpn::verilogA(Status& s) const {
+std::tuple<bool, std::string, Rpn::ParamMap, Rpn::NodeMap, Rpn::FlowMap> Rpn::verilogA(Status& s) const {
     // Second tuple element is true iff the entry is a bare (renamed) identifier
     // other than $temp/$scale, i.e. it never needs to be wrapped in parentheses
     // when used as an operand. Everything else is wrapped defensively.
@@ -126,15 +126,15 @@ std::tuple<bool, std::string> Rpn::verilogA(Status& s) const {
     // RPN identifier to Verilog-A parameter map
     // Format: __p<number>_<identifier>
     // Maps original identifier to tuple (Verilog-A name, type, consecutive number)
-    std::unordered_map<Id, std::tuple<std::string, Value::Type, size_t>> paramMap;
+    ParamMap paramMap;
     // Node identifier to Verilog-A terminal (node) map
     // Format: __v<number>_<identifier>
     // Maps original identifier to tuple (Verilog-A name, consecutive number)
-    std::unordered_map<Id, std::tuple<std::string, size_t>> nodeMap;
+    NodeMap nodeMap;
     // Controlling current instance map
     // Format: __i<number>_<identifier>
     // Maps original identifier to tuple (Verilog-A name, consecutive number)
-    std::unordered_map<Id, std::tuple<std::string, size_t>> flowMap;
+    FlowMap flowMap;
 
     OpCode code;
     for(size_t idx=0; idx<expr.size(); idx++) {
@@ -216,7 +216,7 @@ std::tuple<bool, std::string> Rpn::verilogA(Status& s) const {
                 if (v.type()!=Value::Type::Real && v.type()!=Value::Type::Int) {
                     s.set(Status::Unsupported, "Only real and integer literals have a Verilog-A equivalent.");
                     s.extend(location(e));
-                    return std::make_tuple(false, "");
+                    return std::make_tuple(false, "", ParamMap{}, NodeMap{}, FlowMap{});
                 }
                 sstack.push_back({v.str(), false, idx});
                 continue;
@@ -276,7 +276,7 @@ std::tuple<bool, std::string> Rpn::verilogA(Status& s) const {
                         // No Verilog-A equivalent for bitwise/shift operators
                         s.set(Status::Unsupported, "Bitwise and shift operators have no Verilog-A equivalent.");
                         s.extend(location(e));
-                        return std::make_tuple(false, "");
+                        return std::make_tuple(false, "", ParamMap{}, NodeMap{}, FlowMap{});
                     case OpUMinus:
                     case OpNot: {
                         // Unary prefix operators
@@ -342,7 +342,7 @@ std::tuple<bool, std::string> Rpn::verilogA(Status& s) const {
                         // No Verilog-A equivalent for vector/list indexing
                         s.set(Status::Unsupported, "Selection operator has no Verilog-A equivalent.");
                         s.extend(location(e));
-                        return std::make_tuple(false, "");
+                        return std::make_tuple(false, "", ParamMap{}, NodeMap{}, FlowMap{});
                 }
                 break;
             }
@@ -360,7 +360,7 @@ std::tuple<bool, std::string> Rpn::verilogA(Status& s) const {
                     if (n!=1 || !std::get<1>(sstack.back())) {
                         s.set(Status::Unsupported, std::string(name)+"() requires a single identifier argument.");
                         s.extend(location(e));
-                        return std::make_tuple(false, "");
+                        return std::make_tuple(false, "", ParamMap{}, NodeMap{}, FlowMap{});
                     }
                     Id argName = expr.at(std::get<2>(sstack.back())).get<Identifier>().name;
                     Value::Type newType = (name==intParamId) ? Value::Type::Int : Value::Type::Real;
@@ -376,7 +376,7 @@ std::tuple<bool, std::string> Rpn::verilogA(Status& s) const {
                         std::to_string(n)+" cannot be translated to Verilog-A."
                     );
                     s.extend(location(e));
-                    return std::make_tuple(false, "");
+                    return std::make_tuple(false, "", ParamMap{}, NodeMap{}, FlowMap{});
                 }
                 auto argPos = sstack.size()-n;
                 std::string txt = fit->second(sstack, argPos, n);
@@ -389,7 +389,7 @@ std::tuple<bool, std::string> Rpn::verilogA(Status& s) const {
                 // No Verilog-A equivalent for vector/list literals
                 s.set(Status::Unsupported, "Vector/list literals have no Verilog-A equivalent.");
                 s.extend(location(e));
-                return std::make_tuple(false, "");
+                return std::make_tuple(false, "", ParamMap{}, NodeMap{}, FlowMap{});
             case TMakeBoolean:
             case TJump:
             case TBranch:
@@ -398,10 +398,10 @@ std::tuple<bool, std::string> Rpn::verilogA(Status& s) const {
             default:
                 s.set(Status::Unsupported, "Expression construct has no Verilog-A equivalent.");
                 s.extend(location(e));
-                return std::make_tuple(false, "");
+                return std::make_tuple(false, "", ParamMap{}, NodeMap{}, FlowMap{});
         }
     }
-    return std::make_tuple(true, std::get<0>(sstack.back()));
+    return std::make_tuple(true, std::move(std::get<0>(sstack.back())), std::move(paramMap), std::move(nodeMap), std::move(flowMap));
 }
 
 }
