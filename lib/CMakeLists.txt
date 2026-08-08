@@ -46,6 +46,7 @@ add_library(simlib STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/sourceloc.h
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/pool.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/rpnexpr.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include/rpnexprva.h
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/identifier.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/rpnfunctor.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/rpnbuiltin.h 

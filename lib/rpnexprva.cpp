@@ -116,25 +116,22 @@ static std::unordered_map<VAFuncKey, VAFuncTranslator, VAFuncKeyHash> vaFuncMap 
 // VACASK operator tokens and precedence were verified to already match
 // Verilog-AMS LRM Table 4-3 (unary tighter than **, everything else in the
 // same relative order), so the same opMap used by str() applies here too.
-std::tuple<bool, std::string, Rpn::ParamMap, Rpn::NodeMap, Rpn::FlowMap> Rpn::verilogA(Status& s) const {
+bool Rpn::verilogA(const std::string& discipline, const std::string& potAccess, const std::string& flowAccess, const std::string& moduleName, RPNBehavioralVA& behavData, Status& s) const {
     // Second tuple element is true iff the entry is a bare (renamed) identifier
     // other than $temp/$scale, i.e. it never needs to be wrapped in parentheses
     // when used as an operand. Everything else is wrapped defensively.
     // Third tuple element is the index in expr of the RPN element that created
     // this stack entry.
     std::vector<std::tuple<std::string, bool, size_t>> sstack;
-    // RPN identifier to Verilog-A parameter map
-    // Format: __p<number>_<identifier>
-    // Maps original identifier to tuple (Verilog-A name, type, consecutive number)
-    ParamMap paramMap;
-    // Node identifier to Verilog-A terminal (node) map
-    // Format: __v<number>_<identifier>
-    // Maps original identifier to tuple (Verilog-A name, consecutive number)
-    NodeMap nodeMap;
-    // Controlling current instance map
-    // Format: __i<number>_<identifier>
-    // Maps original identifier to tuple (Verilog-A name, consecutive number)
-    FlowMap flowMap;
+    // Verilog-A name format: __p<number>_<identifier>
+    // Maps original identifier to index in behavData.param
+    std::unordered_map<Id, size_t> paramMap;
+    // Verilog-A name format: __v<number>_<identifier>
+    // Maps original identifier to index in behavData.node
+    std::unordered_map<Id, size_t> nodeMap;
+    // Verilog-A name format: __i<number>_<identifier>
+    // Maps original identifier to index in behavData.flow
+    std::unordered_map<Id, size_t> flowMap;
 
     OpCode code;
     for(size_t idx=0; idx<expr.size(); idx++) {
@@ -173,13 +170,14 @@ std::tuple<bool, std::string, Rpn::ParamMap, Rpn::NodeMap, Rpn::FlowMap> Rpn::ve
                     }
                     auto nit = nodeMap.find(nodeKey);
                     if (nit!=nodeMap.end()) {
-                        nodeText[i] = std::get<0>(nit->second);
+                        nodeText[i] = std::get<1>(behavData.node[nit->second]);
                     } else {
                         nodeText[i] = std::string("__v")+std::to_string(p)+"_"+sanitizeVariable(rawName);
-                        nodeMap.emplace(nodeKey, std::make_tuple(nodeText[i], p));
+                        nodeMap.emplace(nodeKey, behavData.node.size());
+                        behavData.node.emplace_back(nodeKey, nodeText[i], p);
                     }
                 }
-                std::string txt = "V("+nodeText[0];
+                std::string txt = potAccess+"("+nodeText[0];
                 if (nArgs==2) {
                     txt += ","+nodeText[1];
                 }
@@ -200,13 +198,14 @@ std::tuple<bool, std::string, Rpn::ParamMap, Rpn::NodeMap, Rpn::FlowMap> Rpn::ve
             auto fit = flowMap.find(origId);
             std::string flowText;
             if (fit!=flowMap.end()) {
-                flowText = std::get<0>(fit->second);
+                flowText = std::get<1>(behavData.flow[fit->second]);
             } else {
                 flowText = std::string("__i")+std::to_string(idx)+"_"+sanitizeVariable(origId);
-                flowMap.emplace(origId, std::make_tuple(flowText, idx));
+                flowMap.emplace(origId, behavData.flow.size());
+                behavData.flow.emplace_back(origId, flowText, idx);
             }
             size_t fnIdx = idx+1;
-            sstack.push_back({"V("+flowText+")", false, fnIdx});
+            sstack.push_back({potAccess+"("+flowText+")", false, fnIdx});
             idx = fnIdx;
             continue;
         }
@@ -216,7 +215,7 @@ std::tuple<bool, std::string, Rpn::ParamMap, Rpn::NodeMap, Rpn::FlowMap> Rpn::ve
                 if (v.type()!=Value::Type::Real && v.type()!=Value::Type::Int) {
                     s.set(Status::Unsupported, "Only real and integer literals have a Verilog-A equivalent.");
                     s.extend(location(e));
-                    return std::make_tuple(false, "", ParamMap{}, NodeMap{}, FlowMap{});
+                    return false;
                 }
                 sstack.push_back({v.str(), false, idx});
                 continue;
@@ -251,10 +250,11 @@ std::tuple<bool, std::string, Rpn::ParamMap, Rpn::NodeMap, Rpn::FlowMap> Rpn::ve
                 auto pit = paramMap.find(name);
                 std::string vaName;
                 if (pit!=paramMap.end()) {
-                    vaName = std::get<0>(pit->second);
+                    vaName = std::get<1>(behavData.param[pit->second]);
                 } else {
                     vaName = std::string("__p")+std::to_string(idx)+"_"+sanitizeVariable(name);
-                    paramMap.emplace(name, std::make_tuple(vaName, Value::Type::Real, idx));
+                    paramMap.emplace(name, behavData.param.size());
+                    behavData.param.emplace_back(name, vaName, Value::Type::Real, idx);
                 }
                 sstack.push_back({std::move(vaName), true, idx});
                 continue;
@@ -276,7 +276,7 @@ std::tuple<bool, std::string, Rpn::ParamMap, Rpn::NodeMap, Rpn::FlowMap> Rpn::ve
                         // No Verilog-A equivalent for bitwise/shift operators
                         s.set(Status::Unsupported, "Bitwise and shift operators have no Verilog-A equivalent.");
                         s.extend(location(e));
-                        return std::make_tuple(false, "", ParamMap{}, NodeMap{}, FlowMap{});
+                        return false;
                     case OpUMinus:
                     case OpNot: {
                         // Unary prefix operators
@@ -342,7 +342,7 @@ std::tuple<bool, std::string, Rpn::ParamMap, Rpn::NodeMap, Rpn::FlowMap> Rpn::ve
                         // No Verilog-A equivalent for vector/list indexing
                         s.set(Status::Unsupported, "Selection operator has no Verilog-A equivalent.");
                         s.extend(location(e));
-                        return std::make_tuple(false, "", ParamMap{}, NodeMap{}, FlowMap{});
+                        return false;
                 }
                 break;
             }
@@ -360,11 +360,11 @@ std::tuple<bool, std::string, Rpn::ParamMap, Rpn::NodeMap, Rpn::FlowMap> Rpn::ve
                     if (n!=1 || !std::get<1>(sstack.back())) {
                         s.set(Status::Unsupported, std::string(name)+"() requires a single identifier argument.");
                         s.extend(location(e));
-                        return std::make_tuple(false, "", ParamMap{}, NodeMap{}, FlowMap{});
+                        return false;
                     }
                     Id argName = expr.at(std::get<2>(sstack.back())).get<Identifier>().name;
                     Value::Type newType = (name==intParamId) ? Value::Type::Int : Value::Type::Real;
-                    std::get<1>(paramMap.at(argName)) = newType;
+                    std::get<2>(behavData.param[paramMap.at(argName)]) = newType;
                     // Result of $intparam()/$realparam() is the identifier itself
                     continue;
                 }
@@ -376,7 +376,7 @@ std::tuple<bool, std::string, Rpn::ParamMap, Rpn::NodeMap, Rpn::FlowMap> Rpn::ve
                         std::to_string(n)+" cannot be translated to Verilog-A."
                     );
                     s.extend(location(e));
-                    return std::make_tuple(false, "", ParamMap{}, NodeMap{}, FlowMap{});
+                    return false;
                 }
                 auto argPos = sstack.size()-n;
                 std::string txt = fit->second(sstack, argPos, n);
@@ -389,7 +389,7 @@ std::tuple<bool, std::string, Rpn::ParamMap, Rpn::NodeMap, Rpn::FlowMap> Rpn::ve
                 // No Verilog-A equivalent for vector/list literals
                 s.set(Status::Unsupported, "Vector/list literals have no Verilog-A equivalent.");
                 s.extend(location(e));
-                return std::make_tuple(false, "", ParamMap{}, NodeMap{}, FlowMap{});
+                return false;
             case TMakeBoolean:
             case TJump:
             case TBranch:
@@ -398,10 +398,11 @@ std::tuple<bool, std::string, Rpn::ParamMap, Rpn::NodeMap, Rpn::FlowMap> Rpn::ve
             default:
                 s.set(Status::Unsupported, "Expression construct has no Verilog-A equivalent.");
                 s.extend(location(e));
-                return std::make_tuple(false, "", ParamMap{}, NodeMap{}, FlowMap{});
+                return false;
         }
     }
-    return std::make_tuple(true, std::move(std::get<0>(sstack.back())), std::move(paramMap), std::move(nodeMap), std::move(flowMap));
+    behavData.vaCode = std::move(std::get<0>(sstack.back()));
+    return true;
 }
 
 }

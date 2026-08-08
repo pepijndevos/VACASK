@@ -7,6 +7,7 @@
 #include "value.h"
 #include "identifier.h"
 #include "status.h"
+#include "rpnexprva.h"
 #include "common.h"
 
 
@@ -186,14 +187,7 @@ public:
 
     std::string str() const;
 
-    // Maps built by verilogA(), keyed by original VACASK identifier:
-    // parameter name -> (Verilog-A name, type, source RPN index)
-    typedef std::unordered_map<Id, std::tuple<std::string, Value::Type, size_t>> ParamMap;
-    // node/instance name -> (Verilog-A name, source RPN index)
-    typedef std::unordered_map<Id, std::tuple<std::string, size_t>> NodeMap;
-    typedef std::unordered_map<Id, std::tuple<std::string, size_t>> FlowMap;
-
-    std::tuple<bool, std::string, ParamMap, NodeMap, FlowMap> verilogA(Status& s=Status::ignore) const;
+    bool verilogA(const std::string& discipline, const std::string& potAccess, const std::string& flowAccess, const std::string& moduleName, RPNBehavioralVA& behavData, Status& s=Status::ignore) const;
     
     friend std::ostream& operator<<(std::ostream& os, const Rpn& expr);
 
