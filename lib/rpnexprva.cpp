@@ -31,6 +31,88 @@ static Id  abstimeId = Id::createStatic("$abstime");
 static Id  vId = Id::createStatic("v");
 static Id  iId = Id::createStatic("i");
 
+// Expression stack entry: (Verilog-A text, is-bare-identifier flag, source RPN index)
+typedef std::vector<std::tuple<std::string, bool, size_t>> SStack;
+
+// Translates a VACASK builtin function call into its Verilog-A equivalent.
+// stack holds the already-translated arguments; argPos is the stack index
+// of the first argument, nArgs is the argument count. Returns the formatted
+// Verilog-A function call text.
+typedef std::string (*VAFuncTranslator)(SStack& stack, size_t argPos, size_t nArgs);
+
+// Compile-time string usable as a non-type template argument (C++20)
+template<std::size_t N>
+struct FixedString {
+    char value[N] = {};
+    constexpr FixedString(const char (&str)[N]) {
+        for (std::size_t i=0; i<N; i++) {
+            value[i] = str[i];
+        }
+    }
+};
+
+// Trivial translation: VACASK name(arg1, ..., argn) -> DestName(arg1, ..., argn)
+template<FixedString DestName>
+static std::string trivialTranslator(SStack& stack, size_t argPos, size_t nArgs) {
+    std::string txt = std::string(DestName.value) + "(";
+    for (size_t i=0; i<nArgs; i++) {
+        if (i>0) {
+            txt += ", ";
+        }
+        txt += std::get<0>(stack.at(argPos+i));
+    }
+    txt += ")";
+    return txt;
+}
+
+// Map key: function name plus arity, since a name may be trivially
+// translatable at one arity (e.g. min/max at 2 args) but not another
+// (e.g. min/max at 1 arg, which aggregates a vector)
+typedef std::pair<Id, size_t> VAFuncKey;
+
+struct VAFuncKeyHash {
+    size_t operator()(const VAFuncKey& k) const {
+        return hash_val(k.first.id(), k.second);
+    }
+};
+
+static std::unordered_map<VAFuncKey, VAFuncTranslator, VAFuncKeyHash> vaFuncMap = {
+    // Same name, same semantics
+    { { Id::createStatic("sin"),   1 }, trivialTranslator<"sin"> },
+    { { Id::createStatic("cos"),   1 }, trivialTranslator<"cos"> },
+    { { Id::createStatic("tan"),   1 }, trivialTranslator<"tan"> },
+    { { Id::createStatic("asin"),  1 }, trivialTranslator<"asin"> },
+    { { Id::createStatic("acos"),  1 }, trivialTranslator<"acos"> },
+    { { Id::createStatic("atan"),  1 }, trivialTranslator<"atan"> },
+    { { Id::createStatic("sinh"),  1 }, trivialTranslator<"sinh"> },
+    { { Id::createStatic("cosh"),  1 }, trivialTranslator<"cosh"> },
+    { { Id::createStatic("tanh"),  1 }, trivialTranslator<"tanh"> },
+    { { Id::createStatic("asinh"), 1 }, trivialTranslator<"asinh"> },
+    { { Id::createStatic("acosh"), 1 }, trivialTranslator<"acosh"> },
+    { { Id::createStatic("atanh"), 1 }, trivialTranslator<"atanh"> },
+    { { Id::createStatic("ln"),    1 }, trivialTranslator<"ln"> },
+    { { Id::createStatic("exp"),   1 }, trivialTranslator<"exp"> },
+    { { Id::createStatic("sqrt"),  1 }, trivialTranslator<"sqrt"> },
+    { { Id::createStatic("abs"),   1 }, trivialTranslator<"abs"> },
+    { { Id::createStatic("floor"), 1 }, trivialTranslator<"floor"> },
+    { { Id::createStatic("ceil"),  1 }, trivialTranslator<"ceil"> },
+    { { Id::createStatic("pow"),   2 }, trivialTranslator<"pow"> },
+    { { Id::createStatic("hypot"), 2 }, trivialTranslator<"hypot"> },
+    { { Id::createStatic("atan2"), 2 }, trivialTranslator<"atan2"> },
+    // 2-argument scalar case only; the 1-argument vector-aggregate case has
+    // no Verilog-A equivalent and simply won't be found in this map
+    { { Id::createStatic("min"),   2 }, trivialTranslator<"min"> },
+    { { Id::createStatic("max"),   2 }, trivialTranslator<"max"> },
+    // Same semantics, different Verilog-A name: VACASK's "log" is natural
+    // log (like "ln"), while Verilog-A's "log" is base-10 (like VACASK's
+    // "log10") -- a same-name passthrough here would silently be wrong
+    { { Id::createStatic("log"),   1 }, trivialTranslator<"ln"> },
+    { { Id::createStatic("log10"), 1 }, trivialTranslator<"log"> },
+    // Type conversion, renamed to the matching Verilog-A system function
+    { { Id::createStatic("int"),   1 }, trivialTranslator<"$rtoi"> },
+    { { Id::createStatic("real"),  1 }, trivialTranslator<"$itor"> },
+};
+
 // VACASK operator tokens and precedence were verified to already match
 // Verilog-AMS LRM Table 4-3 (unary tighter than **, everything else in the
 // same relative order), so the same opMap used by str() applies here too.
@@ -268,10 +350,10 @@ std::tuple<bool, std::string> Rpn::verilogA(Status& s) const {
                 // f()
                 // f(x1)
                 // f(x1, x2, ..., xn)
-                // int() and real() perform conversion
                 // $intparam() and $realparam() take only identifier as argument
                 // and indicate the corresponding Verilog-A parameter type.
                 // v(a)/v(a,b) and i(a) are handled earlier via lookahead, before this switch
+                // Everything else is looked up in vaFuncMap by (name, arity)
                 auto name = e.get<FunctionCall>().name;
                 auto n = e.get<FunctionCall>().arity;
                 if (name==intParamId || name==realParamId) {
@@ -286,16 +368,19 @@ std::tuple<bool, std::string> Rpn::verilogA(Status& s) const {
                     // Result of $intparam()/$realparam() is the identifier itself
                     continue;
                 }
-                std::string txt = std::string(name)+"(";
-                auto j = sstack.size()-n;
-                for(decltype(n) i=0; i<n; i++, j++) {
-                    if (i>0 && n>1)  {
-                        txt += ", ";
-                    }
-                    txt += std::get<0>(sstack.at(j));
+                auto fit = vaFuncMap.find(VAFuncKey(name, n));
+                if (fit==vaFuncMap.end()) {
+                    s.set(
+                        Status::Unsupported,
+                        std::string("Function ")+std::string(name)+"() with arity "+
+                        std::to_string(n)+" cannot be translated to Verilog-A."
+                    );
+                    s.extend(location(e));
+                    return std::make_tuple(false, "");
                 }
-                txt+=")";
-                sstack.resize(sstack.size()-n);
+                auto argPos = sstack.size()-n;
+                std::string txt = fit->second(sstack, argPos, n);
+                sstack.resize(argPos);
                 sstack.push_back({std::move(txt), false, idx});
                 break;
             }
