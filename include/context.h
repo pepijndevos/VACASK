@@ -141,6 +141,9 @@ public:
     // Checks if name is a constant
     static bool isConstant(Id name) { return consts.get(name)!=nullptr; };
 
+    // Retrieves a constant, returns nullptr if name is not a constant
+    static const Value* getConstant(Id name) { return consts.get(name); };
+
     void dump(int indent, std::ostream& os) const;
 
     typedef std::unordered_map<Id,Builtin> Builtins;
