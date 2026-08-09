@@ -340,6 +340,45 @@ private:
     Loc loc;
 };
 
+// Behavioral source
+class PTBehavioral {
+public:
+    PTBehavioral() {};
+    PTBehavioral(Id name, PTIdentifierList&& terms, Rpn&& expr, bool currentSource, const Loc& l=Loc::bad)
+        : loc(l), instanceName_(name), connections_(std::move(terms)), expr_(std::move(expr)), currentSource_(currentSource),
+          discipline_("electrical"), potentialAccessor_("V"), flowAccessor_("I") {};
+    PTBehavioral(Id name, PTIdentifierList&& terms, Rpn&& expr, bool currentSource, std::string&& discipline, std::string&& potentialAccessor, std::string&& flowAccessor, const Loc& l=Loc::bad)
+        : loc(l), instanceName_(name), connections_(std::move(terms)), expr_(std::move(expr)), currentSource_(currentSource), 
+          discipline_(discipline), potentialAccessor_(potentialAccessor), flowAccessor_(flowAccessor) {};
+    
+    PTBehavioral           (const PTBehavioral&)  = delete;
+    PTBehavioral           (      PTBehavioral&&) = default;
+    PTBehavioral& operator=(const PTBehavioral&)  = delete;
+    PTBehavioral& operator=(      PTBehavioral&&) = default;
+
+    // Getters
+    inline const Loc& location() const { return loc; };
+    Id name() const { return instanceName_; };
+    const Rpn& expr() const { return expr_; };
+    bool currentSource() const { return currentSource_; };
+    const std::string& discipline() const { return discipline_; };
+    const std::string& potentialAccessor() const { return potentialAccessor_; };
+    const std::string& flowAccessor() const { return flowAccessor_; };
+    
+    void dump(int indent, std::ostream& os) const;
+
+    bool verify(int level, Status& s=Status::ignore) const;
+
+private:
+    Id instanceName_;
+    PTIdentifierList connections_;
+    Rpn expr_;
+    bool currentSource_;
+    std::string discipline_;
+    std::string potentialAccessor_;
+    std::string flowAccessor_;
+    Loc loc;
+};
 
 // Block index
 typedef uint32_t PTBlockIndex;
@@ -369,10 +408,12 @@ public:
     // Fluent API
     PTBlock& add(PTModel&& mod) & { models_.push_back(std::move(mod)); return *this; };
     PTBlock& add(PTInstance&& inst) & { instances_.push_back(std::move(inst)); return *this; };
+    PTBlock& add(PTBehavioral&& behav) & { behaviorals_.push_back(std::move(behav)); return *this; };
     // add(PTBlockSequence&&) implementations are after PTBlockSequence definition
     PTBlock& add(PTBlockSequence&& seq) &;
     PTBlock&& add(PTModel&& mod) && { return std::move(this->add(std::move(mod))); };
     PTBlock&& add(PTInstance&& inst) && { return std::move(this->add(std::move(inst))); };
+    PTBlock&& add(PTBehavioral&& behav) && { return std::move(this->add(std::move(behav))); };
     PTBlock&& add(PTBlockSequence&& seq) &&;
 
     void dump(int indent, std::ostream& os) const;
@@ -382,6 +423,7 @@ public:
 private:
     std::vector<PTModel> models_;
     std::vector<PTInstance> instances_;
+    std::vector<PTBehavioral> behaviorals_;
     std::unique_ptr<std::vector<PTBlockSequence>> blockSequences_;
     Loc loc;
 };
@@ -460,6 +502,7 @@ public:
     };
     PTSubcircuitDefinition& add(PTModel&& mod) & { root_.add(std::move(mod)); return *this; };
     PTSubcircuitDefinition& add(PTInstance&& inst) & { root_.add(std::move(inst)); return *this; };
+    PTSubcircuitDefinition& add(PTBehavioral&& behav) & { root_.add(std::move(behav)); return *this; };
     PTSubcircuitDefinition& add(PTBlockSequence&& seq) & { root_.add(std::move(seq)); return *this; };
     PTSubcircuitDefinition& add(PTParameters&& par) & { PTModel::add(std::move(par)); return *this; };
     PTSubcircuitDefinition& add(PTParameterValue&& v) & { PTModel::add(std::move(v)); return *this; };
@@ -467,6 +510,7 @@ public:
     PTSubcircuitDefinition&& add(PTSubcircuitDefinition&& subDef) && { return std::move(this->add(std::move(subDef))); };
     PTSubcircuitDefinition&& add(PTModel&& mod) && { return std::move(this->add(std::move(mod))); };
     PTSubcircuitDefinition&& add(PTInstance&& inst) && { return std::move(this->add(std::move(inst))); };
+    PTSubcircuitDefinition&& add(PTBehavioral&& behav) && { return std::move(this->add(std::move(behav))); };
     PTSubcircuitDefinition&& add(PTBlockSequence&& seq) && { return std::move(this->add(std::move(seq))); };
     PTSubcircuitDefinition&& add(PTParameters&& par) && { return std::move(this->add(std::move(par))); };
     PTSubcircuitDefinition&& add(PTParameterValue&& v) && { return std::move(this->add(std::move(v))); };
@@ -783,6 +827,11 @@ public:
 
     // More thorough checks applied to manually built circuits
     bool verify(Status& s=Status::ignore) const { return verifyWorker(1, s); };
+
+    // Process behavioral sources
+    // This translates expressions to Verilog-A and adds models and instances
+    // Should be called only once. 
+    bool processBehaviorals(int debug=0, Status& s=Status::ignore);
 
     // Write embedded files
     bool writeEmbedded(int debug=0, Status& s=Status::ignore);

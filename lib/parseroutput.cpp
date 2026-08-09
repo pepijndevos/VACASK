@@ -79,6 +79,17 @@ void PTInstance::dump(int indent, std::ostream& os) const {
     os << masterName_ << " " << parameters_ << "\n";
 }
 
+void PTBehavioral::dump(int indent, std::ostream& os) const {
+    std::string pfx = std::string(indent, ' ');
+    os << pfx << (instanceName_) << " (" << connections_ << ") ";
+    os << (currentSource_ ? "flow=" : "potential=" );
+    os << expr_.str() << "discipline=[";
+    os << "\"" << discipline_ << "\", ";
+    os << "\"" << potentialAccessor_ << "\", ";
+    os << "\"" << flowAccessor_ << "\"";
+    "]\n";
+}
+
 
 void PTBlockSequence::dump(int indent, std::ostream& os) const {
     std::string pfx = std::string(indent, ' ');
@@ -107,6 +118,9 @@ void PTBlock::dump(int indent, std::ostream& os) const {
     }
     for(auto& inst : instances_) {
         inst.dump(indent, os);
+    }
+    for(auto& behav : behaviorals_) {
+        behav.dump(indent, os);
     }
     if (hasBlockSequences()) {
         for(auto& seq: *blockSequences_) {
@@ -280,6 +294,10 @@ bool PTInstance::verify(int level, Status& s) const {
     return true;
 }
 
+bool PTBehavioral::verify(int level, Status& s) const {
+    return true;
+}
+
 bool PTBlock::verify(int level, Status& s) const {
     // Check models
     for(auto& mod : models_) {
@@ -291,6 +309,13 @@ bool PTBlock::verify(int level, Status& s) const {
     // Check instances
     for(auto& inst : instances_) {
         if (!inst.verify(level, s)) {
+            return false;
+        }
+    }
+    
+    // Check behaviorals
+    for(auto& behav : behaviorals_) {
+        if (!behav.verify(level, s)) {
             return false;
         }
     }
@@ -435,6 +460,18 @@ bool PTAnalysis::verify(int level, Status& s) const {
 
     return true;
 }
+
+/*
+// Extract canonical name of the file that contains the behavioral source instance
+    std::string canonicalFileName;
+    Loc instanceLoc = @1.loc();
+    if (instanceLoc) {
+      auto [fileStack, fileIndex, line, col] = instanceLoc.data();
+      if (fileStack) {
+        canonicalFileName = fileStack->canonicalName(fileIndex);
+      }
+    }
+*/
 
 bool ParserTables::verifyWorker(int level, Status& s) const {
     // Check for duplicate analyses (all levels)

@@ -230,6 +230,7 @@ typedef struct subckt {
 %type <struct paramlist>                parameter_list opt_broken_parameter_list subcktparameters 
 %type <PTInstance>                      instance
 %type <PTModel>                         model
+%type <PTBehavioral>                    behavioral
 %type <PTSubcircuitDefinition>          subckt
 %type <struct subckt>                   subckt_build
 %type <PTBlockSequence>                 condblock_build condblock
@@ -342,6 +343,10 @@ subckt_build
     $$ = std::move($1);
     $$.def.add(std::move($2));
   }
+  | subckt_build behavioral {
+    $$ = std::move($1);
+    $$.def.add(std::move($2));
+  }
   | subckt_build condblock {
     $$ = std::move($1);
     $$.def.add(std::move($2));
@@ -434,6 +439,13 @@ condblock_build
     $$.add(std::move($2), std::move(blk), @1.loc());
   }
   | condblock_build instance {
+    $$ = std::move($1);
+    // back() is always valid here: the only base production (BLKIF expr NEWLINE)
+    // adds a block, and every other production keeps the sequence non-empty, so a
+    // reduced condblock_build always holds >=1 block. Same for the model/condblock cases.
+    $$.back().add(std::move($2));
+  }
+  | condblock_build behavioral {
     $$ = std::move($1);
     // back() is always valid here: the only base production (BLKIF expr NEWLINE)
     // adds a block, and every other production keeps the sequence non-empty, so a
@@ -855,9 +867,9 @@ instance
     ));
   }
 
-instance
+behavioral
   : IDENTIFIER LPAREN terminal_list RPAREN opt_broken_parameter_list NEWLINE {
-    // Check terminal count
+    // Check terminal count - move this to behavioral processing
     if ($3.size()!=2) {
       status.set(Status::BadArguments, "Behavioral source instance requires exactly 2 terminals.");
       status.extend(@3.loc());
@@ -956,15 +968,16 @@ instance
         YYERROR;
       }
     }
-    // Extract canonical name of the file that contains the behavioral source instance
-    std::string canonicalFileName;
-    Loc instanceLoc = @1.loc();
-    if (instanceLoc) {
-      auto [fileStack, fileIndex, line, col] = instanceLoc.data();
-      if (fileStack) {
-        canonicalFileName = fileStack->canonicalName(fileIndex);
-      }
-    }
+    $$ = std::move(PTBehavioral(
+        $1, 
+        std::move($3), 
+        std::move(expr), 
+        isCurrentSource, 
+        std::move(discipline), 
+        std::move(potentialAccessor), 
+        std::move(flowAccessor), 
+        @1.loc()
+    ));
   }
   
 model
