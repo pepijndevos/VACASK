@@ -1,13 +1,24 @@
 # Converting IHP Open PDK for use with VACASK
 
-Conversion was tested on version a2bf8ea81aee7d0fcdd6d62168edca0d7d0bcb08 of the IHP Open PDK (January 2026). It may or may not work with newer versions. First, clone IHP SG13G2 PDK
+First, clone IHP SG13G2 PDK
 ```
 git clone https://github.com/IHP-GmbH/IHP-Open-PDK
 ```
-Now you have the latest version of the PDK in a directory named `IHP-Open-PDK`. If conversion fails or the converted PDK does not work, you can try again with version a2bf8ea81aee7d0fcdd6d62168edca0d7d0bcb08 by typing (immediately after clone)
+Now you have the latest version of the PDK in a directory named `IHP-Open-PDK`. Enter the directory and move to the development branch. 
 ```
 cd IHP-Open-PDK
-git checkout a2bf8ea81aee7d0fcdd6d62168edca0d7d0bcb08
+git checkout dev
+```
+Update submodules
+```
+git submodule update --init --recursive
+```
+
+If conversion fails or the converted PDK does not work, you can try again with commit c1d6f49ea902a88e328dda022805da8887ea26e3 from the development branch by typing (immediately after clone)
+```
+cd IHP-Open-PDK
+git checkout c1d6f49ea902a88e328dda022805da8887ea26e3
+git submodule update --init --recursive
 ```
 
 Set environmental variables
@@ -33,7 +44,7 @@ The converter will process the Ngspice models and
 * create directory `ihp-sg13g2/libs.ref/sg13g2_io/vacask` with the converted I/O cells
 * create a VACASK config file `ihp-sg13g2/libs.tech/vacask/.vacaskrc.toml`
   (copy this file to the directory where your toplevel netlist is located)
-* patch xschem symbols with the VACASK netlisting pattern (`sg13g2_pr` and `sg13g2_stdcells` directories)
+* patch xschem symbols with the VACASK netlisting pattern (`libs.tech/xschem/sg13g2_pr` and `libs.ref/sg13g2_stdcell/sym/xschem` directories)
 * patch the Xschem configuration file `ihp-sg13g2/libs.tech/xschem/xschemrc`
 * add a VACASK customization file for Xschem (`ihp-sg13g2/libs.tech/xschem/xschem-vacask`)
 * compile the Verilog-A models that are provided with the PDK and place the 

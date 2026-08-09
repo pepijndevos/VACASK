@@ -61,7 +61,7 @@ tech_files = [
 
     # Standard cells and I/O, non-default destination
     ( "sg13g2_stdcell.spice", 1, None, "../vacask/sg13g2_stdcell.inc" ), 
-    ( "sg13g2_io.spi", 1, None, "../vacask/sg13g2_io.inc" ), 
+    ( "sg13g2_io.spice", 1, None, "../vacask/sg13g2_io.inc" ), 
 ]
 
 def patch_dig(line):
@@ -337,9 +337,11 @@ module_path_prefix = [ "$(PDK_ROOT)/$(PDK)/libs.tech/vacask/osdi" ]
     # All .sym files in sg13g2_stdcells
     # Try new path first
     directory = Path(pdkroot) / pdk / "libs.ref" / "sg13g2_stdcell" / "sym" / "xschem"
+    # To be removed
     if not directory.is_dir():
         # If it is not found, try old path
         directory = Path(xschem_path_pfx) / "sg13g2_stdcells"
+    # End of to be removed
     files = [str(p.resolve()) for p in directory.iterdir() if p.is_file() and p.suffix == ".sym"]
     symfiles += [[f, patch_dig] for f in files]
 

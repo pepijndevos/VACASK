@@ -59,7 +59,7 @@ xschem setprop rect 2 0 y2 1
 }
 C {devices/lab_pin.sym} -200 20 0 0 {name=p1 sig_type=std_logic lab=in}
 C {devices/lab_pin.sym} 60 20 2 0 {name=p2 sig_type=std_logic lab=out}
-C {sg13g2_stdcells/sg13g2_inv_1.sym} -100 20 0 0 {name=x1 VDD=VDD VSS=VSS prefix=sg13g2_ }
+C {sg13g2_inv_1.sym} -100 20 0 0 {name=x1 VDD=VDD VSS=VSS prefix=sg13g2_ }
 C {devices/parax_cap.sym} 0 60 0 0 {name=C2 gnd=GND value=4f m=1}
 C {simulator_commands_shown.sym} 150 -90 0 0 {
 name=Libs_VACASK
@@ -72,7 +72,6 @@ include \\"cornerMOShv.lib\\" section=mos_tt
 include \\"cornerHBT.lib\\" section=hbt_typ
 include \\"cornerRES.lib\\" section=res_typ
 include \\"cornerCAP.lib\\" section=cap_typ
-include \\"sg13g2_stdcell.inc\\"
 "
       }
 C {simulator_commands_shown.sym} 560 -90 0 0 {

@@ -65,7 +65,6 @@ include \\"cornerMOShv.lib\\" section=mos_tt
 include \\"cornerHBT.lib\\" section=hbt_typ
 include \\"cornerRES.lib\\" section=res_typ
 include \\"cornerCAP.lib\\" section=cap_typ
-include \\"sg13g2_stdcell.inc\\"
 "
       }
 C {devices/vsource.sym} -180 -130 0 0 {name=Vdd value="dc=0.9"}
@@ -83,8 +82,8 @@ C {devices/vsource.sym} 220 130 0 1 {name=Vin1 value="type=\\"pulse\\" val0=0 va
 C {devices/vsource.sym} 220 320 0 1 {name=Vin2 value="type=\\"pulse\\" val0=0 val1=0.9 delay=5n rise=100p fall=100p width=2n"}
 C {devices/gnd.sym} 220 160 0 0 {name=l2 lab=GND}
 C {devices/gnd.sym} 220 350 0 0 {name=l3 lab=GND}
-C {sg13g2_stdcells/sg13g2_nor2_1.sym} 330 120 0 0 {name=x1 VDD=VDD VSS=VSS prefix=sg13g2_ }
-C {sg13g2_stdcells/sg13g2_nor2_1.sym} 330 270 0 0 {name=x2 VDD=VDD VSS=VSS prefix=sg13g2_ }
+C {sg13g2_nor2_1.sym} 330 120 0 0 {name=x1 VDD=VDD VSS=VSS prefix=sg13g2_ }
+C {sg13g2_nor2_1.sym} 330 270 0 0 {name=x2 VDD=VDD VSS=VSS prefix=sg13g2_ }
 C {command_block.sym} 590 -140 0 0 {name=CMD
 only_toplevel=false
 }
