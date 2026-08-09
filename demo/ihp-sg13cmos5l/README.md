@@ -1,6 +1,6 @@
 # Converting IHP Open PDK (sg13cmos5l) for use with VACASK
 
-First, obtain and convert the ihp-sg13g2 PDK. See [../ihp-sg13g2/README.md](../ihp-sg13g2/README.md) for details. 
+SG13CMOS5L is SG13G2's little cousin. First, obtain and convert the ihp-sg13g2 PDK. See [../ihp-sg13g2/README.md](../ihp-sg13g2/README.md) for details. 
 
 Enter the directory where the subdirectory with ihp-sg13g2 is found. Then clone the IHP SG13CMOS5L PDK
 ```
@@ -25,3 +25,4 @@ Additional options can be passed to the OpenVAF Verilog-A compiler with `--openv
 PYTHONPATH=/usr/local/lib/vacask/python python3 -m sg13g2tovc --openvaf-options --target_cpu generic
 ```
 
+A [.vacaskrc.toml](.vacaskrc.toml) configuration file is available in this directory. Make sure you set the `PDK_ROOT` and the `PDK` environmental variables. The [.vacaskrc.toml](.vacaskrc.toml) file must be copied either to the user's home directory or to the directory where VACASK is started. 
