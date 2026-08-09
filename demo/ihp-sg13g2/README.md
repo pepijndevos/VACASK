@@ -1,6 +1,6 @@
-# Converting IHP Open PDK for use with VACASK
+# Converting IHP Open PDK (sg13g2) for use with VACASK
 
-First, clone IHP SG13G2 PDK
+First, clone the IHP SG13G2 PDK
 ```
 git clone https://github.com/IHP-GmbH/IHP-Open-PDK
 ```
