@@ -59,7 +59,8 @@ static std::string trivialTranslator(SStack& stack, size_t argPos, size_t nArgs)
         if (i>0) {
             txt += ", ";
         }
-        txt += std::get<0>(stack.at(argPos+i));
+        auto& [argText, argIsId, argIdx] = stack.at(argPos+i);
+        txt += argText;
     }
     txt += ")";
     return txt;
@@ -116,7 +117,7 @@ static std::unordered_map<VAFuncKey, VAFuncTranslator, VAFuncKeyHash> vaFuncMap 
 // VACASK operator tokens and precedence were verified to already match
 // Verilog-AMS LRM Table 4-3 (unary tighter than **, everything else in the
 // same relative order), so the same opMap used by str() applies here too.
-bool Rpn::verilogA(const std::string& discipline, const std::string& potAccess, const std::string& flowAccess, const std::string& moduleName, RPNBehavioralVA& behavData, Status& s) const {
+bool Rpn::verilogA(const std::string& discipline, const std::string& potAccess, const std::string& flowAccess, RPNBehavioralVA& behavData, Status& s) const {
     // Second tuple element is true iff the entry is a bare (renamed) identifier
     // other than $temp/$scale, i.e. it never needs to be wrapped in parentheses
     // when used as an operand. Everything else is wrapped defensively.
@@ -170,7 +171,8 @@ bool Rpn::verilogA(const std::string& discipline, const std::string& potAccess, 
                     }
                     auto nit = nodeMap.find(nodeKey);
                     if (nit!=nodeMap.end()) {
-                        nodeText[i] = std::get<1>(behavData.node[nit->second]);
+                        auto& [nodeId, nodeVaName, nodeIdx] = behavData.node[nit->second];
+                        nodeText[i] = nodeVaName;
                     } else {
                         nodeText[i] = std::string("__v")+std::to_string(p)+"_"+sanitizeVariable(rawName);
                         nodeMap.emplace(nodeKey, behavData.node.size());
@@ -198,7 +200,8 @@ bool Rpn::verilogA(const std::string& discipline, const std::string& potAccess, 
             auto fit = flowMap.find(origId);
             std::string flowText;
             if (fit!=flowMap.end()) {
-                flowText = std::get<1>(behavData.flow[fit->second]);
+                auto& [flowId, flowVaName, flowIdx] = behavData.flow[fit->second];
+                flowText = flowVaName;
             } else {
                 flowText = std::string("__i")+std::to_string(idx)+"_"+sanitizeVariable(origId);
                 flowMap.emplace(origId, behavData.flow.size());
@@ -250,7 +253,8 @@ bool Rpn::verilogA(const std::string& discipline, const std::string& potAccess, 
                 auto pit = paramMap.find(name);
                 std::string vaName;
                 if (pit!=paramMap.end()) {
-                    vaName = std::get<1>(behavData.param[pit->second]);
+                    auto& [paramId, paramVaName, paramType, paramIdx] = behavData.param[pit->second];
+                    vaName = paramVaName;
                 } else {
                     vaName = std::string("__p")+std::to_string(idx)+"_"+sanitizeVariable(name);
                     paramMap.emplace(name, behavData.param.size());
@@ -264,7 +268,8 @@ bool Rpn::verilogA(const std::string& discipline, const std::string& potAccess, 
                 auto it = opMap.find(code);
                 const char* opStr = "";
                 if (it!=opMap.end()) {
-                    opStr = std::get<0>(it->second);
+                    auto& [opText, opPrec] = it->second;
+                    opStr = opText;
                 }
                 switch (code) {
                     case OpBitNot:
@@ -302,12 +307,9 @@ bool Rpn::verilogA(const std::string& discipline, const std::string& potAccess, 
                     case OpAnd:
                     case OpOr: {
                         // Binary infix operators
-                        std::string ex1, ex2;
-                        bool ex1IsId, ex2IsId;
-                        size_t ex1Idx, ex2Idx;
-                        std::tie(ex2, ex2IsId, ex2Idx) = std::move(sstack.back());
+                        auto [ ex2, ex2IsId, ex2Idx ] = std::move(sstack.back());
                         sstack.pop_back();
-                        std::tie(ex1, ex1IsId, ex1Idx) = std::move(sstack.back());
+                        auto [ ex1, ex1IsId, ex1Idx ] = std::move(sstack.back());
                         sstack.pop_back();
                         sstack.push_back({
                             (ex1IsId ? ex1 : parenthesize(ex1)) +
@@ -319,14 +321,11 @@ bool Rpn::verilogA(const std::string& discipline, const std::string& potAccess, 
                     }
                     case OpQuestion: {
                         // Ternary operator
-                        std::string ex1, ex2, ex3;
-                        bool ex1IsId, ex2IsId, ex3IsId;
-                        size_t ex1Idx, ex2Idx, ex3Idx;
-                        std::tie(ex3, ex3IsId, ex3Idx) = std::move(sstack.back());
+                        auto [ ex3, ex3IsId, ex3Idx ] = std::move(sstack.back());
                         sstack.pop_back();
-                        std::tie(ex2, ex2IsId, ex2Idx) = std::move(sstack.back());
+                        auto [ ex2, ex2IsId, ex2Idx ] = std::move(sstack.back());
                         sstack.pop_back();
-                        std::tie(ex1, ex1IsId, ex1Idx) = std::move(sstack.back());
+                        auto [ ex1, ex1IsId, ex1Idx ] = std::move(sstack.back());
                         sstack.pop_back();
                         sstack.push_back({
                             (ex1IsId ? ex1 : parenthesize(ex1)) +
@@ -357,14 +356,16 @@ bool Rpn::verilogA(const std::string& discipline, const std::string& potAccess, 
                 auto name = e.get<FunctionCall>().name;
                 auto n = e.get<FunctionCall>().arity;
                 if (name==intParamId || name==realParamId) {
-                    if (n!=1 || !std::get<1>(sstack.back())) {
+                    auto& [argText, argIsId, argIdx] = sstack.back();
+                    if (n!=1 || !argIsId) {
                         s.set(Status::Unsupported, std::string(name)+"() requires a single identifier argument.");
                         s.extend(location(e));
                         return false;
                     }
-                    Id argName = expr.at(std::get<2>(sstack.back())).get<Identifier>().name;
+                    Id argName = expr.at(argIdx).get<Identifier>().name;
                     Value::Type newType = (name==intParamId) ? Value::Type::Int : Value::Type::Real;
-                    std::get<2>(behavData.param[paramMap.at(argName)]) = newType;
+                    auto& [paramId, paramVaName, paramType, paramIdx] = behavData.param[paramMap.at(argName)];
+                    paramType = newType;
                     // Result of $intparam()/$realparam() is the identifier itself
                     continue;
                 }
@@ -401,7 +402,32 @@ bool Rpn::verilogA(const std::string& discipline, const std::string& potAccess, 
                 return false;
         }
     }
-    behavData.vaCode = std::move(std::get<0>(sstack.back()));
+    auto& [resultExpr, resultIsId, resultIdx] = sstack.back();
+    // Build extra terminals string
+    std::string extraTerminals;
+    for (auto& [nodeId, nodeVaName, nodeIdx] : behavData.node) {
+        extraTerminals += ", " + nodeVaName;
+    }
+    for (auto& [flowId, flowVaName, flowIdx] : behavData.flow) {
+        extraTerminals += ", " + flowVaName;
+    }
+    // Build parameters string
+    std::string parametersString;
+    for (auto& [paramId, paramVaName, paramType, paramIdx] : behavData.param) {
+        parametersString += std::string("  (*desc=\"") + std::string(paramId) + "\", units=\"\"*) parameter " +
+            (paramType==Value::Type::Int ? "integer" : "real") + " " + paramVaName + " = 0;\n";
+    }
+    behavData.vaCode =
+        std::string("module "+behavData.moduleName+"(__nt1, __nt2" + extraTerminals + ");\n") +
+        "  inout __nt1, __nt2" + extraTerminals + ";\n" +
+        "  " + discipline + " __nt1, __nt2" + extraTerminals + ";\n" +
+        "  branch (__nt1, __nt2) br;\n" +
+        parametersString +
+        "  analog begin\n" +
+        "    " + (behavData.currentSource ? flowAccess : potAccess) + "() <+ " + 
+             resultExpr + ";\n" +
+        "  end\n" +
+        "endmodule\n";
     return true;
 }
 

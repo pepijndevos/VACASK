@@ -187,7 +187,7 @@ public:
 
     std::string str() const;
 
-    bool verilogA(const std::string& discipline, const std::string& potAccess, const std::string& flowAccess, const std::string& moduleName, RPNBehavioralVA& behavData, Status& s=Status::ignore) const;
+    bool verilogA(const std::string& discipline, const std::string& potAccess, const std::string& flowAccess, RPNBehavioralVA& behavData, Status& s=Status::ignore) const;
     
     friend std::ostream& operator<<(std::ostream& os, const Rpn& expr);
 
