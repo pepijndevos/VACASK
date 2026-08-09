@@ -80,9 +80,10 @@ public:
     PTParameterExpression& operator=(      PTParameterExpression&&) = default;
 
     // Getters
-    Id name() const { return id_; }; 
+    Id name() const { return id_; };
     Loc location() const { return loc_; };
     const Rpn& rpn() const { return rpn_; };
+    Rpn& rpn() { return rpn_; };
 
     void dump(int indent, std::ostream& os) const;
 

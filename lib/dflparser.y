@@ -51,6 +51,13 @@ namespace NAMESPACE {
     // before main(), i.e. before any ordinary "save" id could exist -- the intended
     // usage documented in identifier.h (static ids created before ordinary ones).
     static Id saveCmd = Id::createStatic("save");
+    // Behavioral source parameter names: "v" selects a potential (voltage)
+    // source, "i" selects a flow (current) source.
+    static Id vParamId = Id::createStatic("v");
+    static Id iParamId = Id::createStatic("i");
+    static Id potentialParamId = Id::createStatic("potential");
+    static Id flowParamId = Id::createStatic("flow");
+    static Id disciplineParamId = Id::createStatic("discipline");
 }
 
 // The following definitions is missing when %locations isn't used
@@ -846,6 +853,118 @@ instance
         std::move($6.params), 
         @1.loc()
     ));
+  }
+
+instance
+  : IDENTIFIER LPAREN terminal_list RPAREN opt_broken_parameter_list NEWLINE {
+    // Check terminal count
+    if ($3.size()!=2) {
+      status.set(Status::BadArguments, "Behavioral source instance requires exactly 2 terminals.");
+      status.extend(@3.loc());
+      YYERROR;
+    }
+
+    // Extract expresion, type, and optional discipline with accessors
+    Rpn expr;
+    bool haveExpr = false;
+    bool isCurrentSource = false;
+    std::string discipline = "electrical";
+    std::string potentialAccessor = "V";
+    std::string flowAccessor ="I";
+    Loc exprLoc;
+    // Go through value parameters, extract behavioral expression, check for redefinition
+    // Extract optional discipline and accessors. 
+    for (auto& pv : $5.params.values()) {
+      if (pv.name()==vParamId || pv.name()==potentialParamId) {
+        if (haveExpr) {
+          status.set(Status::Redefinition, "Behavioral source expression already defined.");
+          status.extend(pv.location());
+          status.extend("Expression first defined here.");
+          status.extend(exprLoc);
+          YYERROR;
+        }
+        exprLoc = pv.location();
+        expr.extend(std::move(pv.val()), pv.location());
+        haveExpr = true;
+        isCurrentSource = false;
+      } else if (pv.name()==iParamId || pv.name()==flowParamId) {
+        if (haveExpr) {
+          status.set(Status::Redefinition, "Behavioral source expression already defined.");
+          status.extend(pv.location());
+          status.extend("Expression first defined here.");
+          status.extend(exprLoc);
+          YYERROR;
+        }
+        exprLoc = pv.location();
+        expr.extend(std::move(pv.val()), pv.location());
+        haveExpr = true;
+        isCurrentSource = true;
+      } else if (pv.name()==disciplineParamId) {
+        // Must be a string vector with 3 components: discipline, potential accessor, flow accessor
+        const Value& v = pv.val();
+        if (v.type()!=Value::Type::StringVec || v.size()!=3) {
+          status.set(Status::BadArguments, "Parameter \"discipline\" must be a constant string vector with 3 elements: discipline, potential accessor, flow accessor.");
+          status.extend(pv.location());
+          YYERROR;
+        }
+        const StringVector& sv = v.val<const StringVector>();
+        discipline = sv[0];
+        potentialAccessor = sv[1];
+        flowAccessor = sv[2];
+      } else {
+        // Unknown parameter, error
+        status.set(Status::BadArguments, "Unknown parameter \""+std::string(pv.name())+"\" for behavioral source instance.");
+        status.extend(pv.location());
+        YYERROR;
+      }
+    }
+    // Go through expression parameters, extract behavioral expression, check for redefinition
+    for (auto& pe : $5.params.expressions()) {
+      if (pe.name()==vParamId || pe.name()==potentialParamId) {
+          if (haveExpr) {
+            status.set(Status::Redefinition, "Behavioral source expression already defined.");
+            status.extend(pe.location());
+            status.extend("Expression first defined here.");
+            status.extend(exprLoc);
+            YYERROR;
+          }
+          exprLoc = pe.location();
+          expr = std::move(pe.rpn());
+          haveExpr = true;
+          isCurrentSource = false;
+      } else if (pe.name()==iParamId || pe.name()==flowParamId) {
+        if (haveExpr) {
+          status.set(Status::Redefinition, "Behavioral source expression already defined.");
+          status.extend(pe.location());
+          status.extend("Expression first defined here.");
+          status.extend(exprLoc);
+          YYERROR;
+        }
+        exprLoc = pe.location();
+        expr = std::move(pe.rpn());
+        haveExpr = true;
+        isCurrentSource = true;
+      } else if (pe.name()==disciplineParamId) {
+        // Error, discipline must be a constant string vector with 3 components
+        status.set(Status::BadArguments, "Parameter \"discipline\" must be a constant string vector with 3 elements: discipline, potential accessor, flow accessor.");
+        status.extend(pe.location());
+        YYERROR;
+      } else {
+        // Error, unknown parameter
+        status.set(Status::BadArguments, "Unknown parameter \""+std::string(pe.name())+"\" for behavioral source instance.");
+        status.extend(pe.location());
+        YYERROR;
+      }
+    }
+    // Extract canonical name of the file that contains the behavioral source instance
+    std::string canonicalFileName;
+    Loc instanceLoc = @1.loc();
+    if (instanceLoc) {
+      auto [fileStack, fileIndex, line, col] = instanceLoc.data();
+      if (fileStack) {
+        canonicalFileName = fileStack->canonicalName(fileIndex);
+      }
+    }
   }
   
 model
