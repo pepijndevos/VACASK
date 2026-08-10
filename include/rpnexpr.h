@@ -191,6 +191,9 @@ public:
     
     friend std::ostream& operator<<(std::ostream& os, const Rpn& expr);
 
+    // Replace characters that are not valid in a Verilog-A identifier with '_'
+    static std::string sanitizeVariable(const std::string& s, bool atBeginning=false);
+
 private:
     Expression expr;
     Locations locations;

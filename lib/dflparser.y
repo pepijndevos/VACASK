@@ -869,13 +869,6 @@ instance
 
 behavioral
   : IDENTIFIER LPAREN terminal_list RPAREN opt_broken_parameter_list NEWLINE {
-    // Check terminal count - move this to behavioral processing
-    if ($3.size()!=2) {
-      status.set(Status::BadArguments, "Behavioral source instance requires exactly 2 terminals.");
-      status.extend(@3.loc());
-      YYERROR;
-    }
-
     // Extract expresion, type, and optional discipline with accessors
     Rpn expr;
     bool haveExpr = false;

@@ -319,6 +319,7 @@ public:
     inline Id masterName() const { return masterName_; };
     inline const PTParameters& parameters() const { return parameters_; };
     inline const PTIdentifierList& connections() const { return connections_; };
+    inline const RPNBehavioralVA* behavioralData() const { return behavioralData_.get(); };
 
     // Fluent API
     PTInstance& add(PTParameters&& par) & { parameters_.add(std::move(par)); return *this; };
@@ -327,6 +328,10 @@ public:
     PTInstance&& add(PTParameters&& par) && { return std::move(this->add(std::move(par))); };
     PTInstance&& add(PTParameterValue&& v) && { return std::move(this->add(std::move(v))); };
     PTInstance&& add(PTParameterExpression&& e) && { return std::move(this->add(std::move(e))); };
+
+    // Behavioral source data, owned by the instance created for a behavioral source
+    PTInstance& addBehavioralData(RPNBehavioralVA&& data) & { behavioralData_ = std::make_unique<RPNBehavioralVA>(std::move(data)); return *this; };
+    PTInstance&& addBehavioralData(RPNBehavioralVA&& data) && { return std::move(this->addBehavioralData(std::move(data))); };
 
     void dump(int indent, std::ostream& os) const;
 
@@ -337,6 +342,7 @@ private:
     Id masterName_;
     PTIdentifierList connections_;
     PTParameters parameters_;
+    std::unique_ptr<RPNBehavioralVA> behavioralData_;
     Loc loc;
 };
 
@@ -359,6 +365,7 @@ public:
     // Getters
     inline const Loc& location() const { return loc; };
     Id name() const { return instanceName_; };
+    const PTIdentifierList& connections() const { return connections_; };
     const Rpn& expr() const { return expr_; };
     bool currentSource() const { return currentSource_; };
     const std::string& discipline() const { return discipline_; };
@@ -400,9 +407,11 @@ public:
     bool hasBlockSequences() const { return blockSequences_!=nullptr; };
     inline const std::vector<PTModel>& models() const { return models_; };
     inline const std::vector<PTInstance>& instances() const { return instances_; };
+    inline const std::vector<PTBehavioral>& behaviorals() const { return behaviorals_; };
     inline const std::vector<PTBlockSequence>& blockSequences() const { return *blockSequences_; };
     inline std::vector<PTModel>& models() { return models_; };
     inline std::vector<PTInstance>& instances() { return instances_; };
+    inline std::vector<PTBehavioral>& behaviorals() { return behaviorals_; };
     inline std::vector<PTBlockSequence>& blockSequences() { return *blockSequences_; };
 
     // Fluent API
@@ -442,6 +451,7 @@ public:
 
     // Getters
     const std::vector<PTBlockSequenceEntry>& entries() const { return entries_; };
+    std::vector<PTBlockSequenceEntry>& entries() { return entries_; };
     PTBlock& back() { return std::get<2>(entries_.back()); };
 
     // Fluent API
@@ -491,8 +501,9 @@ public:
     // Getters
     inline const PTIdentifierList& terminals() const { return terminals_; };
     inline const PTBlock& root() const { return root_; };
+    inline PTBlock& root() { return root_; };
     inline const std::vector<std::unique_ptr<PTSubcircuitDefinition>>& subDefs() const { return subDefs_; };
-    
+
     // Fluent API
     PTSubcircuitDefinition& add(PTSubcircuitDefinition&& subDef) & {
         auto* ptr = new PTSubcircuitDefinition;
@@ -840,6 +851,9 @@ public:
 
 private:
     bool verifyWorker(int level, Status& s=Status::ignore) const;
+
+    // Set by processBehaviorals() to catch a second call
+    bool behavioralsProcessed_ = false;
 
     Accounting acct_;
     std::string title_;

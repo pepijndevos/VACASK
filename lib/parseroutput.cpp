@@ -510,6 +510,144 @@ bool ParserTables::verifyWorker(int level, Status& s) const {
     return true;
 }
 
+bool ParserTables::processBehaviorals(int debug, Status& s) {
+    if (behavioralsProcessed_) {
+        s.set(Status::InternalError, "ParserTables::processBehaviorals() called more than once.");
+        return false;
+    }
+    behavioralsProcessed_ = true;
+
+    // Verilog-A
+    std::string va = "`include \"constants.vams\"\n`include \"disciplines.vams\"\n\n";
+
+    // Set of dependencies
+    std::unordered_set<std::string> dependencies;
+
+    // Work list of subcircuit definitions still to process, starting with
+    // the root (default) subcircuit definition
+    std::vector<std::tuple<PTSubcircuitDefinition*, const std::string>> subDefStack{ {&defaultSubDef_, ""} };
+    while (!subDefStack.empty()) {
+        auto& [ subDef, moduleNameRoot ] = subDefStack.back();
+        subDefStack.pop_back();
+
+        // Queue nested subcircuit definitions
+        for(auto& subSubDef : subDef->subDefs()) {
+            auto name = moduleNameRoot + "_" + Rpn::sanitizeVariable(std::string(subSubDef->name()));
+            subDefStack.push_back( {subSubDef.get(), name} );
+        }
+
+        // Work list of blocks still to process within this subcircuit
+        // definition, starting with its root block
+        std::vector<std::tuple<PTBlock*,const std::string>> blockStack{ {&subDef->root(), ""} };
+        while (!blockStack.empty()) {
+            auto& [blk, blockNameRoot] = blockStack.back();
+            blockStack.pop_back();
+
+            for(auto& behav : blk->behaviorals()) {
+                // Create module definition
+                RPNBehavioralVA behavData = {
+                    // Construct module name
+                    .moduleName = (blockNameRoot.size()>0 ? (moduleNameRoot+"_"+blockNameRoot) : moduleNameRoot) + "_" + std::string(behav.name()), 
+                    .currentSource = behav.currentSource(), 
+                };
+                // Run Rpn::verilogA
+                if (!behav.expr().verilogA(behav.discipline(), behav.potentialAccessor(), behav.flowAccessor(), behavData, s)) {
+                    if (!behav.location()) {
+                        s.extend("  in behavioral source '"+std::string(behav.name())+"'.");
+                    }
+                    return false;
+                }
+
+                // Append to Verilog-A file
+                va += behavData.vaCode+"\n\n";
+
+                // Create model, same name as module
+                PTModel behavModel(Id(behavData.moduleName), Id(behavData.moduleName), behav.location());
+                for(auto& [paramId, paramVaName, paramType, paramIdx] : behavData.param) {
+                    Rpn passthrough;
+                    passthrough.extend(Rpn::Identifier(std::string(paramId)), behav.location());
+                    behavModel.add(PTParameterExpression(Id(paramVaName), std::move(passthrough), behav.location()));
+                }
+                blk->add(std::move(behavModel));
+
+                // Create instance
+                // Check number of connections_ (must be 2)
+                if (behav.connections().size()!=2) {
+                    s.set(Status::BadArguments, "Behavioral source instance '"+std::string(behav.name())+"' requires exactly 2 terminals.");
+                    s.extend(behav.location());
+                    return false;
+                }
+                PTIdentifierList behavTerms;
+                behavTerms.push_back(behav.connections()[0]);
+                behavTerms.push_back(behav.connections()[1]);
+                // Then connect RPNBehavioralVA::node nodes
+                for(auto& [nodeId, nodeVaName, nodeIdx] : behavData.node) {
+                    behavTerms.push_back(PTParsedIdentifier(nodeId, behav.location()));
+                }
+                // RPNBehavioralVA::flow nodes should be connected to first node in connections
+                // Will be reconnected later when structures are populated
+                for(auto& [flowId, flowVaName, flowIdx] : behavData.flow) {
+                    behavTerms.push_back(behav.connections()[0]);
+                }
+                PTInstance behavInstance(behav.name(), Id(behavData.moduleName), std::move(behavTerms), behav.location());
+                behavInstance.addBehavioralData(std::move(behavData));
+                blk->add(std::move(behavInstance));
+
+                // Get canonical name of source file where this behavioral is defined
+                std::string canonicalFileName;
+                if (behav.location()) {
+                    auto [fileStack, fileIndex, line, col] = behav.location().data();
+                    if (fileStack) {
+                        canonicalFileName = fileStack->canonicalName(fileIndex);
+                        // Add to set of dependencies
+                        dependencies.insert(canonicalFileName);
+                    }
+                }
+            }
+
+            // Queue the blocks of all block sequences within this block
+            if (blk->hasBlockSequences()) {
+                auto seqNdx = 0;
+                for(auto& seq : blk->blockSequences()) {
+                    auto blkNdx = 0;
+                    for(auto& [loc, cond, innerBlk] : seq.entries()) {
+                        std::string blkName = blockNameRoot.size()>0 ? (blockNameRoot + "_") : "";
+                        blkName += "s" + std::to_string(seqNdx) + "b" + std::to_string(blkNdx);
+                        blockStack.push_back( {&innerBlk, blkName} );
+                        blkNdx++;
+                    }
+                    seqNdx++;
+                }
+            }
+        }
+    }
+
+    // Get the file name of the toplevel netlist
+    // Behavioral sources may not come from a file at all (e.g. a circuit
+    // built entirely through the API), in which case there is no toplevel
+    // netlist file to derive a name from. In that case only the name 
+    // extension is used. 
+    std::string vaFileName;
+    if (fileStack_.isFileEntry(0)) {
+        vaFileName = fileStack_.canonicalName(0);
+    }
+    // Extend with __behavioral.va
+    vaFileName += "__behavioral.va";
+
+    // Dump Verilog-A file
+    std::ofstream vaFile(vaFileName, std::ios::out);
+    if (!vaFile) {
+        s.set(Status::CreationFailed, "Failed to write file '"+vaFileName+"'.");
+        return false;
+    }
+    vaFile << va;
+    vaFile.close();
+
+    // Add load directive
+    loads_.push_back(PTLoad(vaFileName));
+
+    return true;
+}
 
 bool ParserTables::writeEmbedded(int debug, Status& s) {
     for(auto& e : embed_) {

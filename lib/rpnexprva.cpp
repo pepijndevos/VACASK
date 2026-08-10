@@ -6,12 +6,15 @@
 
 namespace NAMESPACE {
 
-static std::string sanitizeVariable(const std::string& s) {
+std::string Rpn::sanitizeVariable(const std::string& s, bool atBeginning) {
     std::string result = s;
+    // If this is at the beginning of the name, $ is not allowed as the first character
+    bool first = atBeginning;
     for (char& c : result) {
-        if (!std::isalnum(static_cast<unsigned char>(c)) && c!='_' && c!='$') {
+        if (!std::isalnum(static_cast<unsigned char>(c)) && !(c=='$' && !first) && !(c=='_')) {
             c = '_';
         }
+        first = false;
     }
     return result;
 }
