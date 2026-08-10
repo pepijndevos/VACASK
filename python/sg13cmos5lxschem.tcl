@@ -137,7 +137,6 @@ value="
 include \"sg13cmos5l_vacask_common.lib\"
 include \"cornerMOSlv.lib\" section=mos_tt
 include \"cornerMOShv.lib\" section=mos_tt
-include \"cornerHBT.lib\" section=hbt_typ
 include \"cornerRES.lib\" section=res_typ
 include \"cornerCAP.lib\" section=cap_typ
 "

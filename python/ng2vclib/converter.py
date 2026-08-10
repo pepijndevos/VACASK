@@ -117,9 +117,9 @@ class Converter(
         self.debug = debug
     
     def convert(self, fromFile, toFile=None):
-      _, deck, canonical_file_path = self.read_file(fromFile)
+      _, deck, absolute_file_path = self.read_file(fromFile)
       self.data["deck"] = deck
-      self.data["canonical_input_path"] = canonical_file_path
+      self.data["absolute_input_path"] = absolute_file_path
       
       self.collect_masters()
 
@@ -131,7 +131,7 @@ class Converter(
       else:
         if not os.path.isabs(toFile):
             # Relative path, get directory of input file
-            dest = os.path.join(os.path.dirname(self.data["canonical_input_path"]), toFile)
+            dest = os.path.join(os.path.dirname(self.data["absolute_input_path"]), toFile)
         else:
             dest = toFile
 

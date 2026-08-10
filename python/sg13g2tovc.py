@@ -253,13 +253,13 @@ if __name__=="__main__":
     #
 
     # Source directory (tech)
-    tech_src = os.path.realpath(os.path.join(pdkroot, pdk, "libs.tech", "ngspice", "models"))
+    tech_src = os.path.abspath(os.path.join(pdkroot, pdk, "libs.tech", "ngspice", "models"))
 
     # Source directory (stdcell)
-    stdcell_src = os.path.realpath(os.path.join(pdkroot, pdk, "libs.ref", "sg13g2_stdcell", "spice"))
+    stdcell_src = os.path.abspath(os.path.join(pdkroot, pdk, "libs.ref", "sg13g2_stdcell", "spice"))
 
     # Source directory (io)
-    io_src = os.path.realpath(os.path.join(pdkroot, pdk, "libs.ref", "sg13g2_io", "spice"))
+    io_src = os.path.abspath(os.path.join(pdkroot, pdk, "libs.ref", "sg13g2_io", "spice"))
         
     # Go through tech files and convert
     osdi_files = set()
@@ -325,7 +325,7 @@ module_path_prefix = [ "$(PDK_ROOT)/$(PDK)/libs.tech/vacask/osdi" ]
     #
 
     # Process xschem symbol files
-    xschem_path_pfx = os.path.realpath(os.path.join(pdkroot, pdk, "libs.tech", "xschem"))
+    xschem_path_pfx = os.path.abspath(os.path.join(pdkroot, pdk, "libs.tech", "xschem"))
 
     symfiles = []
 
@@ -393,7 +393,7 @@ module_path_prefix = [ "$(PDK_ROOT)/$(PDK)/libs.tech/vacask/osdi" ]
         else:
             d = os.path.join(module_path, cand)
         f = os.path.join(d, openvaf_bin)
-        f = os.path.realpath(f)
+        f = os.path.abspath(f)
         print(" ", d, ":", f)
         if (os.path.isdir(d) and os.path.isfile(f)):
             openvaf = f
@@ -474,7 +474,7 @@ module_path_prefix = [ "$(PDK_ROOT)/$(PDK)/libs.tech/vacask/osdi" ]
             txt += "model "+cvt.cfg["default_model_prefix"]+mt+" "+module+"\n"
     
     common_include = os.path.join(tech_src, "..", "..", "vacask", "models", "sg13g2_vacask_common.lib")
-    common_include = os.path.realpath(common_include)
+    common_include = os.path.abspath(common_include)
     print(" ", common_include)
     with open(common_include, "w") as f:
         f.write(txt)

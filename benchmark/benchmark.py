@@ -106,9 +106,9 @@ def find_openvaf():
     if openvaf is None:
         openvaf = shutil.which(openvaf_bin)
 
-    # Canonical path
+    # Absolute path
     if openvaf is not None:
-        openvaf = os.path.realpath(openvaf)
+        openvaf = os.path.abspath(openvaf)
 
     return openvaf
 
@@ -174,8 +174,8 @@ if print_help:
     print("  -h         .. print help")
     sys.exit(0)
 
-# Canonical path to command and workdir
-workdir = os.path.realpath(workdir)
+# Absolute path to command and workdir
+workdir = os.path.abspath(workdir)
 
 # Find binary
 cmd_path = shutil.which(cmd)
@@ -183,9 +183,9 @@ if cmd_path:
     # Found in path
     cmd = cmd_path
 
-# Use canonical path, assume relative to current directory
-cmd = os.path.realpath(cmd)
-subdir = os.path.realpath(subdir)
+# Use absolute path, assume relative to current directory
+cmd = os.path.abspath(cmd)
+subdir = os.path.abspath(subdir)
 
 # Find openvaf
 openvaf = find_openvaf()

@@ -316,7 +316,8 @@
             "name": "Python Debugger: IHP PDK converter",
             "type": "debugpy",
             "request": "launch",
-            "module": "sg13g2tovc",
+            // "module": "sg13g2tovc",
+            "module": "sg13cmos5ltovc",
             "console": "integratedTerminal", 
             "cwd": "${workspaceFolder}/../IHP-Open-PDK", 
             "env": { 

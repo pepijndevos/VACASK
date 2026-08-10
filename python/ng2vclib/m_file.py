@@ -100,7 +100,7 @@ class FileLoaderMixin:
         Returns a tuple with two members if depth>0:
         * *inside_control* status after the end of file is reached
         * deck
-        * canonical path to the file that was read
+        * absolute path to the file that was read
 
         Otherwise returns only the deck. 
 
@@ -141,8 +141,10 @@ class FileLoaderMixin:
         except OSError as e:
             raise ConverterError("Failed to open "+fp) from e
         
-        # Canonical path
-        fp = os.path.realpath(fp)
+        # Absolute path (do not resolve symlinks, so that relative output
+        # paths are computed against the directory where the file (or
+        # symlink to it) was found, not the symlink target's directory)
+        fp = os.path.abspath(fp)
         
         # Check if it needs patching
         for patchfile, pl in self.cfg.get("patch", {}).items():
