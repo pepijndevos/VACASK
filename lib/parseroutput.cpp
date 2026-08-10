@@ -510,6 +510,65 @@ bool ParserTables::verifyWorker(int level, Status& s) const {
     return true;
 }
 
+// Determine whether dumpedFile needs to be (re)written, given the set of
+// canonical paths of the files it depends on. The decision is based on a
+// side-car "<dumpedFile>.origin" file that records the dependency set used
+// to produce the current dumpedFile (one path per line): a dump is needed
+// if there are no known dependencies, dumpedFile or its origin file is
+// missing, the recorded dependency set differs from the current one, or
+// any dependency is newer than dumpedFile.
+static bool needsDump(const std::string& dumpedFile, const std::unordered_set<std::string>& dependencies) {
+    if (dependencies.empty()) {
+        // No known dependency, always dump
+        return true;
+    }
+
+    std::string originFilePath = dumpedFile + ".origin";
+    if (!std::filesystem::exists(originFilePath) || !std::filesystem::exists(dumpedFile)) {
+        return true;
+    }
+
+    // Read the recorded dependency set
+    std::ifstream originFile(originFilePath);
+    if (!originFile) {
+        return true;
+    }
+    std::unordered_set<std::string> recordedDependencies;
+    std::string line;
+    while (std::getline(originFile, line)) {
+        recordedDependencies.insert(line);
+    }
+    originFile.close();
+
+    if (recordedDependencies!=dependencies) {
+        return true;
+    }
+
+    // Any dependency newer than the dumped file?
+    auto dumpedModificationTime = std::filesystem::last_write_time(dumpedFile);
+    for(auto& dep : dependencies) {
+        if (std::filesystem::last_write_time(dep)>dumpedModificationTime) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+// Record the dependency set used to produce dumpedFile, for future
+// needsDump() calls. Failure to write is silently ignored, same as the
+// previous single-file origin-tracking behavior.
+static void writeDependencyFile(const std::string& dumpedFile, const std::unordered_set<std::string>& dependencies) {
+    std::ofstream originFile(dumpedFile + ".origin", std::ios::out);
+    if (!originFile) {
+        return;
+    }
+    for(auto& dep : dependencies) {
+        originFile << dep << "\n";
+    }
+    originFile.close();
+}
+
 bool ParserTables::processBehaviorals(int debug, Status& s) {
     if (behavioralsProcessed_) {
         s.set(Status::InternalError, "ParserTables::processBehaviorals() called more than once.");
@@ -634,14 +693,21 @@ bool ParserTables::processBehaviorals(int debug, Status& s) {
     // Extend with __behavioral.va
     vaFileName += "__behavioral.va";
 
+    // Do we need to dump?
+    bool dump = needsDump(vaFileName, dependencies);
+
     // Dump Verilog-A file
-    std::ofstream vaFile(vaFileName, std::ios::out);
-    if (!vaFile) {
-        s.set(Status::CreationFailed, "Failed to write file '"+vaFileName+"'.");
-        return false;
+    if (dump) {
+        writeDependencyFile(vaFileName, dependencies);
+
+        std::ofstream vaFile(vaFileName, std::ios::out);
+        if (!vaFile) {
+            s.set(Status::CreationFailed, "Failed to write file '"+vaFileName+"'.");
+            return false;
+        }
+        vaFile << va;
+        vaFile.close();
     }
-    vaFile << va;
-    vaFile.close();
 
     // Add load directive
     loads_.push_back(PTLoad(vaFileName));
@@ -651,74 +717,20 @@ bool ParserTables::processBehaviorals(int debug, Status& s) {
 
 bool ParserTables::writeEmbedded(int debug, Status& s) {
     for(auto& e : embed_) {
-        // Do we have a valid location of the embed directive
-        bool dump = false;
-        std::string originFilePath;
-        std::string directiveLocationCanonicalPath;
-        if (!e.location()) {
-            // Location not available, always dump
-            dump = true;
-        } else {
-            // Get canonical path of file with the embed directive
+        // Embedded files depend on the single file that contains the
+        // embed directive, if that location is known
+        std::unordered_set<std::string> dependencies;
+        if (e.location()) {
             auto [fs, pos, line, offset] = e.location().data();
-            directiveLocationCanonicalPath = fs->canonicalName(pos);
-
-            // Build name of origin file - add .origin to dumped file name
-            originFilePath = e.filename() + ".origin";
-            
-            // Does origin file exist, does dumped file exist
-            if (
-                !std::filesystem::exists(originFilePath) ||
-                !std::filesystem::exists(e.filename())
-            ) {
-                // No, dump
-                dump = true;
-            } else {
-                // Read origin file, get name of the file with the embed directive that
-                // produced the existing dumped file
-                std::ifstream file(originFilePath);
-                if (!file) {
-                    // Failed to read, dump
-                    dump = true;
-                } else {
-                    // Read origin file to get actual origin
-                    auto originatorFile = std::string(
-                        std::istreambuf_iterator<char>(file),
-                        std::istreambuf_iterator<char>()
-                    );
-                    file.close();
-
-                    // Does the actual origin match the embed directive location
-                    if (originatorFile!=directiveLocationCanonicalPath) {
-                        // No, dump
-                        dump = true;
-                    } else {
-                        // Compare last modification of originator and dumped file
-                        auto refModificationTime = std::filesystem::last_write_time(originatorFile);
-                        auto fileModificationTime = std::filesystem::last_write_time(e.filename());
-                        if (refModificationTime>fileModificationTime) {
-                            // Originator is newer, dump
-                            dump = true;
-                        }
-                    }
-                }
-            }
+            dependencies.insert(fs->canonicalName(pos));
         }
 
         // No need to dump
-        if (!dump) {
+        if (!needsDump(e.filename(), dependencies)) {
             continue;
         }
-        
-        // Create origin file
-        std::ofstream originFile(originFilePath, std::ios::out);
-        if (!originFile) {
-            // Failure to write origin file is silently inored
-        } else {
-            // Dump and close
-            originFile << directiveLocationCanonicalPath; 
-            originFile.close();
-        }
+
+        writeDependencyFile(e.filename(), dependencies);
 
         std::ofstream file(e.filename(), std::ios::out);
         if (!file) {
