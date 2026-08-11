@@ -1,0 +1,68 @@
+Behavioral noise sources
+
+ground 0
+
+load "resistor.osdi"
+
+model resistor resistor
+model vsource vsource
+
+parameters pwr_w=1e-18 pwr_f=1e-16 ef=1.1
+
+// Independent source, used only as the "in" reference for gain computation
+vin (vin 0) vsource dc=0
+
+// White noise test: constant PSD = pwr_w
+r1 (n1 0) resistor r=1k
+bwn (n1 0) i=white_noise(pwr_w, "mynoise")
+
+// Flicker noise test: PSD = pwr_f/f**ef
+r2 (n2 0) resistor r=1k
+bfn (n2 0) i=flicker_noise(pwr_f, ef, "myflicker")
+
+control
+  abort always
+
+  options temp=27
+
+  save full
+  analysis noise1 noise out="n1" in="vin" from=1 to=1meg mode="dec" points=10
+  analysis noise2 noise out="n2" in="vin" from=1 to=1meg mode="dec" points=10
+
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+from runtest import *
+import numpy as np
+import sys
+
+tests = []
+
+# r1/bwn: unity current injected at n1 sees only r1=1k to ground, so the
+# transfer gain H=r1 is real and frequency-independent. white_noise() has a
+# constant PSD, so the output-referred contribution is R1**2*pwr_w for all f.
+noise1 = rawread('noise1.raw').get()
+f1 = noise1['frequency'].real
+n_wn = noise1['n(bwn,mynoise)']
+exact_wn = (1e3**2)*1e-18*np.ones_like(f1)
+
+status = (relDiff(n_wn, exact_wn, 1e-60) < 1e-6).all()
+print("n(bwn,mynoise) test", status)
+tests.append(status)
+
+# r2/bfn: same reasoning, H=r2 real and frequency-independent, so the
+# output-referred contribution is R2**2*pwr_f/f**ef.
+noise2 = rawread('noise2.raw').get()
+f2 = noise2['frequency'].real
+n_fn = noise2['n(bfn,myflicker)']
+exact_fn = (1e3**2)*1e-16/f2**1.1
+
+status = (relDiff(n_fn, exact_fn, 1e-60) < 1e-6).all()
+print("n(bfn,myflicker) test", status)
+tests.append(status)
+
+if isTest():
+    sys.exit(not all(tests))
+>>>FILE
