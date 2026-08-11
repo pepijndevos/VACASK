@@ -44,7 +44,7 @@ We tested scalability of VACASK with [digital multiplier simulations ranging fro
 |128        |681216  |8756.7       |22.1           |5245               |
 |256        |2738688 |35235.6      |100            |24766              |
 
-Of course, simulation is slower for large circuits. The runtime grows superlinearly because with increasing circuit size linear algebra becomes a significant part of the total runtime. Unfortunately LU decomposition time grows superlinearly with matrix size and there is little one can do about it. Nevertheless, this demonstrates that VACASK can handle very large circuits. 
+Of course, simulation is slower for large circuits. The runtime grows slightly superlinearly because with increasing circuit size the share of runtime spent on linear algebra also increases. Linear algebra (LU decomposition, solve) scales superlinearly with matrix size and there is little one can do about it. Nevertheless, this demonstrates that VACASK can handle very large circuits. 
 
 # Do you have a user's manual? 
 
@@ -61,6 +61,7 @@ Yes we do. It is bundled with the binary packages. [The user's manual](docs/inde
 # What does VACASK offer? 
 
 - fully parameterized hierarchical circuit description with user defined global and ground nodes
+- behavioral voltage and current sources
 - conditional netlist blocks (@if-@elseif-@else-@end) - can be used for implementing automated binning
 - RPN interpreter for parameterized expression evaluation
 - integer, real, and string data types; vectors (homogeneous containers) and lists (heterogeneous containers)
@@ -96,7 +97,7 @@ Yes we do. It is bundled with the binary packages. [The user's manual](docs/inde
 - Monte Carlo analysis with Latin hypercube sampling (see [demo/mc](demo/mc)). 
 - Touchstone file to VACASK lumped model converter based on scikit-rf (see [demo/ts](demo/ts)). 
  
-Certain devices (independent voltage and current sources, linear controlled sources, and inductive coupling) are implemented as builtin devices because certain features needed by these devices are not available in OpenVAF-reloaded or even Verilog-A. 
+Certain devices (independent voltage and current sources, linear controlled sources, and inductive coupling) are implemented as builtin devices because some features needed by these devices are not available in OpenVAF-reloaded or even Verilog-A. 
 
 VACASK is being developed by Árpád Bűrmen at the EDA Laboratory, University of Ljubljana, Slovenia. It is written in C++20 and is free software released under the [GNU Affero General Public License 3.0](LICENSE). 
 
@@ -132,6 +133,7 @@ The following device models are supplied with VACASK.
 |Current-controlled voltage source|ccvs   |
 |Current-controlled current source|cccs   |
 |Inductive coupling               |mutual |
+|Behavioral voltage/current source|n/a    |
 
 |Verilog-A device          |File               |OSDI file       |Module   |
 |--------------------------|-------------------|----------------|---------|
