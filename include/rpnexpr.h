@@ -26,63 +26,53 @@ public:
         BrKeepOnBranch=1, BrKeepOnNoBranch=2, BrFalse=4, BrHidden=8
     };
 
-    static const LocationIndex badLocationIndex = std::numeric_limits<LocationIndex>::max();
-    static const LocationIndex maxLocationIndex = std::numeric_limits<LocationIndex>::max() - 1;
     typedef RpnArity Arity;
     typedef RpnJumpOffset JumpOffset;
 
     const static Arity manyArgs = std::numeric_limits<Arity>::max();
-    
-    // 1+8 = 9 bytes
+
+    // 1 byte
     typedef struct Op {
         OpCode code;
-        LocationIndex loc;
-        Op(const OpCode& c) : code(c), loc(badLocationIndex) {};
+        Op(const OpCode& c) : code(c) {};
         bool operator==(OpCode op) { return code==op; };
     } Op;
-    // 4+8 = 12 bytes
+    // 4 bytes
     typedef struct Identifier {
         Id name;
-        LocationIndex loc;
-        Identifier(const std::string&& s) : name(std::move(s)), loc(badLocationIndex) {};
+        Identifier(const std::string&& s) : name(std::move(s)) {};
     } Identifier;
-    // 4+4+8 = 16 bytes
+    // 4+4 = 8 bytes
     typedef struct FunctionCall {
         Id name;
         Arity arity;
-        LocationIndex loc;
-        FunctionCall(const std::string&& s, Arity a) : name(std::move(s)), arity(a), loc(badLocationIndex) {};
+        FunctionCall(const std::string&& s, Arity a) : name(std::move(s)), arity(a) {};
     } FunctionCall;
-    // 4+4 = 8 bytes
+    // 4 bytes
     typedef struct PackVec {
         Arity arity;
-        LocationIndex loc;
-        PackVec(Arity a) : arity(a), loc(badLocationIndex) {};
+        PackVec(Arity a) : arity(a) {};
     } PackVec;
-    // 4+4 = 8 bytes
+    // 4 bytes
     typedef struct PackList {
         Arity arity;
-        LocationIndex loc;
-        PackList(Arity a) : arity(a), loc(badLocationIndex) {};
+        PackList(Arity a) : arity(a) {};
     } PackList;
-    // 4+8 = 12 bytes
+    // 4 bytes
     typedef struct Jump {
         JumpOffset offset;
         BrFlags flags;
-        LocationIndex loc;
-        Jump(JumpOffset o, BrFlags f) : offset(o), flags(f), loc(badLocationIndex) {};
+        Jump(JumpOffset o, BrFlags f) : offset(o), flags(f) {};
     } Jump;
-    // 4+8 = 12 bytes
+    // 4 bytes
     typedef struct Branch {
         JumpOffset offset;
         BrFlags flags;
-        LocationIndex loc;
-        Branch(JumpOffset o, BrFlags f) : offset(o), flags(f), loc(badLocationIndex) {};
+        Branch(JumpOffset o, BrFlags f) : offset(o), flags(f) {};
     } Branch;
-    // 8 = 8 bytes
+    // Empty
     typedef struct MakeBoolean {
-        LocationIndex loc;
-        MakeBoolean() : loc(badLocationIndex) {};
+        MakeBoolean() {};
     } MakeBoolean;
     
     enum Type : char { 
@@ -98,42 +88,21 @@ public:
         Entry& operator=(const Entry&)  = delete;
         Entry& operator=(      Entry&&) = default;
 
-        template<typename T> Entry(T&& other) : data(std::move(other)) {};
-        
+        template<typename T> Entry(T&& other) : data(std::move(other)), loc_(Loc::bad) {};
+
         Type type() const { return Type(data.index()); };
-        void setLocation(LocationIndex li) {
-            switch (type()) {
-                case TOp: std::get<Op>(data).loc = li; break;
-                case TIdentifier: std::get<Identifier>(data).loc = li; break;
-                case TFunctionCall: std::get<FunctionCall>(data).loc = li; break;
-                case TPackVec: std::get<PackVec>(data).loc = li; break;
-                case TPackList: std::get<PackList>(data).loc = li; break;
-                case TJump: std::get<Jump>(data).loc = li; break;
-                case TBranch: std::get<Branch>(data).loc = li; break;
-                case TMakeBoolean: std::get<MakeBoolean>(data).loc = li; break;
-            }
-        };
-        LocationIndex location() const {
-            switch (type()) {
-                case TOp: return std::get<Op>(data).loc;
-                case TIdentifier: return std::get<Identifier>(data).loc;
-                case TFunctionCall: return std::get<FunctionCall>(data).loc;
-                case TPackVec: return std::get<PackVec>(data).loc;
-                case TPackList: return std::get<PackList>(data).loc;
-                case TJump: return std::get<Jump>(data).loc;
-                case TBranch: return std::get<Branch>(data).loc;
-                case TMakeBoolean: return std::get<MakeBoolean>(data).loc;
-                default: return badLocationIndex;
-            }
-        };
+        // Every entry kind carries its own location directly, uniformly --
+        // no per-variant-alternative field, no separate index/table.
+        void setLocation(const Loc& l) { loc_ = l; };
+        const Loc& location() const { return loc_; };
         template<typename T> T& get() { return std::get<T>(data); };
         template<typename T> const T& get() const { return std::get<T>(data); };
-        
+
         std::variant<Value, Op, Identifier, FunctionCall, PackVec, PackList, Jump, Branch, MakeBoolean> data;
+        Loc loc_;
     };
-    
+
     typedef std::vector<Entry> Expression;
-    typedef std::vector<Loc> Locations;
     
     Rpn();
 
@@ -151,34 +120,16 @@ public:
         return expr.size()!=0 && expr.back().type()==Rpn::TMakeBoolean;
     };
     inline void extend(Rpn &&other) {
-        auto locBase = locations.size();
         for(auto it=other.begin(); it!=other.end(); ++it) {
-            it->setLocation(it->location()+locBase);
             expr.push_back(std::move(*it));
         }
-        if (locBase+other.locations.size()>maxLocationIndex) {
-            throw std::length_error("Too many location descriptors. Expression is too long."); 
-        }
-        for(auto it=other.locations.begin(); it!=other.locations.end(); ++it) {
-            locations.push_back(std::move(*it));
-        }
     };
-    inline void extend(Entry&& other, Loc l) { 
-        auto locIndex = locations.size();
-        if (locIndex>maxLocationIndex) {
-            throw std::length_error("Too many location descriptors. Expression is too long."); 
-        }
-        locations.push_back(l);
-        other.setLocation(locIndex);
-        expr.push_back(std::move(other)); 
+    inline void extend(Entry&& other, Loc l) {
+        other.setLocation(l);
+        expr.push_back(std::move(other));
     };
-    inline const Loc& location(const Entry& e) const { 
-        auto li = e.location();
-        if (li!=badLocationIndex) {
-            return locations[li];
-        } else {
-            return Loc::bad;
-        }
+    inline const Loc& location(const Entry& e) const {
+        return e.location();
     }
     
     inline size_t size() const noexcept { return expr.size(); }
@@ -196,7 +147,6 @@ public:
 
 private:
     Expression expr;
-    Locations locations;
     static std::unordered_map<OpCode, std::tuple<const char*, int>> opMap;
 
     std::string parenthesize(const std::string& s) const {
