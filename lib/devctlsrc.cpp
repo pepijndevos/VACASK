@@ -87,35 +87,7 @@ DevCcvsInstanceData::DevCcvsInstanceData() {
 
 
 
-template<typename InstanceType> 
-Instance* findPeerInstance(Circuit& circuit, InstanceType& inst, Id name, Status& s) { 
-    auto peerInstanceName = inst.translatePeer(name);
-    auto* peerInstance = circuit.findInstance(peerInstanceName);
-    if (!peerInstance) {
-        s.set(Status::NotFound, "Peer instance '"+std::string(peerInstanceName)+"' not found.");
-        s.extend(inst.location());
-        return nullptr;
-    }
-    return peerInstance;
-}
-
-template<typename InstanceType> 
-Node* findControl(Circuit& circuit, InstanceType& inst, Id instanceName, Id internalNodeName, Status& s) { 
-    auto peerInstance = findPeerInstance(circuit, inst, instanceName, s);
-    if (!peerInstance) {
-        return nullptr;
-    }
-    Id nodeName = peerInstance->translateNode(circuit, internalNodeName);
-    auto* node = circuit.findNode(nodeName);
-    if (!node) {
-        s.set(Status::NotFound, "Controlling unknown '"+std::string(nodeName)+"' not found.");
-        s.extend(inst.location());
-        return nullptr;
-    }
-    return node;
-}
-
-template<typename InstanceData> static bool getCtlsrcOutvar(InstanceData& data, ParameterIndex ndx, Value& v, Status& s) { 
+template<typename InstanceData> static bool getCtlsrcOutvar(InstanceData& data, ParameterIndex ndx, Value& v, Status& s) {
     switch (ndx) {
     case 0:
         v = data.core().ctl;
@@ -521,7 +493,7 @@ template<> std::tuple<bool, OutputSource> BuiltinCccsInstance::outvarOutputSourc
 
 template<> bool BuiltinCccsInstance::populateStructuresCore(Circuit& circuit, Status& s) {
     // Find controlling node
-    auto ctlNode = findControl(circuit, *this, params.core().ctlinst, params.core().ctlnode, s);
+    auto ctlNode = findControl(circuit, params.core().ctlinst, params.core().ctlnode, s);
     if (!ctlNode) {
         return false;
     }
@@ -680,7 +652,7 @@ template<> std::tuple<bool, OutputSource> BuiltinCcvsInstance::outvarOutputSourc
 
 template<> bool BuiltinCcvsInstance::populateStructuresCore(Circuit& circuit, Status& s) {
     // Find controlling node
-    auto ctlNode = findControl(circuit, *this, params.core().ctlinst, params.core().ctlnode, s);
+    auto ctlNode = findControl(circuit, params.core().ctlinst, params.core().ctlnode, s);
     if (!ctlNode) {
         return false;
     }
@@ -871,11 +843,11 @@ template<> std::tuple<bool, bool, bool> BuiltinMutualInstance::setupCore(Circuit
     }
 
     // Find both inductors
-    auto ind1 = findPeerInstance(circuit, *this, p.ind1, s);
+    auto ind1 = findPeerInstance(circuit, p.ind1, s);
     if (!ind1) {
-        return std::make_tuple(false, false, false); 
+        return std::make_tuple(false, false, false);
     }
-    auto ind2 = findPeerInstance(circuit, *this, p.ind2, s);
+    auto ind2 = findPeerInstance(circuit, p.ind2, s);
     if (!ind2) {
         return std::make_tuple(false, false, false); 
     }
@@ -883,11 +855,11 @@ template<> std::tuple<bool, bool, bool> BuiltinMutualInstance::setupCore(Circuit
     d.ind2 = ind2;
 
     // Get internal control nodes
-    auto ctlNode1 = findControl(circuit, *this, p.ind1, p.ctlnode1, s);
+    auto ctlNode1 = findControl(circuit, p.ind1, p.ctlnode1, s);
     if (!ctlNode1) {
-        return std::make_tuple(false, false, false); 
+        return std::make_tuple(false, false, false);
     }
-    auto ctlNode2 = findControl(circuit, *this, p.ind2, p.ctlnode2, s);
+    auto ctlNode2 = findControl(circuit, p.ind2, p.ctlnode2, s);
     if (!ctlNode2) {
         return std::make_tuple(false, false, false); 
     }

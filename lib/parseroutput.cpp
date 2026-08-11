@@ -65,23 +65,37 @@ std::ostream& operator<<(std::ostream& os, const PTParameters& obj) {
     return os;
 }
 
-
 void PTModel::dump(int indent, std::ostream& os) const {
     std::string pfx = std::string(indent, ' ');
-    os << pfx << "model " << (modelName_) << " " << (deviceName_) << " ";
+    os << pfx;
+    os << "model " << (modelName_) << " " << (deviceName_) << " ";
     os << parameters_ << "\n";
 }
 
 
 void PTInstance::dump(int indent, std::ostream& os) const {
     std::string pfx = std::string(indent, ' ');
-    os << pfx << (instanceName_) << " (" << connections_ << ") ";
+    os << pfx << (instanceName_);
+    if (behavioralData_.get()) {
+        os << " (" << connections_[0].name() << " " << connections_[1].name();
+        for(auto& n : behavioralData_->node) {
+            auto& [nId, nVaName, ndx] = n;
+            os << " " << nId;
+        }
+        for(auto& f : behavioralData_->flow) {
+            auto& [fId, fVaName, ndx] = f;
+            os << " " << fId << ":flow(br)";
+        }
+        os << ") ";
+    } else {
+        os << " (" << connections_ << ") ";
+    }
     os << masterName_ << " " << parameters_ << "\n";
 }
 
 void PTBehavioral::dump(int indent, std::ostream& os) const {
     std::string pfx = std::string(indent, ' ');
-    os << pfx << (instanceName_) << " (" << connections_ << ") ";
+    os << pfx << "// " << (instanceName_) << " (" << connections_ << ") ";
     os << (currentSource_ ? "flow=" : "potential=" );
     os << expr_.str() << "discipline=[";
     os << "\"" << discipline_ << "\", ";
@@ -643,11 +657,9 @@ bool ParserTables::processBehaviorals(int debug, Status& s) {
                 for(auto& [nodeId, nodeVaName, nodeIdx] : behavData.node) {
                     behavTerms.push_back(PTParsedIdentifier(nodeId, behav.location()));
                 }
-                // RPNBehavioralVA::flow nodes should be connected to first node in connections
-                // Will be reconnected later when structures are populated
-                for(auto& [flowId, flowVaName, flowIdx] : behavData.flow) {
-                    behavTerms.push_back(behav.connections()[0]);
-                }
+                // RPNBehavioralVA::flow nodes should not be connected at instance creation. 
+                // They should not be connected to internal nodes (handled by OsdiInstance::buildHierarchy()). 
+                // They are connected during OsdiInstance::populateStructuresCore(). 
                 PTInstance behavInstance(behav.name(), Id(behavData.moduleName), std::move(behavTerms), behav.location());
                 behavInstance.addBehavioralData(std::move(behavData));
                 blk->add(std::move(behavInstance));

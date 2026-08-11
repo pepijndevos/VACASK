@@ -107,8 +107,8 @@ bool OsdiInstance::unbindInternalNodes(Circuit& circuit, Status& s) {
     for(decltype(n) i=connectedTerminalCount; i<n; i++) {
         if (!circuit.releaseNode(nodes_[i], s)) {
             return false;
-            nodes_[i] = nullptr;
         }
+        nodes_[i] = nullptr;
     }
     return true;
 }
@@ -398,8 +398,15 @@ bool OsdiInstance::setStaticTolerancesCore(Circuit& circuit, CommonData& commons
     // Get device descriptor
     auto descr = dev->descriptor();
 
+    // Behavioral source data
+    auto bd = parsedInstance_.behavioralData();
+    
     // Go through nodes
     for(NodeIndex i=0; i<nodes_.size(); i++) {
+        // For behavioral sources we set tolerances only for the first two nodes and the optional internal node
+        if (bd && i>2 && i<staticNodeCount()) {
+            continue;
+        }
         // Get unknown index
         auto ui = nodes_[i]->unknownIndex();
         if (spiceMode) {
@@ -431,12 +438,18 @@ bool OsdiInstance::propagateParameters(Circuit& circuit, RpnEvaluator& evaluator
 
 bool OsdiInstance::buildHierarchy(Circuit& circuit, RpnEvaluator& evaluator, Status& s) {
     // Create internal nodes
-    // Start at the node following the last conected terminal
+    // Start at the node following the last connected terminal
     // TODO: maybe create internal nodes only for non-terminal nodes
     //       resolve this with BJT and BSIM3SOI models
     auto* descr = model()->device()->descriptor();
     auto n = staticNodeCount();
     for(TerminalIndex i=connectedTerminalCount; i<n; i++) {
+        // Do not create internal nodes for terminals of flow nodes that provide control currents
+        if (auto bd = parsedInstance_.behavioralData(); bd) {
+            if (i>=2+bd->node.size() && i<2+bd->node.size()+bd->flow.size()) {
+                continue;
+            }
+        }
         // Create/get node
         auto node = getInternalNode(
             circuit, nodeName(i), 
@@ -485,6 +498,30 @@ bool OsdiInstance::collapseNodesCore(Circuit& circuit, Status& s) {
 }
 
 bool OsdiInstance::populateStructuresCore(Circuit& circuit, Status& s) {
+    // Find controlling current nodes for behavioral sources
+    // Bind them to instance terminals, handle node reference count
+    if (auto bd = parsedInstance_.behavioralData(); bd) {
+        auto nodeIndex = 2 + bd->node.size();
+        for(auto& [fId, fVaName, ndx] : bd->flow) {
+            auto ctlNode = findControl(circuit, fId, "flow(br)", s);
+            if (!ctlNode) {
+                return false;
+            }
+            // Unbind old flow node - decrease reference count
+            if (nodes_[nodeIndex] && !circuit.releaseNode(nodes_[nodeIndex], s)) {
+                return false;
+            }
+            // Bind flow node, treat as dangling (do not increase connected terminal count)
+            if (!bindNode(nodeIndex, ctlNode, true, s)) {
+                return false;
+            }
+            // Increase reference count because the node was obtained with findNode(), not getNode()
+            ctlNode->incRef();
+            nodeIndex++;
+        }
+    }
+
+    // Build Jacobian entries
     auto descr = model()->device()->descriptor();
     auto numEntries = model()->device()->jacobianEntriesCount();
     for(decltype(numEntries) i=0; i<numEntries; i++) {

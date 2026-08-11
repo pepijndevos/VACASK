@@ -141,6 +141,32 @@ Id Instance::translatePeer(Id peer) {
     }
 }
 
+Instance* Instance::findPeerInstance(Circuit& circuit, Id name, Status& s) {
+    auto peerInstanceName = translatePeer(name);
+    auto* peerInstance = circuit.findInstance(peerInstanceName);
+    if (!peerInstance) {
+        s.set(Status::NotFound, "Peer instance '"+std::string(peerInstanceName)+"' not found.");
+        s.extend(location());
+        return nullptr;
+    }
+    return peerInstance;
+}
+
+Node* Instance::findControl(Circuit& circuit, Id instanceName, Id internalNodeName, Status& s) {
+    auto peerInstance = findPeerInstance(circuit, instanceName, s);
+    if (!peerInstance) {
+        return nullptr;
+    }
+    Id nodeName = peerInstance->translateNode(circuit, internalNodeName);
+    auto* node = circuit.findNode(nodeName);
+    if (!node) {
+        s.set(Status::NotFound, "Controlling unknown '"+std::string(nodeName)+"' not found.");
+        s.extend(location());
+        return nullptr;
+    }
+    return node;
+}
+
 std::tuple<Value::Type,bool> Instance::outvarType(Id name, Status& s) const {
     auto [ndx, found] = outvarIndex(name);
     if (!found) {

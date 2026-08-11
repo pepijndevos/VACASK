@@ -278,7 +278,7 @@ public:
     inline Id device() const { return deviceName_; };
     inline bool isParameterized() const { return parameters_.expressionCount()>0; };
     inline const PTParameters& parameters() const { return parameters_; };
-
+    
     // Fluent API
     PTModel& add(PTParameters&& par) & { parameters_.add(std::move(par)); return *this; };
     PTModel& add(PTParameterValue&& v) & { parameters_.add(std::move(v)); return *this; };
