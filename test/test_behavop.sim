@@ -23,14 +23,18 @@ from runtest import *
 import numpy as np
 import sys
 
-tests = []
+tests = [] 
 
 tran1 = rawread('tran1.raw').get()
 time = tran1['time']
 
-# b1 enforces v(d,0)=ddt($abstime), which should be exactly 1 at every point.
+# b1 enforces v(d,0)=ddt($abstime), which should be exactly 1 at every point,
+# except at t=0: ddt() has no time derivative to compute during the DC
+# operating point solve (standard SPICE/Verilog-A convention), so it
+# evaluates to 0 there before real time-stepping begins.
 vd = tran1['d']
 exact_d = np.ones_like(time)
+exact_d[0] = 0
 
 status = (relDiff(vd, exact_d, 1e-12) < 1e-6).all()
 print("v(d) == ddt($abstime) test", status)
