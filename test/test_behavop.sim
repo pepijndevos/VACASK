@@ -1,0 +1,57 @@
+Behavioral ddt(), idt(), and idt() with initial condition
+
+// ddt($abstime) is the time derivative of time itself, exactly 1
+b1 (d 0) v=ddt($abstime)
+
+// idt(1) is the time integral of a constant 1, starting from 0: equals time
+b2 (i0 0) v=idt(1)
+
+// idt(1, 5) is the same integral with initial condition 5: equals time+5
+b3 (i1 0) v=idt(1, 5)
+
+control
+  abort always
+
+  analysis tran1 tran stop=10m step=1m
+
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+from runtest import *
+import numpy as np
+import sys
+
+tests = []
+
+tran1 = rawread('tran1.raw').get()
+time = tran1['time']
+
+# b1 enforces v(d,0)=ddt($abstime), which should be exactly 1 at every point.
+vd = tran1['d']
+exact_d = np.ones_like(time)
+
+status = (relDiff(vd, exact_d, 1e-12) < 1e-6).all()
+print("v(d) == ddt($abstime) test", status)
+tests.append(status)
+
+# b2 enforces v(i0,0)=idt(1), which should equal time.
+vi0 = tran1['i0']
+exact_i0 = time
+
+status = (relDiff(vi0, exact_i0, 1e-12) < 1e-6).all()
+print("v(i0) == idt(1) test", status)
+tests.append(status)
+
+# b3 enforces v(i1,0)=idt(1, 5), which should equal time+5.
+vi1 = tran1['i1']
+exact_i1 = time+5
+
+status = (relDiff(vi1, exact_i1, 1e-12) < 1e-6).all()
+print("v(i1) == idt(1, 5) test", status)
+tests.append(status)
+
+if isTest():
+    sys.exit(not all(tests))
+>>>FILE

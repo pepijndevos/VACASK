@@ -1,0 +1,63 @@
+Behavioral $temp, $scale, and $abstime
+
+// $temp is the ambient temperature in degC (Verilog-A $temperature-273.15)
+b1 (t 0) v=$temp
+
+// $scale is the global device scale factor (Verilog-A $simparam("scale", 1))
+b2 (s 0) v=$scale
+
+// $abstime is the absolute simulation time (s), only meaningful in transient
+b3 (abst 0) v=$abstime
+
+control
+  abort always
+
+  sweep tempsweep option="temp" from=0 to=100 step=25
+    analysis op1 op
+
+  sweep scalesweep option="scale" from=0.5 to=2 step=0.5
+    analysis op2 op
+
+  analysis tran1 tran stop=10m step=1m
+
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+from runtest import *
+import numpy as np
+import sys
+
+tests = []
+
+# b1 enforces v(t,0)=$temp, which should track the swept "temp" option exactly.
+op1 = rawread('op1.raw').get()
+temp = op1['tempsweep']
+vt = op1['t']
+
+status = (relDiff(vt, temp, 1e-12) < 1e-9).all()
+print("v(t) tracks $temp test", status)
+tests.append(status)
+
+# b2 enforces v(s,0)=$scale, which should track the swept "scale" option exactly.
+op2 = rawread('op2.raw').get()
+scale = op2['scalesweep']
+vs = op2['s']
+
+status = (relDiff(vs, scale, 1e-12) < 1e-9).all()
+print("v(s) tracks $scale test", status)
+tests.append(status)
+
+# b3 enforces v(abst,0)=$abstime, which should track the transient time vector.
+tran1 = rawread('tran1.raw').get()
+time = tran1['time']
+vabst = tran1['abst']
+
+status = (relDiff(vabst, time, 1e-12) < 1e-9).all()
+print("v(abst) tracks $abstime test", status)
+tests.append(status)
+
+if isTest():
+    sys.exit(not all(tests))
+>>>FILE

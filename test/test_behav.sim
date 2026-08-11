@@ -15,9 +15,15 @@ b3 (c 0) v=M_PI*(i(v1)-1)**2
 // Thermal domain
 b4 (d 0) potential=M_PI*v(a) discipline=["thermal", "Temp", "Pwr"]
 
+// Parameter type
+parameters ip=1 rp=9.9 p=15.5
+b5 (e 0) potential=$intparam(ip)+$realparam(rp)+p
+
 control
   options tolmode="va"
   print device("__behavioral_b2")
+  print device("__behavioral_b5")
+  print model("__behavioral_b5")
   print tolerances
   sweep v1sweep instance="v1" parameter="dc" from=-1 to=1 step=0.1
     analysis op1 op
