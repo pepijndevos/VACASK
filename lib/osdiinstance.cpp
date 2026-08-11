@@ -400,11 +400,16 @@ bool OsdiInstance::setStaticTolerancesCore(Circuit& circuit, CommonData& commons
 
     // Behavioral source data
     auto bd = parsedInstance_.behavioralData();
-    
+
     // Go through nodes
     for(NodeIndex i=0; i<nodes_.size(); i++) {
-        // For behavioral sources we set tolerances only for the first two nodes and the optional internal node
-        if (bd && i>2 && i<staticNodeCount()) {
+        // For behavioral sources, skip the declared controlling-quantity probes
+        // (indices 2..terminalCount()-1, i.e. every terminal beyond the two main
+        // ones): those nodes are owned and tolerance-tagged by the instance they
+        // probe. Internal-only nodes (index >= terminalCount(), e.g. the implicit
+        // flow(br) unknown for a voltage-defining behavioral source) are this
+        // instance's own and still need to be set below.
+        if (bd && i>=2 && i<terminalCount()) {
             continue;
         }
         // Get unknown index

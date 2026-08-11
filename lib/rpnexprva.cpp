@@ -177,7 +177,8 @@ bool Rpn::verilogA(const std::string& discipline, const std::string& potAccess, 
                         auto& [nodeId, nodeVaName, nodeIdx] = behavData.node[nit->second];
                         nodeText[i] = nodeVaName;
                     } else {
-                        nodeText[i] = std::string("__v")+std::to_string(p)+"_"+sanitizeVariable(rawName);
+                        auto vIdx = behavData.node.size();
+                        nodeText[i] = std::string("__v")+std::to_string(vIdx)+"_"+sanitizeVariable(rawName);
                         nodeMap.emplace(nodeKey, behavData.node.size());
                         behavData.node.emplace_back(nodeKey, nodeText[i], p);
                     }
@@ -206,7 +207,8 @@ bool Rpn::verilogA(const std::string& discipline, const std::string& potAccess, 
                 auto& [flowId, flowVaName, flowIdx] = behavData.flow[fit->second];
                 flowText = flowVaName;
             } else {
-                flowText = std::string("__i")+std::to_string(idx)+"_"+sanitizeVariable(origId);
+                auto iIdx = behavData.flow.size();
+                flowText = std::string("__i")+std::to_string(iIdx)+"_"+sanitizeVariable(origId);
                 flowMap.emplace(origId, behavData.flow.size());
                 behavData.flow.emplace_back(origId, flowText, idx);
             }
@@ -427,7 +429,7 @@ bool Rpn::verilogA(const std::string& discipline, const std::string& potAccess, 
         "  branch (__nt1, __nt2) br;\n" +
         parametersString +
         "  analog begin\n" +
-        "    " + (behavData.currentSource ? flowAccess : potAccess) + "() <+ " + 
+        "    " + (behavData.currentSource ? flowAccess : potAccess) + "(br) <+ " + 
              resultExpr + ";\n" +
         "  end\n" +
         "endmodule\n";

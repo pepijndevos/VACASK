@@ -95,13 +95,13 @@ void PTInstance::dump(int indent, std::ostream& os) const {
 
 void PTBehavioral::dump(int indent, std::ostream& os) const {
     std::string pfx = std::string(indent, ' ');
-    os << pfx << "// " << (instanceName_) << " (" << connections_ << ") ";
-    os << (currentSource_ ? "flow=" : "potential=" );
-    os << expr_.str() << "discipline=[";
+    os << pfx << "// " << (instanceName_) << " (" << connections_ << ")";
+    os << (currentSource_ ? " flow=" : " potential=" );
+    os << expr_.str() << " discipline=[";
     os << "\"" << discipline_ << "\", ";
     os << "\"" << potentialAccessor_ << "\", ";
     os << "\"" << flowAccessor_ << "\"";
-    "]\n";
+    os << "]\n";
 }
 
 
@@ -620,7 +620,7 @@ bool ParserTables::processBehaviorals(int debug, Status& s) {
                 // Create module definition
                 RPNBehavioralVA behavData = {
                     // Construct module name
-                    .moduleName = (blockNameRoot.size()>0 ? (moduleNameRoot+"_"+blockNameRoot) : moduleNameRoot) + "_" + std::string(behav.name()), 
+                    .moduleName = "__behavioral" + (blockNameRoot.size()>0 ? (moduleNameRoot+"_"+blockNameRoot) : moduleNameRoot) + "_" + std::string(behav.name()), 
                     .currentSource = behav.currentSource(), 
                 };
                 // Run Rpn::verilogA

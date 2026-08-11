@@ -284,6 +284,12 @@ int main(int argc, char**argv) {
         Simulator::dbg() << "Simulating: " << tab.title() << "\n";
     }
 
+    // Process behavioral sources
+    if (!tab.processBehaviorals(Simulator::fileDebug(), status)) {
+        Simulator::err() << status.message() << "\n";
+        return 1;
+    }
+
     if (dumpTables) {
         Simulator::dbg() << "---- Parser tables ----\n";
         tab.dump(0, Simulator::dbg());
