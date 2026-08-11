@@ -39,9 +39,13 @@ typedef std::vector<std::tuple<std::string, bool, size_t>> SStack;
 
 // Translates a VACASK builtin function call into its Verilog-A equivalent.
 // stack holds the already-translated arguments; argPos is the stack index
-// of the first argument, nArgs is the argument count. Returns the formatted
-// Verilog-A function call text.
-typedef std::string (*VAFuncTranslator)(SStack& stack, size_t argPos, size_t nArgs);
+// of the first argument, nArgs is the argument count. expr is the RPN
+// expression being translated, needed to inspect the original (untranslated)
+// data type of an argument via its stack entry's source index. Returns
+// (true, the formatted Verilog-A function call text) on success; on failure
+// returns (false, <unspecified>) with the error reported via s, the last
+// argument.
+typedef std::tuple<bool, std::string> (*VAFuncTranslator)(SStack& stack, size_t argPos, size_t nArgs, const Rpn::Expression& expr, Status& s);
 
 // Compile-time string usable as a non-type template argument (C++20)
 template<std::size_t N>
@@ -56,7 +60,7 @@ struct FixedString {
 
 // Trivial translation: VACASK name(arg1, ..., argn) -> DestName(arg1, ..., argn)
 template<FixedString DestName>
-static std::string trivialTranslator(SStack& stack, size_t argPos, size_t nArgs) {
+static std::tuple<bool, std::string> trivialTranslator(SStack& stack, size_t argPos, size_t nArgs, const Rpn::Expression& expr, Status& s) {
     std::string txt = std::string(DestName.value) + "(";
     for (size_t i=0; i<nArgs; i++) {
         if (i>0) {
@@ -66,7 +70,34 @@ static std::string trivialTranslator(SStack& stack, size_t argPos, size_t nArgs)
         txt += argText;
     }
     txt += ")";
-    return txt;
+    return std::make_tuple(true, txt);
+}
+
+// Noise translation: VACASK name(arg1, ..., argn) -> DestName(arg1, ..., argn)
+// Requires last argument to be a constant string. Returns (true, the
+// formatted Verilog-A function call text) on success; if the last argument
+// is not a constant string, returns (false, <unspecified>) with the error
+// reported via s.
+template<FixedString DestName>
+static std::tuple<bool, std::string> noiseTranslator(SStack& stack, size_t argPos, size_t nArgs, const Rpn::Expression& expr, Status& s) {
+    // Check last argument (nArgs-1) if it is a constant string
+    auto& [lastArgText, lastArgIsId, lastArgIdx] = stack.at(argPos+nArgs-1);
+    auto& lastEntry = expr.at(lastArgIdx);
+    bool isConstString = lastEntry.type()==Rpn::TValue && lastEntry.get<Value>().type()==Value::Type::String;
+    if (!isConstString) {
+        s.set(Status::Unsupported, std::string(DestName.value)+"() requires the last argument to be a constant string.");
+        return std::make_tuple(false, std::string());
+    }
+    std::string txt = std::string(DestName.value) + "(";
+    for (size_t i=0; i<nArgs; i++) {
+        if (i>0) {
+            txt += ", ";
+        }
+        auto& [argText, argIsId, argIdx] = stack.at(argPos+i);
+        txt += argText;
+    }
+    txt += ")";
+    return std::make_tuple(true, txt);
 }
 
 // Map key: function name plus arity, since a name may be trivially
@@ -115,6 +146,16 @@ static std::unordered_map<VAFuncKey, VAFuncTranslator, VAFuncKeyHash> vaFuncMap 
     // Type conversion, renamed to the matching Verilog-A system function
     { { Id::createStatic("int"),   1 }, trivialTranslator<"$rtoi"> },
     { { Id::createStatic("real"),  1 }, trivialTranslator<"$itor"> },
+    // Verilog-A operators
+    // Ordinary ddt()
+    { { Id::createStatic("ddt"),  1 }, trivialTranslator<"ddt"> },
+    // Ordinary idt()
+    { { Id::createStatic("idt"),  1 }, trivialTranslator<"idt"> },
+    // idt() with initial condition 
+    { { Id::createStatic("idt"),  2 }, trivialTranslator<"idt"> },
+    // Verilog-A noise sources
+    { { Id::createStatic("white_noise"),  2 }, noiseTranslator<"white_noise"> },
+    { { Id::createStatic("flicker_noise"),  3 }, noiseTranslator<"flicker_noise"> },
 };
 
 // VACASK operator tokens and precedence were verified to already match
@@ -220,8 +261,8 @@ bool Rpn::verilogA(const std::string& discipline, const std::string& potAccess, 
         switch (e.type()) {
             case Rpn::TValue: {
                 const Value& v = e.get<Value>();
-                if (v.type()!=Value::Type::Real && v.type()!=Value::Type::Int) {
-                    s.set(Status::Unsupported, "Only real and integer literals have a Verilog-A equivalent.");
+                if (v.type()!=Value::Type::Real && v.type()!=Value::Type::Int && v.type()!=Value::Type::String) {
+                    s.set(Status::Unsupported, "Only real, integer, and string literals have a Verilog-A equivalent.");
                     s.extend(location(e));
                     return false;
                 }
@@ -385,7 +426,10 @@ bool Rpn::verilogA(const std::string& discipline, const std::string& potAccess, 
                     return false;
                 }
                 auto argPos = sstack.size()-n;
-                std::string txt = fit->second(sstack, argPos, n);
+                auto [ok, txt] = fit->second(sstack, argPos, n, expr, s);
+                if (!ok) {
+                    s.extend(location(e));
+                }
                 sstack.resize(argPos);
                 sstack.push_back({std::move(txt), false, idx});
                 break;
