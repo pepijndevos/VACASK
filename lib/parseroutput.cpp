@@ -596,11 +596,18 @@ bool ParserTables::processBehaviorals(int debug, Status& s) {
     // Set of dependencies
     std::unordered_set<std::string> dependencies;
 
+    // Count behavioral sources
+    size_t behavCount = 0;
+
     // Work list of subcircuit definitions still to process, starting with
     // the root (default) subcircuit definition
     std::vector<std::tuple<PTSubcircuitDefinition*, const std::string>> subDefStack{ {&defaultSubDef_, ""} };
     while (!subDefStack.empty()) {
-        auto& [ subDef, moduleNameRoot ] = subDefStack.back();
+        // Copy out by value: subsequent push_back() calls in this iteration
+        // (below) can reallocate the vector, which would invalidate a
+        // reference obtained from back(); pop_back() alone would also
+        // destroy such a reference's target.
+        auto [ subDef, moduleNameRoot ] = std::move(subDefStack.back());
         subDefStack.pop_back();
 
         // Queue nested subcircuit definitions
@@ -613,7 +620,8 @@ bool ParserTables::processBehaviorals(int debug, Status& s) {
         // definition, starting with its root block
         std::vector<std::tuple<PTBlock*,const std::string>> blockStack{ {&subDef->root(), ""} };
         while (!blockStack.empty()) {
-            auto& [blk, blockNameRoot] = blockStack.back();
+            // Copy out by value, same reasoning as subDefStack above.
+            auto [blk, blockNameRoot] = std::move(blockStack.back());
             blockStack.pop_back();
 
             for(auto& behav : blk->behaviorals()) {
@@ -633,6 +641,7 @@ bool ParserTables::processBehaviorals(int debug, Status& s) {
 
                 // Append to Verilog-A file
                 va += behavData.vaCode+"\n\n";
+                behavCount++;
 
                 // Create model, same name as module
                 PTModel behavModel(Id(behavData.moduleName), Id(behavData.moduleName), behav.location());
@@ -691,6 +700,11 @@ bool ParserTables::processBehaviorals(int debug, Status& s) {
                 }
             }
         }
+    }
+
+    // No behavioral sources, we are done
+    if (behavCount==0) {
+        return true;
     }
 
     // Get the file name of the toplevel netlist
