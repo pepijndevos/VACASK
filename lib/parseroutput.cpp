@@ -716,6 +716,9 @@ bool ParserTables::processBehaviorals(int debug, Status& s) {
     if (fileStack_.isFileEntry(0)) {
         vaFileName = fileStack_.canonicalName(0);
     }
+    // Extract the file name, keep only file name, not full path
+    // because we want to write in the work directory. 
+    vaFileName = std::filesystem::path(vaFileName).filename().string();
     // Extend with __behavioral.va
     vaFileName += "__behavioral.va";
 
