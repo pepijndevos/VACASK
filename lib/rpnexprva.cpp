@@ -388,6 +388,10 @@ bool Rpn::verilogA(const std::string& discipline, const std::string& potAccess, 
                         s.set(Status::Unsupported, "Selection operator has no Verilog-A equivalent.");
                         s.extend(location(e));
                         return false;
+                    default: 
+                        s.set(Status::Unsupported, "Unsupported operator with no Verilog-A equivalent.");
+                        s.extend(location(e));
+                        return false;
                 }
                 break;
             }
