@@ -1,0 +1,106 @@
+Self-heating lightbulb built from behavioral sources
+
+// Unlike the original hand-written Verilog-A module (which used the plain
+// electro-thermal analogy: node T carrying a voltage that stands in for
+// temperature, on the "electrical" discipline throughout), the thermal
+// branch below is declared on the real "thermal" discipline: node "t" is
+// a Temp/Pwr node, not a V/I node. "bi" still probes v(t) from the
+// electrical side to read the filament temperature - each behavioral
+// source is compiled to its own independent Verilog-A module, so "bi"
+// reading v(t) with its own (electrical) V() accessor and "bt" driving
+// the same node with Temp()/Pwr() are both valid; VACASK just binds both
+// modules' ports to the same underlying node.
+//
+// Filament resistance:   r(t)  = r0*(p0 + p1*Temp(t) + p2*Temp(t)^2)
+// Electrical branch:     i(a,0) = V(a,0)/r(t)
+// Thermal branch:        -p + (Temp(t)-Ta)/Rth + ddt(Cth*Temp(t)) = 0,  p = i(a,0)*V(a,0)
+
+model vsource vsource
+
+parameters rth=(3000-25)/60 cth=10e-3 ta=25 r0=8.612 p0=8.612 p1=0.0269 p2=1.914e-6
+
+v1 (a 0) vsource dc=0 type="sine" sinedc=0.0 ampl=325 freq=50
+
+// Electrical branch: current through the filament, resistance depends on
+// the temperature node "t"
+bi (a 0) i=v(a,0)/(r0*(p0+p1*v(t)+p2*v(t)**2))
+
+// Thermal branch: dissipated power in, ambient cooling and thermal mass out.
+// Declared on the "thermal" discipline, so "flow=" here means power (Pwr),
+// not current, and v(t) inside this source's own expression is read back
+// as a temperature (Temp) rather than a voltage.
+ct  (t 0) flow=ddt(cth*v(t)) discipline=["thermal", "Temp", "Pwr"]
+rt  (t 0) flow=(v(t)-ta)/rth discipline=["thermal", "Temp", "Pwr"]
+pwr (t 0) flow=-(v(a,0)**2/(r0*(p0+p1*v(t)+p2*v(t)**2))) discipline=["thermal", "Temp", "Pwr"]
+
+control
+  abort always
+
+  // Use Verilog-A nature tolerance, ignore SPICE tolerances
+  options tolmode="va"
+
+  alter instance("v1") type="dc"
+  sweep v1 instance="v1" parameter="dc" from=0 to=230 mode="lin" points=50
+    analysis dc1 op
+
+  alter instance("v1") type="sine"
+  analysis tran1 tran stop=2 step=0.01m maxstep=0.05m
+
+  analysis hb1 hb freq=[50] nharm=10
+
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+import numpy as np
+import matplotlib.pyplot as plt
+
+dc1 = rawread('dc1.raw').get()
+v = dc1['a']
+T = dc1['t']
+
+tran1 = rawread('tran1.raw').get()
+time = tran1['time']
+Tt = tran1['t']
+
+hb1 = rawread('hb1.raw').get()
+f = np.real(hb1['frequency'])
+Ts = hb1['t']
+Tmag = np.abs(Ts)
+
+t = np.linspace(0, 1.0/50, 1000)
+y = np.zeros(t.size)
+for f1, Ts1 in zip(f, Ts):
+    y += np.real(Ts1)*np.cos(2*np.pi*f1*t)
+    y += -np.imag(Ts1)*np.sin(2*np.pi*f1*t)
+
+ytran = np.interp(time[-1]-1.0/50+t, time, Tt)
+
+fig1, ax1 = plt.subplots(4, 1, figsize=(5,8), dpi=100, constrained_layout=True)
+fig1.suptitle('HB analysis of self-heating lightbulb (behavioral sources)')
+fig1.axes[0].set_title('DC response')
+fig1.axes[0].set_ylabel('T [deg C]')
+fig1.axes[0].set_xlabel('V [V]')
+fig1.axes[0].plot(v, T)
+
+fig1.axes[1].set_title('Transient response')
+fig1.axes[1].set_ylabel('T [deg C]')
+fig1.axes[1].set_xlabel('time [s]')
+fig1.axes[1].plot(time, Tt)
+
+fig1.axes[2].set_title('Steady-state magnitude spectrum')
+fig1.axes[2].set_ylabel('T magnitude [deg C]')
+fig1.axes[2].set_xlabel('frequency [Hz]')
+fig1.axes[2].set_yscale("log")
+fig1.axes[2].stem(f, Tmag, markerfmt='.')
+
+fig1.axes[3].set_title('Steady-state response')
+fig1.axes[3].set_ylabel('T [deg C]')
+fig1.axes[3].set_xlabel('time [ms]')
+fig1.axes[3].plot(t*1e3, y, color="blue", label="HB")
+fig1.axes[3].plot(t*1e3, ytran, color="red", label="tran")
+fig1.axes[3].legend(loc="upper left")
+
+plt.show()
+>>>FILE
