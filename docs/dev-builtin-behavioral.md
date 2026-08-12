@@ -65,7 +65,7 @@ __behavioral<subcircuit path>_<conditional block path>_<name>
   subcircuit *definition*, it is that definition's name, prefixed with `_` (and further
   prefixed the same way for each enclosing definition, for nested subcircuit definitions).
 - `<conditional block path>` is empty unless the behavioral source is written inside a
-  conditional (`if`/`elif`/`else`) block. It is then a chain of `s<seq>b<block>` segments,
+  conditional (`@if`/`@elseif`/`@else`) block. It is then a chain of `s<seq>b<block>` segments,
   one per nesting level, identifying which branch of which conditional block sequence the
   source line belongs to.
 - `<name>` is the instance name exactly as written on the behavioral source line.
@@ -129,6 +129,13 @@ a literal - it cannot be computed from an expression or a parameter.
 // Thermal domain: potential is temperature (Temp), flow is power (Pwr)
 b4 (d 0) potential=M_PI*v(a) discipline=["thermal", "Temp", "Pwr"]
 ```
+
+The discipline applies to the source's own two terminals and to any extra node introduced
+by the Verilog-A compiler. It has no effect on control nodes: VACASK never instantiates 
+a control node - it rebinds it directly to existing nodes, which already carry
+whatever discipline was assigned to them. The `discipline` declaration written in
+the synthesized module is syntactically present for every terminal (Verilog-A requires a
+port to have one), but for a control node it has no effect on the elaborated circuit.
 
 ## Functions
 
