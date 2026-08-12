@@ -87,6 +87,34 @@ typedef struct EvalSetup {
     // Results are written to states or dummyStates only if not nullptr
     IntegratorCoeffs* integCoeffs {};
     
+    // Former members of CommonData
+    double time {0};
+
+    // Convergence check
+    // Check reactive residual and Jacobian for convergence
+    bool checkReactiveConvergece {};
+    // Counter of convergence checks, is reset by initialize()
+    size_t instancesConvergenceChecks;
+    // Counter of convergence checks that resulted in a converged instance, is reset by initialize()
+    size_t convergedInstances;
+    
+    // 
+    // Internals
+    // 
+
+    // Fast access pointers - do not set manually
+    double* oldSolution; // with bucket
+    double* oldStates; // states (current data)
+    double* newStates; // can be either from states (future data) or dummyStates (current data)
+
+    //
+    // OMP: Need these to be created per-thread and merged after parallel run
+    // 
+
+    // OMP: See also ParserTables::accounting() - maybe we should create these per-thread and merge
+
+    // OMP: osdi_log() needs a mutex - who cares about speed when we are writing messages
+    
     // Return information on what happened during evaluation
     // Verilog-A abort/finish/stop
     struct DeviceRequests requests;
@@ -120,25 +148,9 @@ typedef struct EvalSetup {
     size_t bypassOpportunuties;
     size_t bypassedInstances;
 
-    // Former members of CommonData
-    double time {0};
-
-    // Convergence check
-    // Check reactive residual and Jacobian for convergence
-    bool checkReactiveConvergece {};
-    // Counter of convergence checks, is reset by initialize()
-    size_t instancesConvergenceChecks;
-    // Counter of convergence checks that resulted in a converged instance, is reset by initialize()
-    size_t convergedInstances;
-    
+    //
+    // OMP: Check when these are called - handle properly in OMP case
     // 
-    // Internals
-    // 
-
-    // Fast access pointers - do not set manually
-    double* oldSolution; // with bucket
-    double* oldStates; // states (current data)
-    double* newStates; // can be either from states (future data) or dummyStates (current data)
 
     // Methods
     void clearFlags() {
