@@ -222,15 +222,20 @@ bool Value::getScalar(Value& v, Int ndx, Status& s) const {
     return true;
 }
 
-std::string Value::str() const {
+std::string Value::str(bool roundTripExact) const {
     std::stringstream s;
+    std::streamsize oldPrecision;
+    if (roundTripExact) {
+        oldPrecision = s.precision(std::numeric_limits<double>::max_digits10);
+    }
     s << *this;
+    if (roundTripExact) {
+        s.precision(oldPrecision);
+    }
     return s.str();
 }
 
 std::ostream& operator<<(std::ostream& os, const Value& obj) {
-    // Use full round-trip precision for Real, restore caller's precision afterwards
-    auto oldPrecision = os.precision(std::numeric_limits<double>::max_digits10);
     switch(obj.type_) {
         case Value::Type::Int: os << obj.iVal; break;
         case Value::Type::Real: os << obj.rVal; break;
@@ -276,7 +281,6 @@ std::ostream& operator<<(std::ostream& os, const Value& obj) {
             os << "}";
             break;
     }
-    os.precision(oldPrecision);
     return os;
 }
 

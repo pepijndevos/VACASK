@@ -961,6 +961,12 @@ behavioral
         YYERROR;
       }
     }
+    // Exactly one of v/potential or i/flow must have been given
+    if (!haveExpr) {
+      status.set(Status::BadArguments, "Behavioral source instance requires exactly one of parameters \"v\"/\"potential\" or \"i\"/\"flow\".");
+      status.extend(@1.loc());
+      YYERROR;
+    }
     $$ = std::move(PTBehavioral(
         $1, 
         std::move($3), 

@@ -266,7 +266,7 @@ bool Rpn::verilogA(const std::string& discipline, const std::string& potAccess, 
                     s.extend(location(e));
                     return false;
                 }
-                sstack.push_back({v.str(), false, idx});
+                sstack.push_back({v.str(true), false, idx});
                 continue;
             }
             case Rpn::TIdentifier: {
@@ -292,7 +292,7 @@ bool Rpn::verilogA(const std::string& discipline, const std::string& potAccess, 
                 // files. 
                 const Value* constVal = ContextStack::getConstant(name);
                 if (constVal) {
-                    sstack.push_back({constVal->str(), false, idx});
+                    sstack.push_back({constVal->str(true), false, idx});
                     continue;
                 }
                 // All other identifiers
@@ -406,18 +406,20 @@ bool Rpn::verilogA(const std::string& discipline, const std::string& potAccess, 
                 auto name = e.get<FunctionCall>().name;
                 auto n = e.get<FunctionCall>().arity;
                 if (name==intParamId || name==realParamId) {
-                    auto& [argText, argIsId, argIdx] = sstack.back();
-                    if (n!=1 || !argIsId) {
-                        s.set(Status::Unsupported, std::string(name)+"() requires a single identifier argument.");
-                        s.extend(location(e));
-                        return false;
+                    if (n==1) {
+                        auto& [argText, argIsId, argIdx] = sstack.back();
+                        if (argIsId) {
+                            Id argName = expr.at(argIdx).get<Identifier>().name;
+                            Value::Type newType = (name==intParamId) ? Value::Type::Int : Value::Type::Real;
+                            auto& [paramId, paramVaName, paramType, paramIdx] = behavData.param[paramMap.at(argName)];
+                            paramType = newType;
+                            // Result of $intparam()/$realparam() is the identifier itself
+                            continue;
+                        }
                     }
-                    Id argName = expr.at(argIdx).get<Identifier>().name;
-                    Value::Type newType = (name==intParamId) ? Value::Type::Int : Value::Type::Real;
-                    auto& [paramId, paramVaName, paramType, paramIdx] = behavData.param[paramMap.at(argName)];
-                    paramType = newType;
-                    // Result of $intparam()/$realparam() is the identifier itself
-                    continue;
+                    s.set(Status::Unsupported, std::string(name)+"() requires a single identifier argument.");
+                    s.extend(location(e));
+                    return false;
                 }
                 auto fit = vaFuncMap.find(VAFuncKey(name, n));
                 if (fit==vaFuncMap.end()) {
@@ -433,6 +435,7 @@ bool Rpn::verilogA(const std::string& discipline, const std::string& potAccess, 
                 auto [ok, txt] = fit->second(sstack, argPos, n, expr, s);
                 if (!ok) {
                     s.extend(location(e));
+                    return false;
                 }
                 sstack.resize(argPos);
                 sstack.push_back({std::move(txt), false, idx});

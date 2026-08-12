@@ -211,7 +211,7 @@ public:
     
     // Output 
     friend std::ostream& operator<<(std::ostream& os, const Value& obj);
-    std::string str() const;
+    std::string str(bool roundTripExact=false) const;
 
     // Instance type name
     std::string typeName() { return typeCodeToName(type_); };

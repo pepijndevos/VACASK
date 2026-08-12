@@ -219,7 +219,6 @@ bfn (n2 0) i=flicker_noise(pwr_f, ef, "myflicker")
 ```text
 Behavioral diode-like nonlinear resistor
 
-ground 0
 load "resistor.osdi"
 
 model resistor resistor
