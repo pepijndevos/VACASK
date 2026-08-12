@@ -152,6 +152,10 @@ bool PssTranCore::clearTrajectory() {
     es.storeReactiveState        = true;
     es.evaluateOutvars           = false;
     es.allowBypass               = false;
+    // OpenVAF generated idt(a,b) computes the correct reactive residual only
+    // when EnableIntegration is true, which requires icEnabled false here
+    // (see the analogous fix in coretran.cpp's esInit).
+    es.icEnabled                 = false;
 
     LoadSetup ls;
     ls.loadReactiveJacobian   = true;
@@ -223,6 +227,9 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
     es.storeReactiveState        = true;
     es.evaluateOutvars           = false;
     es.allowBypass               = false;
+    // See the C_0/q_0 block above: icEnabled must be false for OpenVAF's
+    // idt(a,b) to compute the correct reactive residual here too.
+    es.icEnabled                 = false;
 
     LoadSetup ls;
     ls.loadReactiveJacobian   = true;
