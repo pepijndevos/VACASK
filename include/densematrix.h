@@ -9,7 +9,54 @@
 #include <iostream>
 #include "common.h"
 
+// Fortran BLAS/LAPACK routines (reference ABI: lowercase name, trailing
+// underscore, scalars/dimensions passed by pointer)
+extern "C" {
+    // y := x (copy n elements of x, stride incx, into y, stride incy)
+    void dcopy_(const int* n, const double* x, const int* incx, double* y, const int* incy);
+    void zcopy_(const int* n, const NAMESPACE::Complex* x, const int* incx, NAMESPACE::Complex* y, const int* incy);
+
+    // Set the M x N matrix A (leading dimension lda): off-diagonal entries := alpha,
+    // diagonal entries := beta (uplo selects which part to touch; 'A'/anything else = all
+    // of it). Used here with m=1 to fill a length-n strided vector (lda=stride) with a
+    // constant, since column-major LDA is the only adjustable stride and only applies
+    // across columns (m=1 makes the vector the single row).
+    void dlaset_(const char* uplo, const int* m, const int* n, const double* alpha, const double* beta, double* a, const int* lda);
+    void zlaset_(const char* uplo, const int* m, const int* n, const NAMESPACE::Complex* alpha, const NAMESPACE::Complex* beta, NAMESPACE::Complex* a, const int* lda);
+
+    // Euclidean (2-)norm of x (n elements, stride incx), computed with internal scaling
+    // to avoid intermediate overflow/underflow.
+    double dnrm2_(const int* n, const double* x, const int* incx);
+    double dznrm2_(const int* n, const NAMESPACE::Complex* x, const int* incx);
+
+    // Dot product of x and y (n elements each, strides incx/incy)
+    double ddot_(const int* n, const double* x, const int* incx, const double* y, const int* incy);
+    // Conjugated dot product: result := sum(conj(x_i) * y_i). Conjugates x (the first
+    // vector), not y. DOUBLE COMPLEX function return goes through a hidden result
+    // pointer as the first argument (gfortran ABI), not a normal C return value.
+    void zdotc_(NAMESPACE::Complex* result, const int* n, const NAMESPACE::Complex* x, const int* incx, const NAMESPACE::Complex* y, const int* incy);
+
+    // y := alpha*x + y (n elements, strides incx/incy)
+    void daxpy_(const int* n, const double* alpha, const double* x, const int* incx, double* y, const int* incy);
+    void zaxpy_(const int* n, const NAMESPACE::Complex* alpha, const NAMESPACE::Complex* x, const int* incx, NAMESPACE::Complex* y, const int* incy);
+
+    // Interchange x and y elementwise (n elements, strides incx/incy)
+    void dswap_(const int* n, double* x, const int* incx, double* y, const int* incy);
+    void zswap_(const int* n, NAMESPACE::Complex* x, const int* incx, NAMESPACE::Complex* y, const int* incy);
+
+    // x := alpha*x (n elements, stride incx)
+    void dscal_(const int* n, const double* alpha, double* x, const int* incx);
+    void zscal_(const int* n, const NAMESPACE::Complex* alpha, NAMESPACE::Complex* x, const int* incx);
+
+    // 1-based index of the element with the largest |x_i| (n elements, stride incx)
+    int idamax_(const int* n, const double* x, const int* incx);
+}
+
 namespace NAMESPACE {
+
+// True for T = std::complex<U> for any U, not just Complex (= std::complex<double>)
+template<typename T> struct is_complex : std::false_type {};
+template<typename U> struct is_complex<std::complex<U>> : std::true_type {};
 
 // A vector view into another vector/matrix
 // Due to stride_ it can handle columns, rows, and much more
@@ -31,26 +78,50 @@ public:
     size_t n() const { return n_; };
 
     // Assign elements from another VectorView
-    VectorView<T>& operator=(const VectorView<T>& from) { 
+    VectorView<T>& operator=(const VectorView<T>& from) {
         if (n_ != from.n_) {
             throw std::out_of_range("Vector length mismatch.");
         }
-        T* ptr = start_;
-        T* ptrFrom = from.start_;
-        for(decltype(n_) i=0; i<n_; i++) {
-            *ptr = *ptrFrom;
-            ptr += stride_;
-            ptrFrom += from.stride_;
+        if constexpr(std::is_same<T, double>::value) {
+            int n = static_cast<int>(n_);
+            int incFrom = static_cast<int>(from.stride_);
+            int incThis = static_cast<int>(stride_);
+            dcopy_(&n, from.start_, &incFrom, start_, &incThis);
+        } else if constexpr(std::is_same<T, Complex>::value) {
+            int n = static_cast<int>(n_);
+            int incFrom = static_cast<int>(from.stride_);
+            int incThis = static_cast<int>(stride_);
+            zcopy_(&n, from.start_, &incFrom, start_, &incThis);
+        } else {
+            T* ptr = start_;
+            T* ptrFrom = from.start_;
+            for(decltype(n_) i=0; i<n_; i++) {
+                *ptr = *ptrFrom;
+                ptr += stride_;
+                ptrFrom += from.stride_;
+            }
         }
         return *this;
     };
 
     // Assign same value to all elements
-    VectorView<T>& operator=(const T& from) { 
-        T* ptr = start_;
-        for(decltype(n_) i=0; i<n_; i++) {
-            *ptr = from;
-            ptr += stride_;
+    VectorView<T>& operator=(const T& from) {
+        if constexpr(std::is_same<T, double>::value || std::is_same<T, Complex>::value) {
+            char uplo = 'A';
+            int m = 1;
+            int n = static_cast<int>(n_);
+            int lda = static_cast<int>(stride_);
+            if constexpr(std::is_same<T, double>::value) {
+                dlaset_(&uplo, &m, &n, &from, &from, start_, &lda);
+            } else {
+                zlaset_(&uplo, &m, &n, &from, &from, start_, &lda);
+            }
+        } else {
+            T* ptr = start_;
+            for(decltype(n_) i=0; i<n_; i++) {
+                *ptr = from;
+                ptr += stride_;
+            }
         }
         return *this;
     };
@@ -71,38 +142,84 @@ public:
 
     // Squared norm
     double norm2() const {
-        double nrm = 0;
-        T* ptr = start_;
-        for(size_t i=0; i<n_; i++) {
-            auto a = std::abs(*ptr);
-            nrm += a*a;
-            ptr += stride_;
+        if constexpr(std::is_same<T, double>::value) {
+            int n = static_cast<int>(n_);
+            int inc = static_cast<int>(stride_);
+            double nrm = dnrm2_(&n, start_, &inc);
+            return nrm*nrm;
+        } else if constexpr(std::is_same<T, Complex>::value) {
+            int n = static_cast<int>(n_);
+            int inc = static_cast<int>(stride_);
+            double nrm = dznrm2_(&n, start_, &inc);
+            return nrm*nrm;
+        } else {
+            double nrm = 0;
+            T* ptr = start_;
+            for(size_t i=0; i<n_; i++) {
+                auto a = std::abs(*ptr);
+                nrm += a*a;
+                ptr += stride_;
+            }
+            return nrm;
         }
-        return nrm;
     };
 
     // Norm
-    double norm() const { return std::sqrt(norm2()); };
+    double norm() const {
+        if constexpr(std::is_same<T, double>::value) {
+            int n = static_cast<int>(n_);
+            int inc = static_cast<int>(stride_);
+            return dnrm2_(&n, start_, &inc);
+        } else if constexpr(std::is_same<T, Complex>::value) {
+            int n = static_cast<int>(n_);
+            int inc = static_cast<int>(stride_);
+            return dznrm2_(&n, start_, &inc);
+        } else {
+            double nrm = 0;
+            T* ptr = start_;
+            for(size_t i=0; i<n_; i++) {
+                auto a = std::abs(*ptr);
+                nrm += a*a;
+                ptr += stride_;
+            }
+            return std::sqrt(nrm);
+        }
+    };
 
     // Dot product
-    // Conjugates other if T is complex, works only for double complex
+    // Conjugates other if T is any std::complex<U>
     T dot(const VectorView<T>& other) const {
         if (n_ != other.n_) {
             throw std::out_of_range("Vector length mismatch.");
         }
-        T sum = 0;
-        const T* ptr = start_;
-        const T* ptrOther = other.start_;
-        for(size_t i=0; i<n_; i++) {
-            if constexpr(std::is_same<T, Complex>::value) {
-                sum += *ptr * std::conj(*ptrOther);
-            } else {
-                sum += *ptr * *ptrOther;
+        if constexpr(std::is_same<T, double>::value) {
+            int n = static_cast<int>(n_);
+            int inc = static_cast<int>(stride_);
+            int incOther = static_cast<int>(other.stride_);
+            return ddot_(&n, start_, &inc, other.start_, &incOther);
+        } else if constexpr(std::is_same<T, Complex>::value) {
+            int n = static_cast<int>(n_);
+            int inc = static_cast<int>(stride_);
+            int incOther = static_cast<int>(other.stride_);
+            Complex result;
+            // X=other so it gets conjugated, Y=this, matching this->conj(other) below
+            zdotc_(&result, &n, other.start_, &incOther, start_, &inc);
+            return result;
+        } else {
+            T sum = 0;
+            const T* ptr = start_;
+            const T* ptrOther = other.start_;
+            for(size_t i=0; i<n_; i++) {
+                if constexpr(is_complex<T>::value) {
+                    sum += *ptr * std::conj(*ptrOther);
+                } else {
+                    sum += *ptr * *ptrOther;
+                }
+                ptr += stride_;
+                ptrOther += other.stride_;
             }
-            ptr += stride_;
-            ptrOther += other.stride_;
+            return sum;
         }
-        return sum;
     };
 
     // Orthogonalize to wrt
@@ -111,12 +228,26 @@ public:
         auto prod = dot(wrt);
         auto nrm2 = wrt.norm2();
         auto fac = prod/nrm2;
-        T* ptr = start_;
-        T* ptrWrt = wrt.start_;
-        for(size_t i=0; i<n_; i++) {
-            *ptr -= fac * *ptrWrt;
-            ptr += stride_;
-            ptrWrt += wrt.stride_;
+        if constexpr(std::is_same<T, double>::value) {
+            int n = static_cast<int>(n_);
+            int incWrt = static_cast<int>(wrt.stride_);
+            int incThis = static_cast<int>(stride_);
+            double negFac = -fac;
+            daxpy_(&n, &negFac, wrt.start_, &incWrt, start_, &incThis);
+        } else if constexpr(std::is_same<T, Complex>::value) {
+            int n = static_cast<int>(n_);
+            int incWrt = static_cast<int>(wrt.stride_);
+            int incThis = static_cast<int>(stride_);
+            Complex negFac = -fac;
+            zaxpy_(&n, &negFac, wrt.start_, &incWrt, start_, &incThis);
+        } else {
+            T* ptr = start_;
+            T* ptrWrt = wrt.start_;
+            for(size_t i=0; i<n_; i++) {
+                *ptr -= fac * *ptrWrt;
+                ptr += stride_;
+                ptrWrt += wrt.stride_;
+            }
         }
     };
 
@@ -126,14 +257,26 @@ public:
         if (n_ != other.n_) {
             throw std::out_of_range("Vector length mismatch.");
         }
-        T* ptr = start_;
-        T* ptrOther = other.start_;
-        for(size_t i=0; i<n_; i++) {
-            auto tmp = *ptr;
-            *ptr = *ptrOther;
-            *ptrOther = tmp;
-            ptr += stride_;
-            ptrOther += other.stride_;
+        if constexpr(std::is_same<T, double>::value) {
+            int n = static_cast<int>(n_);
+            int inc = static_cast<int>(stride_);
+            int incOther = static_cast<int>(other.stride_);
+            dswap_(&n, start_, &inc, other.start_, &incOther);
+        } else if constexpr(std::is_same<T, Complex>::value) {
+            int n = static_cast<int>(n_);
+            int inc = static_cast<int>(stride_);
+            int incOther = static_cast<int>(other.stride_);
+            zswap_(&n, start_, &inc, other.start_, &incOther);
+        } else {
+            T* ptr = start_;
+            T* ptrOther = other.start_;
+            for(size_t i=0; i<n_; i++) {
+                auto tmp = *ptr;
+                *ptr = *ptrOther;
+                *ptrOther = tmp;
+                ptr += stride_;
+                ptrOther += other.stride_;
+            }
         }
     };
 
@@ -152,10 +295,20 @@ public:
 
     // Scale by a factor
     void scale(T factor) {
-        T* ptr = start_;
-        for(size_t i=0; i<n_; i++) {
-            *ptr *= factor;
-            ptr += stride_;
+        if constexpr(std::is_same<T, double>::value) {
+            int n = static_cast<int>(n_);
+            int inc = static_cast<int>(stride_);
+            dscal_(&n, &factor, start_, &inc);
+        } else if constexpr(std::is_same<T, Complex>::value) {
+            int n = static_cast<int>(n_);
+            int inc = static_cast<int>(stride_);
+            zscal_(&n, &factor, start_, &inc);
+        } else {
+            T* ptr = start_;
+            for(size_t i=0; i<n_; i++) {
+                *ptr *= factor;
+                ptr += stride_;
+            }
         }
     };
 
@@ -164,12 +317,24 @@ public:
         if (n_ != other.n_) {
             throw std::out_of_range("Vector length mismatch.");
         }
-        T* ptr = start_;
-        const T* ptrOther = other.start_;
-        for(size_t i=0; i<n_; i++) {
-            *ptr += *ptrOther * factor;
-            ptr += stride_;
-            ptrOther += other.stride_;
+        if constexpr(std::is_same<T, double>::value) {
+            int n = static_cast<int>(n_);
+            int inc = static_cast<int>(stride_);
+            int incOther = static_cast<int>(other.stride_);
+            daxpy_(&n, &factor, other.start_, &incOther, start_, &inc);
+        } else if constexpr(std::is_same<T, Complex>::value) {
+            int n = static_cast<int>(n_);
+            int inc = static_cast<int>(stride_);
+            int incOther = static_cast<int>(other.stride_);
+            zaxpy_(&n, &factor, other.start_, &incOther, start_, &inc);
+        } else {
+            T* ptr = start_;
+            const T* ptrOther = other.start_;
+            for(size_t i=0; i<n_; i++) {
+                *ptr += *ptrOther * factor;
+                ptr += stride_;
+                ptrOther += other.stride_;
+            }
         }
     };
 
@@ -187,20 +352,6 @@ public:
         }
     };
 
-    // Write scaled vector
-    void writeScaled(const VectorView<T>& other, T factor) {
-        if (n_ != other.n_) {
-            throw std::out_of_range("Vector length mismatch.");
-        }
-        T* ptr = start_;
-        const T* ptrOther = other.start_;
-        for(size_t i=0; i<n_; i++) {
-            *ptr = *ptrOther * factor;
-            ptr += stride_;
-            ptrOther += other.stride_;
-        }
-    };
-
     // Add scaled vector, store in result
     // Result can be *self
     // Assume result is not other
@@ -211,29 +362,87 @@ public:
         if (n_ != result.n_) {
             throw std::out_of_range("Result length does not match vector.");
         }
-        T* ptr = start_;
-        const T* ptrOther = other.start_;
-        T* ptrResult = result.start_;
-        for(size_t i=0; i<n_; i++) {
-            *ptrResult = *ptr + *ptrOther * factor;
-            ptr += stride_;
-            ptrOther += other.stride_;
-            ptrResult += result.stride_;
+        if constexpr(std::is_same<T, double>::value) {
+            int n = static_cast<int>(n_);
+            int inc = static_cast<int>(stride_);
+            int incOther = static_cast<int>(other.stride_);
+            int incResult = static_cast<int>(result.stride_);
+            dcopy_(&n, start_, &inc, result.start_, &incResult);
+            daxpy_(&n, &factor, other.start_, &incOther, result.start_, &incResult);
+        } else if constexpr(std::is_same<T, Complex>::value) {
+            int n = static_cast<int>(n_);
+            int inc = static_cast<int>(stride_);
+            int incOther = static_cast<int>(other.stride_);
+            int incResult = static_cast<int>(result.stride_);
+            zcopy_(&n, start_, &inc, result.start_, &incResult);
+            zaxpy_(&n, &factor, other.start_, &incOther, result.start_, &incResult);
+        } else {
+            T* ptr = start_;
+            const T* ptrOther = other.start_;
+            T* ptrResult = result.start_;
+            for(size_t i=0; i<n_; i++) {
+                *ptrResult = *ptr + *ptrOther * factor;
+                ptr += stride_;
+                ptrOther += other.stride_;
+                ptrResult += result.stride_;
+            }
+        }
+    };
+
+    // Write scaled vector
+    void writeScaled(const VectorView<T>& other, T factor) {
+        if (n_ != other.n_) {
+            throw std::out_of_range("Vector length mismatch.");
+        }
+        if constexpr(std::is_same<T, double>::value) {
+            int n = static_cast<int>(n_);
+            int inc = static_cast<int>(stride_);
+            int incOther = static_cast<int>(other.stride_);
+            dcopy_(&n, other.start_, &incOther, start_, &inc);
+            dscal_(&n, &factor, start_, &inc);
+        } else if constexpr(std::is_same<T, Complex>::value) {
+            int n = static_cast<int>(n_);
+            int inc = static_cast<int>(stride_);
+            int incOther = static_cast<int>(other.stride_);
+            zcopy_(&n, other.start_, &incOther, start_, &inc);
+            zscal_(&n, &factor, start_, &inc);
+        } else {
+            T* ptr = start_;
+            const T* ptrOther = other.start_;
+            for(size_t i=0; i<n_; i++) {
+                *ptr = *ptrOther * factor;
+                ptr += stride_;
+                ptrOther += other.stride_;
+            }
         }
     };
 
     // Maximal absolute element
     double maxAbs() const {
-        double m = 0;
-        T* ptr = start_;
-        for(size_t i=0; i<n_; i++) {
-            auto c = std::abs(*ptr);
-            if (c>m) {
-                m = c;
+        if constexpr(std::is_same<T, double>::value) {
+            if (n_ == 0) {
+                return 0;
             }
-            ptr += stride_;
+            int n = static_cast<int>(n_);
+            int inc = static_cast<int>(stride_);
+            int idx = idamax_(&n, start_, &inc);
+            return std::abs(start_[(idx-1)*stride_]);
+        } else {
+            // No BLAS routine here: izamax_ picks the max by |Re|+|Im| rather than the
+            // true modulus, which can select a different (up to sqrt(2) off) element
+            // than this loop's std::abs()-based comparison. No live Complex call site
+            // exists today, so we keep the exact semantics instead of that approximation.
+            double m = 0;
+            T* ptr = start_;
+            for(size_t i=0; i<n_; i++) {
+                auto c = std::abs(*ptr);
+                if (c>m) {
+                    m = c;
+                }
+                ptr += stride_;
+            }
+            return m;
         }
-        return m;
     };
 
     void dump(std::ostream& os) const {
