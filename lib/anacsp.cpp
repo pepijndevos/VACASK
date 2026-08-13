@@ -7,7 +7,7 @@ namespace NAMESPACE {
 template<> SmallSignal<ACSPCore, ACSPData>::SmallSignal(const std::string& name, Circuit& circuit, PTAnalysis& ptAnalysis) 
     : Analysis(name, circuit, ptAnalysis), 
       opCore(*this, params.core().opParams, circuit, commons, jac, solution, states), 
-      smsigCore(*this, params.core(), opCore, circuit, commons, jac, solution, states, acMatrix, acSolution, yMatrix, stMatrix) {
+      smsigCore(*this, params.core(), opCore, circuit, commons, jac, solution, states, acMatrix, acSolution, stMatrix) {
 }
 
 template<> bool SmallSignal<ACSPCore, ACSPData>::resolveSave(const PTSave& save, bool verify, Status& s) {

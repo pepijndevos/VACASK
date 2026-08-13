@@ -92,7 +92,7 @@ public:
         CommonData& commons, 
         KluRealMatrix& dcJacobian, VectorRepository<double>& dcSolution, VectorRepository<double>& dcStates, 
         KluComplexMatrix& acMatrix, Vector<Complex>& acSolution, 
-        DenseMatrix<Complex>& yMatrix, DenseMatrix<Complex>& stMatrix
+        DenseMatrix<Complex>& stMatrix
     ); 
     ~ACSPCore();
     

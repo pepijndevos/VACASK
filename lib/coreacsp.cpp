@@ -38,7 +38,7 @@ ACSPCore::ACSPCore(
     CommonData& commons, 
     KluRealMatrix& dcJacobian, VectorRepository<double>& dcSolution, VectorRepository<double>& dcStates, 
     KluComplexMatrix& acMatrix, Vector<Complex>& acSolution, 
-    DenseMatrix<Complex>& yMatrix, DenseMatrix<Complex>& stMatrix
+    DenseMatrix<Complex>& stMatrix
 ) : AnalysisCore(parentResolver, circuit, commons), params(params), outfile(nullptr), opCore_(opCore), 
     dcSolution(dcSolution), dcStates(dcStates), dcJacobian(dcJacobian), 
     acMatrix(acMatrix), acSolution(acSolution), 
@@ -274,9 +274,8 @@ bool ACSPCore::rebuild(Status& s) {
     }
 
     // Make space
-    yMatrix.resize(portCount, portCount);
-    stMatrix.resize(portCount, portCount);
-    atMatrix.resize(portCount, portCount);
+    stMatrix.resize(portCount, portCount, DenseMatrix<Complex>::Major::Column);
+    atMatrix.resize(portCount, portCount, DenseMatrix<Complex>::Major::Column);
 
     // AC analysis matrix
     if (!acMatrix.rebuild(circuit.sparsityMap(), circuit.unknownCount())) {

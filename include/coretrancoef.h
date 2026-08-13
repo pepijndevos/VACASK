@@ -215,7 +215,7 @@ private:
     Int n_;
     DenseMatrix<double> matrix; // row1, row2, ... - holds the LU decomposition after solve()
     std::vector<double> rhs;
-    std::vector<size_t> rowPerm_; // Row permutation from factor(), valid after solve()
+    std::vector<int> rowPerm_; // Row permutation from factor(), valid after solve() (LAPACK ipiv storage type)
     
     // New timepoint: 
     //   t_{k+1} = h_k 

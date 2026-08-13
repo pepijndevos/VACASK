@@ -40,7 +40,7 @@ bool HBCore::buildTransformMatrix(DenseMatrix<double>& XF, Status& s) {
     auto m = spurs_.spectrum().size();
     auto ncoef = 2*m-1;
     
-    XF.resize(n, ncoef);
+    XF.resize(n, ncoef, DenseMatrix<double>::Major::Column);
     
     // Storage of (2 pi f t) factors for base frequencies
     auto nBase = spurs_.fundamentals().size();
@@ -106,7 +106,11 @@ bool HBCore::buildAPFT(Status& s) {
     }
 
     // Make a copy that will be destroyed during matrix inversion
-    DenseMatrix<double> coeffs = IAPFT;
+    // First size it and make it column-major
+    DenseMatrix<double> coeffs(ncoef, ncoef, DenseMatrix<double>::Major::Column);
+    // Then use DenseMatrixView's operator=() to copy rows, 
+    // use DenseMatrixView from DenseMatrix coeffs. 
+    static_cast<DenseMatrixView<double>&>(coeffs) = IAPFT;
     
     // Invert to obtain APFT
     APFT.resize(n, n);

@@ -50,6 +50,16 @@ extern "C" {
 
     // 1-based index of the element with the largest |x_i| (n elements, stride incx)
     int idamax_(const int* n, const double* x, const int* incx);
+
+    // LU factorization with partial pivoting of the M x N matrix A (leading dimension
+    // LDA, column-major: elements within a column are contiguous, LDA is the stride
+    // between columns). A := P*L*U (unit-diagonal L below the diagonal, U on and above
+    // it, stored in place of A). ipiv is 1-based: row i was interchanged with row
+    // ipiv[i]. info==0 on success, info>0 (=k) means U(k,k) is exactly zero (singular,
+    // factorization completed but unusable for solving), info<0 (=-k) means the k-th
+    // argument had an illegal value (a bug in our call, not a numerical failure).
+    void dgetrf_(const int* m, const int* n, double* a, const int* lda, int* ipiv, int* info);
+    void zgetrf_(const int* m, const int* n, NAMESPACE::Complex* a, const int* lda, int* ipiv, int* info);
 }
 
 namespace NAMESPACE {
@@ -76,6 +86,9 @@ public:
 
     // Length
     size_t n() const { return n_; };
+
+    // Stride
+    size_t stride() const { return stride_; };
 
     // Assign elements from another VectorView
     VectorView<T>& operator=(const VectorView<T>& from) {
@@ -552,7 +565,35 @@ public:
 
     // Perform LU decomposition in place, return row permutation vector
     // Use partial pivoting
-    bool factor(VectorView<size_t>& rowPerm) {
+    bool factor(VectorView<int>& rowPerm) {
+        auto n = nCol_;
+        if (rowPerm.n()!=n) {
+            throw std::out_of_range("Row permutation vector length does not match matrix size.");
+        }
+        if (nRow_!=n) {
+            throw std::out_of_range("Matrix is not square.");
+        }
+        // LAPACK needs elements within a column contiguous (rowStride_==1); it has no
+        // increment parameter like BLAS, only a leading dimension between columns.
+        // rowPerm is int-typed (matching LAPACK's ipiv storage width) and, when
+        // contiguous, is passed directly as ipiv, no scratch buffer/copy needed.
+        if constexpr(std::is_same<T, double>::value || std::is_same<T, Complex>::value) {
+            if (rowStride_==1 && rowPerm.stride()==1) {
+                int m = static_cast<int>(n);
+                int nn = m;
+                int lda = static_cast<int>(colStride_);
+                int info = 0;
+                if constexpr(std::is_same<T, double>::value) {
+                    dgetrf_(&m, &nn, start_, &lda, &rowPerm[0], &info);
+                } else {
+                    zgetrf_(&m, &nn, start_, &lda, &rowPerm[0], &info);
+                }
+                if (info<0) {
+                    throw std::invalid_argument("Invalid argument passed to LAPACK dgetrf/zgetrf.");
+                }
+                return info==0;
+            }
+        }
         return luSolveCore(static_cast<VectorView<T>*>(nullptr), &rowPerm);
     };
 
@@ -561,7 +602,7 @@ public:
     // Diagonal and upper triangle hold U, strictly below the diagonal holds
     // L (unit diagonal, not stored).
     // Permutes rhs in place, then solves by forward and backward substitution.
-    bool luSolve(VectorView<T>& rhs, const VectorView<size_t>& rowPerm) {
+    bool luSolve(VectorView<T>& rhs, const VectorView<int>& rowPerm) {
         auto n = nCol_;
         if (rhs.n()!=n) {
             throw std::out_of_range("Vector length does not match matrix size.");
@@ -574,12 +615,12 @@ public:
         }
 
         // Permute rhs in place by replaying the same interchanges performed
-        // on the matrix rows in luSolveCore(): rowPerm[i] is the row swapped
-        // with row i at elimination step i (LAPACK ipiv convention), so
-        // replaying the swaps in increasing i order reproduces the same
-        // permutation.
+        // on the matrix rows in luSolveCore(): rowPerm[i] is the 1-based row
+        // swapped with row i at elimination step i (LAPACK ipiv convention),
+        // so replaying the swaps in increasing i order reproduces the same
+        // permutation. swap() takes 0-based indices, hence the -1.
         for(size_t i=0; i+1<n; i++) {
-            rhs.swap(i, rowPerm[i]);
+            rhs.swap(i, static_cast<size_t>(rowPerm[i]-1));
         }
 
         // Forward substitution, L has implicit unit diagonal
@@ -806,7 +847,7 @@ private:
     // Solution is placed in rhs. 
     // Stores row permutation vector. 
     // Returns true on success. 
-    template<typename RhsType> bool luSolveCore(RhsType* rhs, VectorView<size_t>* rowPerm = nullptr) {
+    template<typename RhsType> bool luSolveCore(RhsType* rhs, VectorView<int>* rowPerm = nullptr) {
         auto n = nCol_;
         if constexpr(std::is_same<RhsType, VectorView<T>>::value) {
             if (rhs && rhs->n()!=n) {
@@ -845,9 +886,9 @@ private:
                 return false;
             }
             
-            // Record pivot partner for this step (LAPACK ipiv convention)
+            // Record pivot partner for this step (LAPACK ipiv convention, 1-based)
             if (rowPerm) {
-                (*rowPerm)[i] = pivI;
+                (*rowPerm)[i] = static_cast<int>(pivI)+1;
             }
 
             // Swap with pivot

@@ -16,7 +16,6 @@ protected:
     KluComplexMatrix acMatrix; 
     Vector<Complex> acSolution;
 
-    DenseMatrix<Complex> yMatrix;
     DenseMatrix<Complex> stMatrix;
 };
 

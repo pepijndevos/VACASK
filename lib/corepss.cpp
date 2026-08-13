@@ -78,7 +78,9 @@ bool PssCore::rebuild(Status& s) {
     auto n = circuit.unknownCount();
     Fp.resize(n+1);
     alpha.resize(n);
-    Jp.resize(n+1, n+1);
+    // We are going to solve a linear system with this matrix. 
+    // Make it column major. 
+    Jp.resize(n+1, n+1, DenseMatrix<double>::Major::Column);
     x0.resize(n+1);
     xT.resize(n+1);
 
