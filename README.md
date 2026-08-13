@@ -419,3 +419,11 @@ In Windows select the MinGW64 toolchain. In Linux select GCC. Configure the proj
 * Á. Bűrmen, ["Recent developments in the Verilog-A circuit analysis kernel"](https://wiki.f-si.org/index.php?title=Recent_developments_in_the_Verilog-A_circuit_analysis_kernel), Free Silicon Conference 2025, Frankfurt (Oder), July 2025. 
 * Á. Bűrmen, ["The OpenVAF Verilog-A Compiler for the OpenPDK Ecosystem"](https://doi.org/10.5281/zenodo.17113774), MOS-AK Workshop/ESSERC 2025, Munich, September 2025. 
 * Á. Bűrmen, ["VACASK - a novel analog integrated circuit simulator"](https://doi.org/10.5281/zenodo.17434615), 60th International Conference on Microelectronics, Devices and Materials (MIDEM2025), Ljubljana, October 2025. 
+* Á. Bűrmen, ["VACASK: One year toward a modern open analog simulation stack"](https://wiki.f-si.org/index.php?title=VACASK:_One_year_toward_a_modern_open_analog_simulation_stack), Free Silicon Conference 2026, Ljubljana, July 2026. 
+
+# Acknowledgement
+
+This project is funded through [NGI0 Commons Fund](https://nlnet.nl/commonsfund), a fund established by [NLnet](https://nlnet.nl) with financial support from the European Commission's [Next Generation Internet](https://ngi.eu) program. Learn more at the [NLnet project page](https://nlnet.nl/project/VACASK).
+
+[<img src="https://nlnet.nl/logo/banner.png" alt="NLnet foundation logo" width="20%" />](https://nlnet.nl)
+[<img src="https://nlnet.nl/image/logos/NGI0_tag.svg" alt="NGI Zero Logo" width="20%" />](https://nlnet.nl/commonsfund)
