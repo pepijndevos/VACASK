@@ -137,9 +137,9 @@ protected:
     KluComplexMatrix& acMatrix;
     Vector<Complex>& acSolution;
     ACSPParameters& params;
-    DenseMatrix<Complex>& yMatrix;
     DenseMatrix<Complex>& stMatrix;
     DenseMatrix<Complex> atMatrix;
+    std::vector<int> rowPerm_; // Pivot scratch for atMatrix.factorAndLuSolve() (LAPACK ipiv storage type)
     
     Vector<Instance*> sourceVector;
     Vector<Instance*> resistorVector;

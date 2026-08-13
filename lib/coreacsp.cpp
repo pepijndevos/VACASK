@@ -41,8 +41,8 @@ ACSPCore::ACSPCore(
     DenseMatrix<Complex>& stMatrix
 ) : AnalysisCore(parentResolver, circuit, commons), params(params), outfile(nullptr), opCore_(opCore), 
     dcSolution(dcSolution), dcStates(dcStates), dcJacobian(dcJacobian), 
-    acMatrix(acMatrix), acSolution(acSolution), 
-    yMatrix(yMatrix), stMatrix(stMatrix) {
+    acMatrix(acMatrix), acSolution(acSolution),
+    stMatrix(stMatrix) {
     
     // Set analysis type for the initial operating point analysis
     auto& elsSystem = opCore_.solver().evalSetup();
@@ -276,6 +276,7 @@ bool ACSPCore::rebuild(Status& s) {
     // Make space
     stMatrix.resize(portCount, portCount, DenseMatrix<Complex>::Major::Column);
     atMatrix.resize(portCount, portCount, DenseMatrix<Complex>::Major::Column);
+    rowPerm_.resize(portCount);
 
     // AC analysis matrix
     if (!acMatrix.rebuild(circuit.sparsityMap(), circuit.unknownCount())) {
@@ -570,7 +571,8 @@ CoreCoroutine ACSPCore::coroutine(bool continuePrevious) {
         //   A  S  = B
         // 
         // Transposed S matrix can be found in stMatrix.
-        if (!atMatrix.destructiveSolve(stMatrix)) {
+        VectorView<int> rowPermView(rowPerm_);
+        if (!atMatrix.factorAndLuSolve(stMatrix, &rowPermView)) {
             if (debug>0) {
                 Simulator::dbg() << "S matrix is singular.\n";
             }

@@ -19,7 +19,7 @@ template<typename T> bool DenseMatrix<T>::test() {
     std::cout << "\n";
     DenseMatrix<T> S1 = S;
     DenseMatrix<T> SI(2, 2);
-    S1.destructiveInvert(SI);
+    S1.factorAndInvert(SI);
     DenseMatrix<T> SIexact({-2, 1, 1.5, -0.5}, 2, 2);
     std::cout << "Small matrix inverse\n";
     SI.dump(std::cout);
@@ -77,7 +77,7 @@ template<typename T> bool DenseMatrix<T>::test() {
     std::cout << "\n";
     
     DenseMatrix<T> ID(n, n);
-    D1.destructiveInvert(ID);
+    D1.factorAndInvert(ID);
     std::cout << "Inverted diagonal matrix\n";
     ID.dump(std::cout);
     std::cout << "\n";
@@ -147,7 +147,7 @@ template<typename T> bool DenseMatrix<T>::test() {
     // Invert
     DenseMatrix<T> A1 = A;
     DenseMatrix<T> IA(n, n);
-    A1.destructiveInvert(IA);
+    A1.factorAndInvert(IA);
     A.multiply(IA, PR);
     std::cout << "Generic matrix right-multiplied by inverse matrix\n";
     PR.dump(std::cout);

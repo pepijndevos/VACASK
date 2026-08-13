@@ -60,6 +60,15 @@ extern "C" {
     // argument had an illegal value (a bug in our call, not a numerical failure).
     void dgetrf_(const int* m, const int* n, double* a, const int* lda, int* ipiv, int* info);
     void zgetrf_(const int* m, const int* n, NAMESPACE::Complex* a, const int* lda, int* ipiv, int* info);
+
+    // Solve A*X=B (trans='N') using the LU factorization from dgetrf_/zgetrf_ (A, lda,
+    // ipiv, unchanged here) and its pivot vector. B (N x NRHS, leading dimension ldb,
+    // column-major) holds the right-hand side(s) on entry and the solution on exit.
+    // info==0 on success; info<0 (=-k) means the k-th argument had an illegal value (a
+    // bug in our call). Unlike dgetrf_, there is no info>0 case here - singularity was
+    // already reported by dgetrf_ when the factorization was computed.
+    void dgetrs_(const char* trans, const int* n, const int* nrhs, const double* a, const int* lda, const int* ipiv, double* b, const int* ldb, int* info);
+    void zgetrs_(const char* trans, const int* n, const int* nrhs, const NAMESPACE::Complex* a, const int* lda, const int* ipiv, NAMESPACE::Complex* b, const int* ldb, int* info);
 }
 
 namespace NAMESPACE {
@@ -551,18 +560,6 @@ public:
         }
     };
 
-    // Solve Ax = rhs, destroy A, result in rhs
-    // Use partial pivoting
-    bool destructiveSolve(VectorView<T>& rhs) {
-        return luSolveCore(&rhs, nullptr);
-    };
-
-    // Solve Ax = Rhs, destroy A, result in Rhs
-    // Use partial pivoting
-    bool destructiveSolve(DenseMatrixView<T>& rhs) {
-        return luSolveCore(&rhs, nullptr);
-    };
-
     // Perform LU decomposition in place, return row permutation vector
     // Use partial pivoting
     bool factor(VectorView<int>& rowPerm) {
@@ -614,6 +611,29 @@ public:
             throw std::out_of_range("Matrix is not square.");
         }
 
+        // Same LAPACK storage requirements as factor(): matrix and rowPerm contiguous,
+        // and additionally rhs itself (LAPACK's B has no increment parameter either,
+        // only a leading dimension between right-hand-side columns).
+        if constexpr(std::is_same<T, double>::value || std::is_same<T, Complex>::value) {
+            if (rowStride_==1 && rowPerm.stride()==1 && rhs.stride()==1) {
+                char trans = 'N';
+                int nn = static_cast<int>(n);
+                int nrhs = 1;
+                int lda = static_cast<int>(colStride_);
+                int ldb = nn;
+                int info = 0;
+                if constexpr(std::is_same<T, double>::value) {
+                    dgetrs_(&trans, &nn, &nrhs, start_, &lda, &rowPerm[0], &rhs[0], &ldb, &info);
+                } else {
+                    zgetrs_(&trans, &nn, &nrhs, start_, &lda, &rowPerm[0], &rhs[0], &ldb, &info);
+                }
+                if (info<0) {
+                    throw std::invalid_argument("Invalid argument passed to LAPACK dgetrs/zgetrs.");
+                }
+                return true;
+            }
+        }
+
         // Permute rhs in place by replaying the same interchanges performed
         // on the matrix rows in luSolveCore(): rowPerm[i] is the 1-based row
         // swapped with row i at elimination step i (LAPACK ipiv convention),
@@ -642,6 +662,127 @@ public:
         }
 
         return true;
+    };
+
+    // Solve Ax = rhs, destroy A, result in rhs (vector)
+    // Use partial pivoting
+    // rowPerm is optional scratch for the pivot sequence; when given (and the LAPACK
+    // storage requirements below are met) it also enables the LAPACK fast path.
+    bool factorAndLuSolve(VectorView<T>& rhs, VectorView<int>* rowPerm = nullptr) {
+        auto n = nCol_;
+        if (rhs.n()!=n) {
+            throw std::out_of_range("Vector length does not match matrix size.");
+        }
+        if (rowPerm && rowPerm->n()!=n) {
+            throw std::out_of_range("Row permutation vector length does not match matrix size.");
+        }
+        if (nRow_!=n) {
+            throw std::out_of_range("Matrix is not square.");
+        }
+        // Same LAPACK storage requirements as factor()/luSolve(): matrix, rhs and
+        // rowPerm all contiguous. Without a rowPerm there is nowhere to put ipiv, so
+        // LAPACK is skipped even for an otherwise-compatible matrix/rhs.
+        if constexpr(std::is_same<T, double>::value || std::is_same<T, Complex>::value) {
+            if (rowPerm && rowStride_==1 && rhs.stride()==1 && rowPerm->stride()==1) {
+                int m = static_cast<int>(n);
+                int nn = m;
+                int lda = static_cast<int>(colStride_);
+                int info = 0;
+                if constexpr(std::is_same<T, double>::value) {
+                    dgetrf_(&m, &nn, start_, &lda, &(*rowPerm)[0], &info);
+                } else {
+                    zgetrf_(&m, &nn, start_, &lda, &(*rowPerm)[0], &info);
+                }
+                if (info<0) {
+                    throw std::invalid_argument("Invalid argument passed to LAPACK dgetrf/zgetrf.");
+                }
+                if (info>0) {
+                    return false;
+                }
+                char trans = 'N';
+                int nrhs = 1;
+                int ldb = m;
+                if constexpr(std::is_same<T, double>::value) {
+                    dgetrs_(&trans, &nn, &nrhs, start_, &lda, &(*rowPerm)[0], &rhs[0], &ldb, &info);
+                } else {
+                    zgetrs_(&trans, &nn, &nrhs, start_, &lda, &(*rowPerm)[0], &rhs[0], &ldb, &info);
+                }
+                if (info<0) {
+                    throw std::invalid_argument("Invalid argument passed to LAPACK dgetrs/zgetrs.");
+                }
+                return true;
+            }
+        }
+        return luSolveCore(&rhs, rowPerm);
+    };
+
+    // Solve Ax = Rhs, destroy A, result in rhs (matrix)
+    // Use partial pivoting
+    // Solve Ax = Rhs, destroy A, result in Rhs
+    // Use partial pivoting
+    // rowPerm is optional scratch for the pivot sequence; when given (and the LAPACK
+    // storage requirements below are met) it also enables the LAPACK fast path.
+    bool factorAndLuSolve(DenseMatrixView<T>& rhs, VectorView<int>* rowPerm = nullptr) {
+        auto n = nCol_;
+        if (rhs.nRow_!=n) {
+            throw std::out_of_range("Vector length does not match matrix size.");
+        }
+        if (rowPerm && rowPerm->n()!=n) {
+            throw std::out_of_range("Row permutation vector length does not match matrix size.");
+        }
+        if (nRow_!=n) {
+            throw std::out_of_range("Matrix is not square.");
+        }
+        // Same LAPACK storage requirements as the VectorView-rhs overload: this matrix,
+        // rowPerm, and rhs (elements within each right-hand-side column) all contiguous.
+        if constexpr(std::is_same<T, double>::value || std::is_same<T, Complex>::value) {
+            if (rowPerm && rowStride_==1 && rhs.rowStride_==1 && rowPerm->stride()==1) {
+                int m = static_cast<int>(n);
+                int nn = m;
+                int lda = static_cast<int>(colStride_);
+                int info = 0;
+                if constexpr(std::is_same<T, double>::value) {
+                    dgetrf_(&m, &nn, start_, &lda, &(*rowPerm)[0], &info);
+                } else {
+                    zgetrf_(&m, &nn, start_, &lda, &(*rowPerm)[0], &info);
+                }
+                if (info<0) {
+                    throw std::invalid_argument("Invalid argument passed to LAPACK dgetrf/zgetrf.");
+                }
+                if (info>0) {
+                    return false;
+                }
+                char trans = 'N';
+                int nrhs = static_cast<int>(rhs.nCol_);
+                int ldb = static_cast<int>(rhs.colStride_);
+                if constexpr(std::is_same<T, double>::value) {
+                    dgetrs_(&trans, &nn, &nrhs, start_, &lda, &(*rowPerm)[0], rhs.start_, &ldb, &info);
+                } else {
+                    zgetrs_(&trans, &nn, &nrhs, start_, &lda, &(*rowPerm)[0], rhs.start_, &ldb, &info);
+                }
+                if (info<0) {
+                    throw std::invalid_argument("Invalid argument passed to LAPACK dgetrs/zgetrs.");
+                }
+                return true;
+            }
+        }
+        return luSolveCore(&rhs, rowPerm);
+    };
+
+    // Destructive invert, result must be distinct from this
+    // rowPerm is optional scratch for the pivot sequence; when given (and the LAPACK
+    // storage requirements in factorAndLuSolve() are met) it also enables the LAPACK
+    // fast path there. Inverting is just solving A*X=I, so this reuses that method
+    // rather than duplicating its LAPACK dispatch.
+    bool factorAndInvert(DenseMatrixView<T>& result, VectorView<int>* rowPerm = nullptr) {
+        if (nRow_!=result.nRow_ || nCol_!=result.nCol_) {
+            throw std::out_of_range("Matrices are not compatible.");
+        }
+        if (nRow_!=nCol_) {
+            throw std::out_of_range("Matrix is not square.");
+        }
+        result.identity();
+        return factorAndLuSolve(result, rowPerm);
     };
 
     // Multiply with vector, store result in result
@@ -813,18 +954,6 @@ public:
     };
 
     
-    // Destructive invert, result must be distinct from this
-    bool destructiveInvert(DenseMatrixView<T>& result) {
-        if (nRow_!=result.nRow_ || nCol_!=result.nCol_) {
-            throw std::out_of_range("Matrices are not compatible.");
-        }
-        if (nRow_!=nCol_) {
-            throw std::out_of_range("Matrix is not square.");
-        }
-        result.identity();
-        return luSolveCore(&result);
-    };
-
     void dump(std::ostream& os) const {
         for(size_t i=0; i<nRow_; i++) {
             for(size_t j=0; j<nCol_; j++) {
@@ -843,6 +972,7 @@ protected:
 
 private:
     // Destructive solve/factor core 
+    // Used when LAPACK is not appropropriate
     // Replaces matrix content with LU decomposition. 
     // Solution is placed in rhs. 
     // Stores row permutation vector. 

@@ -221,6 +221,7 @@ private:
     Vector<double>      Fp;
     Vector<double>      alpha;
     DenseMatrix<double> Jp;
+    std::vector<int>    rowPerm_; // Pivot scratch for Jp.factorAndLuSolve() (LAPACK ipiv storage type)
 
     // Shooting Newton state, sized in rebuild(); the main loop only assigns
     // into them (no local reallocation).

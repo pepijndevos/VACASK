@@ -81,6 +81,7 @@ bool PssCore::rebuild(Status& s) {
     // We are going to solve a linear system with this matrix. 
     // Make it column major. 
     Jp.resize(n+1, n+1, DenseMatrix<double>::Major::Column);
+    rowPerm_.resize(n+1);
     x0.resize(n+1);
     xT.resize(n+1);
 
@@ -548,7 +549,8 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
 
         // Solve the Newton step
         VectorView<double> rhsView(Fp);
-        if (!Jp.destructiveSolve(rhsView)) {
+        VectorView<int> rowPermView(rowPerm_);
+        if (!Jp.factorAndLuSolve(rhsView, &rowPermView)) {
              setError(PssError::SingularJacobian);
              co_yield CoreState::Aborted;
         }

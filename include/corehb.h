@@ -171,6 +171,8 @@ private:
     DenseMatrix<double> OmegaGamma;
     // IAPFT in co,umn major form
     DenseMatrix<double> GammaInvColumnMajor;
+    // Pivot scratch for coeffs.factorAndInvert() in buildAPFT() (LAPACK ipiv storage type)
+    std::vector<int> rowPerm_;
 
     // Declared last so spurs_, timepoints, and the transform matrices it
     // captures by reference are fully constructed before its init list runs.
