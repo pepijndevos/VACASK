@@ -143,10 +143,7 @@ bool HBCore::buildAPFT(Status& s) {
     // -sin row x -omega -> cos row
     OmegaGamma.resize(n, n);
     // DC row
-    auto destRow = OmegaGamma.row(0);
-    for(decltype(n) i=0; i<n; i++) {
-        destRow[i] = 0;
-    }
+    OmegaGamma.row(0) = 0.0;
     // cos and -sin row
     for(decltype(n) i=1; i<m; i++) {
         auto omega = 2*std::numbers::pi*spurs_.spectrum()[i];

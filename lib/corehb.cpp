@@ -403,13 +403,10 @@ bool HBCore::getFrequencyDomainJacobians(KluBlockSparseComplexMatrix& jacSpec, c
 
         // Divide by 2 all positive frequency components, except DC
         // Spectrum is two-sided, but HB computes a one-sided spectrum
-        // for(decltype(nf) k=dcIndex+1; k<nf; k++) {
-        for(decltype(nf) k=1; k<nfp; k++) {
-            // GCol.at(k) /= 2;
-            // CCol.at(k) /= 2;
-            GFullJac.at(k) /= 2;
-            CFullJac.at(k) /= 2;
-        }
+        VectorView<Complex> gFullJacView(GFullJac, 1, nfp-1, 1);
+        VectorView<Complex> cFullJacView(CFullJac, 1, nfp-1, 1);
+        gFullJacView.scale(0.5);
+        cFullJacView.scale(0.5);
 
         // Get FD Jacobian dense block
         auto [fdBlock, found2] = jacSpec.block(pos);
@@ -801,12 +798,12 @@ CoreCoroutine HBCore::coroutine(bool continuePrevious) {
                 // Set ground unknown to zero
                 outvec[0] = 0.0;
                 // Go through frequencies
+                VectorView<Complex> outvecView(outvec, 1, n, 1);
                 for(decltype(nf) k=0; k<nf; k++) {
                     outputFreq = spurs_.spectrum()[k];
-                    // Go through unknowns, fill outvec entries
-                    for(decltype(n) i=0; i<n; i++) {
-                        outvec[i+1] = solutionFD[i*nf+k];
-                    }                    
+                    // Fill outvec entries with column k of solutionFD (n x nf, row-major)
+                    VectorView<Complex> solutionFDColView(solutionFD.data(), k, n, nf);
+                    outvecView = solutionFDColView;
                     // Dump values at current frequency to output
                     outfile->addPoint();
                 }
