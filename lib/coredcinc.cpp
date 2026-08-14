@@ -4,6 +4,7 @@
 #include "coredcinc.h"
 #include "simulator.h"
 #include "common.h"
+#include "densematrix.h"
 
 namespace NAMESPACE {
 
@@ -164,11 +165,10 @@ CoreCoroutine DCIncrementalCore::coroutine(bool continuePrevious) {
         co_yield CoreState::Aborted;
     }
 
-    // Change sign of residual because it is on the RHS 
+    // Change sign of residual because it is on the RHS
     // and we need the small signal response with the correct sign
-    for(decltype(n) i=0; i<=n; i++) {
-        incrementalSolution[i] = -incrementalSolution[i];
-    }
+    VectorView<double> incrementalSolutionView(incrementalSolution);
+    incrementalSolutionView.scale(-1.0);
 
     if (debug>=100) {
         Simulator::dbg() << "Linear system\n";
