@@ -654,7 +654,18 @@ void OsdiDevice::dump(int indent, std::ostream& os) const {
 
     std::string pfx = std::string(indent, ' ');
     os << pfx << "OSDI device " << std::string(name()) << " : " << file()->fileName() << " : " << index_ << "\n";
-    // TODO: dump flags, has boundstep, allows bypass
+    
+    os << "  Flags:\n";
+    if (descriptor_->module_flags & MODULEFLAG_ABSTIME) {
+        os << "    uses $abstime\n";
+    }
+    if (descriptor_->bound_step_offset!=UINT32_MAX) {
+        os << "    sets $bound_step\n";
+    }
+    if (checkFlags(Device::Flags::Bypassable)) {
+        os << "    bypassable\n";
+    }
+
     if (descriptor_->num_nodes>0) {
         os << "  Nodes (terminals+internals=" << descriptor_->num_nodes << ", terminals=" << descriptor_->num_terminals << "):\n";
         for(OsdiFile::OsdiNodeIndex i=0; i<descriptor_->num_nodes; i++) {

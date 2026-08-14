@@ -53,13 +53,13 @@ public:
     FlagBase() : flags_(EnumType(0)) {};
     FlagBase(EnumType f) : flags_(f) {};
 
-    constexpr EnumType flags() { return flags_; };
-    constexpr EnumType maskedFlags(Flags mask) { 
+    constexpr EnumType flags() const { return flags_; };
+    constexpr EnumType maskedFlags(Flags mask) const { 
         return static_cast<EnumType>(
             static_cast<NumType>(flags_) & static_cast<NumType>(mask)); 
     };
-    constexpr bool checkFlags(Flags f) { return maskedFlags(f) == f; }; 
-    constexpr bool anyFlags(Flags f) { return static_cast<NumType>(maskedFlags(f)); }; 
+    constexpr bool checkFlags(Flags f) const { return maskedFlags(f) == f; }; 
+    constexpr bool anyFlags(Flags f) const { return static_cast<NumType>(maskedFlags(f)); }; 
     void setFlags(Flags f) { 
         flags_ = static_cast<EnumType>(static_cast<NumType>(flags_) | static_cast<NumType>(f)); 
     };
