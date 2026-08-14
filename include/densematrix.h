@@ -186,7 +186,7 @@ public:
         }
     };
 
-    // Orthogonalize to wrt
+    // Orthogonalize to vector wrt
     void orthogonalize(const VectorView<T>& wrt) {
         // dot() checks vector compatibility
         auto prod = dot(wrt);
@@ -257,7 +257,7 @@ public:
         at(i) = tmp;
     };
 
-    // Scale by a factor
+    // v = v * factor
     void scale(T factor) {
         if constexpr(std::is_same<T, double>::value) {
             int n = static_cast<int>(n_);
@@ -276,8 +276,8 @@ public:
         }
     };
 
-    // Scale by a real factor - only enabled for T=Complex. Uses zdscal_
-    // instead of promoting factor to Complex and going through scale(T)'s
+    // v = v * factor, special case for complex v and real factor
+    // Uses zdscal_ instead of promoting factor to Complex and going through scale(T)'s
     // zscal_, avoiding a complex-complex multiplication for what is really a
     // real scaling.
     template<typename U=T, typename=std::enable_if_t<std::is_same<U, Complex>::value>>
@@ -287,7 +287,7 @@ public:
         zdscal_(&n, &factor, start_, &inc);
     };
 
-    // Add scaled vector
+    // v = v + other * factor
     void addScaled(const VectorView<T>& other, T factor) {
         if (n_ != other.n_) {
             throw std::out_of_range("Vector length mismatch.");
@@ -313,6 +313,7 @@ public:
         }
     };
 
+    // v = v0 + other * factor
     void vectorPlusScaledVector(const VectorView<T>& v0, const VectorView<T>& other, T factor) {
         if (n_ != v0.n_ || n_ != other.n_) {
             throw std::out_of_range("Vector length mismatch.");
@@ -344,59 +345,37 @@ public:
         }
     };
 
-    // Add scaled vector
+    // v = v + other
     void add(const VectorView<T>& other) {
         if (n_ != other.n_) {
             throw std::out_of_range("Vector length mismatch.");
-        }
-        T* ptr = start_;
-        const T* ptrOther = other.start_;
-        for(size_t i=0; i<n_; i++) {
-            *ptr += *ptrOther;
-            ptr += stride_;
-            ptrOther += other.stride_;
-        }
-    };
-
-    // Add scaled vector, store in result
-    // Result can be *self
-    // Assume result is not other
-    void addScaledAndStoreIn(const VectorView<T>& other, T factor, VectorView<T>& result) {
-        if (n_ != other.n_) {
-            throw std::out_of_range("Vector lengths do not match.");
-        }
-        if (n_ != result.n_) {
-            throw std::out_of_range("Result length does not match vector.");
         }
         if constexpr(std::is_same<T, double>::value) {
             int n = static_cast<int>(n_);
             int inc = static_cast<int>(stride_);
             int incOther = static_cast<int>(other.stride_);
-            int incResult = static_cast<int>(result.stride_);
-            dcopy_(&n, start_, &inc, result.start_, &incResult);
-            daxpy_(&n, &factor, other.start_, &incOther, result.start_, &incResult);
+            double one = 1.0;
+            daxpy_(&n, &one, other.start_, &incOther, start_, &inc);
         } else if constexpr(std::is_same<T, Complex>::value) {
             int n = static_cast<int>(n_);
             int inc = static_cast<int>(stride_);
             int incOther = static_cast<int>(other.stride_);
-            int incResult = static_cast<int>(result.stride_);
-            zcopy_(&n, start_, &inc, result.start_, &incResult);
-            zaxpy_(&n, &factor, other.start_, &incOther, result.start_, &incResult);
+            Complex one = 1.0;
+            zaxpy_(&n, &one, other.start_, &incOther, start_, &inc);
         } else {
             T* ptr = start_;
             const T* ptrOther = other.start_;
-            T* ptrResult = result.start_;
             for(size_t i=0; i<n_; i++) {
-                *ptrResult = *ptr + *ptrOther * factor;
+                *ptr += *ptrOther;
                 ptr += stride_;
                 ptrOther += other.stride_;
-                ptrResult += result.stride_;
             }
         }
     };
 
+    // v = other * factor
     // Write scaled vector
-    void writeScaled(const VectorView<T>& other, T factor) {
+    void scaledVector(const VectorView<T>& other, T factor) {
         if (n_ != other.n_) {
             throw std::out_of_range("Vector length mismatch.");
         }

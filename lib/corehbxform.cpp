@@ -154,8 +154,8 @@ bool HBCore::buildAPFT(Status& s) {
         auto destCosRow = OmegaGamma.row(baseNdx);
         auto destNegSinRow = OmegaGamma.row(baseNdx+1);
 
-        destCosRow.writeScaled(negSinRow, -omega);
-        destNegSinRow.writeScaled(cosRow, omega);
+        destCosRow.scaledVector(negSinRow, -omega);
+        destNegSinRow.scaledVector(cosRow, omega);
     }
 
     // Form GammaInv as column-major matrix
