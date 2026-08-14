@@ -23,7 +23,8 @@ public:
     VectorView(std::vector<T>& v) : start_(v.data()), n_(v.size()), stride_(1) {};
     VectorView(std::vector<T>& v, size_t offset, size_t length, size_t stride) 
         : start_(v.data()+offset), n_(length), stride_(stride) {};
-    VectorView(T* start, size_t n, size_t stride=1) : start_(start), n_(n), stride_(stride) {};
+    VectorView(T* start, size_t n, size_t stride) : start_(start), n_(n), stride_(stride) {};
+    VectorView(T* start, size_t offset, size_t n, size_t stride) : start_(start+offset), n_(n), stride_(stride) {};
     
     // Access to members
     const T& at(size_t col) const { return *(start_+col*stride_); };

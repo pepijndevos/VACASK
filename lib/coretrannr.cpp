@@ -1,6 +1,7 @@
 #include "coretrannr.h"
 #include "simulator.h"
 #include "common.h"
+#include "densematrix.h"
 #include <iomanip>
 
 namespace NAMESPACE {
@@ -310,13 +311,11 @@ std::tuple<bool, bool> TranNRSolver::buildSystem(bool continuePrevious) {
         if (!ok) {
             return std::make_tuple(false, preventConvergence);
         }
-        // Add to RHS
+        // Add to RHS, skip ground node contribution
         auto n = jac.nRow();
-        // Skip ground node contribution
-        auto nrvec = noiseResidual.data();
-        for(decltype(n) i=1; i<=n; i++) {
-            loadSetup_.resistiveResidual[i] += nrvec[i];
-        }
+        VectorView<double> resistiveResidualView(loadSetup_.resistiveResidual, 1, n, 1);
+        VectorView<double> noiseResidualView(noiseResidual, 1, n, 1);
+        resistiveResidualView.add(noiseResidualView);
     }
 
     return std::make_tuple(ok, preventConvergence);

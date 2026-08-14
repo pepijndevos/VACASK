@@ -6,6 +6,7 @@
 #include "tdnsdewhite.h"
 #include "tdnsdeflicker.h"
 #include "common.h"
+#include "densematrix.h"
 #include <filesystem>
 #include <algorithm>
 
@@ -1254,9 +1255,12 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
             // Compute noiseless solution
             auto& negNoise = nrSolver.noiseSolutionContribution();
             auto& solutionVector = solution.vector();
-            for(decltype(n) i=1; i<=n; i++) {
-                noiselessSolution[i] = solutionVector[i] + negNoise[i];
-            }
+            
+            VectorView<double> solutionView(solutionVector, 1, n, 1);
+            VectorView<double> negNoiseView(const_cast<double*>(negNoise.data()), 1, n, 1);
+            VectorView<double> noiselessView(noiselessSolution, 1, n, 1);
+            solutionView.addScaled(negNoiseView, 1.0, noiselessView);
+            
             noiselessSolution[0] = 0;
         }
         
