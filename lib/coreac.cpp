@@ -6,6 +6,7 @@
 #include "answeep.h"
 #include "context.h"
 #include "common.h"
+#include "densematrix.h"
 #include <numbers>
 
 namespace NAMESPACE {
@@ -312,11 +313,10 @@ CoreCoroutine ACCore::coroutine(bool continuePrevious) {
         }
         acSolution[0] = 0.0;
 
-        // Change sign of residual because it is on the RHS 
+        // Change sign of residual because it is on the RHS
         // and we need the small signal response with the correct sign
-        for(decltype(n) i=0; i<=n; i++) {
-            acSolution[i] = -acSolution[i];
-        }
+        VectorView<Complex> acSolutionView(acSolution);
+        acSolutionView.scale(-1.0);
         
         if (debug>=100) {
             Simulator::dbg() << "Linear system at frequency " << frequency << "\n";

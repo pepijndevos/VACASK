@@ -51,6 +51,9 @@ extern "C" {
     // x := alpha*x (n elements, stride incx)
     void dscal_(const int* n, const double* alpha, double* x, const int* incx);
     void zscal_(const int* n, const NAMESPACE::Complex* alpha, NAMESPACE::Complex* x, const int* incx);
+    // x := alpha*x (n elements, stride incx), alpha real - cheaper than zscal_ for a
+    // real scale factor since it avoids complex-complex multiplication.
+    void zdscal_(const int* n, const double* alpha, NAMESPACE::Complex* x, const int* incx);
 
     // 1-based index of the element with the largest |x_i| (n elements, stride incx)
     int idamax_(const int* n, const double* x, const int* incx);

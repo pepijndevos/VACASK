@@ -274,6 +274,17 @@ public:
         }
     };
 
+    // Scale by a real factor - only enabled for T=Complex. Uses zdscal_
+    // instead of promoting factor to Complex and going through scale(T)'s
+    // zscal_, avoiding a complex-complex multiplication for what is really a
+    // real scaling.
+    template<typename U=T, typename=std::enable_if_t<std::is_same<U, Complex>::value>>
+    void scale(double factor) {
+        int n = static_cast<int>(n_);
+        int inc = static_cast<int>(stride_);
+        zdscal_(&n, &factor, start_, &inc);
+    };
+
     // Add scaled vector
     void addScaled(const VectorView<T>& other, T factor) {
         if (n_ != other.n_) {
