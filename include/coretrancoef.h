@@ -162,17 +162,15 @@ public:
         }
     };
 
-    // Predict value based on value history 
+    // Predict value based on value history
     // To be used with explicit algorithms (predictors)
     // No need to zero prediction before this function is called
     void predict(Vector<double>& prediction) {
         auto n = prediction.size();
-        for(decltype(n) i=0; i<n; i++) {
-            double pred = 0;
-            for(Int j=0; j<a_.size(); j++) {
-                pred += aScaled_[j] * predictorHistory[j][i];
-            }
-            prediction[i] = pred;
+        VectorView<double> pv(prediction);
+        pv.writeScaled(VectorView<double>(predictorHistory[0], n, 1), aScaled_[0]);
+        for(Int j=1; j<a_.size(); j++) {
+            pv.addScaled(VectorView<double>(predictorHistory[j], n, 1), aScaled_[j]);
         }
     };
 
