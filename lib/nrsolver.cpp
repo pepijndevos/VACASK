@@ -1,6 +1,7 @@
 #include "nrsolver.h"
 #include "simulator.h"
 #include "common.h"
+#include "densematrix.h"
 #include <iomanip>
 
 namespace NAMESPACE {
@@ -176,9 +177,7 @@ bool NRSolver::run(bool continuePrevious) {
         }
         if (bucketSize_>0) {
             // Set RHS bucket to 0
-            for(size_t i=0; i<bucketSize_; i++) {
-                xdelta[i] = 0.0; 
-            }
+            VectorView<double>(delta, bucketSize_) = 0.0;
         }
 
         // Check if system is finite
@@ -305,10 +304,8 @@ bool NRSolver::run(bool continuePrevious) {
         
         // Set solution delta and new solution bucket to 0. 
         if (bucketSize_>0) {
-            for(size_t i=0; i<bucketSize_; i++) {
-                xdelta[i] = 0.0;
-                xnew[i] = 0.0; 
-            }
+            VectorView<double>(delta, bucketSize_) = 0.0;
+            VectorView<double>(solution.futureVector(), bucketSize_) = 0.0;
         }
 
         // std::cout << "Negative solution delta at iteration " << iteration << "\n";
@@ -377,9 +374,10 @@ bool NRSolver::run(bool continuePrevious) {
         // Not converged yet, compute new solution 
         
         // Compute new solution, use static damping
-        for(decltype(n) i=bucketSize_; i<bucketSize_+n; i++) {
-            xnew[i] = xprev[i] - xdelta[i]*settings.dampingFactor;
-        }
+        VectorView<double> xprevView(solution.vector(), bucketSize_, n, 1);
+        VectorView<double> xdeltaView(delta, bucketSize_, n, 1);
+        VectorView<double> xnewView(solution.futureVector(), bucketSize_, n, 1);
+        xnewView.vectorPlusScaledVector(xprevView, xdeltaView, -settings.dampingFactor);
 
         // std::cout << "Old solution after update at iteration " << iteration << "\n";
         // dumpSolution(std::cout, solution.data(), "  ");

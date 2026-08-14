@@ -1259,7 +1259,7 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
             VectorView<double> solutionView(solutionVector, 1, n, 1);
             VectorView<double> negNoiseView(const_cast<double*>(negNoise.data()), 1, n, 1);
             VectorView<double> noiselessView(noiselessSolution, 1, n, 1);
-            solutionView.addScaledAndStoreIn(negNoiseView, 1.0, noiselessView);
+            noiselessView.vectorPlusScaledVector(solutionView, negNoiseView, 1.0);
             
             noiselessSolution[0] = 0;
         }

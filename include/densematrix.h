@@ -21,7 +21,9 @@ template<typename U> struct is_complex<std::complex<U>> : std::true_type {};
 template<typename T> class VectorView {
 public:
     VectorView(std::vector<T>& v) : start_(v.data()), n_(v.size()), stride_(1) {};
-    VectorView(std::vector<T>& v, size_t offset, size_t length, size_t stride) 
+    // Contiguous prefix of v (offset 0, stride 1), shorter than v itself
+    VectorView(std::vector<T>& v, size_t length) : start_(v.data()), n_(length), stride_(1) {};
+    VectorView(std::vector<T>& v, size_t offset, size_t length, size_t stride)
         : start_(v.data()+offset), n_(length), stride_(stride) {};
     VectorView(T* start, size_t n, size_t stride) : start_(start), n_(n), stride_(stride) {};
     VectorView(T* start, size_t offset, size_t n, size_t stride) : start_(start+offset), n_(n), stride_(stride) {};
@@ -306,6 +308,37 @@ public:
             for(size_t i=0; i<n_; i++) {
                 *ptr += *ptrOther * factor;
                 ptr += stride_;
+                ptrOther += other.stride_;
+            }
+        }
+    };
+
+    void vectorPlusScaledVector(const VectorView<T>& v0, const VectorView<T>& other, T factor) {
+        if (n_ != v0.n_ || n_ != other.n_) {
+            throw std::out_of_range("Vector length mismatch.");
+        }
+        if constexpr(std::is_same<T, double>::value) {
+            int n = static_cast<int>(n_);
+            int inc = static_cast<int>(stride_);
+            int incV0 = static_cast<int>(v0.stride_);
+            int incOther = static_cast<int>(other.stride_);
+            dcopy_(&n, v0.start_, &incV0, start_, &inc);
+            daxpy_(&n, &factor, other.start_, &incOther, start_, &inc);
+        } else if constexpr(std::is_same<T, Complex>::value) {
+            int n = static_cast<int>(n_);
+            int inc = static_cast<int>(stride_);
+            int incV0 = static_cast<int>(v0.stride_);
+            int incOther = static_cast<int>(other.stride_);
+            zcopy_(&n, v0.start_, &incV0, start_, &inc);
+            zaxpy_(&n, &factor, other.start_, &incOther, start_, &inc);
+        } else {
+            T* ptr = start_;
+            const T* ptrV0 = v0.start_;
+            const T* ptrOther = other.start_;
+            for(size_t i=0; i<n_; i++) {
+                *ptr = *v0 + *ptrOther * factor;
+                ptr += stride_;
+                ptrV0 += v0.stride_;
                 ptrOther += other.stride_;
             }
         }
@@ -791,7 +824,7 @@ public:
         }
         for(size_t i=0; i<nRow_; i++) {
             auto rrow = result.row(i);
-            row(i).addScaledAndStoreIn(other.row(i), factor, rrow);
+            rrow.vectorPlusScaledVector(row(i), other.row(i), factor);
         }
     };
 
