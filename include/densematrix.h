@@ -43,9 +43,7 @@ public:
 
     // Assign elements from another VectorView
     VectorView<T>& operator=(const VectorView<T>& from) {
-        if (n_ != from.n_) {
-            throw std::out_of_range("Vector length mismatch.");
-        }
+        DBGCHECK(n_ != from.n_, "Vector length mismatch.");
         if constexpr(std::is_same<T, double>::value) {
             int n = static_cast<int>(n_);
             int incFrom = static_cast<int>(from.stride_);
@@ -153,9 +151,7 @@ public:
     // Dot product
     // Conjugates other if T is any std::complex<U>
     T dot(const VectorView<T>& other) const {
-        if (n_ != other.n_) {
-            throw std::out_of_range("Vector length mismatch.");
-        }
+        DBGCHECK(n_ != other.n_, "Vector length mismatch.");
         if constexpr(std::is_same<T, double>::value) {
             int n = static_cast<int>(n_);
             int inc = static_cast<int>(stride_);
@@ -218,9 +214,7 @@ public:
     // Swap elements with other
     // Assume vectors have no common elements (e.g. row crossing a column)
     void swap(VectorView<T>& other) {
-        if (n_ != other.n_) {
-            throw std::out_of_range("Vector length mismatch.");
-        }
+        DBGCHECK(n_ != other.n_, "Vector length mismatch.");
         if constexpr(std::is_same<T, double>::value) {
             int n = static_cast<int>(n_);
             int inc = static_cast<int>(stride_);
@@ -289,9 +283,7 @@ public:
 
     // v = v + other * factor
     void addScaled(const VectorView<T>& other, T factor) {
-        if (n_ != other.n_) {
-            throw std::out_of_range("Vector length mismatch.");
-        }
+        DBGCHECK(n_ != other.n_, "Vector length mismatch.");
         if constexpr(std::is_same<T, double>::value) {
             int n = static_cast<int>(n_);
             int inc = static_cast<int>(stride_);
@@ -315,9 +307,7 @@ public:
 
     // v = v0 + other * factor
     void vectorPlusScaledVector(const VectorView<T>& v0, const VectorView<T>& other, T factor) {
-        if (n_ != v0.n_ || n_ != other.n_) {
-            throw std::out_of_range("Vector length mismatch.");
-        }
+        DBGCHECK(n_ != v0.n_ || n_ != other.n_, "Vector length mismatch.");
         if constexpr(std::is_same<T, double>::value) {
             int n = static_cast<int>(n_);
             int inc = static_cast<int>(stride_);
@@ -347,9 +337,7 @@ public:
 
     // v = v + other
     void add(const VectorView<T>& other) {
-        if (n_ != other.n_) {
-            throw std::out_of_range("Vector length mismatch.");
-        }
+        DBGCHECK(n_ != other.n_, "Vector length mismatch.");
         if constexpr(std::is_same<T, double>::value) {
             int n = static_cast<int>(n_);
             int inc = static_cast<int>(stride_);
@@ -376,9 +364,7 @@ public:
     // v = other * factor
     // Write scaled vector
     void scaledVector(const VectorView<T>& other, T factor) {
-        if (n_ != other.n_) {
-            throw std::out_of_range("Vector length mismatch.");
-        }
+        DBGCHECK(n_ != other.n_, "Vector length mismatch.");
         if constexpr(std::is_same<T, double>::value) {
             int n = static_cast<int>(n_);
             int inc = static_cast<int>(stride_);
@@ -488,9 +474,7 @@ public:
 
     // Assign elements from another MatrixView
     DenseMatrixView<T>& operator=(const DenseMatrixView<T>& other) {
-        if (nRow_!=other.nRow_ || nCol_!=other.nCol_) {
-            throw std::out_of_range("Matrices do not match.");
-        }
+        DBGCHECK(nRow_!=other.nRow_ || nCol_!=other.nCol_, "Matrices do not match.");
         for(size_t i=0; i<nRow_; i++) {
             row(i) = other.row(i);
         }
@@ -527,12 +511,8 @@ public:
     // Use partial pivoting
     bool factor(VectorView<int>& rowPerm) {
         auto n = nCol_;
-        if (rowPerm.n()!=n) {
-            throw std::out_of_range("Row permutation vector length does not match matrix size.");
-        }
-        if (nRow_!=n) {
-            throw std::out_of_range("Matrix is not square.");
-        }
+        DBGCHECK(rowPerm.n()!=n, "Row permutation vector length does not match matrix size.");
+        DBGCHECK(nRow_!=n, "Matrix is not square.");
         // LAPACK needs elements within a column contiguous (rowStride_==1); it has no
         // increment parameter like BLAS, only a leading dimension between columns.
         // rowPerm is int-typed (matching LAPACK's ipiv storage width) and, when
@@ -564,15 +544,9 @@ public:
     // Permutes rhs in place, then solves by forward and backward substitution.
     bool luSolve(VectorView<T>& rhs, const VectorView<int>& rowPerm) {
         auto n = nCol_;
-        if (rhs.n()!=n) {
-            throw std::out_of_range("Vector length does not match matrix size.");
-        }
-        if (rowPerm.n()!=n) {
-            throw std::out_of_range("Row permutation vector length does not match matrix size.");
-        }
-        if (nRow_!=n) {
-            throw std::out_of_range("Matrix is not square.");
-        }
+        DBGCHECK(rhs.n()!=n, "Vector length does not match matrix size.");
+        DBGCHECK(rowPerm.n()!=n, "Row permutation vector length does not match matrix size.");
+        DBGCHECK(nRow_!=n, "Matrix is not square.");
 
         // Same LAPACK storage requirements as factor(): matrix and rowPerm contiguous,
         // and additionally rhs itself (LAPACK's B has no increment parameter either,
@@ -633,15 +607,9 @@ public:
     // storage requirements below are met) it also enables the LAPACK fast path.
     bool factorAndLuSolve(VectorView<T>& rhs, VectorView<int>* rowPerm = nullptr) {
         auto n = nCol_;
-        if (rhs.n()!=n) {
-            throw std::out_of_range("Vector length does not match matrix size.");
-        }
-        if (rowPerm && rowPerm->n()!=n) {
-            throw std::out_of_range("Row permutation vector length does not match matrix size.");
-        }
-        if (nRow_!=n) {
-            throw std::out_of_range("Matrix is not square.");
-        }
+        DBGCHECK(rhs.n()!=n, "Vector length does not match matrix size.");
+        DBGCHECK(rowPerm && rowPerm->n()!=n, "Row permutation vector length does not match matrix size.");
+        DBGCHECK(nRow_!=n, "Matrix is not square.");
         // Same LAPACK storage requirements as factor()/luSolve(): matrix, rhs and
         // rowPerm all contiguous. Without a rowPerm there is nowhere to put ipiv, so
         // LAPACK is skipped even for an otherwise-compatible matrix/rhs.
@@ -687,15 +655,9 @@ public:
     // storage requirements below are met) it also enables the LAPACK fast path.
     bool factorAndLuSolve(DenseMatrixView<T>& rhs, VectorView<int>* rowPerm = nullptr) {
         auto n = nCol_;
-        if (rhs.nRow_!=n) {
-            throw std::out_of_range("Vector length does not match matrix size.");
-        }
-        if (rowPerm && rowPerm->n()!=n) {
-            throw std::out_of_range("Row permutation vector length does not match matrix size.");
-        }
-        if (nRow_!=n) {
-            throw std::out_of_range("Matrix is not square.");
-        }
+        DBGCHECK(rhs.nRow_!=n, "Vector length does not match matrix size.");
+        DBGCHECK(rowPerm && rowPerm->n()!=n, "Row permutation vector length does not match matrix size.");
+        DBGCHECK(nRow_!=n, "Matrix is not square.");
         // Same LAPACK storage requirements as the VectorView-rhs overload: this matrix,
         // rowPerm, and rhs (elements within each right-hand-side column) all contiguous.
         if constexpr(std::is_same<T, double>::value || std::is_same<T, Complex>::value) {
@@ -738,12 +700,8 @@ public:
     // fast path there. Inverting is just solving A*X=I, so this reuses that method
     // rather than duplicating its LAPACK dispatch.
     bool factorAndInvert(DenseMatrixView<T>& result, VectorView<int>* rowPerm = nullptr) {
-        if (nRow_!=result.nRow_ || nCol_!=result.nCol_) {
-            throw std::out_of_range("Matrices are not compatible.");
-        }
-        if (nRow_!=nCol_) {
-            throw std::out_of_range("Matrix is not square.");
-        }
+        DBGCHECK(nRow_!=result.nRow_ || nCol_!=result.nCol_, "Matrices are not compatible.");
+        DBGCHECK(nRow_!=nCol_, "Matrix is not square.");
         result.identity();
         return factorAndLuSolve(result, rowPerm);
     };
@@ -751,12 +709,8 @@ public:
     // Multiply with vector, store result in result
     // Vector must be distinct from result
     void multiply(const VectorView<T>& vector, VectorView<T>& result) const {
-        if (nCol_!=vector.n()) {
-            throw std::out_of_range("Matrix is not compatible with vector.");
-        }
-        if (nRow_!=result.n()) {
-            throw std::out_of_range("Result is not compatible with product.");
-        }
+        DBGCHECK(nCol_!=vector.n(), "Matrix is not compatible with vector.");
+        DBGCHECK(nRow_!=result.n(), "Result is not compatible with product.");
         for(size_t i=0; i<nRow_; i++) {
             result[i] = row(i).dot(vector);
         }
@@ -765,12 +719,8 @@ public:
     // Multiply with vector, add to result
     // Vector must be distinct from result
     void multiplyAdd(const VectorView<T>& vector, VectorView<T>& result) const {
-        if (nCol_!=vector.n()) {
-            throw std::out_of_range("Matrix is not compatible with vector.");
-        }
-        if (nRow_!=result.n()) {
-            throw std::out_of_range("Result is not compatible with product.");
-        }
+        DBGCHECK(nCol_!=vector.n(), "Matrix is not compatible with vector.");
+        DBGCHECK(nRow_!=result.n(), "Result is not compatible with product.");
         for(size_t i=0; i<nRow_; i++) {
             result[i] += row(i).dot(vector);
         }
@@ -779,12 +729,8 @@ public:
     // Multiply with matrix, store result in result
     // Result must be distinct from this and other
     void multiply(const DenseMatrixView<T>& other, DenseMatrixView<T>& result) const {
-        if (nCol_!=other.nRow_) {
-            throw std::out_of_range("Matrices are not compatible.");
-        }
-        if (nRow_!=result.nRow_ || other.nCol_!=result.nCol_) {
-            throw std::out_of_range("Result is not compatible with product.");
-        }
+        DBGCHECK(nCol_!=other.nRow_, "Matrices are not compatible.");
+        DBGCHECK(nRow_!=result.nRow_ || other.nCol_!=result.nCol_, "Result is not compatible with product.");
         for(size_t i=0; i<nRow_; i++) {
             for(size_t j=0; j<other.nCol_; j++) {
                 result.at(i, j) = row(i).dot(other.column(j));
@@ -795,12 +741,8 @@ public:
     // Add scaled other matrix, put result in result
     // Result must be distinct from this and other
     void addScaled(const DenseMatrixView<T>& other, T factor, DenseMatrixView<T>& result) {
-        if (nRow_!=other.nRow_ || nCol_!=other.nCol_) {
-            throw std::out_of_range("Matrices are not compatible.");
-        }
-        if (nRow_!=result.nRow_ || nCol_!=result.nCol_) {
-            throw std::out_of_range("Result is not compatible with matrix.");
-        }
+        DBGCHECK(nRow_!=other.nRow_ || nCol_!=other.nCol_, "Matrices are not compatible.");
+        DBGCHECK(nRow_!=result.nRow_ || nCol_!=result.nCol_, "Result is not compatible with matrix.");
         for(size_t i=0; i<nRow_; i++) {
             auto rrow = result.row(i);
             rrow.vectorPlusScaledVector(row(i), other.row(i), factor);
@@ -821,12 +763,8 @@ public:
 
     // Scale rows with values given by a vector, store in result
     void scaleRows(const VectorView<T>& vector, DenseMatrixView<T>& result) {
-        if (nRow_!=vector.n()) {
-            throw std::out_of_range("Matrix is not compatible with vector.");
-        }
-        if (nRow_!=result.nRows() || nCol_!=result.nCols()) {
-            throw std::out_of_range("Result is not compatible with matrix.");
-        }
+        DBGCHECK(nRow_!=vector.n(), "Matrix is not compatible with vector.");
+        DBGCHECK(nRow_!=result.nRows() || nCol_!=result.nCols(), "Result is not compatible with matrix.");
         for(size_t i=0; i<nRow_; i++) {
             auto src = row(i);
             auto dest = result.row(i);
@@ -839,12 +777,8 @@ public:
 
     // Scale rows with values given by a vector, add to result
     void scaleRowsAdd(const VectorView<T>& vector, DenseMatrixView<T>& result) {
-        if (nRow_!=vector.n()) {
-            throw std::out_of_range("Matrix is not compatible with vector.");
-        }
-        if (nRow_!=result.nRows() || nCol_!=result.nCols()) {
-            throw std::out_of_range("Result is not compatible with matrix.");
-        }
+        DBGCHECK(nRow_!=vector.n(), "Matrix is not compatible with vector.");
+        DBGCHECK(nRow_!=result.nRows() || nCol_!=result.nCols(), "Result is not compatible with matrix.");
         for(size_t i=0; i<nRow_; i++) {
             auto src = row(i);
             auto dest = result.row(i);
@@ -857,12 +791,8 @@ public:
 
     // Scale columns with values given by a vector, store in result
     void scaleColumns(const VectorView<T>& vector, DenseMatrixView<T>& result) {
-        if (nCol_!=vector.n()) {
-            throw std::out_of_range("Matrix is not compatible with vector.");
-        }
-        if (nRow_!=result.nRows() || nCol_!=result.nCols()) {
-            throw std::out_of_range("Result is not compatible with matrix.");
-        }
+        DBGCHECK(nCol_!=vector.n(), "Matrix is not compatible with vector.");
+        DBGCHECK(nRow_!=result.nRows() || nCol_!=result.nCols(), "Result is not compatible with matrix.");
         for(size_t i=0; i<nRow_; i++) {
             auto src = row(i);
             auto dest = result.row(i);
@@ -874,12 +804,8 @@ public:
 
     // Scale columns with values given by a vector, add to result
     void scaleColumnsAdd(const VectorView<T>& vector, DenseMatrixView<T>& result) {
-        if (nCol_!=vector.n()) {
-            throw std::out_of_range("Matrix is not compatible with vector.");
-        }
-        if (nRow_!=result.nRows() || nCol_!=result.nCols()) {
-            throw std::out_of_range("Result is not compatible with matrix.");
-        }
+        DBGCHECK(nCol_!=vector.n(), "Matrix is not compatible with vector.");
+        DBGCHECK(nRow_!=result.nRows() || nCol_!=result.nCols(), "Result is not compatible with matrix.");
         for(size_t i=0; i<nRow_; i++) {
             auto src = row(i);
             auto dest = result.row(i);
@@ -943,25 +869,15 @@ private:
     template<typename RhsType> bool luSolveCore(RhsType* rhs, VectorView<int>* rowPerm = nullptr) {
         auto n = nCol_;
         if constexpr(std::is_same<RhsType, VectorView<T>>::value) {
-            if (rhs && rhs->n()!=n) {
-                throw std::out_of_range("Vector length does not match matrix size.");
-            }
+            DBGCHECK(rhs && rhs->n()!=n, "Vector length does not match matrix size.");
         } else if constexpr(std::is_same<RhsType, DenseMatrixView<T>>::value) {
-            if (rhs && rhs->nRows()!=n) {
-                throw std::out_of_range("Vector length does not match matrix size.");
-            }
+            DBGCHECK(rhs && rhs->nRows()!=n, "Vector length does not match matrix size.");
         } else {
-            if (rhs) {
-                throw std::out_of_range("Bad rhs type.");
-            }
+            DBGCHECK(rhs, "Bad rhs type.");
         }
-        if (rowPerm && rowPerm->n()!=n) {
-            throw std::out_of_range("Row permutation vector length does not match matrix size.");
-        }
-        if (nRow_!=n) {
-            throw std::out_of_range("Matrix is not square.");
-        }
-        
+        DBGCHECK(rowPerm && rowPerm->n()!=n, "Row permutation vector length does not match matrix size.");
+        DBGCHECK(nRow_!=n, "Matrix is not square.");
+
         // Eliminate
         for(size_t i=0; i<n-1; i++) {
             // Find pivot
@@ -1088,10 +1004,8 @@ public:
     };
 
     // Move-construct from vector and size
-    DenseMatrix(std::vector<T>&& from, size_t nRow, size_t nCol, Major major=Major::Row) { 
-        if (nRow*nCol != from.size()) {
-            throw std::out_of_range("Matrix size inconsistent with data.");
-        }
+    DenseMatrix(std::vector<T>&& from, size_t nRow, size_t nCol, Major major=Major::Row) {
+        DBGCHECK(nRow*nCol != from.size(), "Matrix size inconsistent with data.");
         major_ = major;
         data_ = std::move(from);
         start_ = data_.data();
@@ -1101,10 +1015,8 @@ public:
     };
 
     // Copy-construct from vector and size
-    DenseMatrix(const std::vector<T>& from, size_t nRow, size_t nCol, Major major=Major::Row) { 
-        if (nRow*nCol != from.size()) {
-            throw std::out_of_range("Matrix size inconsistent with data.");
-        }
+    DenseMatrix(const std::vector<T>& from, size_t nRow, size_t nCol, Major major=Major::Row) {
+        DBGCHECK(nRow*nCol != from.size(), "Matrix size inconsistent with data.");
         major_ = major;
         data_ = from;
         start_ = data_.data();
@@ -1218,11 +1130,9 @@ public:
     void zero() { data_.assign(data_.size(), T()); };
     
     // Row major only
-    VectorView<T> addRow() { 
-        if (major_==Major::Column) {
-            throw std::out_of_range("Rows cannot be added to column major matrices.");
-        }
-        nRow_++; 
+    VectorView<T> addRow() {
+        DBGCHECK(major_==Major::Column, "Rows cannot be added to column major matrices.");
+        nRow_++;
         data_.resize(nRow_*nCol_); 
         return row(nRow_-1); 
     };
