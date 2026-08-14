@@ -317,7 +317,7 @@ public:
     // Add scaled vector, store in result
     // Result can be *self
     // Assume result is not other
-    void addScaled(const VectorView<T>& other, T factor, VectorView<T>& result) {
+    void addScaledAndStoreIn(const VectorView<T>& other, T factor, VectorView<T>& result) {
         if (n_ != other.n_) {
             throw std::out_of_range("Vector lengths do not match.");
         }
@@ -780,7 +780,7 @@ public:
         }
         for(size_t i=0; i<nRow_; i++) {
             auto rrow = result.row(i);
-            row(i).addScaled(other.row(i), factor, rrow);
+            row(i).addScaledAndStoreIn(other.row(i), factor, rrow);
         }
     };
 

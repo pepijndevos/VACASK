@@ -1259,7 +1259,7 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
             VectorView<double> solutionView(solutionVector, 1, n, 1);
             VectorView<double> negNoiseView(const_cast<double*>(negNoise.data()), 1, n, 1);
             VectorView<double> noiselessView(noiselessSolution, 1, n, 1);
-            solutionView.addScaled(negNoiseView, 1.0, noiselessView);
+            solutionView.addScaledAndStoreIn(negNoiseView, 1.0, noiselessView);
             
             noiselessSolution[0] = 0;
         }
@@ -1459,16 +1459,6 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
             // sigglobal    global              global          local                   moderate
             // alllocal     local               local           local                   conservative
             // pointlocal   pointlocal          pointlocal      pointlocal
-
-            // Compute global reference values across past
-            // Compute maximum across all unknowns at this point 
-            double pointMax = 0;
-            for(decltype(n) i=1; i<=n; i++) {
-                double c = std::fabs(solution.vector()[i]);
-                if (c>pointMax) {
-                    pointMax = c;
-                }
-            }
 
             // Go through all unknowns, except for the ground
             bool haveRatio = false;
