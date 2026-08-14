@@ -282,6 +282,7 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
     // with no separate phiCurrent_ member and no snapshot-and-push.
     DenseMatrix<double>& phiFuture = phiHist_.at(-1);
     phiFuture.zero();
+    VectorView<double> rhsColBufView(rhs_colbuf);
     for (int p = 0; p < order; p++) {
         DenseMatrix<double>& Phi_kmi = phiHist_.at(p);
 
@@ -295,7 +296,7 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
                 pssErrorColumn = j;
                 return false;
             }
-            for (decltype(n) i = 0; i < n; i++) rhs_col[i] += gammaC_[p] * rhs_colbuf[i];
+            rhs_col.addScaled(rhsColBufView, gammaC_[p]);
         }
 
         // G_{k-p} * Phi_{k-p} contribution (AM methods only; gammaG_[p]==0 for BDF)
@@ -309,7 +310,7 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
                     pssErrorColumn = j;
                     return false;
                 }
-                for (decltype(n) i = 0; i < n; i++) rhs_col[i] += gammaG_[p] * rhs_colbuf[i];
+                rhs_col.addScaled(rhsColBufView, gammaG_[p]);
             }
         }
     }
