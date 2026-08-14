@@ -4,6 +4,7 @@
 #include "spurs.h"
 #include "simulator.h"
 #include "common.h"
+#include "densematrix.h"
 
 namespace NAMESPACE {
 
@@ -684,9 +685,7 @@ CoreCoroutine HBACCore::coroutine(bool continuePrevious) {
             break;
         }
         // Set bucket to 0
-        for(decltype(nf) i=0; i<nf; i++) {
-            acSolution[i] = 0.0;
-        }
+        VectorView<Complex>(acSolution, nf) = Complex(0.0, 0.0);
 
         // Print solution
         // for(decltype(n) i=1; i<=n; i++) {
