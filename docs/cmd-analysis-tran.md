@@ -73,13 +73,13 @@ analysis tran1 tran stop=10m step=1u icmode="op"
 **With explicit initial conditions:**
 
 ```text
-analysis tran1 tran stop=10m step=1u icmode="op" ic=["node1"; 2.0; "node2"; "node3"; 1.0]
+analysis tran1 tran stop=10m step=1u icmode="op" ic={"node1", 2.0, "node2", "node3", 1.0}
 ```
 
 **UIC mode:**
 
 ```text
-analysis tran1 tran stop=10m step=1u icmode="uic" ic=["node1"; 2.0]
+analysis tran1 tran stop=10m step=1u icmode="uic" ic={"node1", 2.0}
 ```
 
 **Full circuit with embedded postprocessing:**

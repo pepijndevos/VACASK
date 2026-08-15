@@ -107,7 +107,7 @@ analysis pss1 pss driven=1 tper=20m tstab=200m
 **Autonomous oscillator with initial period guess and a kick via initial conditions:**
 
 ```text
-analysis pss1 pss tper=1.1n tstab=150n ic=["vout"; 1.0]
+analysis pss1 pss tper=1.1n tstab=150n ic={"vout", 1.0}
 ```
 
 **Full circuit with embedded postprocessing:**
@@ -134,7 +134,7 @@ d1 (vout 0)  vdp_nl
 control
   save default
   // ic kicks the circuit away from its unstable DC fixed point
-  analysis pss1 pss tper=1.1n tstab=150n ic=["vout"; 1.0] writestab=1
+  analysis pss1 pss tper=1.1n tstab=150n ic={"vout", 1.0} writestab=1
   postprocess(PYTHON, "plot.py")
 endc
 

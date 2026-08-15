@@ -73,7 +73,7 @@ analysis op1 op nodeset="previous_op"
 Applies nodeset of 1.2V to `node1` and a nodeset of 0.8V to voltage difference between nodes `node2` and `node3`. The analysis result is stored in slot `my_op` so that it can be applied as a nodeset or initial condition in subsequent analyses. 
 
 ```text
-analysis op1 op nodeset=["node1"; 1.2; "node2"; "node3"; 0.8] store="my_op"
+analysis op1 op nodeset={"node1", 1.2, "node2", "node3", 0.8} store="my_op"
 ```
 
 **Suppress output:**
