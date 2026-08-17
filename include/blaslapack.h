@@ -6,8 +6,18 @@
 // No system C header exists for these (cblas.h/lapacke.h are wrapper APIs
 // with different names), so we declare the raw Fortran-linkage routines
 // ourselves, as Eigen does (Eigen/src/misc/blas.h/lapack.h). gfortran ABI:
-// lowercase name + trailing underscore, args by pointer, DOUBLE COMPLEX
-// results returned via a hidden first pointer arg (see zdotc_).
+// lowercase name + trailing underscore, args by pointer. DOUBLE COMPLEX
+// function results (zdotc_) are returned by value in XMM0:XMM1 on x86-64
+// SysV (a 16-byte all-SSE-class aggregate is returned in registers, not via
+// a hidden pointer arg - that convention is f2c/g77-era, not gfortran's
+// default here; confirmed empirically against this system's reference BLAS,
+// which silently returns a zero/untouched result if called the other way).
+// Consequence: the linked BLAS/LAPACK must be built with gfortran (or
+// another compiler using gfortran's modern COMPLEX-return convention), not
+// f2c or a f2c-derived toolchain (e.g. g77, clapack) - those return DOUBLE
+// COMPLEX via the hidden-pointer convention zdotc_'s prototype here does
+// NOT use, and would silently produce wrong (zero/garbage) results instead
+// of a link or runtime error.
 //
 // Swapping in OpenBLAS needs no changes here - it's ABI/symbol-compatible
 // with reference BLAS/LAPACK (same sonames, names, signatures). Only
@@ -20,14 +30,6 @@ extern "C" {
     void dcopy_(const int* n, const double* x, const int* incx, double* y, const int* incy);
     void zcopy_(const int* n, const NAMESPACE::Complex* x, const int* incx, NAMESPACE::Complex* y, const int* incy);
 
-    // Set the M x N matrix A (leading dimension lda): off-diagonal entries := alpha,
-    // diagonal entries := beta (uplo selects which part to touch; 'A'/anything else = all
-    // of it). Used here with m=1 to fill a length-n strided vector (lda=stride) with a
-    // constant, since column-major LDA is the only adjustable stride and only applies
-    // across columns (m=1 makes the vector the single row).
-    void dlaset_(const char* uplo, const int* m, const int* n, const double* alpha, const double* beta, double* a, const int* lda);
-    void zlaset_(const char* uplo, const int* m, const int* n, const NAMESPACE::Complex* alpha, const NAMESPACE::Complex* beta, NAMESPACE::Complex* a, const int* lda);
-
     // Euclidean (2-)norm of x (n elements, stride incx), computed with internal scaling
     // to avoid intermediate overflow/underflow.
     double dnrm2_(const int* n, const double* x, const int* incx);
@@ -35,10 +37,10 @@ extern "C" {
 
     // Dot product of x and y (n elements each, strides incx/incy)
     double ddot_(const int* n, const double* x, const int* incx, const double* y, const int* incy);
-    // Conjugated dot product: result := sum(conj(x_i) * y_i). Conjugates x (the first
-    // vector), not y. DOUBLE COMPLEX function return goes through a hidden result
-    // pointer as the first argument (gfortran ABI), not a normal C return value.
-    void zdotc_(NAMESPACE::Complex* result, const int* n, const NAMESPACE::Complex* x, const int* incx, const NAMESPACE::Complex* y, const int* incy);
+    // Conjugated dot product: returns sum(conj(x_i) * y_i). Conjugates x (the first
+    // vector), not y. Returned by value (see file header comment - not a hidden
+    // pointer arg).
+    NAMESPACE::Complex zdotc_(const int* n, const NAMESPACE::Complex* x, const int* incx, const NAMESPACE::Complex* y, const int* incy);
 
     // y := alpha*x + y (n elements, strides incx/incy)
     void daxpy_(const int* n, const double* alpha, const double* x, const int* incx, double* y, const int* incy);
@@ -59,6 +61,30 @@ extern "C" {
     int idamax_(const int* n, const double* x, const int* incx);
 
     // ---- LAPACK ----
+
+    // Set the M x N matrix A (leading dimension lda): off-diagonal entries := alpha,
+    // diagonal entries := beta (uplo selects which part to touch; 'A'/anything else = all
+    // of it). Used here with m=1 to fill a length-n strided vector (lda=stride) with a
+    // constant, since column-major LDA is the only adjustable stride and only applies
+    // across columns (m=1 makes the vector the single row).
+    void dlaset_(const char* uplo, const int* m, const int* n, const double* alpha, const double* beta, double* a, const int* lda);
+    void zlaset_(const char* uplo, const int* m, const int* n, const NAMESPACE::Complex* alpha, const NAMESPACE::Complex* beta, NAMESPACE::Complex* a, const int* lda);
+
+    // Copy all (uplo='A') or part of the M x N matrix A (leading dimension lda) into B
+    // (leading dimension ldb), column-major. The 2D counterpart of dcopy_: unlike dcopy_'s
+    // single stride per vector, this honors two independent leading dimensions, so it can
+    // copy between two sub-blocks of different parent matrices directly.
+    void dlacpy_(const char* uplo, const int* m, const int* n, const double* a, const int* lda, double* b, const int* ldb);
+    void zlacpy_(const char* uplo, const int* m, const int* n, const NAMESPACE::Complex* a, const int* lda, NAMESPACE::Complex* b, const int* ldb);
+
+    // Matrix norm of the M x N matrix A (leading dimension lda). norm='M' gives
+    // max(abs(A(i,j))) - unlike izamax_, confirmed empirically that zlange_'s 'M'
+    // norm uses the true complex modulus, not |Re|+|Im|, so (unlike
+    // VectorView::maxAbs()'s deliberate avoidance of izamax_ for Complex) this is
+    // safe to use for both double and Complex. work is unreferenced for norm='M'
+    // (only needed for norm='I') - pass nullptr.
+    double dlange_(const char* norm, const int* m, const int* n, const double* a, const int* lda, double* work);
+    double zlange_(const char* norm, const int* m, const int* n, const NAMESPACE::Complex* a, const int* lda, double* work);
 
     // LU factorization with partial pivoting of the M x N matrix A (leading dimension
     // LDA, column-major: elements within a column are contiguous, LDA is the stride

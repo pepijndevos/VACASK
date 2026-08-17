@@ -277,8 +277,8 @@ include_directories("${CMAKE_CURRENT_SOURCE_DIR}/include")
 # Linux currently uses whatever the system update-alternatives points libblas.so.3/
 # liblapack.so.3 at (reference Netlib by default). To be switched to OpenBLAS (OpenMP
 # build) later; Windows already gets both via the bundled libopenblas.a below.
-# macOS not wired up yet.
-if (${SIM_PLATFORM} STREQUAL "Linux")
+# macOS gets Homebrew BLAS/LAPACK the same way it already gets Homebrew SuiteSparse.
+if (${SIM_PLATFORM} STREQUAL "Linux" OR ${SIM_PLATFORM} STREQUAL "Darwin")
     find_package(BLAS REQUIRED)
     find_package(LAPACK REQUIRED)
 endif()
@@ -311,6 +311,7 @@ elseif (${SIM_PLATFORM} STREQUAL "Darwin")
             Boost::filesystem
             Boost::process
             klu amd camd colamd ccolamd btf cholmod suitesparseconfig
+            ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES}
         CACHE STRING "External libraries for creating an executable."
         FORCE
     )

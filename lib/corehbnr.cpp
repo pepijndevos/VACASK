@@ -509,11 +509,11 @@ std::tuple<bool, bool> HBNRSolver::buildSystem(bool continuePrevious) {
 
         // blockTmp = Gamma Jrdiag Gamma^-1
         // Scale columns of Gamma with resistive Jacobian at colocation points
-        Gamma.scaleColumns(gCol, blockTmp);
+        blockTmp.scaledColumns(Gamma, gCol);
         
         // blockTmp += Omega Gamma Jcdiag Gamma^-1
         // Scale columns of Omega Gamma with reactive Jacobian at colocation points
-        OmegaGamma.scaleColumnsAdd(cCol, blockTmp);
+        blockTmp.addScaledColumns(OmegaGamma, cCol);
         
         // blockTmp Gamma^-1 -> HB Jacobian block
         blockTmp.multiply(GammaInvColumnMajor, block);

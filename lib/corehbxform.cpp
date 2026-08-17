@@ -108,9 +108,9 @@ bool HBCore::buildAPFT(Status& s) {
     // Make a copy that will be destroyed during matrix inversion
     // First size it and make it column-major
     DenseMatrix<double> coeffs(ncoef, ncoef, DenseMatrix<double>::Major::Column);
-    // Then use DenseMatrixView's operator=() to copy rows, 
-    // use DenseMatrixView from DenseMatrix coeffs. 
-    static_cast<DenseMatrixView<double>&>(coeffs) = IAPFT;
+    // coeffs = IAPFT would use DenseMatrix's own copy-assign, which also
+    // copies major_ - use view() to reach the element-only copy instead.
+    coeffs.view() = IAPFT;
     
     // Invert to obtain APFT
     // Destination matdix must be column-major so LAPACK is used

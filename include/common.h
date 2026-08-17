@@ -99,9 +99,6 @@ const double timeRelativeTolerance = std::numeric_limits<double>::epsilon()*8;
     #define DBGCHECK(cond, msg) 
 #endif
 
-// Unconditional check (Debug and Release)
-#define CHECK(cond, msg) if (cond) { throw std::runtime_error(msg); }
-
 }
 
 const size_t SIM_SIZE_T_MAX = std::numeric_limits<std::size_t>::max();

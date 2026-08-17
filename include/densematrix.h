@@ -30,7 +30,8 @@ public:
     VectorView(T* start, size_t offset, size_t n, size_t stride) : start_(start+offset), n_(n), stride_(stride) {};
 
     VectorView<T> subVector(size_t offset, size_t n, size_t stride=1) {
-        DBGCHECK((offset+n*stride)*stride_>n_*stride_, "Requested subvector too long.");
+        // Last element of subvector should not be at or beyond last element of original vector
+        DBGCHECK((n>0) && ((offset+(n-1)*stride)*stride_>=n_*stride_), "Requested subvector too long.");
         return VectorView<T>(start_+offset*stride_, n, stride_*stride);
     };
     
@@ -167,10 +168,8 @@ public:
             int n = static_cast<int>(n_);
             int inc = static_cast<int>(stride_);
             int incOther = static_cast<int>(other.stride_);
-            Complex result;
             // X=other so it gets conjugated, Y=this, matching this->conj(other) below
-            zdotc_(&result, &n, other.start_, &incOther, start_, &inc);
-            return result;
+            return zdotc_(&n, other.start_, &incOther, start_, &inc);
         } else {
             T sum = 0;
             const T* ptr = start_;
@@ -333,7 +332,7 @@ public:
             const T* ptrV0 = v0.start_;
             const T* ptrOther = other.start_;
             for(size_t i=0; i<n_; i++) {
-                *ptr = *v0 + *ptrOther * factor;
+                *ptr = *ptrV0 + *ptrOther * factor;
                 ptr += stride_;
                 ptrV0 += v0.stride_;
                 ptrOther += other.stride_;
@@ -482,22 +481,37 @@ public:
     const VectorView<T> column(size_t i) const { return VectorView<T>(start_ + i*colStride_, nRow_, rowStride_); };
     VectorView<T> column(size_t i) { return VectorView<T>(start_ + i*colStride_, nRow_, rowStride_); };
 
+    // Diagonal access - min(nRow_,nCol_) elements, stride rowStride_+colStride_
+    // (one step down and one step across per element, same as at(i,i)-at(i-1,i-1))
+    const VectorView<T> diagonal() const { return VectorView<T>(start_, std::min(nRow_, nCol_), rowStride_+colStride_); };
+    VectorView<T> diagonal() { return VectorView<T>(start_, std::min(nRow_, nCol_), rowStride_+colStride_); };
+
     // Assign elements from another MatrixView
     DenseMatrixView<T>& operator=(const DenseMatrixView<T>& other) {
         DBGCHECK(nRow_!=other.nRow_ || nCol_!=other.nCol_, "Matrices do not match.");
         if constexpr(std::is_same<T, double>::value || std::is_same<T, Complex>::value) {
-            // Fully packed row-major on both sides, or fully packed column-major
-            // on both sides: either way the whole matrix is one contiguous run,
-            // so copy it in a single BLAS call instead of nRow_ of them.
-            bool packedRowMajor = colStride_==1 && rowStride_==nCol_ && other.colStride_==1 && other.rowStride_==nCol_;
-            bool packedColMajor = rowStride_==1 && colStride_==nRow_ && other.rowStride_==1 && other.colStride_==nRow_;
-            if (packedRowMajor || packedColMajor) {
-                int n = static_cast<int>(nRow_*nCol_);
-                int inc = 1;
+            // Both views must be contiguous in the SAME direction: either both
+            // native column-major, or both row-major (read as transposed
+            // column-major - a positional copy is not transpose-symmetric like
+            // fill/identity, so a this-row-major/other-column-major mismatch
+            // still falls through to the per-row loop below, same as before).
+            bool nativeColMajor = rowStride_==1 && other.rowStride_==1;
+            bool nativeRowMajor = colStride_==1 && other.colStride_==1;
+            if (nativeColMajor || nativeRowMajor) {
+                char uplo = 'A';
+                int m = static_cast<int>(nativeColMajor ? nRow_ : nCol_);
+                int n = static_cast<int>(nativeColMajor ? nCol_ : nRow_);
+                int lda = static_cast<int>(nativeColMajor ? other.colStride_ : other.rowStride_);
+                int ldb = static_cast<int>(nativeColMajor ? colStride_ : rowStride_);
+                // LAPACK requires lda/ldb>=max(1,m); see identity()'s lda clamp
+                // for why the degenerate nRow_==1/nCol_==1 case needs it, and
+                // the explicit 1 floor for why nRow_==0/nCol_==0 needs it too.
+                lda = std::max({lda, m, 1});
+                ldb = std::max({ldb, m, 1});
                 if constexpr(std::is_same<T, double>::value) {
-                    dcopy_(&n, other.start_, &inc, start_, &inc);
+                    dlacpy_(&uplo, &m, &n, other.start_, &lda, start_, &ldb);
                 } else {
-                    zcopy_(&n, other.start_, &inc, start_, &inc);
+                    zlacpy_(&uplo, &m, &n, other.start_, &lda, start_, &ldb);
                 }
                 return *this;
             }
@@ -510,53 +524,23 @@ public:
 
     // Assign value to all elements
     DenseMatrixView<T>& operator=(const T& val) {
-        if constexpr(std::is_same<T, double>::value || std::is_same<T, Complex>::value) {
-            bool packedRowMajor = colStride_==1 && rowStride_==nCol_;
-            bool packedColMajor = rowStride_==1 && colStride_==nRow_;
-            if (packedRowMajor || packedColMajor) {
-                char uplo = 'A';
-                int m = 1;
-                int n = static_cast<int>(nRow_*nCol_);
-                int lda = 1;
-                if constexpr(std::is_same<T, double>::value) {
-                    dlaset_(&uplo, &m, &n, &val, &val, start_, &lda);
-                } else {
-                    zlaset_(&uplo, &m, &n, &val, &val, start_, &lda);
-                }
-                return *this;
+        if (!laset(val, val)) {
+            for(size_t i=0; i<nRow_; i++) {
+                row(i) = val;
             }
-        }
-        for(size_t i=0; i<nRow_; i++) {
-            row(i) = val;
         }
         return *this;
     };
 
     // Set to zero
-    void zero() { 
+    void zero() {
         *this = 0;
     };
 
     // Set to identity
     void identity() {
-        if constexpr(std::is_same<T, double>::value || std::is_same<T, Complex>::value) {
-            if (rowStride_==1 || colStride_==1) {
-                // Row-major storage (colStride_==1) is handled by reinterpreting
-                // as the transpose in LAPACK's column-major terms - identity is
-                // symmetric so the diagonal pattern comes out the same either way.
-                char uplo = 'A';
-                T zero = 0;
-                T one = 1;
-                int m = static_cast<int>(rowStride_==1 ? nRow_ : nCol_);
-                int n = static_cast<int>(rowStride_==1 ? nCol_ : nRow_);
-                int lda = static_cast<int>(rowStride_==1 ? colStride_ : rowStride_);
-                if constexpr(std::is_same<T, double>::value) {
-                    dlaset_(&uplo, &m, &n, &zero, &one, start_, &lda);
-                } else {
-                    zlaset_(&uplo, &m, &n, &zero, &one, start_, &lda);
-                }
-                return;
-            }
+        if (laset(T(0), T(1))) {
+            return;
         }
         for(size_t i=0; i<nRow_; i++) {
             for(size_t j=0; j<nCol_; j++) {
@@ -794,80 +778,66 @@ public:
         }
     };
 
-    // Add scaled other matrix, put result in result
-    // Result must be distinct from this and other
-    void addScaled(const DenseMatrixView<T>& other, T factor, DenseMatrixView<T>& result) {
+    // this = other * factor
+    // Write scaled matrix
+    void scaledMatrix(const DenseMatrixView<T>& other, T factor) {
         DBGCHECK(nRow_!=other.nRow_ || nCol_!=other.nCol_, "Matrices are not compatible.");
-        DBGCHECK(nRow_!=result.nRow_ || nCol_!=result.nCol_, "Result is not compatible with matrix.");
         for(size_t i=0; i<nRow_; i++) {
-            auto rrow = result.row(i);
-            rrow.vectorPlusScaledVector(row(i), other.row(i), factor);
+            row(i).scaledVector(other.row(i), factor);
         }
     };
 
-    // Add other matrix, put result in result
-    // Result must be distinct from this and other
-    void add(DenseMatrixView<T>& other, DenseMatrixView<T>& result) {
-        addScaled(other, 1.0, result);
+    // Add scaled other matrix, put result in this matrix
+    void addScaledMatrix(const DenseMatrixView<T>& other, T factor) {
+        DBGCHECK(nRow_!=other.nRow_ || nCol_!=other.nCol_, "Matrices are not compatible.");
+        for(size_t i=0; i<nRow_; i++) {
+            row(i).addScaled(other.row(i), factor);
+        }
     };
 
-    // Subtract other matrix, put result in result
-    // Result must be distinct from this and other
-    void subtract(DenseMatrixView<T>& other, DenseMatrixView<T>& result) {
-        addScaled(other, -1.0, result);
+    // Add other matrix to this matrix
+    void addMatrix(const DenseMatrixView<T>& other) {
+        addScaledMatrix(other, 1.0);
     };
 
-    // Scale rows with values given by a vector, store in result
-    void scaleRows(const VectorView<T>& vector, DenseMatrixView<T>& result) {
+    // Subtract other matrix from this matrix
+    void subtractMatrix(const DenseMatrixView<T>& other) {
+        addScaledMatrix(other, -1.0);
+    };
+
+    // this = other scaled by vector, row-wise
+    void scaledRows(const DenseMatrixView<T>& other, const VectorView<T>& vector) {
+        DBGCHECK(nRow_!=other.nRow_ || nCol_!=other.nCol_, "Matrices are not compatible.");
         DBGCHECK(nRow_!=vector.n(), "Matrix is not compatible with vector.");
-        DBGCHECK(nRow_!=result.nRows() || nCol_!=result.nCols(), "Result is not compatible with matrix.");
         for(size_t i=0; i<nRow_; i++) {
-            auto src = row(i);
-            auto dest = result.row(i);
-            auto scl = vector[i];
-            for(size_t j=0; j<nCol_; j++) {
-                dest[j] = src[j]*scl;
-            }
+            row(i).scaledVector(other.row(i), vector[i]);
         }
     };
 
-    // Scale rows with values given by a vector, add to result
-    void scaleRowsAdd(const VectorView<T>& vector, DenseMatrixView<T>& result) {
+    // this = this + other scaled by vector, row-wise
+    void addScaledRows(const DenseMatrixView<T>& other, const VectorView<T>& vector) {
+        DBGCHECK(nRow_!=other.nRow_ || nCol_!=other.nCol_, "Matrices are not compatible.");
         DBGCHECK(nRow_!=vector.n(), "Matrix is not compatible with vector.");
-        DBGCHECK(nRow_!=result.nRows() || nCol_!=result.nCols(), "Result is not compatible with matrix.");
         for(size_t i=0; i<nRow_; i++) {
-            auto src = row(i);
-            auto dest = result.row(i);
-            auto scl = vector[i];
-            for(size_t j=0; j<nCol_; j++) {
-                dest[j] += src[j]*scl;
-            }
+            row(i).addScaled(other.row(i), vector[i]);
         }
     };
 
-    // Scale columns with values given by a vector, store in result
-    void scaleColumns(const VectorView<T>& vector, DenseMatrixView<T>& result) {
+    // this = other scaled by vector, column-wise
+    void scaledColumns(const DenseMatrixView<T>& other, const VectorView<T>& vector) {
+        DBGCHECK(nRow_!=other.nRow_ || nCol_!=other.nCol_, "Matrices are not compatible.");
         DBGCHECK(nCol_!=vector.n(), "Matrix is not compatible with vector.");
-        DBGCHECK(nRow_!=result.nRows() || nCol_!=result.nCols(), "Result is not compatible with matrix.");
-        for(size_t i=0; i<nRow_; i++) {
-            auto src = row(i);
-            auto dest = result.row(i);
-            for(size_t j=0; j<nCol_; j++) {
-                dest[j] = src[j]*vector[j];
-            }
+        for(size_t j=0; j<nCol_; j++) {
+            column(j).scaledVector(other.column(j), vector[j]);
         }
     };
 
-    // Scale columns with values given by a vector, add to result
-    void scaleColumnsAdd(const VectorView<T>& vector, DenseMatrixView<T>& result) {
+    // this = this + other scaled by vector, column-wise
+    void addScaledColumns(const DenseMatrixView<T>& other, const VectorView<T>& vector) {
+        DBGCHECK(nRow_!=other.nRow_ || nCol_!=other.nCol_, "Matrices are not compatible.");
         DBGCHECK(nCol_!=vector.n(), "Matrix is not compatible with vector.");
-        DBGCHECK(nRow_!=result.nRows() || nCol_!=result.nCols(), "Result is not compatible with matrix.");
-        for(size_t i=0; i<nRow_; i++) {
-            auto src = row(i);
-            auto dest = result.row(i);
-            for(size_t j=0; j<nCol_; j++) {
-                dest[j] += src[j]*vector[j];
-            }
+        for(size_t j=0; j<nCol_; j++) {
+            column(j).addScaled(other.column(j), vector[j]);
         }
     };
 
@@ -888,6 +858,24 @@ public:
 
     // Absolute maximal element
     double maxAbs() const {
+        if constexpr(std::is_same<T, double>::value || std::is_same<T, Complex>::value) {
+            if (rowStride_==1 || colStride_==1) {
+                // Row-major storage (colStride_==1) is handled by reinterpreting
+                // as the transpose in LAPACK's column-major terms - max(abs(.))
+                // over all elements is invariant under transpose, so this is
+                // safe either way (same reasoning as identity()/laset()).
+                int m = static_cast<int>(rowStride_==1 ? nRow_ : nCol_);
+                int n = static_cast<int>(rowStride_==1 ? nCol_ : nRow_);
+                int lda = static_cast<int>(rowStride_==1 ? colStride_ : rowStride_);
+                lda = std::max({lda, m, 1});
+                char norm = 'M';
+                if constexpr(std::is_same<T, double>::value) {
+                    return dlange_(&norm, &m, &n, start_, &lda, nullptr);
+                } else {
+                    return zlange_(&norm, &m, &n, start_, &lda, nullptr);
+                }
+            }
+        }
         double m = 0;
         for(size_t i=0; i<nRow_; i++) {
             auto c = row(i).maxAbs();
@@ -916,7 +904,45 @@ protected:
     size_t colStride_;
 
 private:
-    // Destructive solve/factor core 
+    // Fill extra-diagonal elements with alpha and diagonal elements with beta
+    // via LAPACK's dlaset_/zlaset_ (uplo='A' touches every element, so
+    // alpha==beta gives a uniform fill and alpha=0/beta=1 gives identity()).
+    // Returns false (no-op) if T isn't double/Complex or this view isn't
+    // contiguous in one stride direction, so the caller can fall back to an
+    // explicit loop.
+    bool laset(const T& alpha, const T& beta) {
+        if constexpr(std::is_same<T, double>::value || std::is_same<T, Complex>::value) {
+            if (rowStride_==1 || colStride_==1) {
+                // Row-major storage (colStride_==1) is handled by reinterpreting
+                // as the transpose in LAPACK's column-major terms - filling by
+                // extra-diagonal/diagonal value is symmetric so this is safe
+                // either way. Using the real m/n/lda (rather than requiring
+                // full packing) also fast-paths a genuine strided sub-block
+                // view, e.g. a KLUBS block with colStride_ > nRow_ (see
+                // docs/internals/klubsmatrix.md).
+                char uplo = 'A';
+                int m = static_cast<int>(rowStride_==1 ? nRow_ : nCol_);
+                int n = static_cast<int>(rowStride_==1 ? nCol_ : nRow_);
+                int lda = static_cast<int>(rowStride_==1 ? colStride_ : rowStride_);
+                // LAPACK requires lda>=max(1,m); the degenerate nRow_==1/nCol_==1
+                // case can otherwise report an lda smaller than m, and nRow_==0/
+                // nCol_==0 (e.g. a matrix mid-addRow()-growth) can report lda==0
+                // (harmless for dlaset_/zlaset_ since lda is unused when the
+                // corresponding loop bound is 0, but keeps the call
+                // contract-legal for stricter LAPACK backends).
+                lda = std::max({lda, m, 1});
+                if constexpr(std::is_same<T, double>::value) {
+                    dlaset_(&uplo, &m, &n, &alpha, &beta, start_, &lda);
+                } else {
+                    zlaset_(&uplo, &m, &n, &alpha, &beta, start_, &lda);
+                }
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Destructive solve/factor core
     // Used when LAPACK is not appropropriate
     // Replaces matrix content with LU decomposition. 
     // Solution is placed in rhs. 
@@ -1026,10 +1052,6 @@ public:
     using DenseMatrixView<T>::nCol_;
     using DenseMatrixView<T>::rowStride_;
     using DenseMatrixView<T>::colStride_;
-    // Bring in DenseMatrixView::operator=(const T&) (whole-matrix fill)
-    // alongside DenseMatrix's own operator= overloads below, which would
-    // otherwise hide it by name.
-    using DenseMatrixView<T>::operator=;
 
     // Default constructor, uninitialized matrix
     DenseMatrix() 
@@ -1085,6 +1107,14 @@ public:
         setStride();
     };
 
+    // Explicit view of this matrix's data, e.g. for
+    // coeffs.view() = other; - avoids DenseMatrix's own operator=(const
+    // DenseMatrix&) (which also copies major_) without the ambiguous
+    // "DenseMatrixView(coeffs) = other;" CTAD parse (most-vexing-parse:
+    // that's a declaration of a new variable named coeffs, not an
+    // expression, when coeffs is already declared in the same scope).
+    DenseMatrixView<T> view() { return DenseMatrixView<T>(start_, nRow_, nCol_, rowStride_, colStride_); };
+
     // Copy assignment
     DenseMatrix<T>& operator=(const DenseMatrix<T>& other) {
         major_ = other.major_;
@@ -1106,6 +1136,20 @@ public:
         setStride();
         return *this;
     };
+
+    // Assign value to all elements (forwards to DenseMatrixView's fill
+    // overload explicitly, rather than a blanket 'using
+    // DenseMatrixView<T>::operator=' - that would also expose the base's
+    // view-to-view operator=(const DenseMatrixView<T>&) on a DenseMatrix<T>
+    // lvalue, which copy-vs-move assignment above already covers via
+    // major_-copying DenseMatrix-to-DenseMatrix semantics. Callers who
+    // specifically want "copy values, keep my own major_" still reach the
+    // base operator= explicitly via a DenseMatrixView<T>& cast, as
+    // lib/corehbxform.cpp already does.
+    DenseMatrix<T>& operator=(const T& val) {
+        DenseMatrixView<T>::operator=(val);
+        return *this;
+    };
     
     // Resize, does not reorder elements (content is invalidated)
     void resize(size_t nRow, size_t nCol, Major major=Major::Row) { 
@@ -1117,6 +1161,11 @@ public:
         setStride();
     }; 
 
+    // Grows the matrix by one row and returns a VectorView over it. The new
+    // row's contents are unspecified from the caller's point of view - don't
+    // rely on it being zero (the current implementation happens to
+    // value-initialize it via std::vector, but that's an implementation
+    // detail, not a guarantee); every caller must fill it explicitly.
     VectorView<T> addRow() {
         if (major_==Major::Column) {
             // Column-major: every column's block grows by one element (the
@@ -1139,7 +1188,10 @@ public:
         return this->row(nRow_-1);
     };
 
-    // Retrieve internal data structure
+    // Retrieve internal data structure. The returned vector must not be
+    // resized/reallocated directly (push_back, resize, insert, ...) - that
+    // would invalidate start_ (and, for column-major matrices, colStride_)
+    // without triggering a resync. Use resize()/addRow() instead.
     std::vector<T>& data() { return data_; };
     const std::vector<T>& data() const { return data_; };
 

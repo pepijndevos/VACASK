@@ -82,6 +82,7 @@ bool PssCore::rebuild(Status& s) {
     // Make it column major. 
     Jp.resize(n+1, n+1, DenseMatrix<double>::Major::Column);
     rowPerm_.resize(n+1);
+    ones_.assign(n, 1.0);
     x0.resize(n+1);
     xT.resize(n+1);
 
@@ -517,13 +518,11 @@ CoreCoroutine PssCore::coroutine(bool continuePrevious) {
         );
 
         // Jacobian: I - PhiT (n x n block of the (n+1) x (n+1) augmented Jp)
-        // Both Jp and tmpPhiT are column-major, so working column-wise keeps
-        // this stride-1 instead of stride-(n+1).
-        for (decltype(n) j = 0; j < n; j++) {
-            auto jpCol = Jp.column(j).subVector(0, n);
-            jpCol.scaledVector(tmpPhiT.column(j), -1.0);
-            jpCol[j] += 1.0;
-        }
+        // Both Jp and tmpPhiT are column-major, so the block view below is
+        // stride-1 within a column (colStride_=n+1, padded past row n).
+        DenseMatrixView<double> jpBlock(Jp.data().data(), n, n, 1, n+1);
+        jpBlock.scaledMatrix(tmpPhiT, -1.0);
+        jpBlock.diagonal().addScaled(VectorView(ones_), 1.0);
 
         // Compute phase constraint for autonomous circuits
         if (!params.driven){

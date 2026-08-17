@@ -949,9 +949,12 @@ bool HBCore::test() {
 
         // APFT*IAPFT
         hb.APFT.multiply(hb.IAPFT, result);
-        DenseMatrix<double> I(n, n);
-        I.identity();
-        result.subtract(I, result);
+
+        // Create vector of ones of length n
+        // Then add it with factor -1 to the diagonal
+        // Avoid creating identity matrix
+        std::vector<double> ones(n, 1.0);
+        result.diagonal().addScaled(VectorView(ones), -1.0);
         delta = result.maxAbs();
         std::cout << "APFT * IAPFT - I :: delta = " << delta << "\n";
         std::cout << "\n";
