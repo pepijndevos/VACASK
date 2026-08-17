@@ -937,7 +937,7 @@ bool HBCore::test() {
         std::cout << "Failed to select colocation points: " << s.message() << "\n";
     } 
     
-    if (!hb.buildAPFT(s)) {
+    if (ok && !hb.buildAPFT(s)) {
         ok = false;
         std::cout << "Failed to build APFT: " << s.message() << "\n";
     }

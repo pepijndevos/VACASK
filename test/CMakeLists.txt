@@ -30,12 +30,60 @@ macro(prepare_netlist_test simfile)
     )
 endmacro()
 
+# macro that sets up a test built from a C++ source file, linked against
+# the simulator library. The test binary is run in a subdirectory named
+# after the source file (without its extension); a nonzero exit status
+# (in particular 1) is treated by ctest as a failed test, same as any
+# other test.
+macro(prepare_binary_test testfile)
+    get_filename_component(testname ${testfile} NAME_WE)
+
+    file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${testname}")
+
+    add_executable(${testname} ${testfile})
+    add_dependencies(${testname} simlib)
+    # Build the binary into its own directory - the default output location
+    # (CMAKE_CURRENT_BINARY_DIR, same as the target name) would collide with
+    # the same-named working directory created above.
+    set_target_properties(${testname} PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin"
+    )
+
+    if (${SIM_PLATFORM} STREQUAL "Windows")
+        target_link_options(${testname} PUBLIC -static)
+    endif()
+
+    target_link_libraries(
+        ${testname}
+        simlib
+        ${SIM_EXE_LIBRARIES}
+    )
+
+    add_test(NAME "${testname}"
+        COMMAND $<TARGET_FILE:${testname}>
+        WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${testname}"
+    )
+
+    # Same environment/timeout convention as prepare_netlist_test()
+    set_tests_properties(
+        "${testname}" PROPERTIES
+        ENVIRONMENT
+        "PYTHONPATH=${CMAKE_CURRENT_BINARY_DIR};SIM_TEST=yes"
+        TIMEOUT 20
+    )
+endmacro()
+
 # Create directory for manually running tests from vscode
 file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/manual_run")
 
 foreach(item IN ITEMS ${TEST_DEPENDENCIES})
     file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/${item} DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/manual_run")
 endforeach()
+
+prepare_binary_test(test_blaslapack.cpp)
+prepare_binary_test(test_densematrix.cpp)
+prepare_binary_test(test_integcoffs.cpp)
+prepare_binary_test(test_hbcore.cpp)
 
 prepare_netlist_test(test_op.sim)
 prepare_netlist_test(test_opnl.sim)

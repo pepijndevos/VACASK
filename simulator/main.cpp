@@ -11,9 +11,6 @@
 #include <filesystem>
 #include <unordered_set>
 
-#include "corehb.h"
-#include "anop.h"
-
 using namespace sim;
 
 char helpText[] = 
@@ -38,11 +35,6 @@ char helpText[] =
     ; 
 
 int main(int argc, char**argv) {
-    // IntegratorCoeffs::test();
-    // DenseMatrix<double>::test();
-    // HBCore::test();
-    // return 0;
-
     bool dumpPaths = false;
     bool dumpTables = false;
     bool fileDebug = false;

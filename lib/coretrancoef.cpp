@@ -726,10 +726,12 @@ bool IntegratorCoeffs::test() {
             ok = false;
             return;
         }
-        cP.compute(steps, hk+eps);
-        cP.scaleDifferentiator(hk+eps);
-        cM.compute(steps, hk-eps);
-        cM.scaleDifferentiator(hk-eps);
+        if (!cP.compute(steps, hk+eps) || !cP.scaleDifferentiator(hk+eps) ||
+            !cM.compute(steps, hk-eps) || !cM.scaleDifferentiator(hk-eps)) {
+            std::cout << label << " sensitivity test: finite-difference compute FAILED\n";
+            ok = false;
+            return;
+        }
 
         double maxDiff = 0;
         for(Int i=0; i<c.aScaledSens().size(); i++) {
