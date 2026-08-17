@@ -3,6 +3,7 @@
 
 #include <stdexcept>
 #include <vector>
+#include <algorithm>
 #include <cmath>
 #include <optional>
 #include <type_traits>
@@ -468,7 +469,11 @@ public:
     // Element access
     const T& at(size_t row, size_t col) const { return *(start_ + row*rowStride_ + col*colStride_); };
     T& at(size_t row, size_t col) { return *(start_ + row*rowStride_ + col*colStride_); };
-    
+
+    // Pointer to element (e.g. for building a truncated sub-row/column VectorView)
+    const T* ptrOf(size_t row, size_t col) const { return start_ + row*rowStride_ + col*colStride_; };
+    T* ptrOf(size_t row, size_t col) { return start_ + row*rowStride_ + col*colStride_; };
+
     // Row access
     const VectorView<T> row(size_t i) const { return VectorView<T>(start_ + i*rowStride_, nCol_, colStride_); };
     VectorView<T> row(size_t i) { return VectorView<T>(start_ + i*rowStride_, nCol_, colStride_); };
@@ -480,6 +485,23 @@ public:
     // Assign elements from another MatrixView
     DenseMatrixView<T>& operator=(const DenseMatrixView<T>& other) {
         DBGCHECK(nRow_!=other.nRow_ || nCol_!=other.nCol_, "Matrices do not match.");
+        if constexpr(std::is_same<T, double>::value || std::is_same<T, Complex>::value) {
+            // Fully packed row-major on both sides, or fully packed column-major
+            // on both sides: either way the whole matrix is one contiguous run,
+            // so copy it in a single BLAS call instead of nRow_ of them.
+            bool packedRowMajor = colStride_==1 && rowStride_==nCol_ && other.colStride_==1 && other.rowStride_==nCol_;
+            bool packedColMajor = rowStride_==1 && colStride_==nRow_ && other.rowStride_==1 && other.colStride_==nRow_;
+            if (packedRowMajor || packedColMajor) {
+                int n = static_cast<int>(nRow_*nCol_);
+                int inc = 1;
+                if constexpr(std::is_same<T, double>::value) {
+                    dcopy_(&n, other.start_, &inc, start_, &inc);
+                } else {
+                    zcopy_(&n, other.start_, &inc, start_, &inc);
+                }
+                return *this;
+            }
+        }
         for(size_t i=0; i<nRow_; i++) {
             row(i) = other.row(i);
         }
@@ -488,6 +510,22 @@ public:
 
     // Assign value to all elements
     DenseMatrixView<T>& operator=(const T& val) {
+        if constexpr(std::is_same<T, double>::value || std::is_same<T, Complex>::value) {
+            bool packedRowMajor = colStride_==1 && rowStride_==nCol_;
+            bool packedColMajor = rowStride_==1 && colStride_==nRow_;
+            if (packedRowMajor || packedColMajor) {
+                char uplo = 'A';
+                int m = 1;
+                int n = static_cast<int>(nRow_*nCol_);
+                int lda = 1;
+                if constexpr(std::is_same<T, double>::value) {
+                    dlaset_(&uplo, &m, &n, &val, &val, start_, &lda);
+                } else {
+                    zlaset_(&uplo, &m, &n, &val, &val, start_, &lda);
+                }
+                return *this;
+            }
+        }
         for(size_t i=0; i<nRow_; i++) {
             row(i) = val;
         }
@@ -501,13 +539,28 @@ public:
 
     // Set to identity
     void identity() {
+        if constexpr(std::is_same<T, double>::value || std::is_same<T, Complex>::value) {
+            if (rowStride_==1 || colStride_==1) {
+                // Row-major storage (colStride_==1) is handled by reinterpreting
+                // as the transpose in LAPACK's column-major terms - identity is
+                // symmetric so the diagonal pattern comes out the same either way.
+                char uplo = 'A';
+                T zero = 0;
+                T one = 1;
+                int m = static_cast<int>(rowStride_==1 ? nRow_ : nCol_);
+                int n = static_cast<int>(rowStride_==1 ? nCol_ : nRow_);
+                int lda = static_cast<int>(rowStride_==1 ? colStride_ : rowStride_);
+                if constexpr(std::is_same<T, double>::value) {
+                    dlaset_(&uplo, &m, &n, &zero, &one, start_, &lda);
+                } else {
+                    zlaset_(&uplo, &m, &n, &zero, &one, start_, &lda);
+                }
+                return;
+            }
+        }
         for(size_t i=0; i<nRow_; i++) {
             for(size_t j=0; j<nCol_; j++) {
-                if (i==j) {
-                    at(i, j) = 1;
-                } else {
-                    at(i, j) = 0;
-                }
+                at(i, j) = (i==j) ? 1 : 0;
             }
         }
     };
@@ -653,8 +706,6 @@ public:
     };
 
     // Solve Ax = Rhs, destroy A, result in rhs (matrix)
-    // Use partial pivoting
-    // Solve Ax = Rhs, destroy A, result in Rhs
     // Use partial pivoting
     // rowPerm is optional scratch for the pivot sequence; when given (and the LAPACK
     // storage requirements below are met) it also enables the LAPACK fast path.
@@ -975,7 +1026,11 @@ public:
     using DenseMatrixView<T>::nCol_;
     using DenseMatrixView<T>::rowStride_;
     using DenseMatrixView<T>::colStride_;
-    
+    // Bring in DenseMatrixView::operator=(const T&) (whole-matrix fill)
+    // alongside DenseMatrix's own operator= overloads below, which would
+    // otherwise hide it by name.
+    using DenseMatrixView<T>::operator=;
+
     // Default constructor, uninitialized matrix
     DenseMatrix() 
         : DenseMatrixView<T>(nullptr, 0, 0, 1, 1), major_(Major::Row) {};
@@ -1062,84 +1117,26 @@ public:
         setStride();
     }; 
 
-    // Fill
-    void fill(T value) {
-        std::fill(data_.begin(), data_.end(), value);
-    };
-
-    // Override for DenseMatrix
-    T& at(size_t row, size_t col) { 
-        switch (major_) {
-            case Major::Row:
-                return data_[row*nCol_+col]; 
-            case Major::Column:
-            default:
-                return data_[row+nRow_*col]; 
-        }
-    }; 
-
-    // Override for DenseMatrix
-    const T& at(size_t row, size_t col) const { 
-        switch (major_) {
-            case Major::Row:
-                return data_[row*nCol_+col]; 
-            case Major::Column:
-            default:
-                return data_[row+nRow_*col]; 
-        }
-    };
-    
-    // Override for DenseMatrix
-    VectorView<T> row(size_t i) { 
-        switch (major_) {
-            case Major::Row:
-                return VectorView<T>(data_.data()+nCol_*i, nCol_, 1); 
-            case Major::Column:
-            default:
-                return VectorView<T>(data_.data()+i, nCol_, nRow_); 
-        }   
-    };
-
-    const VectorView<T> row(size_t i) const {
-        switch (major_) {
-            case Major::Row:
-                return VectorView<T>(start_+nCol_*i, nCol_, 1);
-            case Major::Column:
-            default:
-                return VectorView<T>(start_+i, nCol_, nRow_);
-        }
-    };
-    
-    // Override for DenseMatrix
-    VectorView<T> column(size_t i) { 
-        switch (major_) {
-            case Major::Row:
-                return VectorView<T>(data_.data()+i, nRow_, nCol_); 
-            case Major::Column:
-            default:
-                return VectorView<T>(data_.data()+i*nRow_, nRow_, 1); 
-        }
-    };
-
-    const VectorView<T> column(size_t i) const {
-        switch (major_) {
-            case Major::Row:
-                return VectorView<T>(start_+i, nRow_, nCol_);
-            case Major::Column:
-            default:
-                return VectorView<T>(start_+i*nRow_, nRow_, 1);
-        }
-    };
-
-    // Override for DenseMatrix
-    void zero() { data_.assign(data_.size(), T()); };
-    
-    // Row major only
     VectorView<T> addRow() {
-        DBGCHECK(major_==Major::Column, "Rows cannot be added to column major matrices.");
-        nRow_++;
-        data_.resize(nRow_*nCol_); 
-        return row(nRow_-1); 
+        if (major_==Major::Column) {
+            // Column-major: every column's block grows by one element (the
+            // new row's entry), so the buffer can't just grow at the tail
+            // like the row-major case below - it must be reshaped, with
+            // each old nRow_-element column block copied into the
+            // corresponding (nRow_+1)-element block of a fresh buffer.
+            std::vector<T> newData((nRow_+1)*nCol_);
+            for(size_t j=0; j<nCol_; j++) {
+                std::copy(data_.data()+j*nRow_, data_.data()+j*nRow_+nRow_, newData.data()+j*(nRow_+1));
+            }
+            data_ = std::move(newData);
+            nRow_++;
+        } else {
+            nRow_++;
+            data_.resize(nRow_*nCol_);
+        }
+        start_ = data_.data();
+        setStride();
+        return this->row(nRow_-1);
     };
 
     // Retrieve internal data structure
