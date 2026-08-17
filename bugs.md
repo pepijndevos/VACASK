@@ -331,25 +331,39 @@ merged away.
     entirely (BLAS/LAPACK have no integer routines). Author confirms this
     is deliberate: no BLAS for int arrays, full stop — not something to
     work around. Same duplicate call site as item 17.
-31. [ ] **C2.** `lib/corepsstran.cpp:118,378` (`phiHist_.at(i).identity()`,
-    `Omega.identity()`) and `lib/corehb.cpp:953` (`I.identity()`) — all
-    square matrices with `nCol_==nRow_>1` in all three cases, so A1/#18's
-    edge case does not currently affect any live caller.
-32. [ ] **C3.** `lib/corehbxform.cpp:113` — the `operator=(const
-    DenseMatrixView&)` fast path added by this diff is correctly skipped
-    here (mismatched majors between `coeffs` and `IAPFT`), so this call
-    site gets no speedup but also no regression.
+31. [x] **C2 — partially stale, re-verified.** `lib/corepsstran.cpp:118,378`
+    (`phiHist_.at(i).identity()`, `Omega.identity()`) — still valid, both
+    untouched by this session's changes, both still square with
+    `nCol_==nRow_>1`. `lib/corehb.cpp:953` (`I.identity()`) — **stale**,
+    that call site no longer exists (item 42 replaced it with
+    `result.diagonal().addScaled(VectorView(ones), -1.0)`, no `I` matrix
+    or `identity()` call anymore).
+32. [x] **C3 — stale, superseded.** `lib/corehbxform.cpp:113` no longer
+    contains the `static_cast<DenseMatrixView&>(...) = IAPFT;` this
+    finding examined — it's now `coeffs.view() = IAPFT;` (item 29's fix).
+    The finding's premise was also wrong: item 29/B6 established `IAPFT`
+    is column-major (via `buildTransformMatrix`'s `Major::Column` resize),
+    not mismatched with `coeffs` as this finding assumed — so the call
+    site now correctly takes the **fast** `nativeColMajor`/`dlacpy_` path
+    (both operands share `rowStride_==1`), the opposite of "gets no
+    speedup."
 33. [x] **C4 — duplicate of item 9, intentional & verified bug-free.**
     (Same finding as B4/#27 and Run 2 item 9.)
-34. [ ] **C5.** `lib/spurs.cpp:266` — `VectorView(const_cast<Int*>(
-    w.data()), w.size(), 1)` changed to `VectorView<Int>(...)` (explicit
-    template argument added). Outside the densematrix.h/identity/addRow/
-    operator= scope, but a real behavior-relevant edit: `Int` (`int32_t`)
-    is the same underlying type as `smsigFreqMap`'s key type
-    `VectorView<int>` on this platform, so very likely just a
-    CTAD-ambiguity/compile fix — could not fully rule out that this line
-    previously failed to compile or deduced a different type before the
-    fix. Worth confirming with a clean rebuild.
+34. [x] **RESOLVED, no bug.** `lib/spurs.cpp:555` (not 266 — original line
+    citation was stale) — `smsigFreqMap.find(VectorView<Int>(const_cast<
+    Int*>(w.data()), w.size(), 1))`. Investigated properly: `Int`
+    (`int32_t`) and `int` are the literal same type on this platform
+    (glibc x86-64: `int32_t` is `typedef int int32_t;`), so `VectorView
+    <Int>` and `smsigFreqMap`'s key type `VectorView<int>` are the exact
+    same instantiation. Verified empirically with an isolated test
+    replicating the real `unordered_map<VectorView<int>, ArrayHasher,
+    ArrayEqual>` setup: both the explicit-`<Int>` form and the plain CTAD
+    form (no explicit template argument) compile cleanly under `-Wall` and
+    return the identical `find()` result — the explicit template argument
+    was never functionally necessary. Author then simplified the line to
+    drop it (plain CTAD); re-verified with a clean real-project rebuild
+    (no warnings) and the full `test_hb*`/`test_hbac1` CTest suite (7/7
+    passing, exercises `Spurs`/`smsigFreqMap` directly).
 35. [x] **C6 — duplicate of item 6, intentional & verified bug-free.**
     `include/densematrix.h:474-476` (`ptrOf()`) — not called from any file
     yet. Author confirmed deliberate (added ahead of a future call site);
@@ -364,40 +378,57 @@ merged away.
     suggested — `identity()`'s condition is a genuinely different, broader
     check (single-stride, not full-pack); unifying them is the separate,
     still-open item 13/41 (D6).
-37. [ ] **D2.** `include/densematrix.h:512-533` (`operator=(const T&)`
-    fast path) — reimplements, verbatim, the same `dlaset_`/`zlaset_`
-    call that `VectorView<T>::operator=(const T&)` (lines 76-95) already
-    performs (`m=1, n=length, lda=stride`). Could instead construct a
-    flattened `VectorView<T>(start_, nRow_*nCol_, 1)` and delegate,
-    avoiding duplicated BLAS dispatch logic. (Same as Run 2 item 10's
-    duplication half.)
-38. [ ] **D3.** `include/densematrix.h:486-509` (`operator=(const
-    DenseMatrixView&)` fast path) — similarly reimplements `dcopy_`/
-    `zcopy_` dispatch that already exists verbatim in
-    `VectorView<T>::operator=(const VectorView<T>&)` (lines 51-73); could
-    delegate to a flattened `VectorView` pair instead. (Same as Run 2
-    item 11's duplication half.)
+37. [x] **D2 — stale, superseded by item 13.** `operator=(const T&)` no
+    longer calls `dlaset_`/`zlaset_` directly at all (verified via fresh
+    grep) — it delegates to the shared private `laset()` helper, also used
+    by `identity()`. The verbatim duplication this finding described no
+    longer exists in that form.
+38. [x] **D3 — stale, superseded by item 11.** `operator=(const
+    DenseMatrixView&)` no longer uses `dcopy_`/`zcopy_` at all (verified
+    via fresh grep) — it was rewritten to use `dlacpy_`/`zlacpy_` instead
+    (a 2D copy with two independent leading dimensions), a different
+    routine entirely, not a refactor into a shared helper with
+    `VectorView`.
 39. [x] **D4 — RESOLVED, see item 7.** `include/common.h:97-103` — moot,
     `CHECK` removed.
-40. [ ] **D5.** `include/densematrix.h:1120-1140` (`addRow()`,
-    column-major branch) — reshapes the buffer with a raw pointer loop
+40. [x] **FIXED** — **D5.** `include/densematrix.h` (`addRow()`,
+    column-major branch) — reshaped the buffer with a raw pointer loop
     (`data_.data()+j*nRow_`, `std::copy`) rather than using the class's
-    own `column()`/`VectorView` abstractions used everywhere else in the
-    file. Minor consistency/reuse nit, not a bug.
-41. [ ] **D6 — partially addressed, factor/luSolve piece still open.**
-    `include/densematrix.h:541-566` (`identity()`) vs. `factor()`/
-    `luSolve()`/`factorAndLuSolve()` (×2) — all five methods independently
-    re-derive "is this matrix LAPACK-column-major-compatible"
-    (`rowStride_==1`) and `lda=colStride_`. Item 13's fix unified
-    `identity()` with `operator=(const T&)` via the new `laset()` helper
-    (a different pairing than this finding proposed, since `laset()` is
-    specifically the `dlaset_`/`zlaset_`-alpha/beta-fill dispatch), so
-    `identity()` itself no longer duplicates that logic standalone. Still
-    open: `factor()`/`luSolve()`/`factorAndLuSolve()` (×2) use a different
-    routine (`dgetrf_`/`dgetrs_`, no alpha/beta fill) and still each
-    independently re-derive their own contiguity/`m`/`n`/`lda` — a
-    `{compatible, m, n, lda}`-returning helper for *that* family remains
-    unfactored. (Same theme as Run 2 item 13.)
+    own `column()`/`VectorView` abstractions. Fixed: reads via
+    `this->column(j)` (valid at that point in the function since `this`'s
+    state still describes the pre-growth buffer; needs the `this->`
+    qualifier since `column` is a member of the dependent template base
+    `DenseMatrixView<T>`, same reason `this->row(...)` was already needed
+    a few lines below), writes via a directly-constructed `VectorView`
+    over the new buffer (unavoidable, `newData` isn't `this`'s buffer
+    yet). Picks up BLAS dispatch (`dcopy_`/`zcopy_`) via `VectorView::
+    operator=` as a bonus, instead of `std::copy`. Verified with an
+    isolated scratchpad test (2×3→3×3 column-major growth, exact expected
+    values) and the full `DenseMatrix<T>::test()` suite (zero failures).
+41. [x] **FIXED — D6, both pieces now addressed.**
+    `include/densematrix.h` — `identity()` vs. `factor()`/`luSolve()`/
+    `factorAndLuSolve()` (×2) — all five methods independently re-derived
+    "is this matrix LAPACK-column-major-compatible" (`rowStride_==1`) and
+    `lda=colStride_`. Item 13's fix unified `identity()` with
+    `operator=(const T&)` via `laset()`. The remaining `factor()`/
+    `luSolve()`/`factorAndLuSolve()` (×2) family (`dgetrf_`/`dgetrs_`, no
+    alpha/beta fill, so not shareable with `laset()`) is now fixed too:
+    added two private helpers, `lapackFactor(rowPerm)` (wraps `dgetrf_`/
+    `zgetrf_` + `info<0` throw) and `lapackSolve(rhs, nrhs, ldb, rowPerm)`
+    (wraps `dgetrs_`/`zgetrs_` + `info<0` throw), next to `laset()`. Each
+    of the four public methods keeps its own guard condition and
+    orchestration (factor-only vs. factor-then-solve vs. solve-only, which
+    genuinely differ) but now calls into the shared helpers instead of
+    reimplementing the LAPACK dispatch inline — the 3× duplicated
+    `dgetrf_` block and 3× duplicated `dgetrs_` block are each down to
+    one. Verified: an isolated standalone test exercising all four entry
+    points (`factor()`+`luSolve()` called separately, `factorAndLuSolve
+    (VectorView&)`, `factorAndLuSolve(DenseMatrixView&)` via
+    `factorAndInvert`, and the manual-fallback row-major path) for both
+    `double` and `Complex`, all with sub-`1e-9` residuals; the full
+    `DenseMatrix<T>::test()` suite (zero failures); a clean real-project
+    rebuild; and all 15 HB/PSS netlist `ctest` cases (`test_hb1-6`,
+    `test_hbac1`, `test_pss1-3`, `test_pssosc1-5`), 100% passing.
 
 ## Post-audit: discovered while running the self-test
 

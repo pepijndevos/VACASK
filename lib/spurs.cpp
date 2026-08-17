@@ -552,7 +552,7 @@ std::tuple<bool, size_t> Spurs::smsigFreqIndex(const Value& v) const {
             if (w.size() != fundamentals_.size()) {
                 return {false, 0};
             }
-            auto it = smsigFreqMap.find(VectorView<Int>(const_cast<Int*>(w.data()), w.size(), 1));
+            auto it = smsigFreqMap.find(VectorView(const_cast<Int*>(w.data()), w.size(), 1));
             if (it == smsigFreqMap.end()) {
                 return {false, 0};
             }

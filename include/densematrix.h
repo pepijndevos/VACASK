@@ -561,19 +561,7 @@ public:
         // contiguous, is passed directly as ipiv, no scratch buffer/copy needed.
         if constexpr(std::is_same<T, double>::value || std::is_same<T, Complex>::value) {
             if (rowStride_==1 && rowPerm.stride()==1) {
-                int m = static_cast<int>(n);
-                int nn = m;
-                int lda = static_cast<int>(colStride_);
-                int info = 0;
-                if constexpr(std::is_same<T, double>::value) {
-                    dgetrf_(&m, &nn, start_, &lda, &rowPerm[0], &info);
-                } else {
-                    zgetrf_(&m, &nn, start_, &lda, &rowPerm[0], &info);
-                }
-                if (info<0) {
-                    throw std::invalid_argument("Invalid argument passed to LAPACK dgetrf/zgetrf.");
-                }
-                return info==0;
+                return lapackFactor(rowPerm);
             }
         }
         return luSolveCore(static_cast<VectorView<T>*>(nullptr), &rowPerm);
@@ -595,20 +583,7 @@ public:
         // only a leading dimension between right-hand-side columns).
         if constexpr(std::is_same<T, double>::value || std::is_same<T, Complex>::value) {
             if (rowStride_==1 && rowPerm.stride()==1 && rhs.stride()==1) {
-                char trans = 'N';
-                int nn = static_cast<int>(n);
-                int nrhs = 1;
-                int lda = static_cast<int>(colStride_);
-                int ldb = nn;
-                int info = 0;
-                if constexpr(std::is_same<T, double>::value) {
-                    dgetrs_(&trans, &nn, &nrhs, start_, &lda, &rowPerm[0], &rhs[0], &ldb, &info);
-                } else {
-                    zgetrs_(&trans, &nn, &nrhs, start_, &lda, &rowPerm[0], &rhs[0], &ldb, &info);
-                }
-                if (info<0) {
-                    throw std::invalid_argument("Invalid argument passed to LAPACK dgetrs/zgetrs.");
-                }
+                lapackSolve(&rhs[0], 1, static_cast<int>(n), rowPerm);
                 return true;
             }
         }
@@ -657,32 +632,10 @@ public:
         // LAPACK is skipped even for an otherwise-compatible matrix/rhs.
         if constexpr(std::is_same<T, double>::value || std::is_same<T, Complex>::value) {
             if (rowPerm && rowStride_==1 && rhs.stride()==1 && rowPerm->stride()==1) {
-                int m = static_cast<int>(n);
-                int nn = m;
-                int lda = static_cast<int>(colStride_);
-                int info = 0;
-                if constexpr(std::is_same<T, double>::value) {
-                    dgetrf_(&m, &nn, start_, &lda, &(*rowPerm)[0], &info);
-                } else {
-                    zgetrf_(&m, &nn, start_, &lda, &(*rowPerm)[0], &info);
-                }
-                if (info<0) {
-                    throw std::invalid_argument("Invalid argument passed to LAPACK dgetrf/zgetrf.");
-                }
-                if (info>0) {
+                if (!lapackFactor(*rowPerm)) {
                     return false;
                 }
-                char trans = 'N';
-                int nrhs = 1;
-                int ldb = m;
-                if constexpr(std::is_same<T, double>::value) {
-                    dgetrs_(&trans, &nn, &nrhs, start_, &lda, &(*rowPerm)[0], &rhs[0], &ldb, &info);
-                } else {
-                    zgetrs_(&trans, &nn, &nrhs, start_, &lda, &(*rowPerm)[0], &rhs[0], &ldb, &info);
-                }
-                if (info<0) {
-                    throw std::invalid_argument("Invalid argument passed to LAPACK dgetrs/zgetrs.");
-                }
+                lapackSolve(&rhs[0], 1, static_cast<int>(n), *rowPerm);
                 return true;
             }
         }
@@ -702,32 +655,10 @@ public:
         // rowPerm, and rhs (elements within each right-hand-side column) all contiguous.
         if constexpr(std::is_same<T, double>::value || std::is_same<T, Complex>::value) {
             if (rowPerm && rowStride_==1 && rhs.rowStride_==1 && rowPerm->stride()==1) {
-                int m = static_cast<int>(n);
-                int nn = m;
-                int lda = static_cast<int>(colStride_);
-                int info = 0;
-                if constexpr(std::is_same<T, double>::value) {
-                    dgetrf_(&m, &nn, start_, &lda, &(*rowPerm)[0], &info);
-                } else {
-                    zgetrf_(&m, &nn, start_, &lda, &(*rowPerm)[0], &info);
-                }
-                if (info<0) {
-                    throw std::invalid_argument("Invalid argument passed to LAPACK dgetrf/zgetrf.");
-                }
-                if (info>0) {
+                if (!lapackFactor(*rowPerm)) {
                     return false;
                 }
-                char trans = 'N';
-                int nrhs = static_cast<int>(rhs.nCol_);
-                int ldb = static_cast<int>(rhs.colStride_);
-                if constexpr(std::is_same<T, double>::value) {
-                    dgetrs_(&trans, &nn, &nrhs, start_, &lda, &(*rowPerm)[0], rhs.start_, &ldb, &info);
-                } else {
-                    zgetrs_(&trans, &nn, &nrhs, start_, &lda, &(*rowPerm)[0], rhs.start_, &ldb, &info);
-                }
-                if (info<0) {
-                    throw std::invalid_argument("Invalid argument passed to LAPACK dgetrs/zgetrs.");
-                }
+                lapackSolve(rhs.start_, static_cast<int>(rhs.nCol_), static_cast<int>(rhs.colStride_), *rowPerm);
                 return true;
             }
         }
@@ -940,6 +871,44 @@ private:
             }
         }
         return false;
+    }
+
+    // Factor this (square, n x n, LAPACK-contiguous) matrix in place via
+    // dgetrf_/zgetrf_, storing ipiv in rowPerm. Caller must have already
+    // checked rowStride_==1 && rowPerm.stride()==1. Returns info==0
+    // (successful, non-singular factorization).
+    bool lapackFactor(VectorView<int>& rowPerm) {
+        int m = static_cast<int>(nCol_);
+        int nn = m;
+        int lda = static_cast<int>(colStride_);
+        int info = 0;
+        if constexpr(std::is_same<T, double>::value) {
+            dgetrf_(&m, &nn, start_, &lda, &rowPerm[0], &info);
+        } else {
+            zgetrf_(&m, &nn, start_, &lda, &rowPerm[0], &info);
+        }
+        if (info<0) {
+            throw std::invalid_argument("Invalid argument passed to LAPACK dgetrf/zgetrf.");
+        }
+        return info==0;
+    }
+
+    // Solve using the factorization from lapackFactor(), via dgetrs_/zgetrs_.
+    // rhs is n x nrhs with leading dimension ldb. Caller must have already
+    // checked rowStride_==1 && rowPerm.stride()==1 and rhs's own contiguity.
+    void lapackSolve(T* rhs, int nrhs, int ldb, const VectorView<int>& rowPerm) {
+        char trans = 'N';
+        int nn = static_cast<int>(nCol_);
+        int lda = static_cast<int>(colStride_);
+        int info = 0;
+        if constexpr(std::is_same<T, double>::value) {
+            dgetrs_(&trans, &nn, &nrhs, start_, &lda, &rowPerm[0], rhs, &ldb, &info);
+        } else {
+            zgetrs_(&trans, &nn, &nrhs, start_, &lda, &rowPerm[0], rhs, &ldb, &info);
+        }
+        if (info<0) {
+            throw std::invalid_argument("Invalid argument passed to LAPACK dgetrs/zgetrs.");
+        }
     }
 
     // Destructive solve/factor core
@@ -1175,7 +1144,8 @@ public:
             // corresponding (nRow_+1)-element block of a fresh buffer.
             std::vector<T> newData((nRow_+1)*nCol_);
             for(size_t j=0; j<nCol_; j++) {
-                std::copy(data_.data()+j*nRow_, data_.data()+j*nRow_+nRow_, newData.data()+j*(nRow_+1));
+                VectorView<T> newCol(newData.data()+j*(nRow_+1), nRow_, 1);
+                newCol = this->column(j);
             }
             data_ = std::move(newData);
             nRow_++;
