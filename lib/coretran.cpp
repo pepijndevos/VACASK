@@ -1256,9 +1256,9 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
             auto& negNoise = nrSolver.noiseSolutionContribution();
             auto& solutionVector = solution.vector();
             
-            VectorView<double> solutionView(solutionVector, 1, n, 1);
-            VectorView<double> negNoiseView(const_cast<double*>(negNoise.data()), 1, n, 1);
-            VectorView<double> noiselessView(noiselessSolution, 1, n, 1);
+            VectorView solutionView(solutionVector, 1, n, 1);
+            VectorView negNoiseView(const_cast<double*>(negNoise.data()), 1, n, 1);
+            VectorView noiselessView(noiselessSolution, 1, n, 1);
             noiselessView.vectorPlusScaledVector(solutionView, negNoiseView, 1.0);
             
             noiselessSolution[0] = 0;

@@ -167,7 +167,7 @@ CoreCoroutine DCIncrementalCore::coroutine(bool continuePrevious) {
 
     // Change sign of residual because it is on the RHS
     // and we need the small signal response with the correct sign
-    VectorView<double> incrementalSolutionView(incrementalSolution);
+    VectorView incrementalSolutionView(incrementalSolution);
     incrementalSolutionView.scale(-1.0);
 
     if (debug>=100) {

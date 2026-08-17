@@ -282,7 +282,7 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
     // with no separate phiCurrent_ member and no snapshot-and-push.
     DenseMatrix<double>& phiFuture = phiHist_.at(-1);
     phiFuture.zero();
-    VectorView<double> rhsColBufView(rhs_colbuf);
+    VectorView rhsColBufView(rhs_colbuf);
     for (int p = 0; p < order; p++) {
         DenseMatrix<double>& Phi_kmi = phiHist_.at(p);
 
@@ -539,16 +539,12 @@ bool PssTranCore::computePsiT() {
     // qHist_.at(0) / qDotHist_.at(0) are q_N / qdot_N; at(p+1) is
     // q_{N-1-p} / qdot_{N-1-p} - exactly the indexing the formula needs.
     psiTrhs_.assign(n, 0.0);
-    const Vector<double>& qN = qHist_.at(0);
-    for (decltype(n) i = 0; i < n; i++) {
-        double v = aM1Sens * qN[i + 1];
-        for (Int p = 0; p < (Int)aSens.size(); p++) {
-            v += aSens[p] * qHist_.at(p + 1)[i + 1];
-        }
-        for (Int p = 0; p < (Int)bSens.size(); p++) {
-            v += bSens[p] * qDotHist_.at(p + 1)[i + 1];
-        }
-        psiTrhs_[i] = v;
+    VectorView(psiTrhs_).scaledVector(VectorView(qHist_.at(0), 1, n, 1), aM1Sens);
+    for (Int p = 0; p < (Int)aSens.size(); p++) {
+        VectorView(psiTrhs_).addScaled(VectorView(qHist_.at(p + 1), 1, n, 1), aSens[p]);
+    }
+    for (Int p = 0; p < (Int)bSens.size(); p++) {
+        VectorView(psiTrhs_).addScaled(VectorView(qDotHist_.at(p + 1), 1, n, 1), bSens[p]);
     }
 
     // Psi_T = -J_N^{-1} * d(qdot_N)/d(h_{N-1})   (J_N = lastAlr_, already
@@ -557,7 +553,7 @@ bool PssTranCore::computePsiT() {
         setError(PssTranError::PsiSolveFailed);
         return false;
     }
-    for (decltype(n) i = 0; i < n; i++) psiCurrent_[i] = -psiTrhs_[i];
+    VectorView(psiCurrent_).scaledVector(VectorView(psiTrhs_), -1.0);
 
     return true;
 }

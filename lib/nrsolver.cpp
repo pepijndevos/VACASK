@@ -177,7 +177,7 @@ bool NRSolver::run(bool continuePrevious) {
         }
         if (bucketSize_>0) {
             // Set RHS bucket to 0
-            VectorView<double>(delta, bucketSize_) = 0.0;
+            VectorView(delta, bucketSize_) = 0.0;
         }
 
         // Check if system is finite
@@ -304,8 +304,8 @@ bool NRSolver::run(bool continuePrevious) {
         
         // Set solution delta and new solution bucket to 0. 
         if (bucketSize_>0) {
-            VectorView<double>(delta, bucketSize_) = 0.0;
-            VectorView<double>(solution.futureVector(), bucketSize_) = 0.0;
+            VectorView(delta, bucketSize_) = 0.0;
+            VectorView(solution.futureVector(), bucketSize_) = 0.0;
         }
 
         // std::cout << "Negative solution delta at iteration " << iteration << "\n";
@@ -374,9 +374,9 @@ bool NRSolver::run(bool continuePrevious) {
         // Not converged yet, compute new solution 
         
         // Compute new solution, use static damping
-        VectorView<double> xprevView(solution.vector(), bucketSize_, n, 1);
-        VectorView<double> xdeltaView(delta, bucketSize_, n, 1);
-        VectorView<double> xnewView(solution.futureVector(), bucketSize_, n, 1);
+        VectorView xprevView(solution.vector(), bucketSize_, n, 1);
+        VectorView xdeltaView(delta, bucketSize_, n, 1);
+        VectorView xnewView(solution.futureVector(), bucketSize_, n, 1);
         xnewView.vectorPlusScaledVector(xprevView, xdeltaView, -settings.dampingFactor);
 
         // std::cout << "Old solution after update at iteration " << iteration << "\n";

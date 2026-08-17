@@ -505,7 +505,7 @@ bool IntegratorCoeffs::computeSensitivities(double newStep) {
 
 bool IntegratorCoeffs::solve(Int n) {
     rowPerm_.resize(n);
-    VectorView<int> rowPermView(rowPerm_);
+    VectorView rowPermView(rowPerm_);
     if (!matrix.factor(rowPermView)) {
         return false;
     }
@@ -514,7 +514,7 @@ bool IntegratorCoeffs::solve(Int n) {
 }
 
 bool IntegratorCoeffs::solveSensitivity() {
-    VectorView<int> rowPermView(rowPerm_);
+    VectorView rowPermView(rowPerm_);
     auto vv = VectorView(rhs.data(), n_, 1);
     return matrix.luSolve(vv, rowPermView);
 }

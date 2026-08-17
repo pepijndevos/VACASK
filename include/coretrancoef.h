@@ -150,15 +150,15 @@ public:
         const Vector<double>& future = qHist.at(-1);
         auto len = future.size();
         out.resize(len);
-        VectorView<double> outView(out);
-        VectorView<double> futureView(const_cast<Vector<double>&>(future), len);
+        VectorView outView(out);
+        VectorView futureView(const_cast<Vector<double>&>(future), len);
         outView.scaledVector(futureView, leading_);
         for(Int i=0; i<aScaled_.size(); i++) {
-            VectorView<double> qHistView(const_cast<Vector<double>&>(qHist.at(i)), len);
+            VectorView qHistView(const_cast<Vector<double>&>(qHist.at(i)), len);
             outView.addScaled(qHistView, aScaled_[i]);
         }
         for(Int i=0; i<bScaled_.size(); i++) {
-            VectorView<double> qDotHistView(const_cast<Vector<double>&>(qDotHist.at(i)), len);
+            VectorView qDotHistView(const_cast<Vector<double>&>(qDotHist.at(i)), len);
             outView.addScaled(qDotHistView, bScaled_[i]);
         }
     };
@@ -168,10 +168,10 @@ public:
     // No need to zero prediction before this function is called
     void predict(Vector<double>& prediction) {
         auto n = prediction.size();
-        VectorView<double> pv(prediction);
-        pv.scaledVector(VectorView<double>(predictorHistory[0], n, 1), aScaled_[0]);
+        VectorView pv(prediction);
+        pv.scaledVector(VectorView(predictorHistory[0], n, 1), aScaled_[0]);
         for(Int j=1; j<a_.size(); j++) {
-            pv.addScaled(VectorView<double>(predictorHistory[j], n, 1), aScaled_[j]);
+            pv.addScaled(VectorView(predictorHistory[j], n, 1), aScaled_[j]);
         }
     };
 

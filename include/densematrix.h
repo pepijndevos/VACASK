@@ -27,6 +27,11 @@ public:
         : start_(v.data()+offset), n_(length), stride_(stride) {};
     VectorView(T* start, size_t n, size_t stride) : start_(start), n_(n), stride_(stride) {};
     VectorView(T* start, size_t offset, size_t n, size_t stride) : start_(start+offset), n_(n), stride_(stride) {};
+
+    VectorView<T> subVector(size_t offset, size_t n, size_t stride=1) {
+        DBGCHECK((offset+n*stride)*stride_>n_*stride_, "Requested subvector too long.");
+        return VectorView<T>(start_+offset*stride_, n, stride_*stride);
+    };
     
     // Access to members
     const T& at(size_t col) const { return *(start_+col*stride_); };

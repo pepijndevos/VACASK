@@ -571,7 +571,7 @@ CoreCoroutine ACSPCore::coroutine(bool continuePrevious) {
         //   A  S  = B
         // 
         // Transposed S matrix can be found in stMatrix.
-        VectorView<int> rowPermView(rowPerm_);
+        VectorView rowPermView(rowPerm_);
         if (!atMatrix.factorAndLuSolve(stMatrix, &rowPermView)) {
             if (debug>0) {
                 Simulator::dbg() << "S matrix is singular.\n";

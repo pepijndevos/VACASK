@@ -685,7 +685,7 @@ CoreCoroutine HBACCore::coroutine(bool continuePrevious) {
             break;
         }
         // Set bucket to 0
-        VectorView<Complex>(acSolution, nf) = Complex(0.0, 0.0);
+        VectorView(acSolution, nf) = Complex(0.0, 0.0);
 
         // Print solution
         // for(decltype(n) i=1; i<=n; i++) {

@@ -116,7 +116,7 @@ bool HBCore::buildAPFT(Status& s) {
     // Destination matdix must be column-major so LAPACK is used
     APFT.resize(n, n, DenseMatrix<double>::Major::Column);
     rowPerm_.resize(ncoef);
-    VectorView<int> rowPermView(rowPerm_);
+    VectorView rowPermView(rowPerm_);
     if (!coeffs.factorAndInvert(APFT, &rowPermView)) {
         s.set(Status::Analysis, "Failed to compute forward transform matrix.");
         return false;

@@ -313,8 +313,8 @@ std::tuple<bool, bool> TranNRSolver::buildSystem(bool continuePrevious) {
         }
         // Add to RHS, skip ground node contribution
         auto n = jac.nRow();
-        VectorView<double> resistiveResidualView(loadSetup_.resistiveResidual, 1, n, 1);
-        VectorView<double> noiseResidualView(noiseResidual, 1, n, 1);
+        VectorView resistiveResidualView(loadSetup_.resistiveResidual, 1, n, 1);
+        VectorView noiseResidualView(noiseResidual, 1, n, 1);
         resistiveResidualView.add(noiseResidualView);
     }
 

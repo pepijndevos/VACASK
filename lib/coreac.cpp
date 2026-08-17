@@ -315,7 +315,7 @@ CoreCoroutine ACCore::coroutine(bool continuePrevious) {
 
         // Change sign of residual because it is on the RHS
         // and we need the small signal response with the correct sign
-        VectorView<Complex> acSolutionView(acSolution);
+        VectorView acSolutionView(acSolution);
         acSolutionView.scale(-1.0);
         
         if (debug>=100) {
