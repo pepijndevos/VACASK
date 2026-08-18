@@ -220,7 +220,19 @@ VACASK can compile Verilog-A files on the fly. For that purpose VACASK looks for
 VACASK can also be configured with a TOML configuration file. Take a look at [config/vacaskrc-sample.toml](config/vacaskrc-sample.toml). 
 
 # Building VACASK
-VACASK has only a few dependencies. You will need a C++20 compiler with an implementation of the standard C++ library, the Boost library (use version 1.88), the toml++ library (version 3.4), and the KLU library (SuiteSparse). All these components come as pre-built packages for [Debian](https://www.debian.org) (and other Linux distributions). You will also need a working Python3 installation (for the system tests). 
+As VACASK grows the list of dependencies is getting longer. Currently VACASK depends on
+- C++20 compiler and the standard C++ library
+- Boost (version 1.88)
+- toml++ (version 3.4)
+- KLU (SuiteSparse)
+- BLAS
+- LAPACK
+ 
+All these components come as pre-built packages for [Debian](https://www.debian.org) (and other Linux distributions). You will also need a working Python3 installation (for the system tests and demos) with the following libraries
+- NumPy 2
+- SciPy
+- Scikit-rf
+- Matplotlib
 
 First, install the OpenVAF-reloaded compiler. The latest development version of OpenVAF-reloaded can be found at [https://fides.fe.uni-lj.si/openvaf/download](https://fides.fe.uni-lj.si/openvaf/download/). Make sure you download the OSDI 0.4 version. Of course, you can also take the OpenVAF-reloaded binary from the VACASK binary packages (.deb and .tar.gz for Linux, .zip for Windows). If the OpenVAF binary you pick up is named `openvaf-r` you have the right one (it produces models with the OSDI 0.4 interface). If you decide to build the compiler yourself, git-clone the [OpenVAF-reloaded repository](https://github.com/arpadbuermen/OpenVAF). Instructions for building can be found in the [README.md](https://github.com/arpadbuermen/OpenVAF/blob/master/README.md) file. 
 
