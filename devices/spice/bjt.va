@@ -3,9 +3,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // 
 // SPICE flavour: ngspice
-// Version      : ngspice-45-116-gf11f4594e
-// Origin       : https://sourceforge.net/u/arpadbuermen/ngspice/ci/vadng-pre-46/tree/
-// Date         : 2026-08-18 06:38:42 UTC
+// Version      : ngspice-44-549-ga4ff5a204
+// Origin       : https://sourceforge.net/u/arpadbuermen/ngspice/ci/vadng-pre-48/tree/
+// Date         : 2026-08-18 12:18:23 UTC
 // Module name  : sp_bjt
 // Model variant: default
 // 
@@ -1403,7 +1403,7 @@ module sp_bjt(c, b, e, sub);
 
     // Tag: noise, function: BJTnoise
     if (BJTtempGiven) begin
-      noise_dtemp = BJTtemp-$temperature+(BJTtnom-273.15);
+      noise_dtemp = BJTtemp-$temperature;
     end else begin
       noise_dtemp = dtemp;
     end

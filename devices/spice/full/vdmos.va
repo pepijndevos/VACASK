@@ -3,9 +3,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // 
 // SPICE flavour: ngspice
-// Version      : ngspice-45-116-gf11f4594e
-// Origin       : https://sourceforge.net/u/arpadbuermen/ngspice/ci/vadng-pre-46/tree/
-// Date         : 2026-08-18 06:43:00 UTC
+// Version      : ngspice-44-549-ga4ff5a204
+// Origin       : https://sourceforge.net/u/arpadbuermen/ngspice/ci/vadng-pre-48/tree/
+// Date         : 2026-08-18 12:22:48 UTC
 // Module name  : sp_vdmos
 // Model variant: full
 // 
@@ -104,7 +104,7 @@
 
 module sp_vdmos(d, g, s, t, tc);
   inout d, g, s, t, tc;
-  electrical d, g, s, t, tc, d_int, g_int, s_int, bd_int, t_int;
+  electrical d, g, s, t, tc, d_int, g_int, s_int, bd_int, t_int, qp_int;
   branch (t_int) tbr;
 
   // Instance parameters
@@ -159,6 +159,7 @@ module sp_vdmos(d, g, s, t, tc);
   (* desc = "Body diode saturation current temperature exponent" *) parameter real xti = 3.0;
   (* desc = "Body diode saturation current" *) parameter real is = 1e-14;
   (* desc = "Body diode junction potential" *) parameter real vj = 0.8;
+  (* desc = "Soft reverse recovery parameter" *) parameter real vp = 0.0;
   (* desc = "Zero-bias body diode junction capacitance" *) parameter real cjo = 5e-10;
   (* desc = "Body diode grading coefficient" *) parameter real m = 0.5;
   (* desc = "Body diode coefficient for forward-bias depletion capacitance formula" *) parameter real fc = 0.5;
@@ -191,6 +192,7 @@ module sp_vdmos(d, g, s, t, tc);
   (* desc = "Gate-Drain capacitance" *) real c_gd;
   (* desc = "Drain-Source capacitance" *) real cds;
   (* desc = "Body diode current" *) real idio;
+  (* desc = "Body diode charge" *) real qdio;
   (* desc = "Device on state voltage" *) real von;
   (* desc = "Conductance of source" *) real sourceconductance;
   (* desc = "Conductance of drain" *) real drainconductance;
@@ -237,6 +239,7 @@ module sp_vdmos(d, g, s, t, tc);
   real VDIOtF1 = 0;
   real VDIOtF2 = 0;
   real VDIOtF3 = 0;
+  real VDIOqpGain = 0;
   real VDMOSTempSH = 0;
   real VDMOSgmT = 0;
   real VDMOSgtempg = 0;
@@ -250,6 +253,9 @@ module sp_vdmos(d, g, s, t, tc);
   real capmodel_scale = 0;
   real capmodel_unscale = 0;
   integer VDMOStempGiven = 0;
+  integer collapse_t = 0;
+  integer collapse_tc = 0;
+  integer collapse_qp_int = 0;
 
   // Model fields
   integer VDMOStype = 0;
@@ -290,6 +296,13 @@ module sp_vdmos(d, g, s, t, tc);
   real VDMOSqth = 0;
   real VDMOScqth = 0;
   real VDIOdIdio_dT = 0;
+  real VDIOsrcapCharge = 0;
+  real VDIOsrcapCurrent = 0;
+  real VDIOqp = 0;
+  real VDIOresCurrent = 0;
+  real VDIOresConduct = 0;
+  real VDIOcqcsr = 0;
+  real VDIOgqcsr = 0;
 
   // Model parameter access locals
 
@@ -407,6 +420,13 @@ module sp_vdmos(d, g, s, t, tc);
   real vrb = 0;
   real dIrb_dT = 0;
   real dIth_dVrb = 0;
+  real cdres = 0;
+  real gdres = 0;
+  real vqp = 0;
+  real capsr = 0;
+  real gqcsr = 0;
+  real cqcsr = 0;
+  integer revrec = 0;
   real load_egfet = 0;
   real load_egfet1 = 0;
   real load_fact1 = 0;
@@ -476,6 +496,12 @@ module sp_vdmos(d, g, s, t, tc);
   real czof2 = 0;
   real dIrb_dgbpr = 0;
   real dIth_dIrb = 0;
+  real fac = 0;
+  real dcrrdvd = 0;
+  real ceqrr = 0;
+  real grr = 0;
+  real geqrrd = 0;
+  real ceqrrd = 0;
 
   // Device noise locals
   real coxSquared = 0;
@@ -873,7 +899,13 @@ module sp_vdmos(d, g, s, t, tc);
     end
     if (!(VDMOSthermal&&$param_given(rthjc))) begin
       V(t) <+ 0;
+      collapse_t = 1;
       V(tc) <+ 0;
+      collapse_tc = 1;
+    end
+    if (!($param_given(vp)&&vp!=0&&tt!=0)) begin
+      V(qp_int) <+ 0;
+      collapse_qp_int = 1;
     end
 
     // Tag: temp, function: VDMOStemp
@@ -1341,12 +1373,14 @@ module sp_vdmos(d, g, s, t, tc);
     vrb = 0.0;
     dIrb_dT = 0.0;
     dIth_dVrb = 0.0;
+    revrec = collapse_qp_int==0&&vp!=0&&VDIOtTransitTime!=0;
     gbpr = VDIOtConductance;
     load_vt = CONSTKoverQ*Temp;
     load_vte = n*load_vt;
     vtebrk = nbv*load_vt;
     vbrknp = VDIOtBrkdwnV;
     vd = VDMOStype*V(bd_int, d);
+    vqp = VDMOStype*V(qp_int);
     delvd = vd-VDIOvoltage;
     /* Previous vd */
     VDIOvoltage = VDMOStype * $limit(V(bd_int, d), DEVlimitOldGet);
@@ -1382,6 +1416,10 @@ module sp_vdmos(d, g, s, t, tc);
     end
     cd = cdb+lc_gmin/$mfactor*vd;
     gd = gdb+lc_gmin/$mfactor;
+    cdres = cd;
+    gdres = gd;
+    cqcsr = 0;
+    gqcsr = 0;
     czero = VDIOtJctCap;
     if (vd<VDIOtDepCap) begin
       load_arg = 1-vd/VDIOtJctPot;
@@ -1393,20 +1431,40 @@ module sp_vdmos(d, g, s, t, tc);
       deplcharge = czero*VDIOtF1+czof2*(VDIOtF3*(vd-VDIOtDepCap)+VDIOtGradingCoeff/(VDIOtJctPot+VDIOtJctPot)*(vd*vd-VDIOtDepCap*VDIOtDepCap));
       deplcap = czof2*(VDIOtF3+VDIOtGradingCoeff*vd/VDIOtJctPot);
     end
-    diffcharge = VDIOtTransitTime*cdb;
-    VDIOcapCharge = diffcharge+deplcharge;
-    diffcap = VDIOtTransitTime*gdb;
-    capd = diffcap+deplcap;
-    VDIOcap = capd;
+    if (revrec) begin
+      VDIOcapCharge = deplcharge;
+      capd = deplcap;
+      VDIOcap = capd;
+      VDIOsrcapCharge = VDIOtTransitTime*vqp;
+      capsr = VDIOtTransitTime;
+    end else begin
+      diffcharge = VDIOtTransitTime*cdb;
+      diffcap = VDIOtTransitTime*gdb;
+      VDIOcapCharge = diffcharge+deplcharge;
+      capd = diffcap+deplcap;
+      VDIOcap = capd;
+      VDIOsrcapCharge = 0;
+      capsr = 0;
+    end
     geq = 0;
     VDIOcapCurrent = ddt(VDIOcapCharge);
     ceq = VDIOcapCurrent;
     gd = gd+geq;
     cd = cd+VDIOcapCurrent;
+    geq = 0;
+    VDIOsrcapCurrent = ddt(VDIOsrcapCharge);
+    ceq = VDIOsrcapCurrent;
+    gqcsr = geq;
+    cqcsr = VDIOsrcapCurrent;
     VDIOvoltage = vd;
     VDIOcurrent = cd;
     VDIOconduct = gd;
     VDIOdIdio_dT = dIdio_dT;
+    VDIOqp = vqp;
+    VDIOresCurrent = cdres;
+    VDIOresConduct = gdres;
+    VDIOcqcsr = cqcsr;
+    VDIOgqcsr = gqcsr;
     if (selfheat) begin
       vrb = V(s, bd_int);
       Ith = vd*cd;
@@ -1417,7 +1475,16 @@ module sp_vdmos(d, g, s, t, tc);
       dIth_dIrb = vrb;
       dIth_dT = dIth_dIrb*dIrb_dT+dIdio_dT*vd;
     end
-    cdeq = cd;
+    cdeq = VDMOStype*cd;
+    if (revrec) begin
+      fac = VDIOtTransitTime/vp;
+      dcrrdvd = fac*gdres;
+      ceqrr = -fac*cdres+cqcsr;
+      grr = 1/vp;
+      VDIOqpGain = (1-vp)/VDIOtTransitTime;
+      geqrrd = VDIOqpGain*gqcsr;
+      ceqrrd = VDMOStype*(VDIOqpGain*cqcsr);
+    end
     /* Internal MOSFET */
     I(g_int) <+ VDMOStype * (ceqgs + ceqgd);
     I(d_int) <+ cdreq - VDMOStype * ceqgd; 
@@ -1425,7 +1492,7 @@ module sp_vdmos(d, g, s, t, tc);
     
     /* Body diode */
     I(bd_int, s) <+ V(bd_int, s) * gbpr;
-    I(bd_int, d) <+ VDMOStype * cdeq;
+    I(bd_int, d) <+ cdeq;
     
     /* Series resistors */
     I(g_int, g) <+ V(g_int, g) * VDMOSgateConductance;
@@ -1439,7 +1506,11 @@ module sp_vdmos(d, g, s, t, tc);
     V(tbr) <+ vDevTemp * $simparam("sourceScaleFactor", 1.0);
     I(t, tc) <+ V(t, tc) * gthjc;
     I(tc, t_int) <+ V(tc, t_int) * gthca;
-    I(t) <+ -VDMOScth + ceqqth;
+    I(t) <+ -VDMOScth + ceqqth; 
+    
+    /* Soft recovery */
+    I(qp_int) <+ grr*V(qp_int) + VDMOStype * ceqrr;
+    I(bd_int, d) <+  ceqrrd;
 
     // Tag: noise, function: VDMOSnoise
     if (VDMOSoxideCapFactor==0.0) begin
@@ -1469,6 +1540,13 @@ module sp_vdmos(d, g, s, t, tc);
     c_gd = 2*VDMOScapgd;
     cds = VDIOcap;
     idio = VDIOcurrent;
+    if (collapse_qp_int==0&&VDIOtTransitTime!=0) begin
+      idio = idio + (VDIOqpGain*VDIOcqcsr);
+    end
+    qdio = VDIOcapCharge;
+    if (collapse_qp_int==0&&VDIOtTransitTime!=0) begin
+      qdio = qdio + (VDIOqpGain*VDIOsrcapCharge);
+    end
     von = VDMOSvon;
     sourceconductance = VDMOSsourceConductance;
     drainconductance = VDMOSdrainConductance;

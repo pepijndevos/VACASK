@@ -3,9 +3,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // 
 // SPICE flavour: ngspice
-// Version      : ngspice-45-116-gf11f4594e
-// Origin       : https://sourceforge.net/u/arpadbuermen/ngspice/ci/vadng-pre-46/tree/
-// Date         : 2026-08-18 06:39:54 UTC
+// Version      : ngspice-44-549-ga4ff5a204
+// Origin       : https://sourceforge.net/u/arpadbuermen/ngspice/ci/vadng-pre-48/tree/
+// Date         : 2026-08-18 12:19:39 UTC
 // Module name  : sp_bsim3v3
 // Model variant: default
 // 
@@ -673,6 +673,7 @@ module sp_bsim3v3(d, g, s, b);
   integer BSIM3sourceAreaGiven = 0;
   integer BSIM3drainPerimeterGiven = 0;
   integer BSIM3sourcePerimeterGiven = 0;
+  integer collapse_q_int = 0;
 
   // Model fields
   integer BSIM3nqsMod = 0;
@@ -1880,6 +1881,7 @@ module sp_bsim3v3(d, g, s, b);
     end
     if (!i_BSIM3nqsMod) begin
       V(q_int) <+ 0;
+      collapse_q_int = 1;
     end
 
     // Tag: temp, function: BSIM3temp

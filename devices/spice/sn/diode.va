@@ -3,9 +3,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // 
 // SPICE flavour: ngspice
-// Version      : ngspice-45-116-gf11f4594e
-// Origin       : https://sourceforge.net/u/arpadbuermen/ngspice/ci/vadng-pre-46/tree/
-// Date         : 2026-08-18 06:40:43 UTC
+// Version      : ngspice-44-549-ga4ff5a204
+// Origin       : https://sourceforge.net/u/arpadbuermen/ngspice/ci/vadng-pre-48/tree/
+// Date         : 2026-08-18 12:20:27 UTC
 // Module name  : sp_diode
 // Model variant: sn
 // 
@@ -46,20 +46,40 @@
 // Source files and copyright information:
 //   dio/diodefs.h
 //   dio/dio.c
+//     Copyright 1990 Regents of the University of California.  All rights reserved.
+//     Author: 1985 Thomas L. Quarles
+//     Modified by Paolo Nenzi 2003, Dietmar Warning 2012 and Arpad Buermen 2025
 //   dio/dioparam.c
-//   dio/diompar.c
-//   dio/dioask.c
-//   dio/diomask.c
 //     Copyright 1990 Regents of the University of California.  All rights reserved.
 //     Author: 1985 Thomas L. Quarles
 //     Modified by Paolo Nenzi 2003 and Dietmar Warning 2012
+//   dio/diompar.c
+//     Copyright 1990 Regents of the University of California.  All rights reserved.
+//     Author: 1985 Thomas L. Quarles
+//     Modified by Paolo Nenzi 2003, Dietmar Warning 2012 and Arpad Buermen 2025
+//   dio/dioask.c
+//     Copyright 1990 Regents of the University of California.  All rights reserved.
+//     Author: 1985 Thomas L. Quarles
+//     Modified by Paolo Nenzi 2003 and Dietmar Warning 2012
+//   dio/diomask.c
+//     Copyright 1990 Regents of the University of California.  All rights reserved.
+//     Author: 1985 Thomas L. Quarles
+//     Modified by Paolo Nenzi 2003, Dietmar Warning 2012 and Arpad Buermen 2025
 //   dio/diosetup.c
+//     Copyright 1990 Regents of the University of California.  All rights reserved.
+//     Author: 1985 Thomas L. Quarles
+//     Modified: 2000 AlansFixes
+//     Modified by Paolo Nenzi 2003, Dietmar Warning 2012 and Arpad Buermen 2025
 //   dio/diotemp.c
-//   dio/dioload.c
 //     Copyright 1990 Regents of the University of California.  All rights reserved.
 //     Author: 1985 Thomas L. Quarles
 //     Modified: 2000 AlansFixes
 //     Modified by Paolo Nenzi 2003 and Dietmar Warning 2012
+//   dio/dioload.c
+//     Copyright 1990 Regents of the University of California.  All rights reserved.
+//     Author: 1985 Thomas L. Quarles
+//     Modified: 2000 AlansFixes
+//     Modified by Paolo Nenzi 2003, Dietmar Warning 2012 and Arpad Buermen 2025
 //   dio/dionoise.c
 //     Copyright 1990 Regents of the University of California.  All rights reserved.
 //     Author: 1987 Gary W. Ng
@@ -70,7 +90,7 @@
 
 module sp_diode(a, c);
   inout a, c;
-  electrical a, c, a_int, sw_int;
+  electrical a, c, a_int, sw_int, qp_int;
 
   // Instance parameters
   (* desc = "Instance temperature", type = "instance" *) parameter real temp = 0;
@@ -156,6 +176,7 @@ module sp_diode(a, c);
   aliasparam tbv1 = tcv;
   (* desc = "Recombination saturation current" *) parameter real isr = 1e-14;
   (* desc = "Recombination current emission coefficient" *) parameter real nr = 2;
+  (* desc = "Soft reverse recovery parameter" *) parameter real vp = 0.0;
   (* desc = "maximum voltage in forward direction" *) parameter real fv_max = 1e+99;
   (* desc = "maximum voltage in reverse direction" *) parameter real bv_max = 1e+99;
   (* desc = "maximum current" *) parameter real id_max = 1e+99;
@@ -184,6 +205,7 @@ module sp_diode(a, c);
   integer DIOtempNode = 0;
   real DIOcap = 0;
   real DIOcapSW = 0;
+  real DIOqpGain = 0;
   real i_DIOarea = 0;
   real i_DIOpj = 0;
   real DIOtemp = 0;
@@ -221,6 +243,7 @@ module sp_diode(a, c);
   real DIOcpoly = 0;
   real DIOdcCurrent = 0;
   integer DIOtempGiven = 0;
+  integer collapse_qp_int = 0;
 
   // Model fields
   real DIOsatCur = 0;
@@ -249,6 +272,13 @@ module sp_diode(a, c);
   real DIOcapCurrent = 0;
   real DIOcapChargeSW = 0;
   real DIOcapCurrentSW = 0;
+  real DIOsrcapCharge = 0;
+  real DIOsrcapCurrent = 0;
+  real DIOqp = 0;
+  real DIOresCurrent = 0;
+  real DIOresConduct = 0;
+  real DIOcqcsr = 0;
+  real DIOgqcsr = 0;
 
   // Model parameter access locals
 
@@ -360,12 +390,25 @@ module sp_diode(a, c);
   real dIth_dVrs = 0;
   real dIth_dVdioSw = 0;
   real dIth_dVrssw = 0;
+  real cdres = 0;
+  real gdres = 0;
+  real vqp = 0;
+  real capsr = 0;
+  real gqcsr = 0;
+  real cqcsr = 0;
+  integer revrec = 0;
   real vds = 0;
   real ikf_area_m = 0;
   real ikr_area_m = 0;
   real ikp_peri_m = 0;
   real vdx = 0;
   real cdeqsw = 0;
+  real fac = 0;
+  real ceqrr = 0;
+  real dcrrdvd = 0;
+  real grr = 0;
+  real ceqrrd = 0;
+  real geqrrd = 0;
 
   // Device noise locals
   real noise_dtemp = 0;
@@ -623,6 +666,10 @@ module sp_diode(a, c);
     if (!$param_given(rsw)) begin
       V(sw_int, a_int) <+ 0;
     end
+    if (!($param_given(vp)&&vp!=0&&tt!=0)) begin
+      V(qp_int) <+ 0;
+      collapse_qp_int = 1;
+    end
 
     // Tag: temp, function: DIOtemp
     if (!DIOtempGiven) begin
@@ -780,6 +827,7 @@ module sp_diode(a, c);
     dIth_dVrs = 0.0;
     dIth_dVdioSw = 0.0;
     dIth_dVrssw = 0.0;
+    revrec = collapse_qp_int==0&&vp!=0&&DIOtTransitTime!=0;
     cdsw = 0.0;
     gdsw = 0.0;
     delTemp = 0.0;
@@ -798,6 +846,7 @@ module sp_diode(a, c);
       vdsw = V(sw_int, c);
     end
     delTemp = 0.0;
+    vqp = V(qp_int);
     delvd = load_vd-DIOvoltage;
     if ($param_given(rsw)) begin
       delvdsw = vdsw-DIOvoltageSW;
@@ -948,6 +997,10 @@ module sp_diode(a, c);
       cdsw = cdsw+gmin*vdsw;
       gdsw = gdsw+gmin;
     end
+    cdres = load_cd;
+    gdres = load_gd;
+    cqcsr = 0;
+    gqcsr = 0;
     czero = DIOtJctCap;
     if (load_vd<DIOtDepCap) begin
       load_arg = 1-load_vd/DIOtJctPot;
@@ -975,19 +1028,29 @@ module sp_diode(a, c);
       deplchargeSW = czeroSW*DIOtF1+czof2SW*(DIOtF3SW*(vdx-DIOtDepSWCap)+mjsw/(DIOtJctSWPot+DIOtJctSWPot)*(vdx*vdx-DIOtDepSWCap*DIOtDepSWCap));
       deplcapSW = czof2SW*(DIOtF3SW+mjsw*vdx/DIOtJctSWPot);
     end
-    diffcharge = DIOtTransitTime*load_cd;
-    diffcap = DIOtTransitTime*load_gd;
-    if (!$param_given(rsw)) begin
-      DIOcapCharge = diffcharge+deplcharge+deplchargeSW+(DIOcmetal+DIOcpoly)*load_vd;
-      capd = diffcap+deplcap+deplcapSW+DIOcmetal+DIOcpoly;
+    if (revrec) begin
+      DIOcapCharge = deplcharge+deplchargeSW+(DIOcmetal+DIOcpoly)*load_vd;
+      capd = deplcap+deplcapSW+DIOcmetal+DIOcpoly;
       DIOcap = capd;
+      DIOsrcapCharge = DIOtTransitTime*vqp;
+      capsr = DIOtTransitTime;
     end else begin
-      DIOcapCharge = diffcharge+deplcharge+(DIOcmetal+DIOcpoly)*load_vd;
-      capd = diffcap+deplcap+DIOcmetal+DIOcpoly;
-      DIOcap = capd;
-      DIOcapChargeSW = deplcapSW;
-      capdsw = deplcapSW;
-      DIOcapSW = capdsw;
+      diffcharge = DIOtTransitTime*load_cd;
+      diffcap = DIOtTransitTime*load_gd;
+      if (!$param_given(rsw)) begin
+        DIOcapCharge = diffcharge+deplcharge+deplchargeSW+(DIOcmetal+DIOcpoly)*load_vd;
+        capd = diffcap+deplcap+deplcapSW+DIOcmetal+DIOcpoly;
+        DIOcap = capd;
+      end else begin
+        DIOcapCharge = diffcharge+deplcharge+(DIOcmetal+DIOcpoly)*load_vd;
+        capd = diffcap+deplcap+DIOcmetal+DIOcpoly;
+        DIOcap = capd;
+        DIOcapChargeSW = deplcapSW;
+        capdsw = deplcapSW;
+        DIOcapSW = capdsw;
+      end
+      DIOsrcapCharge = 0;
+      capsr = 0;
     end
     geq = 0;
     DIOcapCurrent = ddt(DIOcapCharge);
@@ -1002,6 +1065,11 @@ module sp_diode(a, c);
       gdsw = gdsw+geq;
       cdsw = cdsw+DIOcapCurrentSW;
     end
+    geq = 0;
+    DIOsrcapCurrent = ddt(DIOsrcapCharge);
+    ceq = DIOsrcapCurrent;
+    gqcsr = geq;
+    cqcsr = DIOsrcapCurrent;
     load_gd = load_gd - gmin + gmin / $mfactor;
     load_cd = load_cd - gmin * load_vd + gmin / $mfactor * load_vd;
     DIOvoltage = load_vd;
@@ -1012,20 +1080,35 @@ module sp_diode(a, c);
       DIOcurrentSW = cdsw;
       DIOconductSW = gdsw;
     end
+    DIOqp = vqp;
+    DIOresCurrent = cdres;
+    DIOresConduct = gdres;
+    DIOcqcsr = cqcsr;
+    DIOgqcsr = gqcsr;
     cdeq = load_cd;
     if ($param_given(rsw)) begin
       cdeqsw = cdsw;
     end
+    if (revrec) begin
+      fac = DIOtTransitTime/vp;
+      dcrrdvd = fac*gdres;
+      ceqrr = -fac*cdres+cqcsr;
+      grr = 1/vp;
+      DIOqpGain = (1-vp)/DIOtTransitTime;
+      geqrrd = DIOqpGain*gqcsr;
+      ceqrrd = DIOqpGain*cqcsr;
+    end
     
     // Residuals
     I(a) <+ gspr*V(a, a_int)+gsprsw*V(a, sw_int);
-    I(c) <+ -cdeq+-cdeqsw;
-    I(a_int) <+ gspr*V(a_int, a)+cdeq;
+    I(c) <+ -cdeq+-cdeqsw+-ceqrrd;
+    I(a_int) <+ gspr*V(a_int, a)+(cdeq+ceqrrd);
     I(sw_int) <+ gsprsw*V(sw_int, a)+cdeqsw;
+    I(qp_int) <+ grr*V(qp_int)+ceqrr;
 
     // Tag: noise, function: DIOnoise
     if (DIOtempGiven) begin
-      noise_dtemp = DIOtemp-$temperature+(DIOnomTemp-273.15);
+      noise_dtemp = DIOtemp-$temperature;
     end else begin
       noise_dtemp = dtemp;
     end
@@ -1042,7 +1125,13 @@ module sp_diode(a, c);
     vd = DIOvoltage;
     gd = DIOconduct;
     cd = DIOcap;
+    if (collapse_qp_int==0&&DIOtTransitTime!=0) begin
+      cd = cd + (DIOtTransitTime*DIOconduct);
+    end
     charge = DIOcapCharge;
+    if (collapse_qp_int==0&&DIOtTransitTime!=0) begin
+      charge = charge + (DIOqpGain*DIOsrcapCharge);
+    end
 
     // Model output variable computation
 
