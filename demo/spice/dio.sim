@@ -15,11 +15,19 @@ control
   print instance("d1")
 
   save p(d1,cd) p(d1,charge) default
+
   sweep v1 instance="v1" parameter="dc" from=-5.5 to=0.8 step=0.01
     analysis op1 op
- 
+
   alter instance("v1") type="pulse"
   analysis tran1 tran step=0.1u stop=1u
+
+  // Soft reverse recovery: vp!=0 (with tt!=0, already set on the model)
+  // enables the diode model's excess-carrier relaxation branch, which
+  // slows down the snap-off at the end of reverse recovery instead of
+  // the abrupt current drop seen with the default vp=0 (hard recovery).
+  alter model("d") vp=0.5
+  analysis tran2 tran step=0.1u stop=1u
 
   postprocess(PYTHON, "runme.py")
 endc
@@ -33,7 +41,10 @@ raw = rawread('op1.raw')
 plot = raw.get()
 
 raw = rawread('tran1.raw')
-tran = raw.get()
+tranHard = raw.get()
+
+raw = rawread('tran2.raw')
+tranSoft = raw.get()
 
 fig1, ax1 = plt.subplots(2, 2, figsize=(8,8), dpi=100)
 fig1.suptitle('Diode test')
@@ -49,9 +60,11 @@ fig1.axes[1].set_ylabel('Cd [uF]')
 fig1.axes[1].set_xlabel('Vd [V]')
 
 fig1.axes[2].set_title('Diode reverse recovery')
-fig1.axes[2].plot(tran['time']*1e6, -tran['v1:flow(br)'], marker=".")
+fig1.axes[2].plot(tranHard['time']*1e6, -tranHard['v1:flow(br)'], marker=".", label="hard (vp=0)")
+fig1.axes[2].plot(tranSoft['time']*1e6, -tranSoft['v1:flow(br)'], marker=".", label="soft (vp=0.5)")
 fig1.axes[2].set_ylabel('Id [A]')
 fig1.axes[2].set_xlabel('time [us]')
+fig1.axes[2].legend()
 
 fig1.axes[3].set_title('Diode charge')
 fig1.axes[3].plot(plot['1'], plot['d1.charge']*1e6)
