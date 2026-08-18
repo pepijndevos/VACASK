@@ -5,7 +5,7 @@
 // SPICE flavour: ngspice
 // Version      : ngspice-45-116-gf11f4594e
 // Origin       : https://sourceforge.net/u/arpadbuermen/ngspice/ci/vadng-pre-46/tree/
-// Date         : 2026-02-02 07:38:10 UTC
+// Date         : 2026-08-18 06:40:43 UTC
 // Module name  : sp_diode
 // Model variant: sn
 // 
@@ -485,6 +485,15 @@ module sp_diode(a, c);
     if ($param_given(tnom)) begin
       DIOnomTemp = tnom+273.15;
       DIOnomTempGiven = 1;
+    end
+    if ($param_given(ikf)) begin
+      DIOforwardKneeCurrentGiven = 1;
+    end
+    if ($param_given(ikr)) begin
+      DIOreverseKneeCurrentGiven = 1;
+    end
+    if ($param_given(ikp)) begin
+      DIOforwardSWKneeCurrentGiven = 1;
     end
     if ($param_given(nbv)) begin
       DIObrkdEmissionCoeff = nbv;
