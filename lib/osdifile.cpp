@@ -46,6 +46,16 @@ OsdiFile::OsdiFile(void* handle_, std::string file_, Status& s)
         return;
     }
 
+    // Size of descriptor
+    auto ptrs = ((OsdiDescriptorSize*)dynamicLibrarySymbol(handle, "OSDI_DESCRIPTOR_SIZE"));
+    if (!ptrs) {
+        s.set(Status::BadVersion, "Failed to retrieve OSDI descriptor size.");
+        descriptorArray = nullptr;
+        return;
+    }
+
+    descriptorSize = *ptrs;
+
     // Version
     auto major = ((OsdiVersionType*)dynamicLibrarySymbol(handle, "OSDI_VERSION_MAJOR"));
     auto minor = ((OsdiVersionType*)dynamicLibrarySymbol(handle, "OSDI_VERSION_MINOR"));
@@ -54,12 +64,25 @@ OsdiFile::OsdiFile(void* handle_, std::string file_, Status& s)
         descriptorArray = nullptr;
         return;
     } else {
-        // 
-        if (!((*major==0 && *minor>=4) || (*major>=1))) {
+        // Require OSDI 0.4, anything else is an error
+        if (!(*major==0 && *minor==4)) {
             s.set(
                 Status::BadVersion, "Unsupported OSDI interface version ("+
                 std::to_string(*major)+"."+std::to_string(*minor)+
-                "). Required version >=0.4."
+                "). Required version 0.4."
+            );
+            descriptorArray = nullptr;
+            return;
+        }
+        // Require the structure size to be >= descriptor size from the header.
+        // Smaller is unsafe: our OsdiDescriptor fields would read past the
+        // actual per-descriptor data. Larger is fine (forward compatibility,
+        // see the comment on the descriptors vector below).
+        if (descriptorSize < sizeof(OsdiDescriptor)) {
+            s.set(
+                Status::BadVersion, "OSDI descriptor structure size ("+
+                std::to_string(descriptorSize)+") is smaller than expected ("+
+                std::to_string(sizeof(OsdiDescriptor))+")."
             );
             descriptorArray = nullptr;
             return;
@@ -88,16 +111,6 @@ OsdiFile::OsdiFile(void* handle_, std::string file_, Status& s)
 
     // Process natures and disciplines to collect abstol values
     processNaturesAndDisciplines();
-
-    // Size of descriptor
-    auto ptrs = ((OsdiDescriptorSize*)dynamicLibrarySymbol(handle, "OSDI_DESCRIPTOR_SIZE"));
-    if (!ptrs) {
-        s.set(Status::BadVersion, "Failed to retrieve OSDI descriptor size.");
-        descriptorArray = nullptr;
-        return;
-    }
-
-    descriptorSize = *ptrs;
 
     // Limit function table
     OsdiLimFunction* lft = (OsdiLimFunction*)dynamicLibrarySymbol(handle, "OSDI_LIM_TABLE");
