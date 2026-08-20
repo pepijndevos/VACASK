@@ -36,10 +36,13 @@ public:
         buffer.resize(size);
     };
 
+    // Copying is disabled (would be an expensive, easy-to-accidentally-trigger
+    // deep copy of the whole history). Moving is safe (no self-referential
+    // state) and is needed so a Vector<CircularBuffer<T>> can grow.
     CircularBuffer           (const CircularBuffer&)  = delete;
-    CircularBuffer           (      CircularBuffer&&) = delete;
+    CircularBuffer           (      CircularBuffer&&) = default;
     CircularBuffer& operator=(const CircularBuffer&)  = delete;
-    CircularBuffer& operator=(      CircularBuffer&&) = delete;
+    CircularBuffer& operator=(      CircularBuffer&&) = default;
 
     // Repository size
     DepthIndex size() const { return size_; };
