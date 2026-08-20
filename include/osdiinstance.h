@@ -127,6 +127,7 @@ private:
     TerminalIndex connectedTerminalCount;
     GlobalStorageIndex offsStates;
     GlobalStorageIndex offsDeviceStates;
+    GlobalStorageIndex offsDelayHistory;
 };
 
 }

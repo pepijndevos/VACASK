@@ -258,6 +258,24 @@ public:
     const OsdiNature* nature(OsdiNatureIndex index) const { if (natures && index!=UINT32_MAX && index<naturesCount) return natures+index; else return nullptr; };
     const OsdiDiscipline* discipline(OsdiDisciplineIndex index) const { if (disciplines && index!=UINT32_MAX && index<disciplinesCount) return disciplines+index; else return nullptr; };
 
+    // Absdelay information
+    inline size_t absdelayCount(OsdiDeviceIndex deviceIndex) const { 
+        if (experimental) {
+            auto desc = descriptors[deviceIndex];
+            return desc->absdelay_count;
+        } else {
+            return 0;
+        }
+    };
+    inline const OsdiAbsDelay* absdelays(OsdiDeviceIndex deviceIndex) const { 
+        if (experimental) {
+            auto desc = descriptors[deviceIndex];
+            return desc->absdelays;
+        } else {
+            return nullptr;
+        }
+    };
+
     // OsdiNatureRef to NatureTolerance and idt NatureTolerance
     std::tuple<NatureTolerance, NatureTolerance> natrefTolerances(OsdiNatureRef& natref) const {
         switch (natref.ref_type) {
@@ -322,6 +340,7 @@ private:
     void* handle;
     std::string file;
     bool valid;
+    bool experimental;
     void* descriptorArray;
     std::vector<std::string> namesArray; // (translated) names
     std::vector<OsdiDescriptor*> descriptors;

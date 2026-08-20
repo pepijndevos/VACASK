@@ -574,6 +574,10 @@ bool OsdiInstance::populateStructuresCore(Circuit& circuit, Status& s) {
         model()->device()->nonzeroResistiveResiduals().size() + 
         model()->device()->nonzeroReactiveResiduals().size();
     offsDeviceStates = circuit.allocateDeviceStates(deviceStateCount);
+
+    // Reserve delay history entries
+    auto delayCount = model()->device()->absdelayCount();
+    offsDelayHistory = circuit.allocateDelayHistory(delayCount);
     
     // Increment residual contribution counters
     auto nodeCount = descr->num_nodes;

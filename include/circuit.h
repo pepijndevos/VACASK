@@ -447,9 +447,11 @@ public:
     // Allocate n entries in state vector, return global state index of first allocated entry
     GlobalStorageIndex allocateStates(LocalStorageIndex n);
     GlobalStorageIndex allocateDeviceStates(LocalStorageIndex n);
+    GlobalStorageIndex allocateDelayHistory(LocalStorageIndex n);
 
     GlobalStorageIndex statesCount() const { return statesCount_; };
     GlobalStorageIndex deviceStatesCount() const { return deviceStatesCount_; };
+    GlobalStorageIndex delayHistoryCount() const { return delayHistoryCount_; };
     
     // Drivers
     // Return value: ok, unknowns changed, sparsity changed
@@ -581,6 +583,9 @@ private:
 
     // Device convergence check state count
     GlobalStorageIndex deviceStatesCount_;
+
+    // Delay history count
+    GlobalStorageIndex delayHistoryCount_;
 
     // Evaluator for parameterized expression (parameters netlist lines)
     RpnEvaluator paramEvaluator_;

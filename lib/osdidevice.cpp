@@ -18,7 +18,11 @@ OsdiDevice::OsdiDevice(OsdiFile* of, int descriptorIndex, Id asName, Loc locatio
     setFlags(Flags::IsValid);
     if (osdiFile->allowsBypass(index_)) {
         setFlags(Flags::Bypassable);
-    }}
+    }
+    if (absdelayCount()>0) {
+        setFlags(Flags::Absdelay);
+    }
+}
 
 bool OsdiDevice::operator==(const Device& other) const & {
     const OsdiDevice* devOther = dynamic_cast<const OsdiDevice*>(&other);
@@ -661,6 +665,9 @@ void OsdiDevice::dump(int indent, std::ostream& os) const {
     }
     if (descriptor_->bound_step_offset!=UINT32_MAX) {
         os << "    sets $bound_step\n";
+    }
+    if (absdelayCount()>0) {
+        os << "    uses absdelay()\n";
     }
     if (checkFlags(Device::Flags::Bypassable)) {
         os << "    bypassable\n";

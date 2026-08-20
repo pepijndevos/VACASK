@@ -41,6 +41,8 @@ enum class DeviceFlags : uint16_t {
     GeneratesAC = 8, 
     // Allows bypass
     Bypassable = 16, 
+    // Uses absdelay
+    Absdelay = 32, 
 };
 DEFINE_FLAG_OPERATORS(DeviceFlags);
 

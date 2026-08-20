@@ -180,6 +180,10 @@ public:
     // Noise source type
     inline NoiseType noiseSourceType(ParameterIndex ndx) const { return osdiFile->noiseSourceType(index_, ndx); }; 
 
+    // Absdelay information
+    inline size_t absdelayCount() const { return osdiFile->absdelayCount(index_); };
+    inline const OsdiAbsDelay* absdelays() const { return osdiFile->absdelays(index_); };
+    
     // Parameter cleanup (called in instance and model destructor)
     bool freeValues(void* coreMod, void* coreInst);
     

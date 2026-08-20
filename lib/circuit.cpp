@@ -1163,6 +1163,12 @@ GlobalStorageIndex Circuit::allocateDeviceStates(LocalStorageIndex n) {
     return retval;
 }
 
+GlobalStorageIndex Circuit::allocateDelayHistory(LocalStorageIndex n) {
+    auto retval = delayHistoryCount_;
+    delayHistoryCount_ += n;
+    return retval;
+}
+
 bool Circuit::nodeOrdering(Status& s) {
     // Build node order vector
     nodeOrder.clear();

@@ -15,6 +15,20 @@ class Circuit;
 class Model;
 class Instance;
 
+class DelayLine {
+    bool bind(UnknownIndex inputUnknown, UnknownIndex outputUnknown) {
+        inputUnknown_ = inputUnknown;
+        outputUnknown_ = outputUnknown;
+        return true;
+    };
+
+private:
+    CircularBuffer<double> history;
+    UnknownIndex inputUnknown_;
+    UnknownIndex outputUnknown_;
+    double delay;
+};
+
 typedef struct DeviceRequests {
     // Return information on what happened during evaluation
     // Verilog-A abort/finish/stop
@@ -41,6 +55,10 @@ typedef struct EvalSetup {
 
     // Data for instance bypass check (previous values)
     double* deviceStates {};
+    
+    // Delay history
+    Vector<DelayLine>* delayedSignal {};
+    CircularBuffer<double>* timpointHistory {};
     
     // What mode are we running in - information for evaluator
     bool staticAnalysis {};
