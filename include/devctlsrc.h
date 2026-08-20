@@ -145,6 +145,7 @@ template<> bool BuiltinVccsInstance::bindCore(
     Circuit& circuit, 
     KluMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
     KluMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
+    DelayLines* delayLines, 
     Status& s
 );
 template<> bool BuiltinVccsInstance::evalCore(Circuit& circuit, CommonData& commons, EvalSetup& els);
@@ -163,6 +164,7 @@ template<> bool BuiltinVcvsInstance::bindCore(
     Circuit& circuit, 
     KluMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
     KluMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
+    DelayLines* delayLines, 
     Status& s
 );
 template<> bool BuiltinVcvsInstance::evalCore(Circuit& circuit, CommonData& commons, EvalSetup& els);
@@ -181,6 +183,7 @@ template<> bool BuiltinCccsInstance::bindCore(
     Circuit& circuit, 
     KluMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
     KluMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
+    DelayLines* delayLines, 
     Status& s
 );
 template<> bool BuiltinCccsInstance::evalCore(Circuit& circuit, CommonData& commons, EvalSetup& els);
@@ -199,6 +202,7 @@ template<> bool BuiltinCcvsInstance::bindCore(
     Circuit& circuit, 
     KluMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
     KluMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
+    DelayLines* delayLines, 
     Status& s
 );
 template<> bool BuiltinCcvsInstance::evalCore(Circuit& circuit, CommonData& commons, EvalSetup& els);
@@ -250,6 +254,7 @@ template<> bool BuiltinMutualInstance::bindCore(
     Circuit& circuit, 
     KluMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
     KluMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
+    DelayLines* delayLines, 
     Status& s
 );
 template<> bool BuiltinMutualInstance::evalCore(Circuit& circuit, CommonData& commons, EvalSetup& evalSetup);

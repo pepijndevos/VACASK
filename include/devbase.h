@@ -117,6 +117,7 @@ public:
         Circuit& cir, 
         KluMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
         KluMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
+        DelayLines* delayLines, 
         Status& s=Status::ignore
     ) { return true; };
 

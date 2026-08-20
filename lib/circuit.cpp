@@ -1347,9 +1347,11 @@ bool Circuit::enumerateSystem(Status& s) {
     return true;
 }
 
+// TODO: add delay lines, update analysis cores
 bool Circuit::bind(
     KluMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
     KluMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
+    DelayLines* delayLines, 
     Status& s
 ) {
     // Call bind() for all devices
@@ -1358,6 +1360,7 @@ bool Circuit::bind(
             *this, 
             matResist, compResist, mepResist, 
             matReact, compReact, mepReact, 
+            delayLines, 
             s
         )) {
             return false;

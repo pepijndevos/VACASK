@@ -1184,6 +1184,7 @@ template<> bool BuiltinVSourceInstance::bindCore(
     Circuit& circuit, 
     KluMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
     KluMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
+    DelayLines* delayLines, 
     Status& s
 ) {
     auto& d = data.core();
@@ -1210,6 +1211,7 @@ template<> bool BuiltinISourceInstance::bindCore(
     Circuit& circuit, 
     KluMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
     KluMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
+    DelayLines* delayLines, 
     Status& s
 ) {
     auto& d = data.core();

@@ -92,6 +92,7 @@ public:
         Circuit& circuit, 
         KluMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
         KluMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
+        DelayLines* delayLines, 
         Status& s=Status::ignore
     );
     bool inputBypassCheckCore(Circuit& circuit, CommonData& commons, EvalSetup& evalSetup);

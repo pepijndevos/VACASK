@@ -58,6 +58,7 @@ public:
         Circuit& circuit, 
         KluMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
         KluMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
+        DelayLines* delayLines, 
         Status& s=Status::ignore
     );
     virtual bool evalAndLoad(Circuit& circuit, CommonData& commons, EvalSetup* evalSetup, LoadSetup* loadSetup);
@@ -223,6 +224,7 @@ public:
         Circuit& circuit, 
         KluMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
         KluMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
+        DelayLines* delayLines, 
         Status& s=Status::ignore
     );
     bool evalCore(Circuit& circuit, CommonData& commons, EvalSetup& evalSetup);
@@ -355,6 +357,7 @@ bool BuiltinDevice<ModelParams, InstanceParams, InstanceData>::bind(
     Circuit& circuit, 
     KluMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
     KluMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
+    DelayLines* delayLines, 
     Status& s
 ) {
     using InstanceType = BuiltinInstance<ModelParams, InstanceParams, InstanceData>;
@@ -365,6 +368,7 @@ bool BuiltinDevice<ModelParams, InstanceParams, InstanceData>::bind(
                 circuit, 
                 matResist, compResist, mepResist, 
                 matReact, compReact, mepReact, 
+                delayLines, 
                 s
             )) {
                 return false;

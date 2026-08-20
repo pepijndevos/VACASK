@@ -15,18 +15,30 @@ class Circuit;
 class Model;
 class Instance;
 
-class DelayLine {
-    bool bind(UnknownIndex inputUnknown, UnknownIndex outputUnknown) {
-        inputUnknown_ = inputUnknown;
-        outputUnknown_ = outputUnknown;
-        return true;
+class DelayLines {
+public:
+    void scale(GlobalStorageIndex n) {  
+        inputUnknown_.resize(n);
+        outputUnknown_.resize(n);
+        maxDelay_.resize(n);
     };
 
+    bool bind(GlobalStorageIndex slot, UnknownIndex inputUnknown, UnknownIndex outputUnknown) {
+        inputUnknown_[slot] = inputUnknown;
+        outputUnknown_[slot] = outputUnknown;
+        return true;
+    };
+    
+    void setMaxDelay(GlobalStorageIndex slot, double maxDelay) { maxDelay_[slot] = maxDelay; };
+
+    UnknownIndex inputUnknown(GlobalStorageIndex slot) const { return inputUnknown_[slot]; };
+    UnknownIndex outputUnknown(GlobalStorageIndex slot) const { return outputUnknown_[slot]; };
+
 private:
-    CircularBuffer<double> history;
-    UnknownIndex inputUnknown_;
-    UnknownIndex outputUnknown_;
-    double delay;
+    Vector<CircularBuffer<double>> history;
+    Vector<UnknownIndex> inputUnknown_;
+    Vector<UnknownIndex> outputUnknown_;
+    Vector<double> maxDelay_;
 };
 
 typedef struct DeviceRequests {
@@ -57,7 +69,7 @@ typedef struct EvalSetup {
     double* deviceStates {};
     
     // Delay history
-    Vector<DelayLine>* delayedSignal {};
+    DelayLines* delayeLines {};
     CircularBuffer<double>* timpointHistory {};
     
     // What mode are we running in - information for evaluator

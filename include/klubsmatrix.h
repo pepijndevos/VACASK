@@ -33,6 +33,9 @@ public:
     KluBlockSparseMatrixCore& operator=(const KluBlockSparseMatrixCore&)  = delete;
     KluBlockSparseMatrixCore& operator=(      KluBlockSparseMatrixCore&&) = delete;
 
+    // No need to override elementPtr() since the returns value of valueIndex()
+    // is the index into flat sparse matrix. 
+    
     // BlockSparseMatrixCore specific interface
     // Returns a dense matrix view of a block. 
     // Storage is column major due to KLU. 

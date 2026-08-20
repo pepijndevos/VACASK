@@ -193,6 +193,7 @@ template<> bool BuiltinVccsInstance::bindCore(
     Circuit& circuit, 
     KluMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
     KluMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
+    DelayLines* delayLines, 
     Status& s
 ) {
     auto& d = data.core();
@@ -367,6 +368,7 @@ template<> bool BuiltinVcvsInstance::bindCore(
     Circuit& circuit, 
     KluMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
     KluMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
+    DelayLines* delayLines, 
     Status& s
 ) {
     auto& d = data.core();
@@ -535,6 +537,7 @@ template<> bool BuiltinCccsInstance::bindCore(
     Circuit& circuit, 
     KluMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
     KluMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
+    DelayLines* delayLines, 
     Status& s
 ) {
     auto& d = data.core();
@@ -708,6 +711,7 @@ template<> bool BuiltinCcvsInstance::bindCore(
     Circuit& circuit, 
     KluMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
     KluMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
+    DelayLines* delayLines, 
     Status& s
 ) {
     auto& d = data.core();
@@ -1002,6 +1006,7 @@ template<> bool BuiltinMutualInstance::bindCore(
     Circuit& circuit, 
     KluMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
     KluMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
+    DelayLines* delayLines, 
     Status& s
 ) {
     auto& d = data.core();

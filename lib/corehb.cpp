@@ -548,11 +548,12 @@ bool HBCore::rebuild(Status& s) {
         solutionFD.resize(spurs_.spectrum().size());
     }
 
-    // Bind resistive residuals to 0-based subelement (0,0) 
-    // Bind reactive residuals to 0-based subelement (0,1) 
+    // Bind resistive Jacobian contributions to 0-based subelement (0,0) 
+    // Bind reactive Jacobian contributions to 0-based subelement (0,1) 
     if (!circuit.bind(
         &jacColoc, Component::Real, MatrixEntryPosition(0, 0), 
         &jacColoc, Component::Real, MatrixEntryPosition(0, 1), 
+        nullptr, 
         s
     )) {
         return false;

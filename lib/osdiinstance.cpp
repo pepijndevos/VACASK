@@ -601,6 +601,7 @@ bool OsdiInstance::bindCore(
     Circuit& circuit, 
     KluMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
     KluMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
+    DelayLines* delayLines, 
     Status& s
 ) {
     auto descr = model()->device()->descriptor();
@@ -613,36 +614,50 @@ bool OsdiInstance::bindCore(
     }
 
     // Bind Jacobian entries
-    auto numEntries = model()->device()->jacobianEntriesCount();
-    auto jacResistArray = resistiveJacobianPointers();
-    for(decltype(numEntries) i=0; i<numEntries; i++) {
-        // Position contains local terminal/node indices (0-based) 
-        auto& entry = model()->device()->jacobianEntry(i);
-        
-        // Translate them to circuit nodes
-        auto ne = nodes_[entry.nodes.node_1];
-        auto nu = nodes_[entry.nodes.node_2];
-        
-        // Translate to equations/unknowns
-        auto e = ne->unknownIndex();
-        auto u = nu->unknownIndex();
-        
-        // Set resistive Jacobian element pointer
-        if (matResist && !(jacResistArray[i] = matResist->valuePtr(MatrixEntryPosition(e, u), compResist, mepResist))) {
-            s.set(Status::BadConversion, "Matrix is of incorrect type.");
-            return false;
-        }
+    if (matResist || matReact) {
+        auto numEntries = model()->device()->jacobianEntriesCount();
+        auto jacResistArray = resistiveJacobianPointers();
+        for(decltype(numEntries) i=0; i<numEntries; i++) {
+            // Position contains local terminal/node indices (0-based) 
+            auto& entry = model()->device()->jacobianEntry(i);
+            
+            // Translate them to circuit nodes
+            auto ne = nodes_[entry.nodes.node_1];
+            auto nu = nodes_[entry.nodes.node_2];
+            
+            // Translate to equations/unknowns
+            auto e = ne->unknownIndex();
+            auto u = nu->unknownIndex();
+            
+            // Set resistive Jacobian element pointer
+            if (matResist && !(jacResistArray[i] = matResist->valuePtr(MatrixEntryPosition(e, u), compResist, mepResist))) {
+                s.set(Status::BadConversion, "Matrix is of incorrect type.");
+                return false;
+            }
 
-        // Set reactive Jacobian element pointer
-        if (matReact) {
-            auto reactivePointer = reactiveJacobianPointer(i);
-            if (reactivePointer) {
-                // Set reactive Jacobian pointer
-                if (!(*reactivePointer = matReact->valuePtr(MatrixEntryPosition(e, u), compReact, mepReact))) {
-                    s.set(Status::BadConversion, "Matrix is of incorrect type.");
-                    return false;
+            // Set reactive Jacobian element pointer
+            if (matReact) {
+                auto reactivePointer = reactiveJacobianPointer(i);
+                if (reactivePointer) {
+                    // Set reactive Jacobian pointer
+                    if (!(*reactivePointer = matReact->valuePtr(MatrixEntryPosition(e, u), compReact, mepReact))) {
+                        s.set(Status::BadConversion, "Matrix is of incorrect type.");
+                        return false;
+                    }
                 }
             }
+        }
+    }
+
+    // Bind delay lines
+    if (delayLines) {
+        auto n = model()->device()->absdelayCount();
+        auto atLine = offsDelayHistory;
+        for(decltype(n) i=0; i<n; i++, atLine++) {
+            // y_node is input, z_node is output
+            auto nin = nodes_[descr->absdelays[i].y_node];
+            auto nout = nodes_[descr->absdelays[i].z_node];
+            delayLines->bind(atLine, nin->unknownIndex(), nout->unknownIndex());
         }
     }
     return true;
