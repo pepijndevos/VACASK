@@ -65,11 +65,11 @@ OsdiFile::OsdiFile(void* handle_, std::string file_, Status& s)
         return;
     } else {
         // Require OSDI 0.4, anything else is an error
-        if (!(*major==0 && *minor==4)) {
+        if (!((*major>=1) || (*major==0 && *minor>=4))) {
             s.set(
                 Status::BadVersion, "Unsupported OSDI interface version ("+
                 std::to_string(*major)+"."+std::to_string(*minor)+
-                "). Required version 0.4."
+                "). Required version >=0.4."
             );
             descriptorArray = nullptr;
             return;
