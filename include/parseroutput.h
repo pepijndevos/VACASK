@@ -104,7 +104,7 @@ public:
         : expressions_(std::move(pe)) {};
     PTParameters(std::vector<PTParameterValue>&& pv, std::vector<PTParameterExpression>&& pe)
         : values_(std::move(pv)), expressions_(std::move(pe)) {};
-    
+
     PTParameters           (const PTParameters&)  = delete;
     PTParameters           (      PTParameters&&) = default;
     PTParameters& operator=(const PTParameters&)  = delete;
@@ -349,29 +349,74 @@ private:
 // Behavioral source
 class PTBehavioral {
 public:
+    // Defined in rpnexprva.h, shared with RPNBehavioralVA
+    using Type = BehavioralType;
+
     PTBehavioral() {};
-    PTBehavioral(Id name, PTIdentifierList&& terms, Rpn&& expr, bool currentSource, const Loc& l=Loc::bad)
-        : loc(l), instanceName_(name), connections_(std::move(terms)), expr_(std::move(expr)), currentSource_(currentSource),
+    // New constructor, takes only connections
+    PTBehavioral(Id name, PTIdentifierList&& terms, const Loc& l=Loc::bad)
+        : loc(l), instanceName_(name), connections_(std::move(terms)), 
           discipline_("electrical"), potentialAccessor_("V"), flowAccessor_("I") {};
-    PTBehavioral(Id name, PTIdentifierList&& terms, Rpn&& expr, bool currentSource, std::string&& discipline, std::string&& potentialAccessor, std::string&& flowAccessor, const Loc& l=Loc::bad)
-        : loc(l), instanceName_(name), connections_(std::move(terms)), expr_(std::move(expr)), currentSource_(currentSource), 
-          discipline_(discipline), potentialAccessor_(potentialAccessor), flowAccessor_(flowAccessor) {};
     
     PTBehavioral           (const PTBehavioral&)  = delete;
     PTBehavioral           (      PTBehavioral&&) = default;
     PTBehavioral& operator=(const PTBehavioral&)  = delete;
     PTBehavioral& operator=(      PTBehavioral&&) = default;
 
+    // Make it a current source
+    PTBehavioral& setCurrent(Rpn&& expr) & { expr_ = std::move(expr); type_ = Type::CurrentSource; return *this; };
+    PTBehavioral&& setCurrent(Rpn&& expr) && { return std::move(this->setCurrent(std::move(expr))); };
+
+    // Make it a voltage source
+    PTBehavioral& setVoltage(Rpn&& expr) & { expr_ = std::move(expr); type_ = Type::VoltageSource; return *this; };
+    PTBehavioral&& setVoltage(Rpn&& expr) && { return std::move(this->setVoltage(std::move(expr))); };
+
+    // Make it an expression that can be used in custom Verilog-A body
+    PTBehavioral& setExpression(Rpn&& expr) & { expr_ = std::move(expr); type_ = Type::Expression; return *this; };
+    PTBehavioral&& setExpression(Rpn&& expr) && { return std::move(this->setExpression(std::move(expr))); };
+
+    // Set discipline
+    PTBehavioral& setDiscipline(std::string&& discipline, std::string&& potentialAccessor, std::string&& flowAccessor) & {
+        discipline_ = std::move(discipline);
+        potentialAccessor_ = std::move(potentialAccessor);
+        flowAccessor_ = std::move(flowAccessor);
+        return *this;
+    };
+    PTBehavioral&& setDiscipline(std::string&& discipline, std::string&& potentialAccessor, std::string&& flowAccessor) && {
+        return std::move(this->setDiscipline(std::move(discipline), std::move(potentialAccessor), std::move(flowAccessor)));
+    };
+
+    // Set user declarations
+    PTBehavioral& setUserDeclarations(std::string&& decl) & { userDeclarations_ = std::move(decl); return *this; };
+    PTBehavioral&& setUserDeclarations(std::string&& decl) && { return std::move(this->setUserDeclarations(std::move(decl))); };
+
+    // Set user evaluation
+    PTBehavioral& setUserEvaluation(std::string&& eval) & { userEvaluation_ = std::move(eval); return *this; };
+    PTBehavioral&& setUserEvaluation(std::string&& eval) && { return std::move(this->setUserEvaluation(std::move(eval))); };
+
+    // Fluent API
+    PTBehavioral& add(PTParameters&& par) & { parameters_.add(std::move(par)); return *this; };
+    PTBehavioral& add(PTParameterValue&& v) & { parameters_.add(std::move(v)); return *this; };
+    PTBehavioral& add(PTParameterExpression&& e) & { parameters_.add(std::move(e)); return *this; };
+    PTBehavioral&& add(PTParameters&& par) && { return std::move(this->add(std::move(par))); };
+    PTBehavioral&& add(PTParameterValue&& v) && { return std::move(this->add(std::move(v))); };
+    PTBehavioral&& add(PTParameterExpression&& e) && { return std::move(this->add(std::move(e))); };
+
     // Getters
     inline const Loc& location() const { return loc; };
     Id name() const { return instanceName_; };
     const PTIdentifierList& connections() const { return connections_; };
     const Rpn& expr() const { return expr_; };
-    bool currentSource() const { return currentSource_; };
+    Type type() const { return type_; };
+
     const std::string& discipline() const { return discipline_; };
     const std::string& potentialAccessor() const { return potentialAccessor_; };
     const std::string& flowAccessor() const { return flowAccessor_; };
-    
+    const std::string& userDeclarations() const { return userDeclarations_; };
+    const std::string& userEvaluation() const { return userEvaluation_; };
+    inline const PTParameters& parameters() const { return parameters_; };
+    inline PTParameters& parameters() { return parameters_; };
+
     void dump(int indent, std::ostream& os) const;
 
     bool verify(int level, Status& s=Status::ignore) const;
@@ -380,10 +425,13 @@ private:
     Id instanceName_;
     PTIdentifierList connections_;
     Rpn expr_;
-    bool currentSource_;
+    Type type_;
     std::string discipline_;
     std::string potentialAccessor_;
     std::string flowAccessor_;
+    std::string userDeclarations_;
+    std::string userEvaluation_;
+    PTParameters parameters_;
     Loc loc;
 };
 

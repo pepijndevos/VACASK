@@ -1,0 +1,59 @@
+Behavioral source custom Verilog-A body
+
+model v vsource
+v1 (a 0) v dc=0
+
+// expr= builds v(a)*$userparam(p); $userparam(p) splices the bare
+// identifier p, unquoted, into the generated Verilog-A -- p is never
+// declared or evaluated at the netlist level, it is only spliced in as
+// text. declarations= is what actually declares p, as a Verilog-A
+// parameter, plus a local real variable val. evaluation= assigns
+// #expr#'s translated, parenthesized text (V(...)*p) to val, then
+// contributes it via I(__nt1, __nt2) -- the actual port names the
+// translator gives the synthesized module, not the VACASK node name
+// "a". The trailing ", p=10" is a Verilog-A parameter that
+// overrides the p's default (1) to 10 on this model.
+b1 (a 0) (
+  expr=v(a)*$userparam(p) 
+  declarations="parameter real p=1; real val;" 
+  evaluation="val = #expr#; I(br) <+ val;"
+), p=10
+
+control
+  options tolmode="va"
+  print device("__behavioral_b1")
+  print model("__behavioral_b1")
+  sweep v1sweep instance="v1" parameter="dc" from=-1 to=1 step=0.1
+    analysis op1 op
+
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+from runtest import *
+import numpy as np
+import sys
+
+raw = rawread('op1.raw').get()
+
+tests=[]
+
+# b1 installs I(br) <+ val, with val = v(a)*p and p=10 (set via
+# the Verilog-A parameter). This current flows from node a to
+# node 0 through b1, so v1 -- in parallel between the same two nodes --
+# must sink exactly that much current for KCL to hold at node a:
+# v1:flow(br) == -10*v(a). This exercises expr=/declarations=/evaluation=
+# parsing, $userparam() splicing p in as a bare identifier, #expr#
+# substitution, and the Verilog-A parameter override together.
+va = raw['v1sweep']
+i_meas = raw['v1:flow(br)']
+i_exact = -10*va
+
+status = (relDiff(i_meas, i_exact, 1e-12) < 1e-6).all()
+print("v1:flow(br) test", status)
+tests.append(status)
+
+if isTest():
+    sys.exit(not all(tests))
+>>>FILE

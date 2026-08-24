@@ -96,12 +96,23 @@ void PTInstance::dump(int indent, std::ostream& os) const {
 void PTBehavioral::dump(int indent, std::ostream& os) const {
     std::string pfx = std::string(indent, ' ');
     os << pfx << "// " << (instanceName_) << " (" << connections_ << ")";
-    os << (currentSource_ ? " flow=" : " potential=" );
+    switch (type_) {
+        case Type::CurrentSource: os << " flow="; break;
+        case Type::VoltageSource: os << " potential="; break;
+        case Type::Expression: os << " expr="; break;
+    }
     os << expr_.str() << " discipline=[";
     os << "\"" << discipline_ << "\", ";
     os << "\"" << potentialAccessor_ << "\", ";
     os << "\"" << flowAccessor_ << "\"";
-    os << "]\n";
+    os << "]";
+    if (!userDeclarations_.empty()) {
+        os << " declarations=\"" << userDeclarations_ << "\"";
+    }
+    if (!userEvaluation_.empty()) {
+        os << " evaluation=\"" << userEvaluation_ << "\"";
+    }
+    os << "\n";
 }
 
 
@@ -628,8 +639,10 @@ bool ParserTables::processBehaviorals(int debug, Status& s) {
                 // Create module definition
                 RPNBehavioralVA behavData = {
                     // Construct module name
-                    .moduleName = "__behavioral" + (blockNameRoot.size()>0 ? (moduleNameRoot+"_"+blockNameRoot) : moduleNameRoot) + "_" + std::string(behav.name()), 
-                    .currentSource = behav.currentSource(), 
+                    .moduleName = "__behavioral" + (blockNameRoot.size()>0 ? (moduleNameRoot+"_"+blockNameRoot) : moduleNameRoot) + "_" + std::string(behav.name()),
+                    .type = behav.type(),
+                    .userDeclarations = behav.userDeclarations(),
+                    .userEvaluation = behav.userEvaluation(),
                 };
                 // Run Rpn::verilogA
                 if (!behav.expr().verilogA(behav.discipline(), behav.potentialAccessor(), behav.flowAccessor(), behavData, s)) {
@@ -650,6 +663,33 @@ bool ParserTables::processBehaviorals(int debug, Status& s) {
                     passthrough.extend(Rpn::Identifier(std::string(paramId)), behav.location());
                     behavModel.add(PTParameterExpression(Id(paramVaName), std::move(passthrough), behav.location()));
                 }
+                // Add parameters that were specified behind comma, guarding
+                // against a name that already exists among the model's own
+                // parameters (the auto-generated passthroughs added above)
+                std::unordered_set<Id> behavModelParamNames;
+                for (auto& pv : behavModel.parameters().values()) {
+                    behavModelParamNames.insert(pv.name());
+                }
+                for (auto& pe : behavModel.parameters().expressions()) {
+                    behavModelParamNames.insert(pe.name());
+                }
+                for (auto& pv : behav.parameters().values()) {
+                    if (behavModelParamNames.count(pv.name())>0) {
+                        s.set(Status::Redefinition, "Parameter \""+std::string(pv.name())+"\" of behavioral source '"+std::string(behav.name())+"' redefines an existing model parameter.");
+                        s.extend(pv.location());
+                        return false;
+                    }
+                    behavModel.add(std::move(pv));
+                }
+                for (auto& pe : behav.parameters().expressions()) {
+                    if (behavModelParamNames.count(pe.name())>0) {
+                        s.set(Status::Redefinition, "Parameter \""+std::string(pe.name())+"\" of behavioral source '"+std::string(behav.name())+"' redefines an existing model parameter.");
+                        s.extend(pe.location());
+                        return false;
+                    }
+                    behavModel.add(std::move(pe));
+                }
+
                 blk->add(std::move(behavModel));
 
                 // Create instance

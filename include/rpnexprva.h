@@ -9,6 +9,16 @@
 
 namespace NAMESPACE {
 
+// Behavioral source type: what expr represents and how its Verilog-A
+// contribution statement is built. Defined here, rather than nested in
+// PTBehavioral, because parseroutput.h transitively includes this header
+// (PTBehavioral::Type is an alias for this enum).
+enum class BehavioralType : char {
+    CurrentSource,
+    VoltageSource,
+    Expression
+};
+
 struct RPNBehavioralVA {
     // Vectors with parameters, input potential nodes and input flow nodes
     // (parameter name, Verilog-A name, type, source RPN index)
@@ -19,8 +29,11 @@ struct RPNBehavioralVA {
     std::vector<std::tuple<Id, std::string, size_t>> flow;
     // Verilog-A module name
     std::string moduleName;
-    // Current source flag
-    bool currentSource;
+    // Behavioral source type
+    BehavioralType type;
+    // User-supplied Verilog-A declarations and evaluation code, for Type::Expression
+    std::string userDeclarations;
+    std::string userEvaluation;
     // Verilog-A module code
     std::string vaCode;
 };

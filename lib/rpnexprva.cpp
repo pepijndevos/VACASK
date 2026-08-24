@@ -28,6 +28,7 @@ static bool isNodeArg(const Rpn::Entry& ent) {
 
 static Id  intParamId = Id::createStatic("$intparam");
 static Id  realParamId = Id::createStatic("$realparam");
+static Id  userParamId = Id::createStatic("$userparam");
 static Id  tempId = Id::createStatic("$temp");
 static Id  scaleId = Id::createStatic("$scale");
 static Id  abstimeId = Id::createStatic("$abstime");
@@ -258,6 +259,23 @@ bool Rpn::verilogA(const std::string& discipline, const std::string& potAccess, 
             idx = fnIdx;
             continue;
         }
+        // Handle $userparam(a) where a is an identifier: splices the bare
+        // identifier a itself into the generated Verilog-A, unquoted --
+        // the user is responsible for having declared a themselves (e.g.
+        // via a declarations= parameter), unlike ordinary free identifiers
+        // which get auto-registered as mangled passthrough module parameters.
+        // Use lookahead, just like with v()/i(), handle and skip on match
+        if (e.type()==TIdentifier &&
+            idx+1<expr.size() && expr[idx+1].type()==TFunctionCall &&
+            expr[idx+1].get<FunctionCall>().name==userParamId &&
+            expr[idx+1].get<FunctionCall>().arity==1) {
+            Id origId = e.get<Identifier>().name;
+            size_t fnIdx = idx+1;
+            sstack.push_back({std::string(origId), true, fnIdx});
+            idx = fnIdx;
+            continue;
+        }
+
         switch (e.type()) {
             case Rpn::TValue: {
                 const Value& v = e.get<Value>();
@@ -473,15 +491,32 @@ bool Rpn::verilogA(const std::string& discipline, const std::string& potAccess, 
         parametersString += std::string("  (*desc=\"") + std::string(paramId) + "\", units=\"\"*) parameter " +
             (paramType==Value::Type::Int ? "integer" : "real") + " " + paramVaName + " = 0;\n";
     }
+    // Build the analog block body: a v()/i() contribution for a voltage/current
+    // source, or the user-supplied evaluation code for a custom expression
+    std::string analogBody;
+    if (behavData.type==BehavioralType::CurrentSource) {
+        analogBody = "    " + flowAccess + "(br) <+ " + resultExpr + ";\n";
+    } else if (behavData.type==BehavioralType::VoltageSource) {
+        analogBody = "    " + potAccess + "(br) <+ " + resultExpr + ";\n";
+    } else {
+        analogBody = behavData.userEvaluation + "\n";
+        std::string placeholder = "#expr#";
+        std::string replacement = parenthesize(resultExpr);
+        size_t pos = 0;
+        while ((pos = analogBody.find(placeholder, pos))!=std::string::npos) {
+            analogBody.replace(pos, placeholder.size(), replacement);
+            pos += replacement.size();
+        }
+    }
     behavData.vaCode =
         std::string("module "+behavData.moduleName+"(__nt1, __nt2" + extraTerminals + ");\n") +
         "  inout __nt1, __nt2" + extraTerminals + ";\n" +
         "  " + discipline + " __nt1, __nt2" + extraTerminals + ";\n" +
         "  branch (__nt1, __nt2) br;\n" +
         parametersString +
+        (behavData.userDeclarations.empty() ? "" : "\n" + behavData.userDeclarations + "\n") +
         "  analog begin\n" +
-        "    " + (behavData.currentSource ? flowAccess : potAccess) + "(br) <+ " + 
-             resultExpr + ";\n" +
+        analogBody +
         "  end\n" +
         "endmodule\n";
     return true;

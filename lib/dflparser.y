@@ -57,7 +57,10 @@ namespace NAMESPACE {
     static Id iParamId = Id::createStatic("i");
     static Id potentialParamId = Id::createStatic("potential");
     static Id flowParamId = Id::createStatic("flow");
+    static Id exprParamId = Id::createStatic("expr");
     static Id disciplineParamId = Id::createStatic("discipline");
+    static Id declarationsParamId = Id::createStatic("declarations");
+    static Id evaluationParamId = Id::createStatic("evaluation");
 }
 
 // The following definitions is missing when %locations isn't used
@@ -230,7 +233,7 @@ typedef struct subckt {
 %type <struct paramlist>                parameter_list opt_broken_parameter_list subcktparameters 
 %type <PTInstance>                      instance
 %type <PTModel>                         model
-%type <PTBehavioral>                    behavioral
+%type <PTBehavioral>                    behavioral_start behavioral
 %type <PTSubcircuitDefinition>          subckt
 %type <struct subckt>                   subckt_build
 %type <PTBlockSequence>                 condblock_build condblock
@@ -867,15 +870,17 @@ instance
     ));
   }
 
-behavioral
-  : IDENTIFIER LPAREN terminal_list RPAREN opt_broken_parameter_list NEWLINE {
+behavioral_start
+  : IDENTIFIER LPAREN terminal_list RPAREN opt_broken_parameter_list {
     // Extract expresion, type, and optional discipline with accessors
     Rpn expr;
     bool haveExpr = false;
-    bool isCurrentSource = false;
+    BehavioralType type = BehavioralType::VoltageSource;
     std::string discipline = "electrical";
     std::string potentialAccessor = "V";
     std::string flowAccessor ="I";
+    std::string userDeclarations;
+    std::string userEvaluation;
     Loc exprLoc;
     // Go through value parameters, extract behavioral expression, check for redefinition
     // Extract optional discipline and accessors. 
@@ -891,7 +896,7 @@ behavioral
         exprLoc = pv.location();
         expr.extend(std::move(pv.val()), pv.location());
         haveExpr = true;
-        isCurrentSource = false;
+        type = BehavioralType::VoltageSource;
       } else if (pv.name()==iParamId || pv.name()==flowParamId) {
         if (haveExpr) {
           status.set(Status::Redefinition, "Behavioral source expression already defined.");
@@ -903,7 +908,19 @@ behavioral
         exprLoc = pv.location();
         expr.extend(std::move(pv.val()), pv.location());
         haveExpr = true;
-        isCurrentSource = true;
+        type = BehavioralType::CurrentSource;
+      } else if (pv.name()==exprParamId) {
+        if (haveExpr) {
+          status.set(Status::Redefinition, "Behavioral source expression already defined.");
+          status.extend(pv.location());
+          status.extend("Expression first defined here.");
+          status.extend(exprLoc);
+          YYERROR;
+        }
+        exprLoc = pv.location();
+        expr.extend(std::move(pv.val()), pv.location());
+        haveExpr = true;
+        type = BehavioralType::Expression;
       } else if (pv.name()==disciplineParamId) {
         // Must be a string vector with 3 components: discipline, potential accessor, flow accessor
         const Value& v = pv.val();
@@ -916,6 +933,24 @@ behavioral
         discipline = sv[0];
         potentialAccessor = sv[1];
         flowAccessor = sv[2];
+      } else if (pv.name()==declarationsParamId) {
+        // Must be a constant string
+        const Value& v = pv.val();
+        if (v.type()!=Value::Type::String) {
+          status.set(Status::BadArguments, "Parameter \"declarations\" must be a constant string.");
+          status.extend(pv.location());
+          YYERROR;
+        }
+        userDeclarations = v.val<const String>();
+      } else if (pv.name()==evaluationParamId) {
+        // Must be a constant string
+        const Value& v = pv.val();
+        if (v.type()!=Value::Type::String) {
+          status.set(Status::BadArguments, "Parameter \"evaluation\" must be a constant string.");
+          status.extend(pv.location());
+          YYERROR;
+        }
+        userEvaluation = v.val<const String>();
       } else {
         // Unknown parameter, error
         status.set(Status::BadArguments, "Unknown parameter \""+std::string(pv.name())+"\" for behavioral source instance.");
@@ -936,7 +971,7 @@ behavioral
           exprLoc = pe.location();
           expr = std::move(pe.rpn());
           haveExpr = true;
-          isCurrentSource = false;
+          type = BehavioralType::VoltageSource;
       } else if (pe.name()==iParamId || pe.name()==flowParamId) {
         if (haveExpr) {
           status.set(Status::Redefinition, "Behavioral source expression already defined.");
@@ -948,7 +983,19 @@ behavioral
         exprLoc = pe.location();
         expr = std::move(pe.rpn());
         haveExpr = true;
-        isCurrentSource = true;
+        type = BehavioralType::CurrentSource;
+      } else if (pe.name()==exprParamId) {
+        if (haveExpr) {
+          status.set(Status::Redefinition, "Behavioral source expression already defined.");
+          status.extend(pe.location());
+          status.extend("Expression first defined here.");
+          status.extend(exprLoc);
+          YYERROR;
+        }
+        exprLoc = pe.location();
+        expr = std::move(pe.rpn());
+        haveExpr = true;
+        type = BehavioralType::Expression;
       } else if (pe.name()==disciplineParamId) {
         // Error, discipline must be a constant string vector with 3 components
         status.set(Status::BadArguments, "Parameter \"discipline\" must be a constant string vector with 3 elements: discipline, potential accessor, flow accessor.");
@@ -967,18 +1014,33 @@ behavioral
       status.extend(@1.loc());
       YYERROR;
     }
-    $$ = std::move(PTBehavioral(
-        $1, 
-        std::move($3), 
-        std::move(expr), 
-        isCurrentSource, 
-        std::move(discipline), 
-        std::move(potentialAccessor), 
-        std::move(flowAccessor), 
-        @1.loc()
-    ));
+    PTBehavioral behav($1, std::move($3), @1.loc());
+    if (type==BehavioralType::CurrentSource) {
+      behav.setCurrent(std::move(expr));
+    } else if (type==BehavioralType::VoltageSource) {
+      behav.setVoltage(std::move(expr));
+    } else {
+      behav.setExpression(std::move(expr));
+    }
+    behav.setDiscipline(std::move(discipline), std::move(potentialAccessor), std::move(flowAccessor));
+    if (!userDeclarations.empty()) {
+      behav.setUserDeclarations(std::move(userDeclarations));
+    }
+    if (!userEvaluation.empty()) {
+      behav.setUserEvaluation(std::move(userEvaluation));
+    }
+    $$ = std::move(behav);
   }
-  
+
+behavioral
+  : behavioral_start NEWLINE {
+    $$ = std::move($1);
+  }
+  | behavioral_start COMMA opt_broken_parameter_list NEWLINE {
+    $$ = std::move($1);
+    $$.add(std::move($3.params));
+  }
+    
 model
   : MODEL IDENTIFIER IDENTIFIER NEWLINE {
     $$ = std::move(PTModel(

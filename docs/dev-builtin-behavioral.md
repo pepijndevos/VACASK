@@ -14,19 +14,46 @@ it is a distinct netlist syntax recognized directly by the parser.
 <name> (p n) potential=<expr>                              // same as v=
 <name> (p n) i=<expr>
 <name> (p n) flow=<expr>                                   // same as i=
-<name> (p n) v=<expr> discipline=["<discipline>", "<potential accessor>", "<flow accessor>"]
+<name> (p n) v=<expr> discipline=["<discipline>", "<potential accessor>", "<flow accessor>"] // Specifying the discipline
+<name> (p n) expr=<expr> declarations="<Verilog-A decls>" evaluation="<Verilog-A stmts>"
+<name> (p n) expr=<expr> declarations="<Verilog-A decls>" evaluation="<Verilog-A stmts>", <va-param>=<val> ... // Extra Verilog-A parameters
 ```
 
 A behavioral source instance takes exactly two terminals, `p n`, and no master/model name.
 The absence of a master name after the terminal list is what distinguishes a behavioral
-source line from a regular instance line. Exactly one of `v`/`potential` or `i`/`flow` must
-be given.
+source line from a regular instance line. Exactly one of `v`/`potential`, `i`/`flow`, or
+`expr` must be given.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `v`, `potential` | expression | - | Voltage-defining source: $V(p) - V(n) = \text{expr}$. Mutually exclusive with `i`/`flow`. |
-| `i`, `flow` | expression | - | Current-defining source: the current flowing from `p` to `n` through the device equals `expr`. Mutually exclusive with `v`/`potential`. |
+| `v`, `potential` | expression | - | Voltage-defining source: $V(p) - V(n) = \text{expr}$. Mutually exclusive with `i`/`flow`/`expr`. |
+| `i`, `flow` | expression | - | Current-defining source: the current flowing from `p` to `n` through the device equals `expr`. Mutually exclusive with `v`/`potential`/`expr`. |
+| `expr` | expression | - | Value made available to a custom `evaluation=` body through `#expr#`; see [Custom Verilog-A Body](#custom-verilog-a-body). Mutually exclusive with `v`/`potential`/`i`/`flow`. |
+| `declarations` | constant string | `""` | Verilog-A module-level declarations, spliced in as-is. Only meaningful together with `expr`. |
+| `evaluation` | constant string | `""` | Verilog-A analog-block statements, spliced in as-is, replacing the source's default contribution statement. Only meaningful together with `expr`. |
 | `discipline` | constant string vector[3] | `["electrical", "V", "I"]` | `[discipline name, potential accessor, flow accessor]`. See [Setting the Discipline](#setting-the-discipline). |
+
+A behavioral source instance line can be followed by a comma and a second parameter list,
+e.g. `<name> (p n) expr=<expr> ..., extra1=<val> extra2=<val>`. Parameters given this way are
+not interpreted by VACASK; they become ordinary parameters of the synthesized module (in
+addition to the ones auto-generated for the free identifiers referenced in `expr`/`v`/`i`),
+letting a `model`-style parameter override reach a `declarations=`-declared Verilog-A
+parameter. It is an error for a parameter given this way to collide by name with one
+VACASK already generated for a referenced identifier.
+
+Either parameter list -- the one before the comma or the one after it -- can be wrapped in
+its own parentheses (separate from the terminal-list parentheses), in which case newlines
+inside are ignored, letting a long parameter list span multiple lines:
+
+```text
+b1 (a 0) (
+  expr=v(a)*$userparam(p)
+  declarations="parameter real p=1; real val;"
+  evaluation="val = #expr#; I(br) <+ val;"
+), (
+  p=10
+)
+```
 
 ## How It Works
 
@@ -49,6 +76,15 @@ accessors are recognized:
 
 Each node or instance referenced this way is silently wired to the synthesized module as an
 extra terminal; it does not need to be one of the source's own two terminals.
+
+The synthesized module always ports the source's own two terminals as `__nt1`, `__nt2` (in
+`p n` order) and predeclares `branch (__nt1, __nt2) br;`, which is what the `v=`/`i=` paths
+themselves contribute to. Every extra terminal pulled in by `v(node)`/`v(nodeA, nodeB)`/
+`i(instance)` gets its own generated name, `__v<N>_<node>` or `__i<N>_<instance>` (`<N>` is an
+allocation index, not predictable from the source text); `print model(...)` on the
+synthesized module, or the generated `.va` file itself, shows the actual names in use. This
+matters directly when writing a custom `evaluation=` body -- see
+[Custom Verilog-A Body](#custom-verilog-a-body).
 
 ### Model and Instance Names
 
@@ -116,6 +152,69 @@ b5 (e 0) potential=$intparam(ip) + $realparam(rp) + p
 
 Here `ip` is declared as an `integer` parameter of the synthesized module, while `rp` and
 `p` are declared `real` (`p` uses the default).
+
+## Custom Verilog-A Body
+
+`expr=` switches a behavioral source into a third mode, distinct from `v=`/`potential=` and
+`i=`/`flow=`: instead of VACASK generating the contribution statement itself, `expr` is
+translated the same way any other behavioral expression is, but the result is only made
+available to a hand-written analog-block body through the literal placeholder `#expr#`,
+substituted textually (and parenthesized) into `evaluation`. `declarations` supplies
+matching module-level Verilog-A text (parameters, local variables) that `evaluation` can
+refer to.
+
+```text
+b1 (a 0) expr=v(a)*2 declarations="real val;" evaluation="val = #expr#; I(br) <+ val;"
+```
+
+`evaluation` is not optional in practice: if it is left empty, the synthesized analog block
+ends up empty too, so the instance contributes nothing at all. Both `declarations` and
+`evaluation` must be constant strings; there is no template mechanism beyond `#expr#`.
+
+### Writing contributions
+
+Because `declarations=`/`evaluation=` are Verilog-A text spliced directly into the
+synthesized module, they must refer to that module's own generated names, not the VACASK
+netlist names written on the source line:
+
+- The source's own two terminals are `__nt1`/`__nt2` (see
+  [How It Works](#how-it-works)); a branch alias `br` between them is already declared, so
+  `I(br) <+ ...`/`V(br) <+ ...` is the usual way to contribute across the source's own two
+  terminals, exactly like the built-in `v=`/`i=` paths do internally. Contributing directly
+  to `I(__nt1, __nt2)`/`V(__nt1, __nt2)` instead of `br` works too.
+- Any extra node or instance pulled in via `v(...)`/`i(...)` inside `expr` is only reachable
+  under its generated `__v<N>_...`/`__i<N>_...` name; check `print model(...)` or the
+  generated `.va` file for the actual name before referencing it from `evaluation`.
+
+### `$userparam` and manual declarations
+
+`$userparam(<name>)` takes a single bare identifier as its only argument and splices that
+identifier, unquoted, directly into the generated Verilog-A text, wherever it appears inside
+`expr`. This is different from an ordinary free identifier in `expr`, which VACASK
+auto-registers as a `real` module parameter under a generated name (`__p<N>_<name>`, not
+`<name>` itself) -- there is no way to predict that name from the source line, so
+hand-written `evaluation=`/`declarations=` text could not reliably refer to it.
+`$userparam(<name>)` sidesteps this: it does not auto-register `<name>` as anything, so
+`<name>` must already be in scope in the synthesized module by some other means -- normally
+because `declarations=` declares it explicitly, as a `parameter` or a local variable, under
+that exact name.
+
+```text
+b1 (a 0)
+(
+  expr=v(a)*$userparam(p)
+  declarations="parameter real p=1; real val;"
+  evaluation="val = #expr#; I(br) <+ val;"
+), p=10
+```
+
+`$userparam(p)` is spliced in as the bare identifier `p`, so `expr` translates to
+`V(__v0_a)*p` -- `v(a)` still gets its own generated extra terminal (as described in
+[Writing contributions](#writing-contributions)) even though node `a` also happens to be
+this source's own first terminal; `p` itself references the `parameter real p` that
+`declarations=` declares, not any netlist-level parameter, since none is declared here. The
+trailing `, p=10` (see [Syntax](#syntax)) sets that Verilog-A parameter's value to `10` for
+this one instance, the same way a `model` line sets any other device parameter.
 
 ## Setting the Discipline
 
