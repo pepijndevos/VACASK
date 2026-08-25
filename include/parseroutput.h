@@ -363,6 +363,23 @@ public:
     PTBehavioral& operator=(const PTBehavioral&)  = delete;
     PTBehavioral& operator=(      PTBehavioral&&) = default;
 
+    // Getters
+    inline const Loc& location() const { return loc; };
+    Id name() const { return instanceName_; };
+    const PTIdentifierList& connections() const { return connections_; };
+    const Rpn& expr() const { return expr_; };
+    Type type() const { return type_; };
+
+    const std::string& discipline() const { return discipline_; };
+    const std::string& potentialAccessor() const { return potentialAccessor_; };
+    const std::string& flowAccessor() const { return flowAccessor_; };
+    const std::string& userDeclarations() const { return userDeclarations_; };
+    const std::string& userEvaluation() const { return userEvaluation_; };
+    inline const PTParameters& parameters() const { return parameters_; };
+    inline PTParameters& parameters() { return parameters_; };
+
+    // Fluent API
+
     // Make it a current source
     PTBehavioral& setCurrent(Rpn&& expr) & { expr_ = std::move(expr); type_ = Type::CurrentSource; return *this; };
     PTBehavioral&& setCurrent(Rpn&& expr) && { return std::move(this->setCurrent(std::move(expr))); };
@@ -394,28 +411,13 @@ public:
     PTBehavioral& setUserEvaluation(std::string&& eval) & { userEvaluation_ = std::move(eval); return *this; };
     PTBehavioral&& setUserEvaluation(std::string&& eval) && { return std::move(this->setUserEvaluation(std::move(eval))); };
 
-    // Fluent API
+    // Parameters for overriding defaults in user declarations
     PTBehavioral& add(PTParameters&& par) & { parameters_.add(std::move(par)); return *this; };
     PTBehavioral& add(PTParameterValue&& v) & { parameters_.add(std::move(v)); return *this; };
     PTBehavioral& add(PTParameterExpression&& e) & { parameters_.add(std::move(e)); return *this; };
     PTBehavioral&& add(PTParameters&& par) && { return std::move(this->add(std::move(par))); };
     PTBehavioral&& add(PTParameterValue&& v) && { return std::move(this->add(std::move(v))); };
     PTBehavioral&& add(PTParameterExpression&& e) && { return std::move(this->add(std::move(e))); };
-
-    // Getters
-    inline const Loc& location() const { return loc; };
-    Id name() const { return instanceName_; };
-    const PTIdentifierList& connections() const { return connections_; };
-    const Rpn& expr() const { return expr_; };
-    Type type() const { return type_; };
-
-    const std::string& discipline() const { return discipline_; };
-    const std::string& potentialAccessor() const { return potentialAccessor_; };
-    const std::string& flowAccessor() const { return flowAccessor_; };
-    const std::string& userDeclarations() const { return userDeclarations_; };
-    const std::string& userEvaluation() const { return userEvaluation_; };
-    inline const PTParameters& parameters() const { return parameters_; };
-    inline PTParameters& parameters() { return parameters_; };
 
     void dump(int indent, std::ostream& os) const;
 
