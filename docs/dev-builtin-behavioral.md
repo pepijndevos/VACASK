@@ -260,8 +260,8 @@ expression.
 
 ## Special Identifiers
 
-`$temp` and `$scale` behave as documented in [Special Identifiers](expr-special.md) and can
-be used like in any other parameter expression. `$abstime` is available only inside
+`$temp`, `$tnom`, and `$scale` behave as documented in [Special Identifiers](expr-special.md)
+and can be used like in any other parameter expression. `$abstime` is available only inside
 behavioral source expressions; it maps to Verilog-A's `$abstime` and is meaningful only in
 a time-domain analysis. Referencing `$abstime` disables the bypass optimization for the
 underlying OSDI instance.
@@ -269,14 +269,22 @@ underlying OSDI instance.
 | Identifier | Description |
 |------------|-------------|
 | `$temp` | Ambient temperature (degC). |
+| `$tnom` | Device parameter measurement (nominal) temperature (degC). |
 | `$scale` | Global instance length scaling factor. |
 | `$abstime` | Absolute simulation time (s). Behavioral source only. |
 
 ```text
 b1 (t 0) v=$temp        // tracks the "temp" option
-b2 (s 0) v=$scale       // tracks the "scale" option
-b3 (abst 0) v=$abstime  // tracks simulation time in a transient analysis
+b2 (n 0) v=$tnom        // tracks the "tnom" option
+b3 (s 0) v=$scale       // tracks the "scale" option
+b4 (abst 0) v=$abstime  // tracks simulation time in a transient analysis
 ```
+
+`$temp` translates directly into Verilog-A (`($temperature-273.15)`). `$scale` and `$tnom` have no directly corresponding Verilog-A
+system function, so they translate to `$simparam("scale", 1)` and `$simparam("tnom", 27)` instead: the OSDI runtime
+populates the `"tnom"` simulator parameter from the live `tnom` option on every evaluation
+(see [Setting Simulator Options](cmd-options-set.md)), and `27` -- matching `tnom`'s own
+default -- is only the fallback `$simparam` uses if the parameter were ever unavailable.
 
 ## Operators
 

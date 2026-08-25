@@ -30,6 +30,7 @@ static Id  intParamId = Id::createStatic("$intparam");
 static Id  realParamId = Id::createStatic("$realparam");
 static Id  userParamId = Id::createStatic("$userparam");
 static Id  tempId = Id::createStatic("$temp");
+static Id  tnomId = Id::createStatic("$tnom");
 static Id  scaleId = Id::createStatic("$scale");
 static Id  abstimeId = Id::createStatic("$abstime");
 static Id  vId = Id::createStatic("v");
@@ -294,6 +295,10 @@ bool Rpn::verilogA(const std::string& discipline, const std::string& potAccess, 
                 Id name = e.get<Identifier>().name;
                 if (name==tempId) {
                     sstack.push_back({"($temperature-273.15)", false, idx});
+                    continue;
+                }
+                if (name==tnomId) {
+                    sstack.push_back({"$simparam(\"tnom\", 27)", false, idx});
                     continue;
                 }
                 if (name==scaleId) {

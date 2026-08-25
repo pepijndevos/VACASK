@@ -5,7 +5,7 @@
 | Name | Type | Default | Allowed | Description |
 |------|------|---------|---------|-------------|
 | `temp` | real | 27 | &ge;-273.15$ | Ambient temperature (°C). Exposed as `$temp`; re-evaluates all instance and model parameters that reference `$temp`. |
-| `tnom` | real | 27 | &ge;-273.15 | Device parameter measurement temperature (°C). Used as the reference temperature for model parameter extraction. |
+| `tnom` | real | 27 | &ge;-273.15 | Device parameter measurement temperature (°C). Used as the reference temperature for model parameter extraction. Exposed as `$tnom`; re-evaluates all instance and model parameters that reference `$tnom`. |
 
 ## Scale
 

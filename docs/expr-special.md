@@ -5,9 +5,10 @@ Special identifiers are predefined read-only names that reflect simulator state.
 | Identifier | Maps to option | Description |
 |------------|----------------|-------------|
 | `$temp` | `temp` | Ambient temperature (°C). |
+| `$tnom` | `tnom` | Device parameter measurement (nominal) temperature (°C). |
 | `$scale` | `scale` | Global instance length scaling factor. |
 
-Both identifiers track their corresponding simulator option. When `temp` or `scale` is changed with the `options` command, all parameterized expressions that reference `$temp` or `$scale` are re-evaluated. 
+All three identifiers track their corresponding simulator option. When `temp`, `tnom`, or `scale` is changed with the `options` command, all parameterized expressions that reference `$temp`, `$tnom`, or `$scale` are re-evaluated. 
 
 A special identifier can be shadowed by defining a circuit variable or a parameter with the same name. 
 

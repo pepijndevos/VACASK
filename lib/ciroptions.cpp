@@ -122,6 +122,7 @@ OptionsResolver::OptionsResolver(IStruct<SimulatorOptions>& opt) : opt(opt) {
     size_t ii = 0;
     for(auto it : std::initializer_list<std::tuple<Id, Id>>{
         { "$temp",  "temp" },
+        { "$tnom",  "tnom" },
         { "$scale", "scale" },
     } ) {
         // Look up parameter id in options structure
