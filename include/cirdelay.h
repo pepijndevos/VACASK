@@ -24,6 +24,7 @@ public:
     void scale(GlobalStorageIndex n) {
         inputUnknown_.resize(n);
         outputUnknown_.resize(n);
+        delay_.resize(n);
         maxDelay_.resize(n);
     };
 
