@@ -122,9 +122,6 @@ plt.show()
         exit(1);
     }
 
-    // Use Verilog-A nature tolerance, ignore SPICE tolerances
-    cir.setOption("tolmode", "va");
-
     // Elaborate default toplevel circuit
     if (!cir.elaborate({}, "__topdef__", "__topinst__", nullptr, s)) {
         Simulator::err() << "Elaboration failed.\n";
