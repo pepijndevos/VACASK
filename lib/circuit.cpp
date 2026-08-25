@@ -1131,15 +1131,15 @@ bool Circuit::collapseNodes(Node* n1, Node* n2, Status& s) {
     return true;
 }
 
-bool Circuit::checkDeviceFeatures(Device::Flags f, Device::Flags exceptions, Status& s) {
+bool Circuit::usesIllegalDeviceFeatures(Device::Flags prohibitedFeatures, Device::Flags exceptions, Status& s) {
     for(size_t i=0; i<deviceCount(); i++) {
         auto* d = device(i);
         if (d->anyFlags(exceptions)) {
             continue;
         }
-        if (d->instanceCount()>0 && d->anyFlags(f)) {
+        if (d->instanceCount()>0 && d->anyFlags(prohibitedFeatures)) {
             s.set(Status::Unsupported, "Device '"+std::string(d->name())+"' uses unsupported features");
-            auto matched = d->flags() & f;
+            auto matched = d->flags() & prohibitedFeatures;
             std::string txt;
             if (bool(matched & DeviceFlags::Absdelay)) {
                 txt += std::string((txt.size() ? ", " : "")) + "delay";
@@ -1151,10 +1151,10 @@ bool Circuit::checkDeviceFeatures(Device::Flags f, Device::Flags exceptions, Sta
                 txt += std::string((txt.size() ? ", " : "")) + "depends on time";
             }
             s.extend("  "+txt);
-            return false;
+            return true;
         }
     }
-    return true;
+    return false;
 }
 
 std::tuple<bool, bool> Circuit::createJacobianEntry(Node* ne, Node* nu, EntryFlags f, Status& s) {

@@ -72,7 +72,7 @@ bool PssCore::rebuild(Status& s) {
     auto& options = circuit.simulatorOptions().core();
     
     // Check if any device has delays
-    if (!circuit.checkDeviceFeatures(DeviceFlags::Absdelay, DeviceFlags::None, s)) {
+    if (circuit.usesIllegalDeviceFeatures(DeviceFlags::Absdelay, DeviceFlags::None, s)) {
         return false;
     }
 
