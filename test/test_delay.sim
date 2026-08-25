@@ -1,0 +1,43 @@
+Voltage divider followed by a voltage-to-voltage absdelay element
+
+ground 0
+
+load "resistor.osdi"
+load "vdelay.va"
+
+model resistor resistor
+model vsrc vsource
+model dly vdelay
+
+v1 (in 0) vsrc dc=0
+r1 (in mid) resistor r=1k
+r2 (mid 0) resistor r=1k
+dly1 (out mid) dly td=1m maxdelay=10m
+
+control
+  abort always
+
+  print unknowns
+  options op_debug=0
+
+  sweep vin instance="v1" parameter="dc" from=-1 to=1 step=0.1
+    analysis op1 op
+endc
+
+embed "vdelay.va" <<<FILE
+`include "constants.vams"
+`include "disciplines.vams"
+
+module vdelay(out, in);
+    inout out, in;
+    electrical out, in;
+
+    branch (out) br_out;
+
+    parameter real td = 1m from (0:inf);
+    
+    analog begin
+        V(br_out) <+ absdelay(V(in), td);
+    end
+endmodule
+>>>FILE

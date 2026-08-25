@@ -43,6 +43,10 @@ enum class DeviceFlags : uint16_t {
     Bypassable = 16, 
     // Uses absdelay
     Absdelay = 32, 
+    // Uses variable absdelay
+    VariableAbsdelay = 64, 
+    // Depends on $abstime
+    UsesAbstime = 128, 
 };
 DEFINE_FLAG_OPERATORS(DeviceFlags);
 

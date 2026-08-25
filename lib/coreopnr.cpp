@@ -160,9 +160,11 @@ std::tuple<bool, bool> PreprocessedUserForces::set(Circuit& circuit, ValueVector
 OpNRSolver::OpNRSolver(
     Circuit& circuit, CommonData& commons, KluRealMatrix& jac, 
     VectorRepository<double>& states, VectorRepository<double>& solution, 
+    DelayLines* delayLines, DelayMatrixBindings<double*>* delayBindings, 
     NRSettings& settings, Int forcesSize
 ) : circuit(circuit), commons(commons), states(states), 
-    NRSolver(circuit.tables().accounting(), jac, solution, settings, 1) {
+    NRSolver(circuit.tables().accounting(), jac, solution, settings, 1), 
+    delayLines_(delayLines), delayBindings_(delayBindings) {
     // Bucket size is 1
     // Slot 0 is for sweep continuation and homotopy (set via CoreStateStorage object)
     // Slot 1 is 
@@ -189,6 +191,8 @@ OpNRSolver::OpNRSolver(
     loadSetup_ = LoadSetup {
         .states = &states, 
         .loadResistiveJacobian = true, 
+        .delayLines_ = delayLines_, 
+        .firstTimepoint = true
     };
 }
 
@@ -720,6 +724,29 @@ std::tuple<bool, bool> OpNRSolver::buildSystem(bool continuePrevious) {
         errorIteration = iteration;
         return std::make_tuple(false, evalSetup_.limitingApplied);
     }
+
+    // Load delay line contributions
+    auto nDelay = circuit.delayHistoryCount();
+    if (delayLines_ && nDelay>0) {
+        // Get old solution
+        auto& oldSolution = solution.vector();    
+        for(decltype(nDelay) i=0; i<nDelay; i++) {
+            // Get input and output unknowns
+            auto inU = delayLines_->inputUnknown(i);
+            auto outU = delayLines_->outputUnknown(i);
+            // Equation -out + in = 0
+            // Compute residual, store it
+            auto delRes = -oldSolution[outU] + oldSolution[inU];
+            delta[outU] = delRes;
+            // Get Jacobian Pointers
+            auto [outIn, outOut] = (*delayBindings_)[i];
+            // Load Jacobian
+            *outIn += 1;
+            *outOut += -1;
+        }
+    }
+
+    // Bucket is 0
     delta[0] = 0.0;
 
     // Now load gshunt if it is greater than 0.0

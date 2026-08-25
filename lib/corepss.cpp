@@ -70,6 +70,12 @@ bool PssCore::addDefaultOutputDescriptors(Status& s) {
 
 bool PssCore::rebuild(Status& s) {
     auto& options = circuit.simulatorOptions().core();
+    
+    // Check if any device has delays
+    if (!circuit.checkDeviceFeatures(DeviceFlags::Absdelay, DeviceFlags::None, s)) {
+        return false;
+    }
+
     // Tran IC forces
     stabilTran_.solver().setForcesFactor(3, options.nr_force);
     // OP IC forces

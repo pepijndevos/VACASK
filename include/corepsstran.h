@@ -109,7 +109,9 @@ public:
         KluRealMatrix& jacobian,
         VectorRepository<double>& opSolution,
         VectorRepository<double>& solution,
-        VectorRepository<double>& states
+        VectorRepository<double>& states, 
+        DelayLines& delayLines, 
+        DelayMatrixBindings<double*>& delayBindings 
     );
 
     PssTranCore           (const PssTranCore&)  = delete;

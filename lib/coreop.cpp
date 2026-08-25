@@ -28,10 +28,11 @@ instantiateIntrospection(OperatingPointParameters);
 OperatingPointCore::OperatingPointCore(
     OutputDescriptorResolver& parentResolver, OperatingPointParameters& params, Circuit& circuit, 
     CommonData& commons, 
-    KluRealMatrix& jacobian, VectorRepository<double>& solution, VectorRepository<double>& states
+    KluRealMatrix& jacobian, VectorRepository<double>& solution, VectorRepository<double>& states, 
+    DelayLines& delayLines, DelayMatrixBindings<double*>& delayBindings
 ) : AnalysisCore(parentResolver, circuit, commons), params(params), outfile(nullptr), 
-      nrSolver(circuit, commons, jacobian, states, solution, nrSettings), 
-      jac(jacobian), solution(solution), states(states), 
+      jac(jacobian), solution(solution), states(states), delayLines_(delayLines), delayBindings_(delayBindings), 
+      nrSolver(circuit, commons, jacobian, states, solution, &delayLines_, &delayBindings_, nrSettings), 
       converged_(false), continueState(nullptr), nodesetsMasterSwitch(true) {
 }
 
@@ -207,9 +208,18 @@ bool OperatingPointCore::populateStructures(Status& s) {
 
 bool OperatingPointCore::rebuild(Status& s) {
     clearError();
-    // Bind Jacobian entries
+    
+    // Size delay line information
+    delayLines_.scale(circuit.delayHistoryCount());
+    
+    // Bind Jacobian entries, bind delay line inputs and outputs
     // Resistive parts bound to entries of jac, reactive parts not bound
-    if (!circuit.bind(&jac, Component::Real, std::nullopt, nullptr, Component::Real, std::nullopt, nullptr, s)) {
+    if (!circuit.bind(&jac, Component::Real, std::nullopt, nullptr, Component::Real, std::nullopt, &delayLines_, s)) {
+        return false;
+    }
+
+    // Bind to delay line matrix entries
+    if (!delayLines_.bindToMatrix(jac, std::nullopt, delayBindings_, s)) {
         return false;
     }
 

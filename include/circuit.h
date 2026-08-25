@@ -207,6 +207,10 @@ public:
         );
     };
 
+    // Checks device flags, returns true if any of the flags is set for a device with nonzero instances
+    // Devices with any of the exceptions flags set are exempt from check. 
+    bool checkDeviceFeatures(Device::Flags f, Device::Flags exceptions, Status& s=Status::ignore);
+
     // Clear circuit (return to the state that existed immediately after the constructor was called)
     void clear();
 

@@ -1131,6 +1131,32 @@ bool Circuit::collapseNodes(Node* n1, Node* n2, Status& s) {
     return true;
 }
 
+bool Circuit::checkDeviceFeatures(Device::Flags f, Device::Flags exceptions, Status& s) {
+    for(size_t i=0; i<deviceCount(); i++) {
+        auto* d = device(i);
+        if (d->anyFlags(exceptions)) {
+            continue;
+        }
+        if (d->instanceCount()>0 && d->anyFlags(f)) {
+            s.set(Status::Unsupported, "Device '"+std::string(d->name())+"' uses unsupported features");
+            auto matched = d->flags() & f;
+            std::string txt;
+            if (bool(matched & DeviceFlags::Absdelay)) {
+                txt += std::string((txt.size() ? ", " : "")) + "delay";
+            }
+            if (bool(matched & DeviceFlags::VariableAbsdelay)) {
+                txt += std::string((txt.size() ? ", " : "")) + "variable delay";
+            }
+            if (bool(matched & DeviceFlags::UsesAbstime)) {
+                txt += std::string((txt.size() ? ", " : "")) + "depends on time";
+            }
+            s.extend("  "+txt);
+            return false;
+        }
+    }
+    return true;
+}
+
 std::tuple<bool, bool> Circuit::createJacobianEntry(Node* ne, Node* nu, EntryFlags f, Status& s) {
     // Map nodes to equation, unknown pair
     auto e = ne->unknownIndex();
@@ -1320,6 +1346,7 @@ bool Circuit::buildSparsityAndStates(Status& s) {
     // Create Jacobian entries, allocate state vector slots
     statesCount_ = 0;
     deviceStatesCount_ = 0;
+    delayHistoryCount_ = 0;
     for(auto& dev : devices) {
         if (!dev.get()->populateStructures(*this, s)) {
             return false;

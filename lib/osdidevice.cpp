@@ -22,6 +22,12 @@ OsdiDevice::OsdiDevice(OsdiFile* of, int descriptorIndex, Id asName, Loc locatio
     if (absdelayCount()>0) {
         setFlags(Flags::Absdelay);
     }
+    if (osdiFile->variableAbsdelay(index_)) {
+        setFlags(Flags::VariableAbsdelay);
+    }
+    if (osdiFile->usesAbstime(index_)) {
+        setFlags(Flags::UsesAbstime);
+    }
 }
 
 bool OsdiDevice::operator==(const Device& other) const & {

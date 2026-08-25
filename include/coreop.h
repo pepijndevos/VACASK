@@ -59,7 +59,8 @@ public:
     OperatingPointCore(
         OutputDescriptorResolver& parentResolver, OperatingPointParameters& params, Circuit& circuit, 
         CommonData& commons, 
-        KluRealMatrix& jacobian, VectorRepository<double>& solution, VectorRepository<double>& states
+        KluRealMatrix& jacobian, VectorRepository<double>& solution, VectorRepository<double>& states, 
+        DelayLines& delayLines, DelayMatrixBindings<double*>& delayBindings
     ); 
     ~OperatingPointCore();
     
@@ -113,6 +114,9 @@ protected:
     KluRealMatrix& jac; // Resistive Jacobian
     VectorRepository<double>& solution; // Solution history
     VectorRepository<double>& states; // Circuit states
+
+    DelayLines& delayLines_;
+    DelayMatrixBindings<double*>& delayBindings_;
 
     CoreStateStorage* continueState;
 

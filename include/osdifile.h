@@ -248,6 +248,12 @@ public:
     // Does the device allow bypass
     bool allowsBypass(OsdiDeviceIndex deviceIndex) const { return allowsBypass_[deviceIndex]; };
 
+    // Does the device have at least one absdelay with a variable (runtime-computed) maxdelay
+    bool variableAbsdelay(OsdiDeviceIndex deviceIndex) const { return variableAbsdelay_[deviceIndex]; };
+
+    // Does the device use $abstime
+    bool usesAbstime(OsdiDeviceIndex deviceIndex) const { return descriptors[deviceIndex]->module_flags & MODULEFLAG_ABSTIME; };
+
     // Access to nonzero entry indices
     auto& nonzeroResistiveResiduals(OsdiDeviceIndex deviceIndex) { return nonzeroResistiveResNdx[deviceIndex]; };
     auto& nonzeroReactiveResiduals(OsdiDeviceIndex deviceIndex) { return nonzeroReactiveResNdx[deviceIndex]; };
@@ -425,6 +431,9 @@ private:
 
     // Vector of allows bypass flags
     std::vector<bool> allowsBypass_;
+
+    // Vector of variable absdelay flags
+    std::vector<bool> variableAbsdelay_;
 
     // Limit functions
     static const OsdiLimitFunction limitFunctionTable[];

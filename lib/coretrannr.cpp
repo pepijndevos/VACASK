@@ -9,10 +9,13 @@ namespace NAMESPACE {
 TranNRSolver::TranNRSolver(
     Circuit& circuit, CommonData& commons, KluRealMatrix& jac, 
     VectorRepository<double>& states, VectorRepository<double>& solution, 
+    DelayLines* delayLines, DelayMatrixBindings<double*>* delayBindings, 
     NRSettings& settings, IntegratorCoeffs& integCoeffs
-) : OpNRSolver(circuit, commons, jac, states, solution, settings, 3), 
+) : OpNRSolver(circuit, commons, jac, states, solution, nullptr, nullptr, settings, 3), 
+    // Delay information is nullptr. Op NR solver does not handle delays. We handle them. 
     integCoeffs(&integCoeffs), noiseEnabled(false), 
-    whiteBlock(nullptr), flickerBlock(nullptr) {
+    whiteBlock(nullptr), flickerBlock(nullptr), 
+    tranDelayLines_(delayLines), tranDelayBindings_(delayBindings) {
     // TranNRSolver has 2 force slots
     // 0 .. continuation nodesets for sweep and homotopy
     //      cannot contain branch forces

@@ -6,7 +6,7 @@ namespace NAMESPACE {
 
 template<> SmallSignal<DCXFCore, DCXFData>::SmallSignal(const std::string& name, Circuit& circuit, PTAnalysis& ptAnalysis) 
     : Analysis(name, circuit, ptAnalysis), 
-      opCore(*this, params.core().opParams, circuit, commons, jac, solution, states), 
+      opCore(*this, params.core().opParams, circuit, commons, jac, solution, states, delayLines_, opDelayBindings_), 
       smsigCore(*this, params.core(), opCore, sourceIndex, circuit, commons, jac, incrementalSolution, sources, tf, yin, zin) {
 }
 

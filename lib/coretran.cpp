@@ -254,10 +254,11 @@ TranCore::TranCore(
     OutputDescriptorResolver& parentResolver, TranParameters& params, OperatingPointCore& opCore, 
     Circuit& circuit, CommonData& commons, 
     KluRealMatrix& jacobian, VectorRepository<double>& opSolution, VectorRepository<double>& solution, 
-    VectorRepository<double>& states
+    VectorRepository<double>& states, 
+    DelayLines& delayLines, DelayMatrixBindings<double*>& delayBindings
 ) : AnalysisCore(parentResolver, circuit, commons), params(params), outfile(nullptr), opCore_(opCore), 
     jacobian(jacobian), opSolution(opSolution), solution(solution), states(states), 
-    nrSolver(circuit, commons, jacobian, states, solution, nrSettings, integCoeffs), 
+    nrSolver(circuit, commons, jacobian, states, solution, &delayLines, &delayBindings, nrSettings, integCoeffs), 
     icForcesSlot(2) { 
     // Slots 0 (current) and -1 (future) are used for the NR solver
     // Slots 1, 2, ... correspond to past values (at t_{k}, t_{k-1}, ...)

@@ -17,6 +17,7 @@ public:
     TranNRSolver(
         Circuit& circuit, CommonData& commons, KluRealMatrix& jac, 
         VectorRepository<double>& states, VectorRepository<double>& solution, 
+        DelayLines* delayLines, DelayMatrixBindings<double*>* delayBindings, 
         NRSettings& settings, IntegratorCoeffs& integCoeffs
     ); 
 
@@ -94,6 +95,10 @@ private:
     RealVector flickerScaling;
     RealVector noiseResidual;
     double noiseScale_;
+
+    // Delay handling
+    DelayLines* tranDelayLines_;
+    DelayMatrixBindings<double*>* tranDelayBindings_;
     
     // Shared mutable scratch for noise loading.
     // Pre-OpenMP gate: before enabling parallel evaluation, audit TranNRSolver for

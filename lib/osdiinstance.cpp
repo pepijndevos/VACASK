@@ -578,7 +578,23 @@ bool OsdiInstance::populateStructuresCore(Circuit& circuit, Status& s) {
     // Reserve delay history entries
     auto delayCount = model()->device()->absdelayCount();
     offsDelayHistory = circuit.allocateDelayHistory(delayCount);
-    
+
+    // Loop through delays, create (out, in) and (out, out) sparsity pattern entries
+    for(decltype(delayCount) i=0; i<delayCount; i++) {
+        // y_node is input, z_node is output (same convention as bindCore())
+        auto nin = nodes_[descr->absdelays[i].y_node];
+        auto nout = nodes_[descr->absdelays[i].z_node];
+        // Entries are considered resistive. Complex matrices should be a union of resistive 
+        // and reactive entries. At this point real matrices (resistive or reactive) have 
+        // the same sparsity pattern (union of both) as complex matrices. 
+        if (auto [_, ok] = circuit.createJacobianEntry(nout, nin, EntryFlags::Resistive, s); !ok) {
+            return false;
+        }
+        if (auto [_, ok] = circuit.createJacobianEntry(nout, nout, EntryFlags::Resistive, s); !ok) {
+            return false;
+        }
+    }
+
     // Increment residual contribution counters
     auto nodeCount = descr->num_nodes;
     for(decltype(nodeCount) i=0; i<nodeCount; i++) {
@@ -649,7 +665,9 @@ bool OsdiInstance::bindCore(
         }
     }
 
-    // Bind delay lines
+    // Bind delay lines, binding to matrix elements will be done by analyses. 
+    // Analyses are resposible for computing and filling these entries. 
+    // Therefore analyses are the ones that actually bind to matrix elements. 
     if (delayLines) {
         auto n = model()->device()->absdelayCount();
         auto atLine = offsDelayHistory;
@@ -657,7 +675,9 @@ bool OsdiInstance::bindCore(
             // y_node is input, z_node is output
             auto nin = nodes_[descr->absdelays[i].y_node];
             auto nout = nodes_[descr->absdelays[i].z_node];
-            delayLines->bind(atLine, nin->unknownIndex(), nout->unknownIndex());
+            if (!delayLines->bindToUnknowns(atLine, nin->unknownIndex(), nout->unknownIndex(), s)) {
+                return false;
+            }
         }
     }
     return true;
@@ -1596,6 +1616,37 @@ bool OsdiInstance::loadCore(Circuit& circuit, CommonData& commons, LoadSetup& lo
             }
             // Go to next node
             nodeStateIndex += 2;
+        }
+    }
+
+    // Load delay line delays and maxdelays
+    if (loadSetup.delayLines_) {
+        // Go through all delays
+        auto n = descr->absdelay_count;
+        for(decltype(n) i=0; i<n; i++) {
+            // Compute global index
+            GlobalStorageIndex delayNdx = offsDelayHistory + i;
+            // delay
+            auto offs = descr->absdelays[i].td_offset;
+            auto td = *getDataPtr<double*>(core(), offs);
+            // max delay
+            auto maxDelayOffs = descr->absdelays[i].maxdelay_offset;
+            if (maxDelayOffs!=UINT32_MAX) {
+                // Variable delay
+                auto maxDelay = *getDataPtr<double*>(core(), maxDelayOffs);
+                // If this is the first timepoint store maxdelay
+                if (loadSetup.firstTimepoint) {
+                    loadSetup.delayLines_[delayNdx].setMaxDelay(delayNdx, maxDelay);
+                }
+                // Store delay always
+                loadSetup.delayLines_[delayNdx].setDelay(delayNdx, td);
+            } else {
+                // No maxdelay, delay is determined at first timepoint
+                if (loadSetup.firstTimepoint) {
+                    loadSetup.delayLines_[delayNdx].setDelay(delayNdx, td);
+                    loadSetup.delayLines_[delayNdx].setMaxDelay(delayNdx, td);
+                }
+            }
         }
     }
 

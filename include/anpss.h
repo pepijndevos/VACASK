@@ -67,6 +67,10 @@ private:
     VectorRepository<double> solution_;
     VectorRepository<double> states_;
 
+    // Dummies to make opCore happy
+    DelayLines delayLines_; 
+    DelayMatrixBindings<double*> delayBindings_;
+
     OperatingPointCore opCore_;
     TranCore           stabilTran_;
     PssTranCore        pssTran_;

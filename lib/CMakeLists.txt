@@ -61,6 +61,7 @@ add_library(simlib STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/node.h
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/introspection.h
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/circuit.h 
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include/cirdelay.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/openvafcomp.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/klumatrix.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/klubsmatrix.h 
@@ -153,7 +154,8 @@ add_library(simlib STATIC
     natures.cpp
     node.cpp
     circuit.cpp
-    openvafcomp.cpp 
+    cirdelay.cpp
+    openvafcomp.cpp
     ciroptions.cpp 
     cirvariables.cpp 
     cirparams.cpp

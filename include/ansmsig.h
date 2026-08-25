@@ -108,6 +108,9 @@ protected:
     KluRealMatrix jac; // Resistive Jacobian
     VectorRepository<double> solution; // Solution history
     VectorRepository<double> states; // Circuit states
+    DelayLines delayLines_;
+    DelayMatrixBindings<double*> opDelayBindings_;
+    DelayMatrixBindings<Complex*> smsigDelayBindings_;
 
     OperatingPointCore opCore;
     CoreClass smsigCore;

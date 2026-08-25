@@ -70,6 +70,9 @@ private:
     VectorRepository<double> solution; // Solution history
     VectorRepository<double> states; // Circuit states
 
+    DelayLines delayLines_;
+    DelayMatrixBindings<double*> delayBindings_;
+
     OperatingPointCore opCore;
     TranCore tranCore;
 };

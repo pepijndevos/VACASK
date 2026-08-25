@@ -99,7 +99,8 @@ public:
         OutputDescriptorResolver& parentResolver, TranParameters& params, OperatingPointCore& opCore, 
         Circuit& circuit, CommonData& commons, 
         KluRealMatrix& jacobian, VectorRepository<double>& opSolution, VectorRepository<double>& solution, 
-        VectorRepository<double>& states
+        VectorRepository<double>& states, 
+        DelayLines& delayLines, DelayMatrixBindings<double*>& delayBindings 
     ); 
     ~TranCore();
     

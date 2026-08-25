@@ -208,6 +208,7 @@ OsdiFile::OsdiFile(void* handle_, std::string file_, Status& s)
     nodeNameLists.resize(descriptorCount);
     nodeMaps.resize(descriptorCount);
     allowsBypass_.resize(descriptorCount);
+    variableAbsdelay_.resize(descriptorCount);
     for(int i=0; i<descriptorCount; i++) {
         OsdiDescriptor* desc = descriptors[i];
         // Check if device allows bypass. Bypass is not allowed if
@@ -225,7 +226,17 @@ OsdiFile::OsdiFile(void* handle_, std::string file_, Status& s)
         if (absdelayCount(i)>0) {
             allowBypass = false;
         }
+        // Loop through absdelays, check if there is one that is variable (maxDelay)
+        bool variableAbsdelayFound = false;
+        for(decltype(desc->absdelay_count) j=0; j<desc->absdelay_count; j++) {
+            if (desc->absdelays[j].maxdelay_offset!=UINT32_MAX) {
+                variableAbsdelayFound = true;
+                break;
+            }
+        }
+
         allowsBypass_[i] = allowBypass;
+        variableAbsdelay_[i] = variableAbsdelayFound;
 
         auto& translator = paramOsdiIdTranslators[i];
         osdiIdSimInstIdLists[i].resize(desc->num_params+desc->num_opvars);

@@ -59,6 +59,7 @@ public:
     OpNRSolver(
         Circuit& circuit, CommonData& commons, KluRealMatrix& jac, 
         VectorRepository<double>& states, VectorRepository<double>& solution, 
+        DelayLines* delayLines, DelayMatrixBindings<double*>* delayBindings, 
         NRSettings& settings, Int forcesSize=2
     ); 
 
@@ -143,6 +144,9 @@ protected:
     
     EvalSetup evalSetup_;
     LoadSetup loadSetup_;
+
+    DelayLines* delayLines_;
+    DelayMatrixBindings<double*>* delayBindings_;
     
     // Passed from outside
     Circuit& circuit;

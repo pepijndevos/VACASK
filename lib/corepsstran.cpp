@@ -23,9 +23,11 @@ PssTranCore::PssTranCore(
     KluRealMatrix& jacobian,
     VectorRepository<double>& opSolution,
     VectorRepository<double>& solution,
-    VectorRepository<double>& states
+    VectorRepository<double>& states, 
+    DelayLines& delayLines, 
+    DelayMatrixBindings<double*>& delayBindings 
 ) : TranCore(parentResolver, params, opCore, circuit, commons,
-             jacobian, opSolution, solution, states),
+             jacobian, opSolution, solution, states, delayLines, delayBindings),
     phiValid_(false),
     captureTrajectory_(false) {
 }
