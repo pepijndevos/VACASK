@@ -84,14 +84,15 @@ public:
     };
     
     NoiseCore(
-        OutputDescriptorResolver& parentResolver, NoiseParameters& params, OperatingPointCore& opCore, 
-        std::unordered_map<std::pair<Id, Id>, size_t>& contributionOffset, 
-        Circuit& circuit, CommonData& commons, 
-        KluRealMatrix& dcJacobian, VectorRepository<double>& dcSolution, VectorRepository<double>& dcStates, 
-        KluComplexMatrix& acMatrix, Vector<Complex>& acSolution, 
-        
-        Vector<double>& results, double& powerGain, double& outputNoise
-    ); 
+        OutputDescriptorResolver& parentResolver, NoiseParameters& params, OperatingPointCore& opCore,
+        std::unordered_map<std::pair<Id, Id>, size_t>& contributionOffset,
+        Circuit& circuit, CommonData& commons,
+        KluRealMatrix& dcJacobian, VectorRepository<double>& dcSolution, VectorRepository<double>& dcStates,
+        KluComplexMatrix& acMatrix, Vector<Complex>& acSolution,
+
+        Vector<double>& results, double& powerGain, double& outputNoise,
+        DelayLines& delayLines, DelayMatrixBindings<Complex*>& delayBindings
+    );
     ~NoiseCore();
     
     NoiseCore           (const NoiseCore&)  = delete;
@@ -145,6 +146,9 @@ protected:
     double& outputNoise;
     
     NoiseParameters& params;
+
+    DelayLines& delayLines_;
+    DelayMatrixBindings<Complex*>& delayBindings_;
 
     double frequency;
 };

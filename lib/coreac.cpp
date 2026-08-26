@@ -37,10 +37,11 @@ ACCore::ACCore(
     OutputDescriptorResolver& parentResolver, ACParameters& params, OperatingPointCore& opCore, Circuit& circuit, 
     CommonData& commons, 
     KluRealMatrix& dcJacobian, VectorRepository<double>& dcSolution, VectorRepository<double>& dcStates, 
-    KluComplexMatrix& acMatrix, Vector<Complex>& acSolution
+    KluComplexMatrix& acMatrix, Vector<Complex>& acSolution, 
+    DelayLines& delayLines, DelayMatrixBindings<Complex*>& delayBindings
 ) : AnalysisCore(parentResolver, circuit, commons), params(params), outfile(nullptr), opCore_(opCore), 
     dcSolution(dcSolution), dcStates(dcStates), dcJacobian(dcJacobian), 
-    acMatrix(acMatrix), acSolution(acSolution) {
+    acMatrix(acMatrix), acSolution(acSolution), delayLines_(delayLines), delayBindings_(delayBindings) {
     
     // Set analysis type for the initial operating point analysis
     auto& elsSystem = opCore_.solver().evalSetup();
@@ -149,6 +150,14 @@ bool ACCore::rebuild(Status& s) {
     // AC analysis matrix
     if (!acMatrix.rebuild(circuit.sparsityMap(), circuit.unknownCount())) {
         setError(AcError::MatrixError);
+        return false;
+    }
+
+    // Size delay line information (already done by op core)
+    // delayLines_.scale(circuit.delayHistoryCount());
+
+    // Bind to matrix
+    if (!delayLines_.bindToMatrix(acMatrix, std::nullopt, delayBindings_, s)) {
         return false;
     }
     
@@ -311,6 +320,25 @@ CoreCoroutine ACCore::coroutine(bool continuePrevious) {
             error = true;
             break;
         }
+
+        // Load delay line contributions
+        auto nDelay = circuit.delayHistoryCount();
+        if (nDelay>0) {
+            for(decltype(nDelay) i=0; i<nDelay; i++) {
+                // Get input and output unknowns
+                auto inU = delayLines_.inputUnknown(i);
+                auto outU = delayLines_.outputUnknown(i);
+                // Equation -out + exp(-j w delay) in = 0
+                // Get Jacobian Pointers
+                auto [outIn, outOut] = delayBindings_[i];
+                // Load Jacobian, set values, not add because we are the sole contributor to this equation
+                // Also op Jacobian left a real value in outIn which should be overwritten
+                *outIn = std::exp(Complex(0, - omega * delayLines_.delay(i)));
+                // outOut is kept as loaded by op 
+            }
+        }
+
+        // Set bucket to 0
         acSolution[0] = 0.0;
 
         // Change sign of residual because it is on the RHS

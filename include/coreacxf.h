@@ -83,7 +83,8 @@ public:
         Circuit& circuit, CommonData& commons, 
         KluRealMatrix& dcJacobian, VectorRepository<double>& dcSolution, VectorRepository<double>& dcStates, 
         KluComplexMatrix& acMatrix, Vector<Complex>& acSolution, 
-        std::vector<Instance*>& sources, Vector<Complex>& tf, Vector<Complex>& yin, Vector<Complex>& zin
+        std::vector<Instance*>& sources, Vector<Complex>& tf, Vector<Complex>& yin, Vector<Complex>& zin, 
+        DelayLines& delayLines, DelayMatrixBindings<Complex*>& delayBindings
     ); 
     ~ACXFCore();
     
@@ -136,6 +137,9 @@ protected:
     Vector<Complex>& zin;
 
     ACXFParameters& params;
+
+    DelayLines& delayLines_;
+    DelayMatrixBindings<Complex*>& delayBindings_;
 
     double frequency;
 };

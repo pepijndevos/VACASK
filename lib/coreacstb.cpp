@@ -35,13 +35,15 @@ instantiateIntrospection(ACStbParameters);
 
 
 ACStbCore::ACStbCore(
-    OutputDescriptorResolver& parentResolver, ACStbParameters& params, OperatingPointCore& opCore, Circuit& circuit, 
-    CommonData& commons, 
-    KluRealMatrix& dcJacobian, VectorRepository<double>& dcSolution, VectorRepository<double>& dcStates, 
-    KluComplexMatrix& acMatrix, Vector<Complex>& acSolution, Vector<Complex>& resultsVector
-) : AnalysisCore(parentResolver, circuit, commons), params(params), outfile(nullptr), opCore_(opCore), 
-    dcSolution(dcSolution), dcStates(dcStates), dcJacobian(dcJacobian), 
-    acMatrix(acMatrix), acSolution(acSolution), resultsVector(resultsVector) {
+    OutputDescriptorResolver& parentResolver, ACStbParameters& params, OperatingPointCore& opCore, Circuit& circuit,
+    CommonData& commons,
+    KluRealMatrix& dcJacobian, VectorRepository<double>& dcSolution, VectorRepository<double>& dcStates,
+    KluComplexMatrix& acMatrix, Vector<Complex>& acSolution, Vector<Complex>& resultsVector,
+    DelayLines& delayLines, DelayMatrixBindings<Complex*>& delayBindings
+) : AnalysisCore(parentResolver, circuit, commons), params(params), outfile(nullptr), opCore_(opCore),
+    dcSolution(dcSolution), dcStates(dcStates), dcJacobian(dcJacobian),
+    acMatrix(acMatrix), acSolution(acSolution), resultsVector(resultsVector),
+    delayLines_(delayLines), delayBindings_(delayBindings) {
     
     // Set analysis type for the initial operating point analysis
     auto& elsSystem = opCore_.solver().evalSetup();
@@ -185,8 +187,13 @@ bool ACStbCore::rebuild(Status& s) {
         setError(StbError::MatrixError);
         return false;
     }
-    
-    // Resistive Jacobian entries remain bound to OP Jacobian, 
+
+    // Bind to matrix
+    if (!delayLines_.bindToMatrix(acMatrix, std::nullopt, delayBindings_, s)) {
+        return false;
+    }
+
+    // Resistive Jacobian entries remain bound to OP Jacobian,
     // reactive parts will be bound to imaginary entries of acMatrix
     if (!circuit.bind(nullptr, Component::Real, std::nullopt, &acMatrix, Component::Imaginary, std::nullopt, nullptr, s)) {
         return false;
@@ -387,7 +394,21 @@ CoreCoroutine ACStbCore::coroutine(bool continuePrevious) {
             error = true;
             break;
         }
-        
+
+        // Load delay line contributions
+        auto nDelay = circuit.delayHistoryCount();
+        if (nDelay>0) {
+            for(decltype(nDelay) i=0; i<nDelay; i++) {
+                // Equation -out + exp(-j w delay) in = 0
+                // Get Jacobian Pointers
+                auto [outIn, outOut] = delayBindings_[i];
+                // Load Jacobian, set values, not add because we are the sole contributor to this equation
+                // Also op Jacobian left a real value in outIn which should be overwritten
+                *outIn = std::exp(Complex(0, - omega * delayLines_.delay(i)));
+                // outOut is kept as loaded by op
+            }
+        }
+
         if (debug>=101) {
             Simulator::dbg() << "Linear system matrix\n";
             acMatrix.dump(Simulator::dbg()); 

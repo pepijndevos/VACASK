@@ -88,12 +88,13 @@ public:
     };
 
     ACSPCore(
-        OutputDescriptorResolver& parentResolver, ACSPParameters& params, OperatingPointCore& opCore, Circuit& circuit, 
-        CommonData& commons, 
-        KluRealMatrix& dcJacobian, VectorRepository<double>& dcSolution, VectorRepository<double>& dcStates, 
-        KluComplexMatrix& acMatrix, Vector<Complex>& acSolution, 
-        DenseMatrix<Complex>& stMatrix
-    ); 
+        OutputDescriptorResolver& parentResolver, ACSPParameters& params, OperatingPointCore& opCore, Circuit& circuit,
+        CommonData& commons,
+        KluRealMatrix& dcJacobian, VectorRepository<double>& dcSolution, VectorRepository<double>& dcStates,
+        KluComplexMatrix& acMatrix, Vector<Complex>& acSolution,
+        DenseMatrix<Complex>& stMatrix,
+        DelayLines& delayLines, DelayMatrixBindings<Complex*>& delayBindings
+    );
     ~ACSPCore();
     
     ACSPCore           (const ACSPCore&)  = delete;
@@ -145,6 +146,9 @@ protected:
     Vector<Instance*> resistorVector;
     Vector<std::tuple<UnknownIndex, UnknownIndex>> terminalsVector;
     Vector<double> z0;
+
+    DelayLines& delayLines_;
+    DelayMatrixBindings<Complex*>& delayBindings_;
 
     double frequency;
 };

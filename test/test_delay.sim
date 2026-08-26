@@ -9,7 +9,7 @@ model resistor resistor
 model vsrc vsource
 model dly vdelay
 
-v1 (in 0) vsrc dc=0
+v1 (in 0) vsrc dc=0 mag=1
 r1 (in mid) resistor r=1k
 r2 (mid 0) resistor r=1k
 dly1 (out mid) dly td=1m
@@ -22,6 +22,14 @@ control
 
   sweep vin instance="v1" parameter="dc" from=-1 to=1 step=0.1
     analysis op1 op
+
+  analysis dcxf1 dcxf out="out"
+
+  analysis dcinc1 dcinc
+
+  analysis ac1 ac from=1 to=1M mode="dec" points=20
+
+  analysis acxf1 acxf out="out" from=1 to=1M mode="dec" points=20
 
   postprocess(PYTHON, "runme.py")
 endc
@@ -46,17 +54,84 @@ endmodule
 
 embed "runme.py" <<<FILE
 from rawfile import rawread
-import matplotlib.pyplot as plt
+from runtest import *
+import numpy as np
+import sys
+
+tests = []
 
 op1 = rawread('op1.raw').get()
 vin = op1['in']
 vout = op1['out']
 
-fig1, ax1 = plt.subplots(1, 1)
-fig1.axes[0].set_title('Voltage divider + delay: output vs supply voltage')
-fig1.axes[0].set_xlabel('V(in) [V]')
-fig1.axes[0].set_ylabel('V(out) [V]')
-fig1.axes[0].plot(vin, vout, marker='.')
-fig1.axes[0].grid(which='both')
-plt.show()
+status = (relDiff(vout, 0.5*vin, 1e-6) < 1e-3).all()
+tests.append(status)
+print("OP response", status)
+
+
+dcinc1 = rawread('dcinc1.raw').get()
+voutinc = dcinc1['out']
+
+status = (relDiff(voutinc, 0.5, 1e-6) < 1e-3).all()
+tests.append(status)
+print("DC incremental response", status)
+
+
+dcxf1 = rawread('dcxf1.raw').get()
+tfv1 = dcxf1['tf(v1)']
+
+status = (relDiff(tfv1, 0.5, 1e-6) < 1e-3).all()
+tests.append(status)
+print("DC transfer function response", status)
+
+
+ac1 = rawread('ac1.raw').get()
+freq = ac1['frequency']
+hsim = ac1['out']/ac1['in']
+
+td = 1e-3
+omega = 2*np.pi*freq
+hexact = 0.5*np.exp(-1j*omega*td)
+
+status = (relDiff(hsim, hexact, 1e-6) < 1e-3).all()
+tests.append(status)
+print("AC response", status)
+
+acxf1 = rawread('acxf1.raw').get()
+freqxf = acxf1['frequency']
+tfv1xf = acxf1['tf(v1)']
+
+omegaxf = 2*np.pi*freqxf
+hexactxf = 0.5*np.exp(-1j*omegaxf*td)
+
+status = (relDiff(tfv1xf, hexactxf, 1e-6) < 1e-3).all()
+tests.append(status)
+print("AC transfer function response", status)
+
+if isTest():
+    sys.exit(not all(tests))
+else:
+    import matplotlib.pyplot as plt
+
+    fig1, ax1 = plt.subplots(1, 1)
+    fig1.axes[0].set_title('Voltage divider + delay: output vs supply voltage')
+    fig1.axes[0].set_xlabel('V(in) [V]')
+    fig1.axes[0].set_ylabel('V(out) [V]')
+    fig1.axes[0].plot(vin, vout, marker='.')
+    fig1.axes[0].grid(which='both')
+
+    fig2, ax2 = plt.subplots(2, 1)
+    fig2.suptitle('AC response of voltage divider + delay')
+    fig2.axes[0].set_ylabel('|H| [dB]')
+    fig2.axes[0].semilogx(freq, 20*np.log10(np.abs(hsim)), label="simulated")
+    fig2.axes[0].semilogx(freq, 20*np.log10(np.abs(hexact)), '--', label="exact")
+    fig2.axes[0].legend(loc='best')
+
+    fig2.axes[1].set_ylabel('phase(H) [deg]')
+    fig2.axes[1].set_xlabel('f [Hz]')
+    fig2.axes[1].semilogx(freq, np.unwrap(np.angle(hsim))*180/np.pi, label="simulated")
+    fig2.axes[1].semilogx(freq, np.unwrap(np.angle(hexact))*180/np.pi, '--', label="exact")
+    fig2.axes[1].legend(loc='best')
+
+    plt.show()
 >>>FILE

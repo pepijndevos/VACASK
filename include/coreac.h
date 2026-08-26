@@ -90,7 +90,8 @@ public:
         OutputDescriptorResolver& parentResolver, ACParameters& params, OperatingPointCore& opCore, Circuit& circuit, 
         CommonData& commons, 
         KluRealMatrix& dcJacobian, VectorRepository<double>& dcSolution, VectorRepository<double>& dcStates, 
-        KluComplexMatrix& acMatrix, Vector<Complex>& acSolution
+        KluComplexMatrix& acMatrix, Vector<Complex>& acSolution, 
+        DelayLines& delayLines, DelayMatrixBindings<Complex*>& delayBindings
     ); 
     ~ACCore();
     
@@ -135,6 +136,9 @@ protected:
     KluComplexMatrix& acMatrix;
     Vector<Complex>& acSolution;
     ACParameters& params;
+
+    DelayLines& delayLines_;
+    DelayMatrixBindings<Complex*>& delayBindings_;
 
     double frequency;
 };

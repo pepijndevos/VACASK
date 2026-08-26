@@ -61,6 +61,8 @@ public:
     void setDelay(GlobalStorageIndex slot, double delay) { delay_[slot] = delay; };
     void setMaxDelay(GlobalStorageIndex slot, double maxDelay) { maxDelay_[slot] = maxDelay; };
 
+    double delay(GlobalStorageIndex slot) const { return delay_[slot]; };
+
     // Record a new (time, value) sample for delay line slot, growing its
     // history buffer first if needed. timepointHistory is the (externally
     // owned/updated) shared buffer of past simulation times - read here

@@ -6,9 +6,12 @@ namespace NAMESPACE {
 
 template<> SmallSignal<NoiseCore, NoiseData>::SmallSignal(const std::string& name, Circuit& circuit, PTAnalysis& ptAnalysis) 
     : Analysis(name, circuit, ptAnalysis), 
-      opCore(*this, params.core().opParams, circuit, commons, jac, solution, states, delayLines_, opDelayBindings_), 
-      smsigCore(*this, params.core(), opCore, contributionOffset, circuit, commons, jac, 
-      solution, states, acMatrix, acSolution, results, powerGain, outputNoise) {
+      opCore(*this, params.core().opParams, circuit, commons, jac, solution, states, delayLines_, opDelayBindings_),
+      smsigCore(
+        *this, params.core(), opCore, contributionOffset, circuit, commons,
+        jac, solution, states, acMatrix, acSolution, results, powerGain, outputNoise,
+        delayLines_, smsigDelayBindings_
+      ) {
 }
 
 template<> bool SmallSignal<NoiseCore, NoiseData>::resolveSave(const PTSave& save, bool verify, Status& s) {

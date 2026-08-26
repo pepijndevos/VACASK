@@ -117,11 +117,12 @@ public:
     static constexpr int to_int(StbResult res) { return static_cast<int>(res); };
        
     ACStbCore(
-        OutputDescriptorResolver& parentResolver, ACStbParameters& params, OperatingPointCore& opCore, Circuit& circuit, 
-        CommonData& commons, 
-        KluRealMatrix& dcJacobian, VectorRepository<double>& dcSolution, VectorRepository<double>& dcStates, 
-        KluComplexMatrix& acMatrix, Vector<Complex>& acSolution, Vector<Complex>& resultsVector
-    ); 
+        OutputDescriptorResolver& parentResolver, ACStbParameters& params, OperatingPointCore& opCore, Circuit& circuit,
+        CommonData& commons,
+        KluRealMatrix& dcJacobian, VectorRepository<double>& dcSolution, VectorRepository<double>& dcStates,
+        KluComplexMatrix& acMatrix, Vector<Complex>& acSolution, Vector<Complex>& resultsVector,
+        DelayLines& delayLines, DelayMatrixBindings<Complex*>& delayBindings
+    );
     ~ACStbCore();
     
     ACStbCore           (const ACStbCore&)  = delete;
@@ -166,6 +167,8 @@ protected:
     Vector<Complex>& acSolution;
     ACStbParameters& params;
     Vector<Complex>& resultsVector;
+    DelayLines& delayLines_;
+    DelayMatrixBindings<Complex*>& delayBindings_;
 
     double frequency;
 };

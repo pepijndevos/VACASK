@@ -7,7 +7,11 @@ namespace NAMESPACE {
 template<> SmallSignal<ACCore, AcData>::SmallSignal(const std::string& name, Circuit& circuit, PTAnalysis& ptAnalysis) 
     : Analysis(name, circuit, ptAnalysis), 
       opCore(*this, params.core().opParams, circuit, commons, jac, solution, states, delayLines_, opDelayBindings_), 
-      smsigCore(*this, params.core(), opCore, circuit, commons, jac, solution, states, acMatrix, acSolution) {
+      smsigCore(
+        *this, params.core(), opCore, circuit, commons, 
+        jac, solution, states, acMatrix, acSolution, 
+        delayLines_, smsigDelayBindings_
+      ) {
 }
 
 template<> bool SmallSignal<ACCore, AcData>::resolveSave(const PTSave& save, bool verify, Status& s) {
