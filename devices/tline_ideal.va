@@ -1,0 +1,43 @@
+`include "constants.vams"
+`include "disciplines.vams"
+
+module tline_ideal(p1, n1, p2, n2);
+    inout p1, n1, p2, n2;
+    electrical p1, n1, p2, n2;
+
+    branch (p1, n1) br1;    // port 1 branch
+    branch (p2, n2) br2;    // port 2 branch
+
+    (* desc = "Characteristic impedance [Ohm]", type = "instance" *) parameter real z0 = 50.0 from (0:inf);
+    aliasparam zo = z0;
+    (* desc = "Propagation delay [s]", type = "instance" *)          parameter real td = 1n from (0:inf);
+    (* desc = "Frequency [Hz]", type = "instance" *)                 parameter real f = 1e3 from (0:inf);
+    (* desc = "Normalized length at f", type = "instance" *)         parameter real nl = 1  from (0:inf);
+
+    real v1, v2;     // present terminal voltages
+    real i1, i2;     // present port currents, retrieved from br1/br2
+    real td_eff;     // effective delay: td if given, else nl/f
+
+    analog begin
+        // If td was not explicitly given, derive it from the normalized
+        // electrical length nl at frequency f.
+        td_eff = td;
+        if (!$param_given(td)) begin
+            td_eff = nl/f;
+        end
+
+        // Bound the internal timestep so the simulator resolves the delay
+        // line accurately (a common must-do for delay-based macromodels).
+        $bound_step(td_eff / 10.0);
+
+        // Retrieve terminal voltages and currents
+        v1 = V(br1);
+        v2 = V(br2);
+        i1 = I(br1);
+        i2 = I(br2);
+
+        // Incident current wave at port is v/z0+i
+        I(br1) <+ v1/z0 - absdelay(v2/z0 + i2, td_eff);
+        I(br2) <+ v2/z0 - absdelay(v1/z0 + i1, td_eff);
+    end
+endmodule

@@ -1,0 +1,59 @@
+Ideal lossless transmission line, mismatched, driven by a rectangular pulse
+
+// Source and load are both matched to the line's characteristic impedance
+// z0, so the launched pulse is absorbed cleanly at the load with no
+// reflections: V(p2) is just V(p1) delayed by the line's one-way
+// propagation delay td, unchanged in shape.
+
+ground 0
+
+load "resistor.osdi"
+load "tline_ideal.osdi"
+
+model resistor resistor
+model vsrc vsource
+
+model tl tline_ideal
+
+v1 (src 0) vsrc type="pulse" val0=0 val1=1 rise=0.1n fall=0.1n width=1n
+
+// Source series resistor, matched to z0
+rs (src p1) resistor r=100
+
+// Transmission line: (p1,n1) port 1, (p2,n2) port 2, both single-ended (n1=n2=0)
+tl1 (p1 0 p2 0) tl z0=50 td=1.5n
+
+// Load resistor, matched to z0
+rl (p2 0) resistor r=1M
+
+control
+  abort always
+
+  print unknowns
+  analysis tran1 tran stop=15n step=0.01n maxstep=0.005n
+
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+import matplotlib.pyplot as plt
+
+tran1 = rawread('tran1.raw').get()
+t = tran1['time']
+vsrc = tran1['src']
+vp1 = tran1['p1']
+vp2 = tran1['p2']
+
+fig1, ax1 = plt.subplots(1, 1)
+fig1.suptitle('Mismatched transmission line driven by a rectangular pulse')
+fig1.axes[0].set_xlabel('time [ns]')
+fig1.axes[0].set_ylabel('V [V]')
+fig1.axes[0].plot(t*1e9, vsrc, label="V(src)")
+fig1.axes[0].plot(t*1e9, vp1, label="V(p1) (line input)")
+fig1.axes[0].plot(t*1e9, vp2, label="V(p2) (line output)")
+fig1.axes[0].legend(loc='best')
+fig1.axes[0].grid(which='both')
+
+plt.show()
+>>>FILE

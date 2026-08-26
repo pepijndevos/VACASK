@@ -1636,15 +1636,15 @@ bool OsdiInstance::loadCore(Circuit& circuit, CommonData& commons, LoadSetup& lo
                 auto maxDelay = *getDataPtr<double*>(core(), maxDelayOffs);
                 // If this is the first timepoint store maxdelay
                 if (loadSetup.firstTimepoint) {
-                    loadSetup.delayLines_[delayNdx].setMaxDelay(delayNdx, maxDelay);
+                    loadSetup.delayLines_->setMaxDelay(delayNdx, maxDelay);
                 }
                 // Store delay always
-                loadSetup.delayLines_[delayNdx].setDelay(delayNdx, td);
+                loadSetup.delayLines_->setDelay(delayNdx, td);
             } else {
                 // No maxdelay, delay is determined at first timepoint
                 if (loadSetup.firstTimepoint) {
-                    loadSetup.delayLines_[delayNdx].setDelay(delayNdx, td);
-                    loadSetup.delayLines_[delayNdx].setMaxDelay(delayNdx, td);
+                    loadSetup.delayLines_->setDelay(delayNdx, td);
+                    loadSetup.delayLines_->setMaxDelay(delayNdx, td);
                 }
             }
         }

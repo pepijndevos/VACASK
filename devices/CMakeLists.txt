@@ -4,6 +4,7 @@ set(device_sources
     "inductor.va"        "inductor.osdi"         ""
     "resistor.va"        "resistor.osdi"         ""
     "diode.va"           "diode.osdi"            ""
+    "tline_ideal.va"     "tline_ideal.osdi"            ""
     "bsim3v3.va"         "bsim3v3.osdi"          ""
     "bsim4v8.va"         "bsim4v8.osdi"          ""
     "bsimbulk106.va"     "bsimbulk106.osdi"      ""
