@@ -256,10 +256,10 @@ TranCore::TranCore(
     KluRealMatrix& jacobian, VectorRepository<double>& opSolution, VectorRepository<double>& solution, 
     VectorRepository<double>& states, 
     DelayLines& delayLines, DelayMatrixBindings<double*>& delayBindings
-) : AnalysisCore(parentResolver, circuit, commons), params(params), outfile(nullptr), opCore_(opCore), 
-    jacobian(jacobian), opSolution(opSolution), solution(solution), states(states), 
-    nrSolver(circuit, commons, jacobian, states, solution, &delayLines, &delayBindings, nrSettings, integCoeffs), 
-    icForcesSlot(2) { 
+) : AnalysisCore(parentResolver, circuit, commons), params(params), outfile(nullptr), opCore_(opCore),
+    jacobian(jacobian), opSolution(opSolution), solution(solution), states(states),
+    nrSolver(circuit, commons, jacobian, states, solution, &delayLines, &delayBindings, timepointHistory_, nrSettings, integCoeffs),
+    icForcesSlot(2), delayLines_(delayLines), delayBindings_(delayBindings) {
     // Slots 0 (current) and -1 (future) are used for the NR solver
     // Slots 1, 2, ... correspond to past values (at t_{k}, t_{k-1}, ...)
     // Therefore historyOffset needs to be set to 1 when calling 
@@ -387,14 +387,19 @@ bool TranCore::populateStructures(Status& s) {
 bool TranCore::rebuild(Status& s) {
     clearError();
     // We are using the same Jacobian as operating point analysis
-    
+
     // Bind Jacobian entries
     // OperatingPointCore has bound the resistive part of the Jacobian
     // Let's bind the reactive part 
     if (!circuit.bind(nullptr, Component::Real, std::nullopt, &jacobian, Component::Real, std::nullopt, nullptr, s)) {
         return false;
     }
-    
+
+    // Delay lines are initialized by op core
+
+    // Clear timpoint history
+    timepointHistory_.clear();
+
     // Prepare NR solver settings
     auto& options = circuit.simulatorOptions().core();
     nrSettings = NRSettings {
@@ -636,6 +641,9 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
 
     finished = false;
 
+    // Scale sample history storage - this time we need it
+    delayLines_.prepareHistory();
+    
     std::stringstream ss;
     ss << std::scientific << std::setprecision(15);
 
@@ -942,7 +950,14 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
         co_yield CoreState::Aborted;
     }
     // opCore_.dump(Simulator::dbg()); Simulator::dbg() << "\n";
-    nPoints++; 
+    nPoints++;
+
+    // Handle delay lines: seed history with the t=0 sample. Without this,
+    // the first getSample() call (at the first timepoint after t=0) sees
+    // an empty history and falls back to the live (undelayed) value.
+    if (circuit.delayHistoryCount()>0) {
+        delayLines_.addSample(solution.vector(), tk, timepointHistory_);
+    }
 
     // Write results at t=0, but only if tstart=0
     if (params.start<=0) {
@@ -979,7 +994,8 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
         .computeMaxFreq = true, 
     };
     LoadSetup lsInit = {
-        .states = &states, 
+        .states = &states,
+        .firstTimepoint = true,
     };
 
     // Turn on noise evaluation in esInit
@@ -1767,6 +1783,12 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
                 }
             }
 
+            // Handle delay lines
+            if (circuit.delayHistoryCount()>0) {
+                // Add new sample to delay
+                delayLines_.addSample(solution.vector(), tSolve, timepointHistory_);
+            }
+            
             setProgress(tSolve, tSolve);
 
             // Notify subclasses (e.g. PssTranCore) of the accepted point.

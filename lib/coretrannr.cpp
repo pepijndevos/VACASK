@@ -7,15 +7,16 @@
 namespace NAMESPACE {
 
 TranNRSolver::TranNRSolver(
-    Circuit& circuit, CommonData& commons, KluRealMatrix& jac, 
-    VectorRepository<double>& states, VectorRepository<double>& solution, 
-    DelayLines* delayLines, DelayMatrixBindings<double*>* delayBindings, 
+    Circuit& circuit, CommonData& commons, KluRealMatrix& jac,
+    VectorRepository<double>& states, VectorRepository<double>& solution,
+    DelayLines* delayLines, DelayMatrixBindings<double*>* delayBindings,
+    const CircularBuffer<double>& timepointHistory_,
     NRSettings& settings, IntegratorCoeffs& integCoeffs
-) : OpNRSolver(circuit, commons, jac, states, solution, nullptr, nullptr, settings, 3), 
-    // Delay information is nullptr. Op NR solver does not handle delays. We handle them. 
-    integCoeffs(&integCoeffs), noiseEnabled(false), 
-    whiteBlock(nullptr), flickerBlock(nullptr), 
-    tranDelayLines_(delayLines), tranDelayBindings_(delayBindings) {
+) : OpNRSolver(circuit, commons, jac, states, solution, nullptr, nullptr, settings, 3),
+    // Delay information is nullptr. Op NR solver does not handle delays. We handle them.
+    integCoeffs(&integCoeffs), noiseEnabled(false),
+    whiteBlock(nullptr), flickerBlock(nullptr),
+    tranDelayLines_(delayLines), tranDelayBindings_(delayBindings), timepointHistory_(timepointHistory_) {
     // TranNRSolver has 2 force slots
     // 0 .. continuation nodesets for sweep and homotopy
     //      cannot contain branch forces
@@ -300,6 +301,34 @@ bool TranNRSolver::buildNoiseResidual() {
 std::tuple<bool, bool> TranNRSolver::buildSystem(bool continuePrevious) {
     // First call the OpNRSolver method
     auto [ok, preventConvergence] = OpNRSolver::buildSystem(continuePrevious);
+
+    // Load delay line contributions
+    auto nDelay = circuit.delayHistoryCount();
+    if (tranDelayLines_ && nDelay>0) {
+        // Get old solution
+        auto& oldSolution = solution.vector();
+        for(decltype(nDelay) i=0; i<nDelay; i++) {
+            // Get input and output unknowns
+            auto inU = tranDelayLines_->inputUnknown(i);
+            auto outU = tranDelayLines_->outputUnknown(i);
+
+            // Equation -out + delay(in, td) = 0
+            // Compute delayed input and its derivative wrt current sample
+            // oldSolution is the previous NR step's solution
+            auto [delayedSample, delayedSampleDerivative] = tranDelayLines_->getSample(i, evalSetup_.time, oldSolution, timepointHistory_);
+            // Compute residual, store it
+            auto delRes = -oldSolution[outU] + delayedSample;
+            delta[outU] = delRes;
+            // Get Jacobian Pointers
+            auto [outIn, outOut] = (*tranDelayBindings_)[i];
+            // Load Jacobian
+            *outIn += delayedSampleDerivative;
+            *outOut += -1;
+        }
+    }
+    
+    // Bucket is 0
+    delta[0] = 0.0;
 
     // Now load the tranisent noise residuals
     if (ok && noiseEnabled) {

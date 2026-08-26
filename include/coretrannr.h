@@ -15,11 +15,12 @@ namespace NAMESPACE {
 class TranNRSolver : public OpNRSolver {
 public:
     TranNRSolver(
-        Circuit& circuit, CommonData& commons, KluRealMatrix& jac, 
-        VectorRepository<double>& states, VectorRepository<double>& solution, 
-        DelayLines* delayLines, DelayMatrixBindings<double*>* delayBindings, 
+        Circuit& circuit, CommonData& commons, KluRealMatrix& jac,
+        VectorRepository<double>& states, VectorRepository<double>& solution,
+        DelayLines* delayLines, DelayMatrixBindings<double*>* delayBindings,
+        const CircularBuffer<double>& timepointHistory_,
         NRSettings& settings, IntegratorCoeffs& integCoeffs
-    ); 
+    );
 
     enum class TranNRSolverError {
         OK, 
@@ -99,7 +100,8 @@ private:
     // Delay handling
     DelayLines* tranDelayLines_;
     DelayMatrixBindings<double*>* tranDelayBindings_;
-    
+    const CircularBuffer<double>& timepointHistory_;
+
     // Shared mutable scratch for noise loading.
     // Pre-OpenMP gate: before enabling parallel evaluation, audit TranNRSolver for
     // shared mutable state and convert these (and any peers added since) to

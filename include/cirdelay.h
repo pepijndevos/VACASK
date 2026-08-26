@@ -16,6 +16,13 @@ template<typename T> using DelayMatrixBindings = Vector<std::tuple<T, T>>;
 
 class DelayLines {
 public:
+    DelayLines() : longestBuffer_(0) {};
+
+    DelayLines           (const DelayLines&)  = delete;
+    DelayLines           (      DelayLines&&) = delete;
+    DelayLines& operator=(const DelayLines&)  = delete;
+    DelayLines& operator=(      DelayLines&&) = delete;
+
     // Initial per-slot history buffer size (first upsize, from empty) and
     // growth factor (every subsequent upsize) used by addSample().
     static const HistoryDepthIndex initialHistorySize = 32;
@@ -28,8 +35,11 @@ public:
         maxDelay_.resize(n);
     };
 
-    void scaleHistory(GlobalStorageIndex n) {
-        history_.resize(n);
+    void prepareHistory() {
+        history_.resize(delay_.size());
+        for(auto& h : history_) {
+            h.clear();
+        }
     };
 
     bool bindToUnknowns(GlobalStorageIndex slot, UnknownIndex inputUnknown, UnknownIndex outputUnknown, Status& s=Status::ignore) {
@@ -67,33 +77,47 @@ public:
     // history buffer first if needed. timepointHistory is the (externally
     // owned/updated) shared buffer of past simulation times - read here
     // only, never written (that happens elsewhere, once per timestep).
-    void addSample(GlobalStorageIndex slot, double time, double value, CircularBuffer<double>& timepointHistory) {
-        auto& h = history_[slot];
-        auto n = h.valueCount();
-        if (n == h.size()) {
-            // Buffer full - adding this sample would evict the current
-            // oldest one. That's fine as long as what would become the new
-            // oldest sample (today's second-oldest) is already further back
-            // than maxDelay_ - nothing a future delay lookup could still
-            // need would be lost. n<2 means there's no second-oldest to
-            // check yet (covers the very first call, size()==0), so upsize
-            // unconditionally in that case.
-            bool needUpsize = true;
-            if (n >= 2) {
-                double secondOldestTime = timepointHistory.at(static_cast<CircularBuffer<double>::DepthIndexDelta>(n - 2));
-                double distance = time - secondOldestTime;
-                needUpsize = (distance <= maxDelay_[slot]);
+    void addSample(Vector<double>& currentUnknownValues, double time, CircularBuffer<double>& timepointHistory) {
+        auto n = history_.size();
+        for(decltype(n) slot=0; slot<n; slot++) {
+            auto& h = history_[slot];
+            auto n = h.valueCount();
+            if (n == h.size()) {
+                // Buffer full - adding this sample would evict the current
+                // oldest one. That's fine as long as what would become the new
+                // oldest sample (today's second-oldest) is already further back
+                // than maxDelay_ - nothing a future delay lookup could still
+                // need would be lost. n<2 means there's no second-oldest to
+                // check yet (covers the very first call, size()==0), so upsize
+                // unconditionally in that case.
+                bool needUpsize = true;
+                if (n >= 2) {
+                    double secondOldestTime = timepointHistory.at(static_cast<CircularBuffer<double>::DepthIndexDelta>(n - 2));
+                    double distance = time - secondOldestTime;
+                    needUpsize = (distance <= maxDelay_[slot]);
+                }
+                if (needUpsize) {
+                    // Grow by historyGrowthFactor, except when starting out (or
+                    // otherwise below initialHistorySize), which jumps straight
+                    // to initialHistorySize instead.
+                    HistoryDepthIndex newSize = (h.size() < initialHistorySize) ? initialHistorySize : h.size() * historyGrowthFactor;
+                    h.upsize(newSize);
+                    if (newSize>longestBuffer_) {
+                        longestBuffer_ = newSize;
+                    }
+                }
             }
-            if (needUpsize) {
-                // Grow by historyGrowthFactor, except when starting out (or
-                // otherwise below initialHistorySize), which jumps straight
-                // to initialHistorySize instead.
-                HistoryDepthIndex newSize = (h.size() < initialHistorySize) ? initialHistorySize : h.size() * historyGrowthFactor;
-                h.upsize(newSize);
-            }
+            auto value = currentUnknownValues[inputUnknown_[slot]];
+            h.add(value);
         }
-        h.add(value);
+        // Store new time sample
+        if (longestBuffer_>timepointHistory.size()) {
+            timepointHistory.upsize(longestBuffer_);
+        }
+        timepointHistory.add(time);
     };
+
+    size_t longestBufferSize() const { return longestBuffer_; };
 
     // Computes sample via linear interpolation.
     // Returns tuple holding
@@ -104,15 +128,14 @@ public:
     // timepointHistory pairs up with history_[slot]: timepointHistory.at(k)
     // is the time at which history_[slot].at(k) was recorded (same
     // depth-index convention as addSample() relies on).
-    std::tuple<double, double> getSample(GlobalStorageIndex slot, double currentTime, Vector<double>& currentUnknownValues, double delay, CircularBuffer<double>& timepointHistory) {
+    std::tuple<double, double> getSample(GlobalStorageIndex slot, double currentTime, Vector<double>& currentUnknownValues, const CircularBuffer<double>& timepointHistory) {
         // Clip delay to [0, maxDelay_[slot]]
-        double clippedDelay = delay;
+        double clippedDelay = delay_[slot];
         if (clippedDelay < 0.0) {
             clippedDelay = 0.0;
         } else if (clippedDelay > maxDelay_[slot]) {
             clippedDelay = maxDelay_[slot];
         }
-        double targetTime = currentTime - clippedDelay;
 
         // Live value of the delay line's input at currentTime - not yet in
         // history_[slot] (that happens via a later addSample() call), but
@@ -120,6 +143,16 @@ public:
         // can actually depend on (everything in history_[slot] was already
         // fixed by a previous, converged timestep).
         double liveValue = currentUnknownValues[inputUnknown_[slot]];
+
+        // For delays below currentTime*timeRelativeTolerance fall back on
+        // passthrough - clippedDelay is negligible compared to currentTime,
+        // so currentTime-clippedDelay would lose precision, and physically
+        // there is nothing meaningful to interpolate over such a short span.
+        if (clippedDelay < currentTime*timeRelativeTolerance) {
+            return std::make_tuple(liveValue, 1.0);
+        }
+
+        double targetTime = currentTime - clippedDelay;
 
         auto& h = history_[slot];
         auto n = h.valueCount();
@@ -185,6 +218,7 @@ private:
     Vector<UnknownIndex> outputUnknown_;
     Vector<double> delay_;
     Vector<double> maxDelay_;
+    size_t longestBuffer_;
 };
 
 }

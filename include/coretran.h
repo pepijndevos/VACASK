@@ -196,11 +196,11 @@ private:
 
     OperatingPointCore& opCore_;
     NRSettings nrSettings;
-    // integCoeffs declared before nrSolver: nrSolver's init list binds a reference
-    // to it, so it must be fully constructed first.
+    // integCoeffs and pastTimesteps declared before nrSolver: nrSolver's init
+    // list binds references to them, so both must be fully constructed first.
     IntegratorCoeffs integCoeffs;
-    TranNRSolver nrSolver;
     CircularBuffer<double> pastTimesteps;
+    TranNRSolver nrSolver;
     IntegratorCoeffs predictorCoeffs;
     CircularBuffer<double> breakPoints;
     double acceptedBoundStep;
@@ -214,6 +214,11 @@ private:
     std::mt19937_64 randomGenerator;
     std::unique_ptr<TimeDomainNoiseBlock<std::mt19937_64>> whiteBlock;
     std::unique_ptr<TimeDomainNoiseBlock<std::mt19937_64>> flickerBlock;
+
+    // Delay
+    DelayLines& delayLines_;
+    DelayMatrixBindings<double*>& delayBindings_;
+    CircularBuffer<double> timepointHistory_;
 };
 
 }

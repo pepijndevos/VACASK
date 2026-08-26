@@ -62,6 +62,12 @@ public:
         size_ = newSize;
     };
 
+    // Empty the circular buffer
+    void clear() {
+        at_ = 0;
+        valueCount_ = 0;
+    };
+
     // Return the number of values in circular buffer
     DepthIndex valueCount() const { return valueCount_; };
 

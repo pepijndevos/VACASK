@@ -9,7 +9,7 @@ model resistor resistor
 model vsrc vsource
 model dly vdelay
 
-v1 (in 0) vsrc dc=0 mag=1
+v1 (in 0) vsrc dc=1 mag=1
 r1 (in mid) resistor r=1k
 r2 (mid 0) resistor r=1k
 dly1 (out mid) dly td=1m
@@ -30,6 +30,10 @@ control
   analysis ac1 ac from=1 to=1M mode="dec" points=20
 
   analysis acxf1 acxf out="out" from=1 to=1M mode="dec" points=20
+
+  alter instance("v1") type="pulse" val0=0 val1=1 rise=10u fall=10u width=0.5m
+
+  analysis tran1 tran stop=2m step=1u maxstep=20u
 
   postprocess(PYTHON, "runme.py")
 endc
@@ -60,6 +64,9 @@ import sys
 
 tests = []
 
+td = 1e-3
+
+
 op1 = rawread('op1.raw').get()
 vin = op1['in']
 vout = op1['out']
@@ -89,13 +96,13 @@ ac1 = rawread('ac1.raw').get()
 freq = ac1['frequency']
 hsim = ac1['out']/ac1['in']
 
-td = 1e-3
 omega = 2*np.pi*freq
 hexact = 0.5*np.exp(-1j*omega*td)
 
 status = (relDiff(hsim, hexact, 1e-6) < 1e-3).all()
 tests.append(status)
 print("AC response", status)
+
 
 acxf1 = rawread('acxf1.raw').get()
 freqxf = acxf1['frequency']
@@ -108,6 +115,23 @@ status = (relDiff(tfv1xf, hexactxf, 1e-6) < 1e-3).all()
 tests.append(status)
 print("AC transfer function response", status)
 
+
+tran1 = rawread('tran1.raw').get()
+t = tran1['time']
+vint = tran1['in']
+voutt = tran1['out']
+
+
+# Exact response: V(in) interpolated to the delayed timepoints (t-td),
+# scaled by the 0.5 divider ratio. np.interp clamps out-of-range queries
+# (t<td) to vint[0], matching the delay line's own behavior of holding
+# the earliest available sample when there isn't enough history yet.
+voutt_exact = 0.5*np.interp(t-td, t, vint)
+
+status = (relDiff(voutt, voutt_exact, 1e-6) < 1e-2).all()
+tests.append(status)
+print("Transient response", status)
+
 if isTest():
     sys.exit(not all(tests))
 else:
@@ -119,19 +143,27 @@ else:
     fig1.axes[0].set_ylabel('V(out) [V]')
     fig1.axes[0].plot(vin, vout, marker='.')
     fig1.axes[0].grid(which='both')
-
     fig2, ax2 = plt.subplots(2, 1)
     fig2.suptitle('AC response of voltage divider + delay')
     fig2.axes[0].set_ylabel('|H| [dB]')
     fig2.axes[0].semilogx(freq, 20*np.log10(np.abs(hsim)), label="simulated")
     fig2.axes[0].semilogx(freq, 20*np.log10(np.abs(hexact)), '--', label="exact")
     fig2.axes[0].legend(loc='best')
-
     fig2.axes[1].set_ylabel('phase(H) [deg]')
     fig2.axes[1].set_xlabel('f [Hz]')
     fig2.axes[1].semilogx(freq, np.unwrap(np.angle(hsim))*180/np.pi, label="simulated")
     fig2.axes[1].semilogx(freq, np.unwrap(np.angle(hexact))*180/np.pi, '--', label="exact")
     fig2.axes[1].legend(loc='best')
+
+    fig3, ax3 = plt.subplots(1, 1)
+    fig3.suptitle('Transient response of voltage divider + delay')
+    fig3.axes[0].set_xlabel('time [ms]')
+    fig3.axes[0].set_ylabel('V [V]')
+    fig3.axes[0].plot(t*1000, vint, label="V(in)")
+    fig3.axes[0].plot(t*1000, voutt, label="V(out) simulated")
+    fig3.axes[0].plot(t*1000, voutt_exact, '--', label="V(out) exact")
+    fig3.axes[0].legend(loc='best')
+    fig3.axes[0].grid(which='both')
 
     plt.show()
 >>>FILE
