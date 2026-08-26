@@ -466,6 +466,11 @@ bool HBCore::getFrequencyDomainJacobians(KluBlockSparseComplexMatrix& jacSpec, c
 bool HBCore::rebuild(Status& s) {
     clearError();
 
+    // Check if any device has variable delays
+    if (circuit.usesIllegalDeviceFeatures(DeviceFlags::VariableAbsdelay, DeviceFlags::None, s)) {
+        return false;
+    }
+
     // solve=0 ... evaluate, collect spurs and timepoints from stored solution, 
     //             set up solution from stored solution
     //             prepare for linearized circuit evaluation, do not build Jacobian
