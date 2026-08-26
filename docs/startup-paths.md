@@ -42,8 +42,8 @@ Environment variable values can be interpolated in strings with `$(VAR_NAME)`. A
 
 | Setting | Type | Effect |
 |---------|------|--------|
-| `openvaf` | string | Full path to the OpenVAF-reloaded compiler binary. |
-| `openvaf_args` | list of strings | Extra arguments passed to the OpenVAF compiler. |
+| `openvaf` | string | Full path to the OpenVAF-Reloaded compiler binary. |
+| `openvaf_args` | list of strings | Extra arguments passed to the OpenVAF-Reloaded compiler. |
 | `python` | string | Full path to the Python 3 interpreter. |
 
 ### Example TOML configuration file

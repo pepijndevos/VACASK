@@ -149,7 +149,7 @@ The following device models are supplied with VACASK.
 |PSP103.4 MOSFET           |psp103v4/psp103.va |psp103.osdi     |psp103va |
 |BSIMBULK MOSFET 106.2.0   |bsimbulk.va        |bsimbulk.osdi   |bsimbulk |
 
-All Verilog-A models supplied with VACASK are located in [devices](devices). You can find several models at [www.mos-ak.org](https://www.mos-ak.org/open_dir/). All recent models developed by the [BSIM group at UC Berkeley](https://bsim.berkeley.edu/) are released in Verilog-A. Also take a look at [The Designer's Guide community](https://designers-guide.org/index.html) where various models are available in the [Verilog AMS section](https://designers-guide.org/verilog-ams/index.html). The VBIC model was taken from [Dietmar Warning's repository](https://github.com/dwarning/VA-Models). This repository is an excellent collection of public Verilog-A models. Many of these models have bugfixes and extensions not found elsewhere. When compiling these models, define the `__NGSPICE__` macro (add `-D__NGSPICE__` to your OpenVAF command line). 
+All Verilog-A models supplied with VACASK are located in [devices](devices). You can find several models at [www.mos-ak.org](https://www.mos-ak.org/open_dir/). All recent models developed by the [BSIM group at UC Berkeley](https://bsim.berkeley.edu/) are released in Verilog-A. Also take a look at [The Designer's Guide community](https://designers-guide.org/index.html) where various models are available in the [Verilog AMS section](https://designers-guide.org/verilog-ams/index.html). The VBIC model was taken from [Dietmar Warning's repository](https://github.com/dwarning/VA-Models). This repository is an excellent collection of public Verilog-A models. Many of these models have bugfixes and extensions not found elsewhere. When compiling these models, define the `__NGSPICE__` macro (add `-D__NGSPICE__` to your OpenVAF-Reloaded command line). 
 
 The ([Verilog-A Distiller](https://codeberg.org/arpadbuermen/VADistiller)) project's aim is to create a converter from SPICE3 C model format to Verilog-A. At this point the following converted models are available in VACASK (converted with Verilog-A Distiller). 
 
@@ -190,7 +190,7 @@ Examples of SPICE3 model usage are in [demo/spice](demo/spice).
 
 A new version of VACASK is released every now and then. Between releases [(not quite) nightly builds](https://fides.fe.uni-lj.si/vacask/download/) are released. These are great if you want to try VACASK with latest bugfixes. 
 
-All pre-built packages are built as generic binaries (no AVX-512 instructions). For GCC this is the default, while OpenVAF must be passed the `--target_cpu generic` option to disable AVX-512 code generation. You can achieve this by adding `-DOPENVAF_OPTIONS="--target_cpu generic"` to the CMake command line when creating the build system. To obtain maximum performance build VACASK without specifying the aforementioned `-DOPENVAF_OPTIONS` option. 
+All pre-built packages are built as generic binaries (no AVX-512 instructions). For GCC this is the default, while OpenVAF-Reloaded must be passed the `--target_cpu generic` option to disable AVX-512 code generation. You can achieve this by adding `-DOPENVAF_OPTIONS="--target_cpu generic"` to the CMake command line when creating the build system. To obtain maximum performance build VACASK without specifying the aforementioned `-DOPENVAF_OPTIONS` option. 
 
 # Getting started
 There are some examples available in the [`demo`](demo) directory. You can try the simulation of a Miller OTA by running
@@ -234,9 +234,9 @@ All these components come as pre-built packages for [Debian](https://www.debian.
 - Scikit-rf
 - Matplotlib
 
-First, install the OpenVAF-Reloaded compiler. The latest development version of OpenVAF-Reloaded can be found at [https://fides.fe.uni-lj.si/openvaf/download](https://fides.fe.uni-lj.si/openvaf/download/). Make sure you download the OSDI 0.4 version. Of course, you can also take the OpenVAF-Reloaded binary from the VACASK binary packages (.deb and .tar.gz for Linux, .zip for Windows). If the OpenVAF binary you pick up is named `openvaf-r` you have the right one (it produces models with the OSDI 0.4 interface). If you decide to build the compiler yourself, git-clone the [OpenVAF-Reloaded repository](https://github.com/OpenVAF-Reloaded/OpenVAF). Instructions for building can be found in the [README.md](https://github.com/OpenVAF-Reloaded/OpenVAF/blob/master/README.md) file. 
+First, install the OpenVAF-Reloaded compiler. The latest development version of OpenVAF-Reloaded can be found at [https://fides.fe.uni-lj.si/openvaf/download](https://fides.fe.uni-lj.si/openvaf/download/). Make sure you download the OSDI 0.4 version. Of course, you can also take the OpenVAF-Reloaded binary from the VACASK binary packages (.deb and .tar.gz for Linux, .zip for Windows). If the OpenVAF-Reloaded binary you pick up is named `openvaf-r` you have the right one (it produces models with the OSDI 0.4 interface). If you decide to build the compiler yourself, git-clone the [OpenVAF-Reloaded repository](https://github.com/OpenVAF-Reloaded/OpenVAF). Instructions for building can be found in the [README.md](https://github.com/OpenVAF-Reloaded/OpenVAF/blob/master/README.md) file. 
 
-macOS users must build OpenVAF from sources. Make sure you [install all prerequisites](#macos).  Then follow these [short instructions for building OpenVAF](#building-openvaf-reloaded). 
+macOS users must build OpenVAF-Reloaded from sources. Make sure you [install all prerequisites](#macos).  Then follow these [short instructions for building OpenVAF](#building-openvaf-reloaded). 
 
 ## Linux
 
@@ -311,7 +311,7 @@ Create a build directory and configure with CMake. You need to specify the Homeb
 ```
 HOMEBREW_PREFIX=$(brew --prefix)
 cmake -G Ninja -S <sources directory> -B <build directory> -DCMAKE_BUILD_TYPE=Release \
-    -DOPENVAF_DIR=<path to OpenVAF directory>/target/release \
+    -DOPENVAF_DIR=<path to OpenVAF-Reloaded directory>/target/release \
     -DBoost_ROOT=<path to boost_1_88_0>/stage \
     -DSuiteSparse_DIR=$HOMEBREW_PREFIX \
     -DTOMLPP_DIR=$HOMEBREW_PREFIX
@@ -330,7 +330,7 @@ cpack
 ```
 
 ## Windows
-Building for Windows is performed with the Mingw64 compiler. Unfortunately you will have to build all of the prerequisites manually. Because OpenVAF requires the MSVC linker for building .osdi files under Windows install Visual Studio 2022. 
+Building for Windows is performed with the Mingw64 compiler. Unfortunately you will have to build all of the prerequisites manually. Because OpenVAF-Reloaded requires the MSVC linker for building .osdi files under Windows install Visual Studio 2022. 
 
 ### Building the prerequisites
 First, install the compiler and the tools. We will assume everything will be unpacked and built in `e:\`. Adjust the paths accordingly if you are going to use a different drive. Download Msys2 from [https://www.msys2.org/](https://www.msys2.org/) and install it to `e:\msys64`. Start the MSYS prompt and install bison, flex, and binutils. 

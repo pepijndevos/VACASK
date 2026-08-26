@@ -113,7 +113,7 @@ plt.show()
         exit(1);
     }
 
-    // Create circuit, create OpenVAF compiler with no options
+    // Create circuit, create OpenVAF-Reloaded compiler with no options
     OpenvafCompiler comp;
     // Circuit object
     Circuit cir(tab, &comp, s);

@@ -959,7 +959,7 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
         .solution = &solution, 
         .states = &states, 
 
-        // OpenVAF generated idt(a,b) computes the correct residual when EnableIntegration is true. 
+        // OpenVAF-Reloaded generated idt(a,b) computes the correct residual when EnableIntegration is true. 
         // That happens if CALC_REACT_JACOBIAN is set and ANALYSIS_IC is false. 
         .staticAnalysis = false, 
         .dcAnalysis = false, 

@@ -56,7 +56,7 @@ print device("<device name>")
 ```
 In the output there is a section named "Absolute tolerances in Verilog-A mode". In this section the absolute tolerances of the device's nodes are listed (the unknown, its integral, the residual, and the residual's integral). The names of the natures from which the unknown and residual tolerances are taken are listed in the "Nodes" section. The tolerances for the integral of the unknown and the residual are taken from the idt attribute of the unknown/residual nature. If the idt attribute is missing, the same tolerance as for the unknown/residual is used.
 
-Some nodes do not apply tolerances because OpenVAF currently does not expose their natures. These nodes are:
+Some nodes do not apply tolerances because OpenVAF-Reloaded currently does not expose their natures. These nodes are:
 - implicit equations created from ddt() and idt() operators
 - implicit equations created manually in the module
 - implicit equations of switch branches (apply only a tolerance to the corresponding unknown)

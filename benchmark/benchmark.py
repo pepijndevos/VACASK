@@ -16,7 +16,7 @@ import numpy as np
 # file is called. A dictionary with the following members is
 # passed as the only argument:
 # - source_dir .. full path to the problem directory
-# - run_openvaf .. a function that invokes OpenVAF (run_openvaf())
+# - run_openvaf .. a function that invokes OpenVAF-Reloaded (run_openvaf())
 #   The function has 3 arguments:
 #   - name of the .va file to compile
 #   - name of the output .osdi file
@@ -38,7 +38,7 @@ import numpy as np
 # the work directory is removed. If the -k option is 
 # specified, the work directory is kept. 
 #
-# The script searches for OpenVAF-reloaded in the following locations:
+# The script searches for OpenVAF-Reloaded in the following locations:
 # - file specified by the SIM_OPENVAF environmental variable
 # - directory specified by the OPENVAF_DIR environmental variable
 # - ../../build.VACASK/Debug/simulator
@@ -202,7 +202,7 @@ if not os.path.isdir(subdir):
 print("Problem:         ", subdir)
 print("Work directory:  ", workdir, "(kept)" if keep else "")
 print("Command:         ", cmd)
-print("OpenVAF reloaded:", openvaf)
+print("OpenVAF-Reloaded:", openvaf)
 
 # Prepare work directory
 prepare(workdir, subdir)

@@ -46,13 +46,13 @@
 # module_path_suffix = [ "path5", "path6" ]
 
 [Binaries]
-## SIM_OPENVAF overrides the OpenVAF path selected by 
+## SIM_OPENVAF overrides the OpenVAF-Reloaded path selected by 
 ## the builtin mechanism for finding OpenVAF
 
-## Overrides the OpenVAF binary path
+## Overrides the OpenVAF-Reloaded binary path
 # openvaf = "/usr/bin/openvaf-r"
 
-## Specifies OpenVAF command line options
+## Specifies OpenVAF-Reloaded command line options
 # openvaf_args = [ "--allow", "variant_const_simparam" ]
 
 ## Overrides the detected Python interpreter

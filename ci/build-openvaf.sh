@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build OpenVAF-reloaded and install the binary to a cache directory.
+# Build OpenVAF-Reloaded and install the binary to a cache directory.
 # Skips the build if the binary already exists in the output directory.
 #
 # Usage: ci/build-openvaf.sh [output_dir]
@@ -15,11 +15,11 @@ OS="$(uname -s)"
 
 # Skip if already cached
 case "$OS" in
-  MINGW*|MSYS*) [ -f "$OUTPUT_DIR/openvaf-r.exe" ] && { echo "==> OpenVAF already cached"; exit 0; } ;;
-  *)            [ -f "$OUTPUT_DIR/openvaf-r" ]     && { echo "==> OpenVAF already cached"; exit 0; } ;;
+  MINGW*|MSYS*) [ -f "$OUTPUT_DIR/openvaf-r.exe" ] && { echo "==> OpenVAF-Reloaded already cached"; exit 0; } ;;
+  *)            [ -f "$OUTPUT_DIR/openvaf-r" ]     && { echo "==> OpenVAF-Reloaded already cached"; exit 0; } ;;
 esac
 
-echo "==> Building OpenVAF-reloaded"
+echo "==> Building OpenVAF-Reloaded"
 
 # Install/upgrade Rust if missing or too old (need >= 1.85)
 NEED_RUST=false
@@ -74,7 +74,7 @@ case "$OS" in
     elif [ -f target/release/openvaf ]; then
       cp target/release/openvaf "$OUTPUT_DIR/openvaf-r"
     else
-      echo "ERROR: Could not find OpenVAF binary" >&2
+      echo "ERROR: Could not find OpenVAF-Reloaded binary" >&2
       ls -la target/release/openvaf* 2>/dev/null || true
       exit 1
     fi
@@ -82,4 +82,4 @@ case "$OS" in
     ;;
 esac
 
-echo "==> OpenVAF ready in $OUTPUT_DIR"
+echo "==> OpenVAF-Reloaded ready in $OUTPUT_DIR"

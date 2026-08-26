@@ -296,7 +296,7 @@ CoreCoroutine ACStbCore::coroutine(bool continuePrevious) {
     // Evaluate Jacobians 
     // Actually we only need to evaluate the reactive Jacobian 
     // because the resistive part was evaluated by OP analysis
-    // We do both here in case OpenVAF has bugs with this corner case :)
+    // We do both here in case OpenVAF-Reloaded has bugs with this corner case :)
     if (!circuit.evalAndLoad(commons, &esReactive, nullptr, nullptr)) {
         // Load error
         setError(StbError::EvalAndLoad);

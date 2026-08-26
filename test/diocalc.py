@@ -15,7 +15,7 @@ def dioMod(u, Is, n, temp):
 	return Is*(np.exp(u/(n*vt))-1), gd
 
 def f(x, Is=1e-12, n=2, temp=27, r=1000, v=0.8):
-	# OpenVAF uses NIST1998 values of P_K and P_Q
+	# OpenVAF-Reloaded uses NIST1998 values of P_K and P_Q
 	i, gd = dioMod(x, Is, n, temp)
 	return r * i + x - v
 

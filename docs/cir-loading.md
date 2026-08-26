@@ -20,9 +20,9 @@ For an absolute `path`, VACASK opens that file directly. For a relative path it 
 
 ## Compiling Verilog-A modules on the fly
 
-When a `.va` file is loaded, VACASK compiles it to OSDI using the OpenVAF-reloaded compiler (`openvaf-r` by default, `openvaf-r.exe` under Windows) before loading. The compiled `.osdi` file is written to the current working directory with the same base name as the source file. Compilation is skipped if an `.osdi` file with that name already exists in the current directory and is newer than the `.va` source.
+When a `.va` file is loaded, VACASK compiles it to OSDI using the OpenVAF-Reloaded compiler (`openvaf-r` by default, `openvaf-r.exe` under Windows) before loading. The compiled `.osdi` file is written to the current working directory with the same base name as the source file. Compilation is skipped if an `.osdi` file with that name already exists in the current directory and is newer than the `.va` source.
 
-By default VACASK searches for the OpenVAF-reloaded compiler in the directory where the simulator is installed, followed by the system path. The path to the OpenVAF-reloaded binary and additional compiler arguments can be configured in the simulator config file:
+By default VACASK searches for the OpenVAF-Reloaded compiler in the directory where the simulator is installed, followed by the system path. The path to the OpenVAF-Reloaded binary and additional compiler arguments can be configured in the simulator config file:
 
 ```toml
 [Binaries]

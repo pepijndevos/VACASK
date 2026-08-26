@@ -46,29 +46,29 @@ jobs:
             tomlplusplus:p llvm:p clang:p lld:p rust:p python:p
             python-numpy:p python-scipy:p
 
-      - name: Cache OpenVAF build
+      - name: Cache OpenVAF-Reloaded build
         id: cache-openvaf
         uses: actions/cache@v5
         with:
           path: openvaf-cache
           key: openvaf-${{ matrix.os }}-${{ runner.arch }}-v5
 
-      - name: Build OpenVAF-reloaded (Unix)
+      - name: Build OpenVAF-Reloaded (Unix)
         if: steps.cache-openvaf.outputs.cache-hit != 'true' && runner.os != 'Windows'
         run: ci/build-openvaf.sh "$GITHUB_WORKSPACE/openvaf-cache"
 
-      - name: Build OpenVAF-reloaded (Windows)
+      - name: Build OpenVAF-Reloaded (Windows)
         if: steps.cache-openvaf.outputs.cache-hit != 'true' && runner.os == 'Windows'
         shell: msys2 {0}
         run: ci/build-openvaf.sh "$(cygpath -u "$GITHUB_WORKSPACE")/openvaf-cache"
 
-      - name: Setup OpenVAF path (Unix)
+      - name: Setup OpenVAF-Reloaded path (Unix)
         if: runner.os != 'Windows'
         run: |
           chmod +x "$GITHUB_WORKSPACE/openvaf-cache/openvaf-r"
           echo "OPENVAF_DIR=$GITHUB_WORKSPACE/openvaf-cache" >> "$GITHUB_ENV"
 
-      - name: Setup OpenVAF path (Windows)
+      - name: Setup OpenVAF-Reloaded path (Windows)
         if: runner.os == 'Windows'
         shell: msys2 {0}
         run: |

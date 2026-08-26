@@ -152,7 +152,7 @@ bool PssTranCore::clearTrajectory() {
     es.storeReactiveState        = true;
     es.evaluateOutvars           = false;
     es.allowBypass               = false;
-    // OpenVAF generated idt(a,b) computes the correct reactive residual only
+    // OpenVAF-Reloaded generated idt(a,b) computes the correct reactive residual only
     // when EnableIntegration is true, which requires icEnabled false here
     // (see the analogous fix in coretran.cpp's esInit).
     es.icEnabled                 = false;

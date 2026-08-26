@@ -88,7 +88,7 @@ print("Sum (should be 10):", dc1["2"]+dc2["2"])
         exit(1);
     }
 
-    // Create circuit, create OpenVAF compiler with no options
+    // Create circuit, create OpenVAF-Reloaded compiler with no options
     OpenvafCompiler comp;
     // Circuit object
     Circuit cir(tab, &comp, s);

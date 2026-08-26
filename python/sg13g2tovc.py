@@ -386,7 +386,7 @@ module_path_prefix = [ "$(PDK_ROOT)/$(PDK)/libs.tech/vacask/osdi" ]
         os.path.join("..", "..", "bin"), 
     ]
 
-    print("Looking for OpenVAF candidate")
+    print("Looking for OpenVAF-Reloaded candidate")
     for cand in candidates:
         if os.path.isabs(cand):
             d = cand
@@ -401,7 +401,7 @@ module_path_prefix = [ "$(PDK_ROOT)/$(PDK)/libs.tech/vacask/osdi" ]
             break
     
     if openvaf is None:
-        print("OpenVAF reloaded not found.")
+        print("OpenVAF-Reloaded not found.")
         sys.exit(1)
     
     # Modules directory

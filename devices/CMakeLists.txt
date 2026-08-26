@@ -54,7 +54,7 @@ set(device_sources
 )
 
 # Extra options for OpenVAF
-message(STATUS "Extra OpenVAF options: ${OPENVAF_OPTIONS}")
+message(STATUS "Extra OpenVAF-Reloaded options: ${OPENVAF_OPTIONS}")
 string(REPLACE " " ";" extra_options_list "${OPENVAF_OPTIONS}")
     
 # Prepare directory for staging the osdi library

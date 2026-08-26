@@ -232,9 +232,9 @@ int main(int argc, char**argv) {
         }
         std::string openVafPath;
         if (findProgram(Platform::openVaf(), openVafPath)) {
-            Simulator::dbg() << "OpenVAF compiler: " << openVafPath << "\n";
+            Simulator::dbg() << "OpenVAF-Reloaded compiler: " << openVafPath << "\n";
             if (Platform::openVafArgs().size()>0) {
-                Simulator::dbg() << "OpenVAF arguments: ";
+                Simulator::dbg() << "OpenVAF-Reloaded arguments: ";
                 for(auto& arg : Platform::openVafArgs()) {
                     Simulator::dbg() << arg << " ";
                 }
@@ -242,7 +242,7 @@ int main(int argc, char**argv) {
                 Simulator::dbg() << "\n";
             }
         } else {
-            Simulator::dbg() << "OpenVAF compiler not found.\n";
+            Simulator::dbg() << "OpenVAF-Reloaded compiler not found.\n";
         }
         if (Platform::pythonExecutable().size()>0) {
             Simulator::dbg() << "Python interpreter: " << Platform::pythonExecutable() << "\n";
