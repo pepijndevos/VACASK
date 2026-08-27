@@ -1622,7 +1622,7 @@ bool OsdiInstance::loadCore(Circuit& circuit, CommonData& commons, LoadSetup& lo
     // Load delay line delays and maxdelays
     if (loadSetup.delayLines_) {
         // Go through all delays
-        auto n = descr->absdelay_count;
+        auto n = model()->device()->absdelayCount();
         for(decltype(n) i=0; i<n; i++) {
             // Compute global index
             GlobalStorageIndex delayNdx = offsDelayHistory + i;

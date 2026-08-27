@@ -995,6 +995,10 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
     };
     LoadSetup lsInit = {
         .states = &states,
+        // Seed every delay slot's td / maxDelay at t=0. Runs for both IC modes
+        // (OP and UIC); TranNRSolver then loads with firstTimepoint=false and
+        // only refreshes variable delays' td from there on.
+        .delayLines_ = &delayLines_,
         .firstTimepoint = true,
     };
 

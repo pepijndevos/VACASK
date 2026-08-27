@@ -12,8 +12,12 @@ TranNRSolver::TranNRSolver(
     DelayLines* delayLines, DelayMatrixBindings<double*>* delayBindings,
     const CircularBuffer<double>& timepointHistory_,
     NRSettings& settings, IntegratorCoeffs& integCoeffs
-) : OpNRSolver(circuit, commons, jac, states, solution, nullptr, nullptr, settings, 3),
-    // Delay information is nullptr. Op NR solver does not handle delays. We handle them.
+) : OpNRSolver(circuit, commons, jac, states, solution, delayLines, nullptr, settings, 3),
+    // Pass delayLines (so OpNRSolver's loadSetup_ points loadCore() at it and
+    // per-slot delay values get refreshed every NR iteration) but NOT the
+    // bindings: the delay residual/Jacobian is loaded by our own buildSystem()
+    // using the transient dynamics, so OpNRSolver must skip its static
+    // passthrough stamp (it keys that off a non-null delayBindings_).
     integCoeffs(&integCoeffs), noiseEnabled(false),
     whiteBlock(nullptr), flickerBlock(nullptr),
     tranDelayLines_(delayLines), tranDelayBindings_(delayBindings), timepointHistory_(timepointHistory_) {
@@ -58,6 +62,13 @@ TranNRSolver::TranNRSolver(
     loadSetup_.loadReactiveJacobian = false;
     loadSetup_.loadTransientJacobian = true;
     loadSetup_.integCoeffs = &integCoeffs;
+
+    // Per-timestep loads: not the first timepoint. loadCore() keeps refreshing a
+    // variable delay's td every iteration, but leaves maxDelay (and a
+    // no-maxdelay delay's frozen td) at the value seeded at t=0. The t=0 seed
+    // is done with firstTimepoint=true by the initial OP solve / lsInit in
+    // TranCore::coroutine().
+    loadSetup_.firstTimepoint = false;
 }
 
 void TranNRSolver::rebuildCheckResidualFlags() {
@@ -304,7 +315,7 @@ std::tuple<bool, bool> TranNRSolver::buildSystem(bool continuePrevious) {
 
     // Load delay line contributions
     auto nDelay = circuit.delayHistoryCount();
-    if (tranDelayLines_ && nDelay>0) {
+    if (ok && tranDelayLines_ && nDelay>0) {
         // Get old solution
         auto& oldSolution = solution.vector();
         for(decltype(nDelay) i=0; i<nDelay; i++) {

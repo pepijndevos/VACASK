@@ -725,11 +725,16 @@ std::tuple<bool, bool> OpNRSolver::buildSystem(bool continuePrevious) {
         return std::make_tuple(false, evalSetup_.limitingApplied);
     }
 
-    // Load delay line contributions
+    // Load delay line contributions.
+    // A null delayBindings_ (with a non-null delayLines_) means a subclass owns
+    // the delay stamp: TranNRSolver passes delayLines but not bindings so that
+    // loadCore() still updates the per-slot delay values, while the delay
+    // residual/Jacobian is loaded by TranNRSolver::buildSystem() instead of the
+    // static passthrough (-out + in = 0) below.
     auto nDelay = circuit.delayHistoryCount();
-    if (delayLines_ && nDelay>0) {
+    if (delayLines_ && delayBindings_ && nDelay>0) {
         // Get old solution
-        auto& oldSolution = solution.vector();    
+        auto& oldSolution = solution.vector();
         for(decltype(nDelay) i=0; i<nDelay; i++) {
             // Get input and output unknowns
             auto inU = delayLines_->inputUnknown(i);

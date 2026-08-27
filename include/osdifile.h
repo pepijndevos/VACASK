@@ -346,7 +346,7 @@ private:
     void* handle;
     std::string file;
     bool valid;
-    bool experimental;
+    bool experimental {false}; // OSDI 0.5 (experimental); only set true on the 0.5 version path
     void* descriptorArray;
     std::vector<std::string> namesArray; // (translated) names
     std::vector<OsdiDescriptor*> descriptors;

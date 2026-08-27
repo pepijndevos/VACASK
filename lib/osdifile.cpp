@@ -228,10 +228,12 @@ OsdiFile::OsdiFile(void* handle_, std::string file_, Status& s)
         }
         // Loop through absdelays, check if there is one that is variable (maxDelay)
         bool variableAbsdelayFound = false;
-        for(decltype(desc->absdelay_count) j=0; j<desc->absdelay_count; j++) {
-            if (desc->absdelays[j].maxdelay_offset!=UINT32_MAX) {
-                variableAbsdelayFound = true;
-                break;
+        if (experimental) {
+            for(decltype(desc->absdelay_count) j=0; j<desc->absdelay_count; j++) {
+                if (desc->absdelays[j].maxdelay_offset!=UINT32_MAX) {
+                    variableAbsdelayFound = true;
+                    break;
+                }
             }
         }
 

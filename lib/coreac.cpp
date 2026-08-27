@@ -153,10 +153,10 @@ bool ACCore::rebuild(Status& s) {
         return false;
     }
 
-    // Size delay line information (already done by op core)
-    // delayLines_.scale(circuit.delayHistoryCount());
-
-    // Bind to matrix
+    // Delay lines: bind this core's complex bindings into acMatrix.
+    // The shared DelayLines object is already sized here - it is scaled by
+    // OperatingPointCore::rebuild(), which SmallSignal::rebuildCores() always
+    // runs before this core's rebuild(). Do not call delayLines_.scale() again.
     if (!delayLines_.bindToMatrix(acMatrix, std::nullopt, delayBindings_, s)) {
         return false;
     }

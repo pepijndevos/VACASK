@@ -55,7 +55,7 @@ public:
         buffer.resize(newSize);
         if (size_>0) {
             auto nToMove = size_-at_-1;
-            for(auto i=0; i<nToMove; i++) {
+            for(decltype(nToMove) i=0; i<nToMove; i++) {
                 buffer[newSize-1-i] = std::move(buffer[size_-1-i]);
             }
         }

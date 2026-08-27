@@ -233,7 +233,10 @@ bool NoiseCore::rebuild(Status& s) {
         return false;
     }
 
-    // Bind to matrix
+    // Delay lines: bind this core's complex bindings into acMatrix.
+    // The shared DelayLines object is already sized here - it is scaled by
+    // OperatingPointCore::rebuild(), which SmallSignal::rebuildCores() always
+    // runs before this core's rebuild(). Do not call delayLines_.scale() again.
     if (!delayLines_.bindToMatrix(acMatrix, std::nullopt, delayBindings_, s)) {
         return false;
     }
