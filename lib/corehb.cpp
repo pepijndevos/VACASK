@@ -57,13 +57,16 @@ private:
 
 HBCore::HBCore(
     OutputDescriptorResolver& parentResolver, HBParameters& params, Circuit& circuit, CommonData& commons,
-    KluBlockSparseRealMatrix& jacColoc, KluBlockSparseRealMatrix& jacobian, VectorRepository<double>& solution
+    KluBlockSparseRealMatrix& jacColoc, KluBlockSparseRealMatrix& jacobian, VectorRepository<double>& solution, 
+    DelayLines& delayLines, DelayMatrixBindings<DenseMatrixView<double>>& delayBindings
 ) : AnalysisCore(parentResolver, circuit, commons),
     lastHbError(HBError::OK),
     homotopySteps(0),
     jacColoc(jacColoc),
     bsjac(jacobian),
     solution(solution),
+    delayLines_(delayLines), 
+    delayBindings_(delayBindings), 
     continueState(nullptr),
     outfile(nullptr),
     converged_(false),
@@ -71,7 +74,9 @@ HBCore::HBCore(
     params(params),
     nrSolver(circuit, commons, jacColoc, jacobian, solution, solutionFD, 
              timepoints, spurs_, 
-             APFT, IAPFT, OmegaGamma, GammaInvColumnMajor, nrSettings) {
+             APFT, IAPFT, OmegaGamma, GammaInvColumnMajor, 
+             delayLines_, delayBindings_, 
+             nrSettings) {
 };
 
 HBCore::~HBCore() {
@@ -296,10 +301,11 @@ bool HBCore::evaluateAtNodeset() {
         .matrixCheck = bool(options.matrixcheck), 
     };
 
-    // Copy from forces slot 1 to solution vector
+    // Copy from forces slot 1 to solution vector.
+    // solution and the slot-1 force vector both carry an nt-wide bucket.
     auto n = circuit.unknownCount();
     auto nt = timepoints.size();
-    solution.upsize(2, n*nt);
+    solution.upsize(2, (n+1)*nt);
     solution.vector() = nrSolver.forces(1).unknownValue_;
 
     // Disable forces
@@ -466,6 +472,9 @@ bool HBCore::getFrequencyDomainJacobians(KluBlockSparseComplexMatrix& jacSpec, c
 bool HBCore::rebuild(Status& s) {
     clearError();
 
+    // Size delay line information
+    delayLines_.scale(circuit.delayHistoryCount());
+    
     // Check if any device has variable delays
     if (circuit.usesIllegalDeviceFeatures(DeviceFlags::VariableAbsdelay, DeviceFlags::None, s)) {
         return false;
@@ -555,15 +564,23 @@ bool HBCore::rebuild(Status& s) {
 
     // Bind resistive Jacobian contributions to 0-based subelement (0,0) 
     // Bind reactive Jacobian contributions to 0-based subelement (0,1) 
+    // Bind delay lines to inputs and outputs
     if (!circuit.bind(
         &jacColoc, Component::Real, MatrixEntryPosition(0, 0), 
         &jacColoc, Component::Real, MatrixEntryPosition(0, 1), 
-        nullptr, 
+        &delayLines_, 
         s
     )) {
         return false;
     }
 
+    // Bind delays to matrix blocks if we are solving the circuit
+    if (params.solve) {
+        if (!delayLines_.bindToBlockMatrix(bsjac, delayBindings_, s)) {
+            return false;
+        }
+    }
+        
     // Prepare nodesets
     auto strictforce = circuit.simulatorOptions().core().strictforce; 
     if (solutionName.length()>0) {
@@ -625,8 +642,8 @@ std::tuple<bool, bool> HBCore::runSolver(bool continuePrevious) {
             auto nf = spurs_.spectrum().size();
             auto nt = timepoints.size();
             for(decltype(n) i=0; i<n; i++) {
-                auto srcOrigin = i*nf;
-                auto destOrigin = i*nt;
+                auto srcOrigin = i*nf;              // stored spectrum, no bucket
+                auto destOrigin = (i+1)*nt;         // solution vector, nt-wide bucket
                 dest[destOrigin] = data[srcOrigin].real();
                 for(decltype(nf) k=1; k<nf; k++) {
                     auto base = destOrigin + 1 + (k-1)*2;
@@ -725,8 +742,8 @@ CoreCoroutine HBCore::coroutine(bool continuePrevious) {
     auto nb = timepoints.size();
     auto nf = spurs_.spectrum().size();
 
-    // Make sure structures are large enough
-    solution.upsize(2, n*nb);
+    // Make sure structures are large enough (solution carries an nb-wide bucket)
+    solution.upsize(2, (n+1)*nb);
     
     if (debug>0) {
         Simulator::dbg() << "Starting HB analysis.\n";
@@ -930,8 +947,10 @@ bool HBCore::test() {
     ParserTables tab;
     Circuit dummyCircuit(tab);
     CommonData dummyCommons;
+    DelayLines dummyDelayLines;
+    DelayMatrixBindings<DenseMatrixView<double>> dummyDelayBindings;
 
-    HBCore hb(dummyResolver, p, dummyCircuit, dummyCommons, jacColoc, bsjac, sol);
+    HBCore hb(dummyResolver, p, dummyCircuit, dummyCommons, jacColoc, bsjac, sol, dummyDelayLines, dummyDelayBindings);
 
     if (ok && !hb.buildGrid(s)) {
         ok = false;

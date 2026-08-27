@@ -74,6 +74,9 @@ private:
     KluBlockSparseRealMatrix jac; // HB Jacobian
     VectorRepository<double> solution; // Solution history
 
+    DelayLines delayLines_;
+    DelayMatrixBindings<DenseMatrixView<double>> delayBindings_;
+
     HBCore core;
 };
 

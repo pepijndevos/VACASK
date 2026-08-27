@@ -45,8 +45,8 @@ template<typename T> bool DelayLines::bindToMatrix(
 template bool DelayLines::bindToMatrix<double*>(KluRealMatrix&, const std::optional<MatrixEntryPosition>&, DelayMatrixBindings<double*>&, Status&);
 template bool DelayLines::bindToMatrix<Complex*>(KluComplexMatrix&, const std::optional<MatrixEntryPosition>&, DelayMatrixBindings<Complex*>&, Status&);
 
-template<typename T> bool DelayLines::bindToMatrixBlock(
-    std::conditional_t<std::is_same_v<T, DenseMatrixView<Complex>>, KluBlockSparseComplexMatrix, KluBlockSparseRealMatrix>* mat,
+template<typename T> bool DelayLines::bindToBlockMatrix(
+    std::conditional_t<std::is_same_v<T, DenseMatrixView<Complex>>, KluBlockSparseComplexMatrix, KluBlockSparseRealMatrix>& mat,
     DelayMatrixBindings<T>& bindings,
     Status& s
 ) {
@@ -61,8 +61,8 @@ template<typename T> bool DelayLines::bindToMatrixBlock(
         // For each delay line store matrix block bindings to elements
         // (out, in) and (out, out) - block() returns the DenseMatrixView of
         // the whole dense block at that position, not a single scalar.
-        auto [blockOutIn, foundOutIn] = mat->block(MatrixEntryPosition(out, in));
-        auto [blockOutOut, foundOutOut] = mat->block(MatrixEntryPosition(out, out));
+        auto [blockOutIn, foundOutIn] = mat.block(MatrixEntryPosition(out, in));
+        auto [blockOutOut, foundOutOut] = mat.block(MatrixEntryPosition(out, out));
         if (!foundOutIn || !foundOutOut) {
             s.set(Status::BadConversion, "Matrix entry not found for delay element.");
             return false;
@@ -82,7 +82,7 @@ template<typename T> bool DelayLines::bindToMatrixBlock(
 // stored in bindings and (via the conditional_t in the declaration) the
 // matrix type - DenseMatrixView<double>/KluBlockSparseRealMatrix for a real
 // matrix, DenseMatrixView<Complex>/KluBlockSparseComplexMatrix for a complex one.
-template bool DelayLines::bindToMatrixBlock<DenseMatrixView<double>>(KluBlockSparseRealMatrix*, DelayMatrixBindings<DenseMatrixView<double>>&, Status&);
-template bool DelayLines::bindToMatrixBlock<DenseMatrixView<Complex>>(KluBlockSparseComplexMatrix*, DelayMatrixBindings<DenseMatrixView<Complex>>&, Status&);
+template bool DelayLines::bindToBlockMatrix<DenseMatrixView<double>>(KluBlockSparseRealMatrix&, DelayMatrixBindings<DenseMatrixView<double>>&, Status&);
+template bool DelayLines::bindToBlockMatrix<DenseMatrixView<Complex>>(KluBlockSparseComplexMatrix&, DelayMatrixBindings<DenseMatrixView<Complex>>&, Status&);
 
 }

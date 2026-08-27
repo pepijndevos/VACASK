@@ -24,6 +24,8 @@ public:
         DenseMatrix<Real>& IAPFT, 
         DenseMatrix<Real>& OmegaGamma, 
         DenseMatrix<Real>& GammaInvColumnMajor, 
+        DelayLines& delayLines, 
+        DelayMatrixBindings<DenseMatrixView<double>>& delayBindings, 
         NRSettings& settings
     ); 
 
@@ -82,15 +84,18 @@ protected:
     // HB Jacobian
     KluBlockSparseRealMatrix& bsjac;
     
-    // Vectors and matrices without a bucket
-    const Vector<double>& timepoints; 
+    // References without a bucket
+    const Vector<double>& timepoints;
     const Spurs& spurs_;
     DenseMatrix<double>& Gamma;
     DenseMatrix<double>& GammaInv;
     DenseMatrix<double>& OmegaGamma;
     DenseMatrix<double>& GammaInvColumnMajor;
-    Vector<Complex>& solutionFD; 
+    Vector<Complex>& solutionFD;
     Circuit& circuit;
+
+    // Per-unknown vectors. Like solution/delta these carry a bucket one block
+    // (nt components) wide, so circuit unknown u (1-based, ground = 0) is at u*nt.
     Vector<Real> solutionTD;
 
     DenseMatrix<Real> blockTmp;
@@ -106,7 +111,7 @@ protected:
     // No bucket, just a dummy
     Vector<double> dummyStates;
 
-    // For all timepoints, no bucket
+    // Time-domain residuals at all timepoints, per unknown (bucketed, u*nt)
     Vector<double> resistiveResidual;
     Vector<double> reactiveResidual;
     
@@ -116,6 +121,9 @@ protected:
     Node* maxDeltaNode;
     size_t maxDeltaFreqIndex;
     bool deltaWithinTol;
+
+    DelayLines& delayLines_;
+    DelayMatrixBindings<DenseMatrixView<double>>& delayBindings_;
 
     HBNRSolverError lastHBNRError;
 };

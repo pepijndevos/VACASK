@@ -62,8 +62,8 @@ public:
     // KluBlockSparseComplexMatrix for T=DenseMatrixView<Complex>) follows
     // from the bindings type, same as bindToMatrix() above - e.g.
     // bindToMatrixBlock<DenseMatrixView<double>>(matResist, bindings, s).
-    template<typename T> bool bindToMatrixBlock(
-        std::conditional_t<std::is_same_v<T, DenseMatrixView<Complex>>, KluBlockSparseComplexMatrix, KluBlockSparseRealMatrix>* mat,
+    template<typename T> bool bindToBlockMatrix(
+        std::conditional_t<std::is_same_v<T, DenseMatrixView<Complex>>, KluBlockSparseComplexMatrix, KluBlockSparseRealMatrix>& mat,
         DelayMatrixBindings<T>& bindings,
         Status& s=Status::ignore
     );

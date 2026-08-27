@@ -78,6 +78,9 @@ protected:
     KluBlockSparseComplexMatrix acMatrix;
     Vector<Complex> acSolution;
 
+    DelayLines delayLines_;
+    DelayMatrixBindings<DenseMatrixView<double>> hbDelayBindings_;
+
     HBCore hbCore;
     HBACCore hbacCore;
 };

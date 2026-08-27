@@ -1,0 +1,160 @@
+Single tone HB of a resistive circuit with an absdelay element at the output
+
+ground 0
+
+load "resistor.osdi"
+load "nl3.va"
+load "nl3src.va"
+load "vdelay.va"
+
+model resistor resistor
+model vsource vsource
+model nl3 nl3
+model nl3src nl3src
+model vdelay vdelay
+
+v1 (1 0) vsource dc=0 type="sine" sinedc=0.0 ampl=1 freq=1k
+
+// Reference nonlinearity (same as test_hb1): current through v1 is
+//   0.5 + sin(wt)**3 = 0.5 + 3/4 sin(wt) - 1/4 sin(3 wt)
+nl1 (1 0) nl3
+
+// Build a node voltage that carries exactly that spectrum.
+//   g1 injects  0.5 + V(1)**3  into node q
+//   rq pulls    V(q)/1         out of node q
+//   => V(q) = 0.5 + sin(wt)**3, the same spectrum as the test_hb1 response
+g1 (0 q 1 0) nl3src
+rq (q 0) resistor r=1
+
+// Delay that node voltage by td. In steady state every harmonic k of V(q)
+// is multiplied by exp(-j w_k td), so V(qd) spectrum == exp(-j w td) V(q).
+dly1 (qd q) vdelay td=0.3m
+
+control
+  abort always
+
+  options hb_debug=1 nr_debug=1
+
+  analysis hb1 hb freq=[1k] nharm=12
+
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "nl3.va" <<<FILE
+`include "constants.vams"
+`include "disciplines.vams"
+
+module nl3(A,B);
+    inout A, B;
+    electrical A,B;
+
+    analog begin
+        I(A,B) <+ 0.5 + pow(V(A,B), 3);
+    end
+endmodule
+>>>FILE
+
+embed "nl3src.va" <<<FILE
+`include "constants.vams"
+`include "disciplines.vams"
+
+// Current source from p to n equal to 0.5 + V(cp,cn)**3.
+// The controlling voltage is a separate node pair, so the driven node
+// voltage is an explicit function of the control voltage (no implicit loop).
+module nl3src(p, n, cp, cn);
+    inout p, n, cp, cn;
+    electrical p, n, cp, cn;
+
+    analog begin
+        I(p,n) <+ 0.5 + pow(V(cp,cn), 3);
+    end
+endmodule
+>>>FILE
+
+embed "vdelay.va" <<<FILE
+`include "constants.vams"
+`include "disciplines.vams"
+
+module vdelay(out, in);
+    inout out, in;
+    electrical out, in;
+
+    branch (out) br_out;
+
+    (*desc= "Delay", type="instance", units = "s"*) parameter real td = 1m from (0:inf);
+
+    analog begin
+        V(br_out) <+ absdelay(V(in), td);
+    end
+endmodule
+>>>FILE
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+from runtest import *
+import numpy as np
+import sys
+
+tests = []
+
+# Must match dly1 td in the netlist
+td = 0.3e-3
+
+hb1 = rawread('hb1.raw').get()
+f = np.real(hb1['frequency'])
+omega = 2*np.pi*f
+
+# Spectrum of the test_hb1 nonlinear response
+#   0.5 + sin(wt)**3 = 0.5 + 3/4 sin(wt) - 1/4 sin(3 wt)
+# Component S maps to time signal Re(S) cos(w t) - Im(S) sin(w t), so
+#   sin(w t)      -> -1j
+#   -sin(3 w t)   -> +1j
+exact = np.zeros(f.size, dtype=complex)
+exact[0] = 0.5
+exact[1] = -0.75j
+exact[3] = 0.25j
+
+# Undelayed nonlinear response lives on node q
+vq = hb1['q']
+d_q = np.abs(vq - exact).max()
+print("V(q) spectrum max delta:", d_q)
+tests.append(d_q < 1e-9)
+
+# Delayed copy on node qd: every component scaled by exp(-j w td)
+vqd = hb1['qd']
+exact_delayed = exact*np.exp(-1j*omega*td)
+d_qd = np.abs(vqd - exact_delayed).max()
+print("V(qd) spectrum max delta:", d_qd)
+tests.append(d_qd < 1e-9)
+
+# Direct relation between the two nodes
+d_rel = np.abs(vqd - np.exp(-1j*omega*td)*vq).max()
+print("V(qd) vs exp(-j w td) V(q) max delta:", d_rel)
+tests.append(d_rel < 1e-9)
+
+print("Tests", all(tests))
+
+if isTest():
+    sys.exit(not all(tests))
+else:
+    import matplotlib.pyplot as plt
+
+    k = np.arange(f.size)
+    fig, ax = plt.subplots(2, 1, figsize=(6,7), constrained_layout=True)
+    fig.suptitle('HB: absdelay applies exp(-j w td) per harmonic')
+
+    ax[0].set_title('Magnitude')
+    ax[0].stem(k-0.1, np.abs(vq), markerfmt='.', linefmt='C0-', label='V(q)')
+    ax[0].stem(k+0.1, np.abs(vqd), markerfmt='.', linefmt='C1-', label='V(qd)')
+    ax[0].set_xlabel('harmonic index')
+    ax[0].legend(loc='best')
+
+    ax[1].set_title('Phase [deg]')
+    ax[1].stem(k-0.1, np.angle(vq)*180/np.pi, markerfmt='.', linefmt='C0-', label='V(q)')
+    ax[1].stem(k+0.1, np.angle(vqd)*180/np.pi, markerfmt='.', linefmt='C1-', label='V(qd)')
+    ax[1].stem(k+0.2, np.angle(exact_delayed)*180/np.pi, markerfmt='x', linefmt='C2-', label='exact delayed')
+    ax[1].set_xlabel('harmonic index')
+    ax[1].legend(loc='best')
+
+    plt.show()
+>>>FILE

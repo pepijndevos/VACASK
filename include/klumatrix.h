@@ -130,12 +130,28 @@ DEFINE_FLAG_OPERATORS(Component);
 
 
 // Matrix binding interface for accessing element indices and pointers
-// Because Circuit::bind() should be matrix type agnostic we need this interface. 
-// Analyses can use different types of matrices, but instances must be able to 
-// handle them all in the same way via this interface. 
+// Because Circuit::bind() should be matrix type agnostic we need this interface.
+// Analyses can use different types of matrices, but instances must be able to
+// handle them all in the same way via this interface.
 // Assumes the underlying type of element is either double or std::complex<double> (Complex)
-// This interface is used by the Device::bind() method to bind instances 
-// to matrix elements and their components. 
+// This interface is used by the Device::bind() method to bind instances
+// to matrix elements and their components.
+//
+// The bucket contract:
+// When a requested position does not exist in the matrix, valuePtr()/cxValuePtr()
+// return a pointer into a shared scratch area (the "bucket") instead of nullptr,
+// so callers can write through the returned pointer unconditionally without a
+// per-element "does this exist?" branch. Semantics of that pointer:
+//   - writes are DISCARDED: many missing positions map onto the same bucket
+//     storage and it is never read back into the solve, so a store just goes
+//     nowhere meaningful (it is not an error).
+//   - reads are MEANINGLESS: the bucket is not zeroed between loads and is
+//     aliased by every missing position, so a load returns arbitrary leftover
+//     data. Code that needs a real value must check the found flag from
+//     valueIndex()/elementIndex() first.
+// The bucket is sized so that offset-based loading (adding a bounded element
+// offset to a resolved base pointer, see KluBlockSparseMatrixCore) stays in
+// bounds even when the base resolved to the bucket.
 template<typename IndexType> class MatrixAccess {
 public:
     // Return array holding matrix nonzero elements
@@ -154,19 +170,21 @@ public:
     virtual std::tuple<IndexType, bool> valueIndex(const MatrixEntryPosition& mep, const std::optional<MatrixEntryPosition>& blockMep=std::nullopt) const = 0;
 
     // Return pointer to element's component
-    // For block matrices, mep is the block position (1-based) and 
-    // blockMep is the position of the element within the block (0-based). 
-    // If blockMep is not given, (0,0) is assumed. 
-    // Returns bucket if element is not found 
+    // For block matrices, mep is the block position (1-based) and
+    // blockMep is the position of the element within the block (0-based).
+    // If blockMep is not given, (0,0) is assumed.
+    // Returns a bucket pointer if the element is not found (see the bucket
+    // contract above: writes discarded, reads meaningless).
     // Returns nullptr if imaginary part is requested from a real matrix
     virtual double* valuePtr(const MatrixEntryPosition& mep, Component comp=Component::Real, const std::optional<MatrixEntryPosition>& blockMep=std::nullopt) = 0;
 
     // Return pointer to element's component (complex matrix)
-    // For block matrices, mep is the block position (1-based) and 
-    // blockMep is the position of the element within the block (0-based). 
-    // If blockMep is not given, (0,0) is assumed. 
-    // Returns complex bucket if element is not found 
-    // Returns nullptr if matrix is real 
+    // For block matrices, mep is the block position (1-based) and
+    // blockMep is the position of the element within the block (0-based).
+    // If blockMep is not given, (0,0) is assumed.
+    // Returns a complex bucket pointer if the element is not found (see the
+    // bucket contract above: writes discarded, reads meaningless).
+    // Returns nullptr if matrix is real
     virtual Complex* cxValuePtr(const MatrixEntryPosition& mep, const std::optional<MatrixEntryPosition>& blockMep=std::nullopt) = 0;
 };
 
@@ -238,9 +256,12 @@ public:
     // Checks if matrix is valid (rebuild completed successfully)
     bool valid() const { return symbolic; };
 
-    // Returns a pointer to element (component), if element is not found returns pointer to bucket
+    // Returns a pointer to element (component). If the element is not found
+    // returns a pointer to bucket_ (see the bucket contract on MatrixAccess:
+    // writes through it are discarded, reads from it are meaningless - check the
+    // found flag if you need a real value).
     // Assumes the undelying type is double or std::complex<double> (Complex)
-    // This method is used when the type of the matrix is known. 
+    // This method is used when the type of the matrix is known.
     double* elementPtr(const MatrixEntryPosition& mep, Component comp=Component::Real) {
         auto entry = smap->find(mep);
         if (!entry) {
@@ -361,9 +382,13 @@ protected:
     Numeric* numeric;
     Common common;
     SparsityMap* smap;
-    
+
+    // Scratch sink returned by elementPtr()/valuePtr()/cxValuePtr() for a
+    // position that is not in the matrix. See the bucket contract on
+    // MatrixAccess: writes are discarded, reads are meaningless. Never zeroed
+    // after rebuild() and aliased by every missing position.
     ValueType bucket_;
-    
+
     // Clear error
     void clearError() { lastError = Error::OK; }; 
 

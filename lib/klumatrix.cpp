@@ -1048,6 +1048,8 @@ Complex* KluAtomicMatrix<IndexType, ValueType>::cxValuePtr(
         if (entry) {
             return KluMatrixCore<IndexType, ValueType>::Ax.data()+entry->index;
         } else {
+            // Missing position: bucket contract (see MatrixAccess) - writes
+            // discarded, reads meaningless.
             return &(KluMatrixCore<IndexType, ValueType>::bucket_);
         }
     } else {

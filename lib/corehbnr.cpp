@@ -2,6 +2,7 @@
 #include "simulator.h"
 #include "densematrix.h"
 #include "common.h"
+#include <numbers>
 
 namespace NAMESPACE {
 
@@ -18,12 +19,18 @@ HBNRSolver::HBNRSolver(
         DenseMatrix<double>& GammaInv, 
         DenseMatrix<Real>& OmegaGamma, 
         DenseMatrix<Real>& GammaInvColumnMajor, 
+        DelayLines& delayLines, 
+        DelayMatrixBindings<DenseMatrixView<double>>& delayBindings, 
         NRSettings& settings
 ) : circuit(circuit), commons(commons), jacColoc(jacColoc), bsjac(bsjac), solutionFD(solutionFD), 
     timepoints(timepoints), spurs_(spurs), 
     Gamma(Gamma), GammaInv(GammaInv), OmegaGamma(OmegaGamma), GammaInvColumnMajor(GammaInvColumnMajor), 
+    delayLines_(delayLines), delayBindings_(delayBindings), 
     NRSolver(circuit.tables().accounting(), bsjac, solution, settings, 0) {
-    // Bucket size is 0
+    // Bucket size is one HB block (nt = timepoints.size()) wide so a circuit
+    // unknown u (1-based, ground = 0) addresses the solution/delta/residual
+    // vectors directly at u*nt. nt is not known yet here (buildColocation() runs
+    // later), so bucketSize_ is set in rebuild().
     // Slot 0 is for sweep continuation and homotopy (set via CoreStateStorage object)
     // Slot 1 is for nodesets that are read from stored results. 
     resizeForces(2);
@@ -55,11 +62,19 @@ HBNRSolver::HBNRSolver(
     };
 
     loadSetup_ = LoadSetup {
-        .states = nullptr, 
-        .loadResistiveJacobian = true, 
-        .loadReactiveJacobian = true, 
+        .states = nullptr,
+        .loadResistiveJacobian = true,
+        .loadReactiveJacobian = true,
         // Used for loading with offset 0
-        .reactiveJacobianFactor = 1.0, 
+        .reactiveJacobianFactor = 1.0,
+        // HB has no OP core to populate delay-line delays, so collect them here
+        // during evaluate()'s evalAndLoad() calls. firstTimepoint stays true for
+        // every collocation point: td is a constant instance parameter and, for
+        // the no-maxdelay form of absdelay(), OsdiInstance only stores it when
+        // firstTimepoint is set. buildSystem() reads delayLines_.delay(i); the
+        // history buffers / maxDelay are unused in the frequency-domain form.
+        .delayLines_ = &delayLines_,
+        .firstTimepoint = true,
     };
 }
 
@@ -76,11 +91,12 @@ bool HBNRSolver::setForces(Int ndx, const AnnotatedSolution& storedSolution, boo
     // Number of components per unknown
     auto blockSize = timepoints.size(); // number of timepoints per unknown
 
-    // No bucket
+    // Bucketed like solution/delta: one blockSize-wide bucket, then unknown u
+    // (1-based) at u*blockSize.
     // Make space for variable forces
-    f.unknownValue_.resize(n*blockSize, 0.0);
+    f.unknownValue_.resize((n+1)*blockSize, 0.0);
     // By default turn off all forces
-    f.unknownForced_.resize(n*blockSize, false);
+    f.unknownForced_.resize((n+1)*blockSize, false);
     
     // Number of frequencies in solution and solver
     auto nfSolution = storedSolution.spurs().spectrum().size();
@@ -116,13 +132,6 @@ bool HBNRSolver::setForces(Int ndx, const AnnotatedSolution& storedSolution, boo
             ndxSolution++;
         }
     }
-
-    // Go through annotated solution. fill APFT spectrum 
-    // Use resistive residual vector for APFT spectrum
-    auto& forcesFD = resistiveResidual;
-    // Resistive residual can hold n APFT spectra, we need only the first one
-    // Resize it, just in case
-    forcesFD.resize(n*blockSize);
 
     // Solution spectrum
     auto& solSpec = storedSolution.cxValues();
@@ -176,10 +185,10 @@ bool HBNRSolver::setForces(Int ndx, const AnnotatedSolution& storedSolution, boo
         if (ui==0) {
             continue;
         }
-        // Spectrum origin index in complex spectrum vector (no bucket)
+        // Spectrum origin index in stored complex spectrum vector (no bucket)
         auto srcOrigin = (i-1)*nfSolution;
-        // Spectrum origin index in destination vector of TD values (no bucket)
-        auto destOrigin = (ui-1)*blockSize;
+        // Origin in the bucketed destination force vector (unknown ui at ui*blockSize)
+        auto destOrigin = ui*blockSize;
         
         // Copy DC (one real value)
         f.unknownValue_[destOrigin] = solSpec[srcOrigin].real();
@@ -213,7 +222,11 @@ bool HBNRSolver::setForces(Int ndx, const AnnotatedSolution& storedSolution, boo
 }
 
 bool HBNRSolver::rebuild(size_t nSolComp) {
-    // Call parent's rebuild
+    // Bucket is one HB block wide. timepoints is populated by
+    // HBCore::rebuild() (buildColocation / nodeset copy) before this runs.
+    bucketSize_ = timepoints.size();
+
+    // Call parent's rebuild (sizes delta/rowNorm as nSolComp + bucketSize_)
     if (!NRSolver::rebuild(nSolComp)) {
         // Assume parent has set the error flag
         return false;
@@ -238,17 +251,19 @@ bool HBNRSolver::rebuild(size_t nSolComp) {
     // matrix is not built and we will never load forces
     // so we do not need diagonal pointers. 
     if (bsjac.isBuilt()) {
-        // Get diagonal pointers for forces
+        // Get diagonal pointers for forces.
+        // diagPtrs is indexed like delta: circuit unknown u (1-based) owns the
+        // block [u*nt, (u+1)*nt); its collocation-block diagonal subentry (j,j)
+        // goes at index u*nt+j. The bucket block [0, nt) stays null.
         auto n = circuit.unknownCount();
         auto nt = timepoints.size();
-        diagPtrs.resize(n*nt);
-        
-        // Bind diagonal matrix elements, block indices are 1-based, 0 is the bucket
-        // Needed for forcing unknown values
+        diagPtrs.assign((n+1)*nt, nullptr);
+
+        // Block indices passed to bsjac stay 1-based (0 is ground).
         for(decltype(n) i=0; i<n; i++) {
             for(decltype(nt) j=0; j<nt; j++) {
                 // We know the matrix type so we can use the elementPtr() non-virtual function
-                diagPtrs[i*nt+j] = bsjac.elementPtr(MatrixEntryPosition(i+1, i+1), Component::Real, MatrixEntryPosition(j, j));
+                diagPtrs[(i+1)*nt+j] = bsjac.elementPtr(MatrixEntryPosition(i+1, i+1), Component::Real, MatrixEntryPosition(j, j));
             }
         }
     }
@@ -268,12 +283,12 @@ bool HBNRSolver::initialize(bool continuePrevious) {
     // Number of nodes
     auto n = circuit.unknownCount();
 
-    // Old solution and derivative wrt time at all timepoints
-    resistiveResidual.resize(n*nt);
-    reactiveResidual.resize(n*nt);
+    // Time-domain residuals at all timepoints (bucketed: unknown u at u*nt)
+    resistiveResidual.resize((n+1)*nt);
+    reactiveResidual.resize((n+1)*nt);
 
-    // Old solution in time domain
-    solutionTD.resize(n*nt); 
+    // Old solution in time domain (bucketed: unknown u at u*nt)
+    solutionTD.resize((n+1)*nt);
 
     // Temporary storage for Jacobian block, row major form
     blockTmp.resize(nt, nt);
@@ -331,9 +346,10 @@ bool HBNRSolver::postRun(bool continuePrevious) {
         auto nt = timepoints.size();
         solutionFD.resize(n*nf); // no bucket
         
-        // Data
+        // Data (solution is bucketed: unknown i (0-based here) lives at (i+1)*nt;
+        // solutionFD has no bucket)
         for(decltype(n) i=0; i<n; i++) {
-            auto srcOrigin = i*nt;
+            auto srcOrigin = (i+1)*nt;
             auto destOrigin = i*nf;
             auto& data = solution.vector();
             solutionFD[destOrigin] = data[srcOrigin];
@@ -393,10 +409,11 @@ bool HBNRSolver::evaluate(bool continuePrevious) {
     auto n = circuit.unknownCount();
     auto nb = timepoints.size();
 
-    // Old frequency domain solution is in solution, transform to time domain
-    for(decltype(n) i=0; i<n; i++) {
-        auto src = VectorView(solution.vector(), i*nb, nb, 1);
-        auto dest = VectorView(solutionTD, i*nb, nb, 1);
+    // Old frequency domain solution is in solution, transform to time domain.
+    // solution and solutionTD are bucketed: unknown u (1-based) lives at u*nb.
+    for(decltype(n) u=1; u<=n; u++) {
+        auto src = VectorView(solution.vector(), u*nb, nb, 1);
+        auto dest = VectorView(solutionTD, u*nb, nb, 1);
         GammaInv.multiply(src, dest);
     }
     
@@ -405,12 +422,11 @@ bool HBNRSolver::evaluate(bool continuePrevious) {
     
     // Loop through timepoints 0..nb-1
     for(decltype(nb) k=0; k<nb; k++) {
-        // We read old solution starting at index 1+k
-        // (skip bucket, k-th unknown, first timepoint)
-        // Vector length n, stride nb
-        // We write to the vector of old solutions at timepoint t_k, 
-        // start at index 1 (skip bucket), length n, stride 1
-        VectorView(oldSolutionAtTk.vector(), 1, n, 1) = VectorView(solutionTD, k, n, nb);
+        // Gather timepoint k of every unknown out of solutionTD into
+        // oldSolutionAtTk. solutionTD is bucketed (unknown u at u*nb), so the
+        // first real unknown's t_k sample is at index nb+k; step by nb.
+        // oldSolutionAtTk has its own bucket of 1 (destination starts at 1).
+        VectorView(oldSolutionAtTk.vector(), 1, n, 1) = VectorView(solutionTD, nb+k, n, nb);
 
         // Zero residual vectors where evalAndLoad() will load the residuals at t_k
         zero(resistiveResidualAtTk);
@@ -433,9 +449,12 @@ bool HBNRSolver::evaluate(bool continuePrevious) {
             return false;
         }
 
-        // Put resistive residuals at t_k in the residuals vector
-        VectorView(resistiveResidual, k, n, nb) = VectorView(resistiveResidualAtTk, 1, n, 1);
-        VectorView(reactiveResidual, k, n, nb) = VectorView(reactiveResidualAtTk, 1, n, 1);
+        // Scatter residuals at t_k into the all-timepoints residual vectors.
+        // resistive/reactiveResidual are bucketed (unknown u at u*nb), so the
+        // first real unknown's t_k slot is at index nb+k; step by nb.
+        // resistive/reactiveResidualAtTk carry their own bucket of 1.
+        VectorView(resistiveResidual, nb+k, n, nb) = VectorView(resistiveResidualAtTk, 1, n, 1);
+        VectorView(reactiveResidual, nb+k, n, nb) = VectorView(reactiveResidualAtTk, 1, n, 1);
     }
 
     return true;
@@ -474,6 +493,7 @@ std::tuple<bool, bool> HBNRSolver::buildSystem(bool continuePrevious) {
     // Get sizes
     auto n = circuit.unknownCount();
     auto nb = timepoints.size();
+    auto nf = spurs_.spectrum().size();
 
     // Remove forces originating from nodesets after nsiter iterations
     auto nsiter = circuit.simulatorOptions().core().hb_nsiter;
@@ -522,14 +542,75 @@ std::tuple<bool, bool> HBNRSolver::buildSystem(bool continuePrevious) {
     // Now handle residuals
     // delta is zeroed at the beginning of each iteration by NRSolver
     // Gamma f(x) + Omega Gamma q(x)
-    for(decltype(n) i=0; i<n; i++) {
-        auto g = VectorView(resistiveResidual, i*nb, nb, 1);
-        auto q = VectorView(reactiveResidual, i*nb, nb, 1);
-        auto dest = VectorView(delta, i*nb, nb, 1);
+    // resistiveResidual/reactiveResidual/delta are bucketed: unknown u at u*nb.
+    for(decltype(n) u=1; u<=n; u++) {
+        auto g = VectorView(resistiveResidual, u*nb, nb, 1);
+        auto q = VectorView(reactiveResidual, u*nb, nb, 1);
+        auto dest = VectorView(delta, u*nb, nb, 1);
         Gamma.multiply(g, dest);
         OmegaGamma.multiplyAdd(q, dest);
     }
 
+    // Handle delay lines
+    auto nDelay = circuit.delayHistoryCount();
+    auto& oldSolution = solution.vector();
+    for(decltype(nDelay) i=0; i<nDelay; i++) {
+        // Get input and output unknowns of the delay line
+        auto inU = delayLines_.inputUnknown(i);
+        auto outU = delayLines_.outputUnknown(i);
+        auto td = delayLines_.delay(i);
+
+        // Get HB Jacobian blocks bound for this delay line:
+        // outIn  = block at (outU, inU)
+        // outOut = block at (outU, outU)
+        auto [outIn, outOut] = delayBindings_[i];
+
+        // Residual, freq component i
+        //    - z + y exp(-j omega td) 
+        //  = - z_r - j z_i + (y_r + j y_i) exp(-j omega td)
+        //  = - z_r - j z_i + (y_r + j y_i) ( cos(j omega td) + j sin(j omega td) )
+        
+        // Jqacobian
+        //        z_r    z_i     y_r                   y_i 
+        // Real   -1     0       Re(exp(-j omega td))  -Im(exp(-j omega td))
+        // Imag    0    -1       Im(exp(-j omega td))   Re(exp(-j omega td))
+
+        // Get freq components of input and output. inputUnknown()/
+        // outputUnknown() are 1-based (ground is 0); solution.vector() and delta
+        // are bucketed the same way, so unknown u lives at u*nb.
+        auto inputView = VectorView(oldSolution, nb*inU, nb, 1);
+        auto outputView = VectorView(oldSolution, nb*outU, nb, 1);
+        auto residualView = VectorView(delta, nb*outU, nb, 1);
+        
+        // DC is special, it has only a real component
+        residualView[0] = -outputView[0] + inputView[0];
+        outOut.at(0,0) = -1;
+        outIn.at(0,0) = 1;
+        
+        // Frequencies above 0Hz
+        for(decltype(nf) k=1; k<nf; k++) {
+            auto e = std::exp(Complex(0, -2*std::numbers::pi*spurs_.spectrum()[k]*td));
+
+            // Index of real part in vector, imaginary is ndx+1
+            auto ndx = 1+(k-1)*2;
+            auto in = Complex(inputView[ndx], inputView[ndx+1]);
+            auto out = Complex(outputView[ndx], outputView[ndx+1]);
+            Complex res = -out + in*e;
+            residualView[ndx] = res.real();
+            residualView[ndx+1] = res.imag();
+
+            // Jacobian
+            auto c = e.real();
+            auto s = e.imag();
+            outOut.at(ndx,ndx) = -1;
+            outOut.at(ndx+1,ndx+1) = -1;
+            outIn.at(ndx,ndx) = c;
+            outIn.at(ndx+1,ndx) = s;
+            outIn.at(ndx,ndx+1) = -s;
+            outIn.at(ndx+1,ndx+1) = c;
+        }
+    }
+    
     // Add forced values to the system
     if (haveForces() && !loadForces(true)) {
         if (settings.debug) {
@@ -551,8 +632,12 @@ bool HBNRSolver::loadForces(bool loadJacobian) {
     // Get row norms
     jac.rowMaxNorm(dataWithoutBucket(rowNorm, bucketSize_));
 
-    // Load forces
-    auto n = jac.nRow();
+    // Load forces.
+    // rowMaxNorm() above wrote scalar row r (0-based) to rowNorm[bucketSize_+r].
+    // Circuit unknown u (1-based) owns scalar rows [(u-1)*nt, u*nt), while its
+    // solution/delta/diagonal block sits at [u*nt, (u+1)*nt); the bucket offset
+    // makes rowNorm line up with delta/xprev/diagPtrs/force at the same index s.
+    auto n = jac.nRow(); // n_unknowns * nt scalar rows, no bucket
     double* xprev = solution.data();
     for(decltype(nForces) iForce=0; iForce<nForces; iForce++) {
         // Skip disabled force lists
@@ -565,18 +650,17 @@ bool HBNRSolver::loadForces(bool loadJacobian) {
         auto& enabled = forcesList[iForce].unknownForced_;
         auto& force = forcesList[iForce].unknownValue_;
         auto nForceEquations = force.size();
-        // Load only if the number of forced unknowns matches 
-        // the number of equations
-        if (nForceEquations==n) {
-            for(decltype(nForceEquations) i=0; i<nForceEquations; i++) {
-                if (enabled[i]) {
-                    double factor = rowNorm[i]*ff;
+        // Load only if the force vector covers the bucket plus every equation
+        if (nForceEquations==n+bucketSize_) {
+            for(auto s=bucketSize_; s<n+bucketSize_; s++) {
+                if (enabled[s]) {
+                    double factor = rowNorm[s]*ff;
                     if (factor==0.0) {
                         factor = 1.0;
                     }
                     // Jacobian entry: factor
                     // Residual: factor * x_i - factor * nodeset_i
-                    auto ptr = diagPtrs[i];
+                    auto ptr = diagPtrs[s];
                     if (ptr) {
                         // Negative diagonal element, change sign of factor
                         if (*ptr<0) {
@@ -587,7 +671,7 @@ bool HBNRSolver::loadForces(bool loadJacobian) {
                             *ptr += factor;
                         }
                         // Residual
-                        delta[i] += factor * xprev[i] - factor * force[i];
+                        delta[s] += factor * xprev[s] - factor * force[s];
                     }
                 }
             }
@@ -632,14 +716,15 @@ std::tuple<bool, bool> HBNRSolver::checkDelta() {
     // Assume we converged
     deltaWithinTol = true;
     
+    // xold/xdelta are bucketed: unknown i (1-based) lives at i*nt.
     auto xold = solution.data();
     auto xdelta = delta.data();
     // Scan unknowns
     for(decltype(n) i=1; i<=n; i++) {
         // Find maximal magnitude across frequencies to use as tolerance reference
-        double tolRef = std::abs(xold[(i-1)*nt]);
+        double tolRef = std::abs(xold[i*nt]);
         for(decltype(nt) j=1; j<nf; j++) {
-            auto baseI = (i-1)*nt+(j-1)*2+1;
+            auto baseI = i*nt+(j-1)*2+1;
             double mag = std::sqrt(xold[baseI]*xold[baseI] + xold[baseI+1]*xold[baseI+1]);
             if (mag>tolRef) {
                 tolRef = mag;
@@ -653,12 +738,12 @@ std::tuple<bool, bool> HBNRSolver::checkDelta() {
             double deltaAbs;
             if (j==0) {
                 // Handle DC (real)
-                baseI = (i-1)*nt;
+                baseI = i*nt;
                 // tolref = std::abs(xold[baseI]);
                 deltaAbs = std::abs(xdelta[baseI]);
             } else {
                 // Handle the rest (complex)
-                baseI = (i-1)*nt+(j-1)*2+1;
+                baseI = i*nt+(j-1)*2+1;
                 // tolref = std::sqrt(xold[baseI]*xold[baseI] + xold[baseI+1]*xold[baseI+1]);
                 deltaAbs = std::sqrt(xdelta[baseI]*xdelta[baseI] + xdelta[baseI+1]*xdelta[baseI+1]);
             }
@@ -745,7 +830,8 @@ void HBNRSolver::dumpSolution(std::ostream& os, double* solution, const char* pr
     auto nf = spurs_.spectrum().size();
     for(decltype(n) i=1; i<=n; i++) {
         auto rn = circuit.reprNode(i);
-        auto base = (i-1)*nt;
+        // solution pointer is bucketed: unknown i (1-based) lives at i*nt
+        auto base = i*nt;
         for(decltype(nf) k=0; k<nf; k++) {
             Complex x;    
             if (k==0) {

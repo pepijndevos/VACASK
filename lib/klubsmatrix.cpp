@@ -54,6 +54,9 @@ Complex* KluBlockSparseMatrixCore<IndexType, ValueType>::cxValuePtr(
         if (found) {
             return Ax.data()+nzPosition;
         } else {
+            // Bucket contract (see MatrixAccess): writes discarded, reads
+            // meaningless. blockMep is ignored here - every missing subentry
+            // aliases the bucket origin.
             return blockBucket_;
         }
     } else {
@@ -192,14 +195,22 @@ bool KluBlockSparseMatrixCore<IndexType, ValueType>::rebuild(SparsityMap& m, Equ
     
     // Allocate array for nozero element values
     Ax.resize(nnz_);
+
+    // Point blockBucket_ at the scratch sink for missing positions (bucket
+    // contract on MatrixAccess: writes discarded, reads meaningless). A large
+    // bucket is a full nbRow_*nbCol_ column-major block so that offset-based
+    // loading (base pointer + bounded element offset) and block()'s real-layout
+    // view stay in bounds; a small bucket is the inherited single scalar.
+    // Not re-zeroed on same-size rebuilds, and never zeroed by zero() - callers
+    // must honour the "reads meaningless" half of the contract.
     if (largeBucket_) {
         bucketStorage_.resize(nbRow_*nbCol_);
         blockBucket_ = bucketStorage_.data();
     } else {
         blockBucket_ = &bucket_;
     }
-    
-    // Zero array
+
+    // Zero array (Ax only - not the bucket)
     KluMatrixCore<IndexType, ValueType>::zero();
     
     // Set up KLU structures

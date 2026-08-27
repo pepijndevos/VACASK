@@ -6,7 +6,7 @@ namespace NAMESPACE {
 
 HBAC::HBAC(Id name, Circuit& circuit, PTAnalysis& ptAnalysis)
     : Analysis(name, circuit, ptAnalysis),
-      hbCore(*this, params.core().hbParams, circuit, commons, jacColoc, jac, solution),
+      hbCore(*this, params.core().hbParams, circuit, commons, jacColoc, jac, solution, delayLines_, hbDelayBindings_),
       hbacCore(*this, params.core(), hbCore, circuit, commons, jacSpec, hbSolution, acMatrix, acSolution) {
 }
 

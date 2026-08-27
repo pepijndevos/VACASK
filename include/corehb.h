@@ -59,7 +59,8 @@ public:
 
     HBCore(
         OutputDescriptorResolver& parentResolver, HBParameters& params, Circuit& circuit, CommonData& commons, 
-        KluBlockSparseRealMatrix& jacColoc, KluBlockSparseRealMatrix& jacobian, VectorRepository<double>& solution
+        KluBlockSparseRealMatrix& jacColoc, KluBlockSparseRealMatrix& jacobian, VectorRepository<double>& solution, 
+        DelayLines& delayLines, DelayMatrixBindings<DenseMatrixView<double>>& delayBindings
     );
     ~HBCore();
     
@@ -131,6 +132,9 @@ protected:
     // HB Jacobian
     KluBlockSparseRealMatrix& bsjac; 
     VectorRepository<Real>& solution; // Solution history
+
+    DelayLines& delayLines_;
+    DelayMatrixBindings<DenseMatrixView<double>>& delayBindings_;
 
     CoreStateStorage* continueState;
 
