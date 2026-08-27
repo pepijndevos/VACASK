@@ -419,6 +419,9 @@ bool HBNRSolver::evaluate(bool continuePrevious) {
     
     // Clear Jacobian at colocation points
     jacColoc.zero();
+
+    // Unlock delays for delay initalization
+    delayLines_.lock(false);
     
     // Loop through timepoints 0..nb-1
     for(decltype(nb) k=0; k<nb; k++) {
@@ -446,8 +449,14 @@ bool HBNRSolver::evaluate(bool continuePrevious) {
         // Values are stored in jacColoc. 
         auto ok = evalAndLoadWrapper(evalSetup_, loadSetup_);
         if (!ok) {
+            if (delayLines_.changed()) {
+                lastHBNRError = HBNRSolverError::DelayChanged;
+            }
             return false;
         }
+
+        // After k=0 lock delays so we catch any variable delay
+        delayLines_.lock(true);
 
         // Scatter residuals at t_k into the all-timepoints residual vectors.
         // resistive/reactiveResidual are bucketed (unknown u at u*nb), so the
@@ -823,6 +832,9 @@ bool HBNRSolver::formatError(Status& s, NameResolver* resolver) const {
             return false;            
         case HBNRSolverError::LoadForces:
             s.set(Status::Force, "Failed to load forces.");
+            return false;
+        case HBNRSolverError::DelayChanged:
+            s.set(Status::Analysis, "HB cannot simulate circuits with variable delay.");
             return false;
         default:
             return true;

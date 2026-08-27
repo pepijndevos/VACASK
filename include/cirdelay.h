@@ -68,7 +68,23 @@ public:
         Status& s=Status::ignore
     );
 
-    void setDelay(GlobalStorageIndex slot, double delay) { delay_[slot] = delay; };
+    // When locked any change in delay results in a error
+    void lock(bool f) { locked_ = f; if (f) changed_ = false; };
+
+    // Return changed flag indicating tha ta delay was changed when delays were locked
+    bool changed() const { return changed_; };
+
+    // Change in delay when locked=true results in an error signalled by false as return value
+    bool setDelay(GlobalStorageIndex slot, double delay) { 
+        if (locked_ && delay_[slot] != delay) {
+            delay_[slot] = delay; 
+            changed_ = true;
+            return false;
+        }
+        delay_[slot] = delay; 
+        return true;
+    };
+
     void setMaxDelay(GlobalStorageIndex slot, double maxDelay) { maxDelay_[slot] = maxDelay; };
 
     double delay(GlobalStorageIndex slot) const { return delay_[slot]; };
@@ -213,6 +229,11 @@ public:
     UnknownIndex outputUnknown(GlobalStorageIndex slot) const { return outputUnknown_[slot]; };
 
 private:
+    // Remember when a delay changes from now on
+    bool locked_{false};
+    // Delay changed
+    bool changed_{false};
+
     Vector<CircularBuffer<double>> history_;
     Vector<UnknownIndex> inputUnknown_;
     Vector<UnknownIndex> outputUnknown_;
