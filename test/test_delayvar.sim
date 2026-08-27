@@ -1,0 +1,152 @@
+Variable-delay absdelay element: 1 kHz sine through a delay swept 1..2 ms at 500 Hz
+
+ground 0
+
+load "resistor.osdi"
+load "vdelayvar.va"
+
+model resistor resistor
+model vsrc vsource
+model dly vdelayvar
+
+// 1 kHz input sinusoid, unit amplitude, no DC
+v1 (in 0) vsrc type="sine" ampl=1 freq=1k
+
+// Delay control voltage: 1.5 ms +/- 0.5 ms at 500 Hz (half the input frequency),
+// so the delay sweeps between 1 ms and 2 ms.
+vc (ctl 0) vsrc type="sine" sinedc=1.5m ampl=0.5m freq=500
+
+// Variable delay element: V(out) = absdelay(V(in), V(ctl), 3m).
+// maxtd (3 ms) is a hard upper bound, safely above the 2 ms peak delay.
+d1 (out in ctl) dly maxtd=3m
+
+control
+  abort always
+
+  options op_debug=0 tran_debug=0
+
+  print unknowns
+
+  // DC operating point: at t=0 the delay is a plain passthrough, V(in)=0 => V(out)=0
+  analysis op1 op
+
+  // Initial state from an OP solve
+  analysis tran1 tran stop=6m step=5u maxstep=30u icmode="op"
+
+  // Same run, initial state from (zero) initial conditions - exercises the
+  // other delay-seeding path (lsInit) in TranCore::coroutine()
+  analysis tran2 tran stop=6m step=5u maxstep=30u icmode="uic"
+
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "vdelayvar.va" <<<FILE
+`include "constants.vams"
+`include "disciplines.vams"
+
+module vdelayvar(out, in, ctl);
+    inout out, in, ctl;
+    electrical out, in, ctl;
+
+    branch (out) br_out;
+
+    (*desc = "Maximum delay", type = "instance", units = "s"*) parameter real maxtd = 3m from (0:inf);
+
+    analog begin
+        // Resolve the delay line finely regardless of the outer timestep.
+        $bound_step(maxtd/100.0);
+
+        // Delayed input. The second argument is a signal, so this is a
+        // variable (runtime) delay; the third argument is the constant bound.
+        V(br_out) <+ absdelay(V(in), V(ctl), maxtd);
+    end
+endmodule
+>>>FILE
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+from runtest import *
+import numpy as np
+import sys
+
+tests = []
+
+td0 = 1.5e-3
+tda = 0.5e-3
+
+
+# --- Operating point: delay is a passthrough at DC ---------------------------
+op1 = rawread('op1.raw').get()
+status = bool(abs(op1['out'] - op1['in']) < 1e-9)
+tests.append(status)
+print("OP passthrough", status)
+
+
+def check_tran(name):
+    d = rawread(name + '.raw').get()
+    t = d['time']
+    vin = d['in']
+    vout = d['out']
+    vctl = d['ctl']
+
+    # Delay actually seen by the simulator at each timepoint is the control
+    # voltage, clipped to [0, maxtd] the same way the delay line does.
+    td = np.clip(vctl, 0.0, 3e-3)
+
+    # Exact delayed signal: V(in) sampled at (t - td), linear interpolation on
+    # the simulator's own output grid - which is exactly what the delay line
+    # does internally (same node, same timepoints). np.interp clamps queries
+    # before t[0] to vin[0], matching the delay line holding its earliest
+    # stored sample until it has accumulated enough history.
+    vout_exact = np.interp(t - td, t, vin)
+
+    # Compare only where the lookup target is safely inside the recorded
+    # history (a little past t=0 so the first stored samples are covered).
+    mask = (t - td) >= 0.2e-3
+
+    err = np.abs(vout[mask] - vout_exact[mask])
+    ok_match = bool((err < 2e-3).all())
+
+    # The control source really swept the delay across [1 ms, 2 ms].
+    # Skip the very first samples: in UIC mode t=0 is forced to the (zero)
+    # initial condition, so V(ctl) only follows the source for t > 0.
+    vs = vctl[t >= 0.5e-3]
+    ok_range = bool(abs(vs.min() - (td0 - tda)) < 5e-5 and
+                    abs(vs.max() - (td0 + tda)) < 5e-5)
+
+    # The delay is doing something: the output differs clearly from the input.
+    ok_nontrivial = bool(np.abs(vout[mask] - vin[mask]).max() > 0.2)
+
+    print("%s: match=%s (max abs err %.2e)  range=%s  nontrivial=%s"
+          % (name, ok_match, float(err.max()), ok_range, ok_nontrivial))
+    return (ok_match and ok_range and ok_nontrivial,
+            t, vin, vout, vout_exact, td)
+
+
+s1, t, vin, vout, vout_exact, td = check_tran('tran1')
+tests.append(s1)
+
+s2 = check_tran('tran2')[0]
+tests.append(s2)
+
+
+if isTest():
+    sys.exit(not all(tests))
+else:
+    import matplotlib.pyplot as plt
+
+    fig, ax = plt.subplots(2, 1, sharex=True)
+    fig.suptitle('Variable-delay line: 1 kHz input, delay swept 1..2 ms at 500 Hz')
+    ax[0].plot(t*1e3, vin, label='V(in)')
+    ax[0].plot(t*1e3, vout, label='V(out) simulated')
+    ax[0].plot(t*1e3, vout_exact, '--', label='V(out) exact')
+    ax[0].set_ylabel('V [V]')
+    ax[0].legend(loc='best')
+    ax[0].grid(which='both')
+    ax[1].plot(t*1e3, td*1e3)
+    ax[1].set_xlabel('time [ms]')
+    ax[1].set_ylabel('delay [ms]')
+    ax[1].grid(which='both')
+
+    plt.show()
+>>>FILE
