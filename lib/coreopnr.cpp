@@ -621,7 +621,6 @@ bool OpNRSolver::evalAndLoadWrapper(EvalSetup& evalSetup, LoadSetup& loadSetup) 
     evalSetup.requestHighPrecision = highPrecision;
     if (!circuit.evalAndLoad(commons, &evalSetup, &loadSetup, nullptr)) {
         // Load error
-        lastError = Error::EvalAndLoad;
         if (settings.debug>2) {
             Simulator::dbg() << "Evaluation error.\n";
         }
@@ -720,8 +719,6 @@ std::tuple<bool, bool> OpNRSolver::buildSystem(bool continuePrevious) {
     // Evaluate and load
     auto evalSt = evalAndLoadWrapper(evalSetup_, loadSetup_);
     if (!evalSt) {
-        lastError = Error::EvalAndLoad;
-        errorIteration = iteration;
         return std::make_tuple(false, evalSetup_.limitingApplied);
     }
 

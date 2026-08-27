@@ -51,10 +51,11 @@ public:
         OK, 
         NoAlgorithm,
         SolverBuild,  
-        SolverError,
+        SolverInit,  
         InitialHB, 
         Homotopy,
         NoNodeset, 
+        EvaluationError, 
     };
 
     HBCore(

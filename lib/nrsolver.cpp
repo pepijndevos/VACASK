@@ -50,7 +50,7 @@ bool NRSolver::rebuild(size_t nSolComp) {
     // Allocate space in vectors
     delta.resize(nSolComp+bucketSize_);
     rowNorm.resize(nSolComp+bucketSize_);
-    
+
     return true;
 }
 
@@ -173,6 +173,8 @@ bool NRSolver::run(bool continuePrevious) {
         std::tie(buildOk, preventedConvergence) = buildSystem(continuePrevious);
         if (!buildOk) {
             // Load error or abort
+            lastError = Error::EvalAndLoad;
+            errorIteration = iteration;
             break;
         }
         if (bucketSize_>0) {

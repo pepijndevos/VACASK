@@ -295,6 +295,10 @@ bool HBCore::buildGrid(Status& s) {
 bool HBCore::evaluateAtNodeset() {
     clearError();
 
+    // Unlock delays, allow delay change
+    delayLines_.clearChanged();
+    delayLines_.lock(false);
+
     auto& options = circuit.simulatorOptions().core();
     nrSettings = NRSettings {
         .debug = options.nr_debug, 
@@ -320,13 +324,13 @@ bool HBCore::evaluateAtNodeset() {
 
     // Initialize NR solver (continue previous)
     if (!nrSolver.initialize(true)) {
-        setError(HBError::SolverError);
+        setError(HBError::SolverInit);
         return false;
     }
 
     // Run evaluation (continue previous)
     if (!nrSolver.evaluate(true)) {
-        setError(HBError::SolverError);
+        setError(HBError::EvaluationError);
         return false;
     }
 
@@ -718,9 +722,6 @@ std::tuple<bool, bool> HBCore::runSolver(bool continuePrevious) {
 
     auto converged = nrSolver.run(runInContinueMode);
     auto abort = nrSolver.checkFlags(HBNRSolver::Flags::Abort);
-    if (!converged || abort) {
-        setError(HBError::SolverError);
-    }
 
     return std::make_tuple(converged, abort);
 }
@@ -737,6 +738,10 @@ CoreCoroutine HBCore::coroutine(bool continuePrevious) {
     initProgress(1, 0);
 
     clearError();
+
+    // Unlock delays, allow delay change
+    delayLines_.clearChanged();
+    delayLines_.lock(false);
     
     auto& options = circuit.simulatorOptions().core();
     converged_ = false;
@@ -887,31 +892,38 @@ bool HBCore::formatError(Status& s) const {
     // First, handle AnalysisCore errors
     if (lastError!=Error::OK) {
         AnalysisCore::formatError(s);
-        return false;
+    } else {
+        // Then handle HBCore errors
+        switch (lastHbError) {
+            case HBError::InitialHB:
+                s.extend("Initial HB analysis failed.");
+                break;
+            case HBError::Homotopy:
+                s.set(Status::Analysis, "Homotopy failed, "+std::to_string(homotopySteps)+" step(s) tried.");
+                break;
+            case HBError::NoAlgorithm:
+                s.set(Status::Analysis, "No HB algorithm tried."); 
+                break;
+            case HBError::NoNodeset:
+                s.set(Status::Analysis, "Nodeset not found."); 
+                break;
+            case HBError::SolverBuild:
+                s.set(Status::NonlinearSolver, "Failed to rebuild internal structures of nonlinear solver.");
+                break;
+            case HBError::SolverInit:
+                s.set(Status::NonlinearSolver, "Failed to initialize internal structures of nonlinear solver.");
+                break;
+            case HBError::EvaluationError:
+                s.set(Status::Analysis, "Evaluation at given nodeset failed."); 
+                break;
+            default:
+                return true;
+        }
     }
-    
-    // Then handle HBCore errors
-    switch (lastHbError) {
-        case HBError::InitialHB:
-            s.extend("Initial HB analysis failed.");
-            return false;
-        case HBError::Homotopy:
-            s.set(Status::Analysis, "Homotopy failed, "+std::to_string(homotopySteps)+" step(s) tried.");
-            return false;
-        case HBError::NoAlgorithm:
-            s.set(Status::Analysis, "No HB algorithm tried."); 
-            return false;
-        case HBError::NoNodeset:
-            s.set(Status::Analysis, "Nodeset not found."); 
-            return false;
-        case HBError::SolverBuild:
-            s.set(Status::NonlinearSolver, "Failed to rebuild internal structures of nonlinear solver.");
-            return false;
-        case HBError::SolverError:
-            nrSolver.formatError(s, &nr);
-            return false;
+    if (delayLines_.changed()) {
+        s.extend("HB solver cannot handle circuits with variable delay.");
     }
-    return true;
+    return false;
 }
 
 void HBCore::dump(std::ostream& os) const {

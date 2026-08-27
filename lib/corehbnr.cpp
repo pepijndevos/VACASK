@@ -367,7 +367,6 @@ bool HBNRSolver::evalAndLoadWrapper(EvalSetup& evalSetup, LoadSetup& loadSetup) 
     evalSetup.requestHighPrecision = highPrecision;
     if (!circuit.evalAndLoad(commons, &evalSetup, &loadSetup, nullptr)) {
         // Load error
-        lastError = Error::EvalAndLoad;
         if (settings.debug>2) {
             Simulator::dbg() << "Evaluation error.\n";
         }
@@ -420,9 +419,6 @@ bool HBNRSolver::evaluate(bool continuePrevious) {
     // Clear Jacobian at colocation points
     jacColoc.zero();
 
-    // Unlock delays for delay initalization
-    delayLines_.lock(false);
-    
     // Loop through timepoints 0..nb-1
     for(decltype(nb) k=0; k<nb; k++) {
         // Gather timepoint k of every unknown out of solutionTD into
@@ -449,9 +445,6 @@ bool HBNRSolver::evaluate(bool continuePrevious) {
         // Values are stored in jacColoc. 
         auto ok = evalAndLoadWrapper(evalSetup_, loadSetup_);
         if (!ok) {
-            if (delayLines_.changed()) {
-                lastHBNRError = HBNRSolverError::DelayChanged;
-            }
             return false;
         }
 
@@ -832,9 +825,6 @@ bool HBNRSolver::formatError(Status& s, NameResolver* resolver) const {
             return false;            
         case HBNRSolverError::LoadForces:
             s.set(Status::Force, "Failed to load forces.");
-            return false;
-        case HBNRSolverError::DelayChanged:
-            s.set(Status::Analysis, "HB cannot simulate circuits with variable delay.");
             return false;
         default:
             return true;

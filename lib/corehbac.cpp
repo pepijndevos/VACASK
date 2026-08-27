@@ -309,8 +309,8 @@ void HBACCore::fillMatrix() {
     // equation of the delay output at any spur is 
     //   -out + exp(-j omega td) in = 0
     // i.e. the (out,in) block is diag(exp(-j w_n td)) and (out,out) is -I.
-    // fillMatrix() already wrote both blocks from jacSpec; since jacSpec 
-    // was all zeros the ac matrix was filled with zeros. 
+    // The main loop above skips delay-only blocks, so these blocks still hold
+    // the zeros left by acMatrix.zero(); the += below builds them from scratch.
     auto nDelay = circuit.delayHistoryCount();
     auto nf = spurs_.mixingStencil().nRows();
     for(decltype(nDelay) i=0; i<nDelay; i++) {

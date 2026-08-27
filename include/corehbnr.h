@@ -33,7 +33,6 @@ public:
         OK, 
         ForcesError, 
         LoadForces, 
-        DelayChanged, 
     };
 
     // Format convergence

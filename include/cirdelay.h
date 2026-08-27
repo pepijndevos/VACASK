@@ -68,13 +68,16 @@ public:
         Status& s=Status::ignore
     );
 
-    // When locked any change in delay results in a error
-    void lock(bool f) { locked_ = f; if (f) changed_ = false; };
+    // When locked, any change in delay results in an error. 
+    void lock(bool f) { locked_ = f; };
 
-    // Return changed flag indicating tha ta delay was changed when delays were locked
+    // Clear changed
+    void clearChanged() { changed_ = false; };
+
+    // Returns the changed flag: true if a delay was changed while delays were locked.
     bool changed() const { return changed_; };
 
-    // Change in delay when locked=true results in an error signalled by false as return value
+    // A change in delay while locked=true is an error, signalled by returning false.
     bool setDelay(GlobalStorageIndex slot, double delay) { 
         if (locked_ && delay_[slot] != delay) {
             delay_[slot] = delay; 
