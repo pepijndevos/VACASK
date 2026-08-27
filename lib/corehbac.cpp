@@ -61,7 +61,8 @@ HBACCore::HBACCore(
     Circuit& circuit, CommonData& commons,
     KluBlockSparseComplexMatrix& jacSpec,
     VectorRepository<Complex>& hbSolution,
-    KluBlockSparseComplexMatrix& acMatrix, Vector<Complex>& acSolution
+    KluBlockSparseComplexMatrix& acMatrix, Vector<Complex>& acSolution,
+    DelayLines& delayLines, DelayMatrixBindings<DenseMatrixView<Complex>>& hbacDelayBindings
 ) : AnalysisCore(parentResolver, circuit, commons),
     hbCore_(hbCore),
     outfile(nullptr),
@@ -75,6 +76,8 @@ HBACCore::HBACCore(
     acSolution(acSolution),
     firstBuild(true),
     params(params),
+    delayLines_(delayLines),
+    hbacDelayBindings_(hbacDelayBindings),
     frequency(0.0) {
 }
 
@@ -295,6 +298,26 @@ void HBACCore::fillMatrix() {
         // C.dump(std::cout);
         // block.dump(std::cout);
     }
+
+    // Delay lines.
+    // A linear delay does not mix spurs, so at spur n the small-signal
+    // equation of the delay output at any spur is 
+    //   -out + exp(-j omega td) in = 0
+    // i.e. the (out,in) block is diag(exp(-j w_n td)) and (out,out) is -I.
+    // fillMatrix() already wrote both blocks from jacSpec; since jacSpec 
+    // was all zeros the ac matrix was filled with zeros. 
+    auto nDelay = circuit.delayHistoryCount();
+    auto nf = spurs_.mixingStencil().nRows();
+    for(decltype(nDelay) i=0; i<nDelay; i++) {
+        auto td = delayLines_.delay(i);
+        auto [outIn, outOut] = hbacDelayBindings_[i];
+        
+        outOut.diagonal() = -1.0;
+        auto diag = outIn.diagonal();
+        for(decltype(nf) k=0; k<nf; k++) {
+            diag[k] = std::exp(Complex(0.0, -omega[k]*td));
+        }
+    }
 }
 
 bool HBACCore::rebuild(Status& s) {
@@ -414,16 +437,29 @@ bool HBACCore::rebuild(Status& s) {
 
     // Jacobian spectral components
     if (!jacSpec.rebuild(circuit.sparsityMap(), circuit.unknownCount(), nf, 2, true)) {
-        setError(HBACError::MatrixError);
+        auto nr = HBACUnknownNameResolver(circuit, nf);
+        jacSpec.formatError(s, &nr);
         return false;
     }
 
     // AC analysis matrix
     if (!acMatrix.rebuild(circuit.sparsityMap(), circuit.unknownCount(), nf, nf)) {
-        setError(HBACError::MatrixError);
+        auto nr = HBACUnknownNameResolver(circuit, nf);
+        acMatrix.formatError(s, &nr);
         return false;
     }
-    
+
+    // Bind delay lines to acMatrix blocks. delayLines_ is shared with hbCore_
+    // and already sized by HBCore::rebuild() (run before this by
+    // HBAC::rebuildCores); delay values are filled during the HB solve /
+    // evaluateAtNodeset() in coroutine(). The (out,in) and (out,out) blocks
+    // must exist in the sparsity map (absdelay declares the Jacobian entry),
+    // so this only fails on a genuine topology error. bindToBlockMatrix() sets
+    // s on failure; formatError() is not reached on the rebuild path.
+    if (!delayLines_.bindToBlockMatrix(acMatrix, hbacDelayBindings_, s)) {
+        return false;
+    }
+
     return true;
 }
 

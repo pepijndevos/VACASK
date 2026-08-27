@@ -1,0 +1,171 @@
+Single tone HBAC with an absdelay element at the output
+
+ground 0
+
+load "resistor.osdi"
+load "nl.va"
+load "nlsrc.va"
+load "vdelay.va"
+
+model resistor resistor
+model vsource vsource
+model nl nl
+model nlsrc nlsrc
+model vdelay vdelay
+
+// Same large + small signal excitation as test_hbac1
+v1 (1 0) vsource dc=0 type="sine" sinedc=0.0 ampl=1 freq=1k tdphase=90 spur={0.0} smag=[1]
+
+// Reference DUT (as in test_hbac1): -v1:flow(br) is the small-signal current response
+nl1 (1 0) nl a=3 c=5
+
+// Build a node voltage carrying that same small-signal response.
+//   g1 injects  (a V(1))^2 + ddt((c V(1))^3)  into node q  (a, c match nl1)
+//   rq pulls    V(q)/1                          out of node q
+//   => V(q) small-signal spectrum == the test_hbac1 response
+g1 (0 q 1 0) nlsrc a=3 c=5
+rq (q 0) resistor r=1
+
+// Delay that node voltage. In the small-signal (conversion-matrix) sense a pure
+// delay is diagonal in spur index: spur n at frequency f+n*f0 is multiplied by
+// exp(-j*2*pi*(f+n*f0)*td). So V(qd);n == exp(-j w_n td) V(q);n.
+dly1 (qd q) vdelay td=0.3m
+
+control
+  abort always
+
+  print unknowns
+  options homotopy_debug=1 hb_debug=0 smsig_debug=1
+  options reltol=1e-12
+
+  // HBAC with a preceding HB solve
+  analysis hbac1 hbac freq=[1k] nharm=10 outspur={} values=[10.0] maxharm=3
+
+  options smsig_debug=0
+  analysis hb1 hb freq=[1k] nharm=10 store="hbsol"
+  // HBAC evaluating at a stored HB solution
+  analysis hbac2 hbac nodeset="hbsol" hbsolve=0 outspur={} values=[10.0] maxharm=3
+
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "nl.va" <<<FILE
+`include "constants.vams"
+`include "disciplines.vams"
+
+module nl(n1,n2);
+    inout n1, n2;
+    electrical n1,n2;
+
+    (* desc = "Resistive a", type = "instance" *) parameter real a = 1;
+    (* desc = "Reactive c", type = "instance" *) parameter real c = 1;
+
+    analog begin
+        I(n1,n2) <+ pow(a*V(n1,n2), 2) + ddt(pow(c*V(n1,n2), 3));
+    end
+endmodule
+>>>FILE
+
+embed "nlsrc.va" <<<FILE
+`include "constants.vams"
+`include "disciplines.vams"
+
+// Current source from p to n equal to (a V(cp,cn))^2 + ddt((c V(cp,cn))^3).
+// Same nonlinearity as nl, but the controlling voltage is a separate node pair
+// so the driven node voltage is an explicit function of the control voltage.
+module nlsrc(p, n, cp, cn);
+    inout p, n, cp, cn;
+    electrical p, n, cp, cn;
+
+    (* desc = "Resistive a", type = "instance" *) parameter real a = 1;
+    (* desc = "Reactive c", type = "instance" *) parameter real c = 1;
+
+    analog begin
+        I(p,n) <+ pow(a*V(cp,cn), 2) + ddt(pow(c*V(cp,cn), 3));
+    end
+endmodule
+>>>FILE
+
+embed "vdelay.va" <<<FILE
+`include "constants.vams"
+`include "disciplines.vams"
+
+module vdelay(out, in);
+    inout out, in;
+    electrical out, in;
+
+    branch (out) br_out;
+
+    (*desc= "Delay", type="instance", units = "s"*) parameter real td = 1m from (0:inf);
+
+    analog begin
+        V(br_out) <+ absdelay(V(in), td);
+    end
+endmodule
+>>>FILE
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+from runtest import *
+import numpy as np
+import sys
+
+tests = []
+
+# Must match dly1 td and the excitation in the netlist
+td = 0.3e-3
+f  = 10.0      # small-signal (swept) frequency, values=[10.0]
+f0 = 1e3       # fundamental
+
+spurs = np.arange(-3, 4)
+omega = 2*np.pi*(f + spurs*f0)          # frequency of each spur
+shift = np.exp(-1j*omega*td)            # per-spur delay factor
+
+# test_hbac1 linearized current response (a=3, b=1, c=5)
+a, b, c = 3.0, 1.0, 5.0
+exact = np.array([
+    0,                                   # -3
+    3*c**3*b/4*2*np.pi*(-2*f0+f)*1j,      # -2
+    a**2*b,                              # -1
+    3*c**3*b/2*2*np.pi*f*1j,             #  0
+    a**2*b,                              #  1
+    3*c**3*b/4*2*np.pi*(2*f0+f)*1j,       #  2
+    0,                                   #  3
+])
+ref = np.abs(exact).max()
+
+def check(name, tag):
+    d = rawread(name+'.raw').get()
+    i1  = np.array([-d['v1:flow(br);'+str(n)].item() for n in spurs])
+    vq  = np.array([ d['q;'+str(n)].item()           for n in spurs])
+    vqd = np.array([ d['qd;'+str(n)].item()          for n in spurs])
+
+    # base circuit unchanged: -v1:flow == reference
+    e = relDiff(i1, exact, ref).max()
+    ok = bool(e < 1e-9)
+    tests.append(ok)
+    print(tag, "-v1:flow(br) vs reference:", e, ok)
+
+    # nlsrc reproduces the reference response as a node voltage
+    e = relDiff(vq, exact, ref).max()
+    ok = bool(e < 1e-9)
+    tests.append(ok)
+    print(tag, "V(q) vs reference:", e, ok)
+
+    # the delayed node is V(q) shifted by exp(-j w_n td), per spur
+    e = (np.abs(vqd - shift*vq) / max(np.abs(vqd).max(), 1e-300)).max()
+    ok = bool(e < 1e-9)
+    tests.append(ok)
+    print(tag, "V(qd) vs exp(-j w_n td) V(q):", e, ok)
+
+    # and therefore equals the shifted reference
+    e = relDiff(vqd, shift*exact, ref).max()
+    ok = bool(e < 1e-9)
+    tests.append(ok)
+    print(tag, "V(qd) vs shifted reference:", e, ok)
+
+check('hbac1', '[hb]   ')
+check('hbac2', '[stored]')
+
+sys.exit(not all(tests))
+>>>FILE

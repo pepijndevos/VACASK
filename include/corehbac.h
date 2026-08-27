@@ -85,8 +85,9 @@ public:
         Circuit& circuit, CommonData& commons, 
         KluBlockSparseComplexMatrix& jacSpec, 
         VectorRepository<Complex>& hbSolution, 
-        KluBlockSparseComplexMatrix& acMatrix, Vector<Complex>& acSolution
-    ); 
+        KluBlockSparseComplexMatrix& acMatrix, Vector<Complex>& acSolution,
+        DelayLines& delayLines, DelayMatrixBindings<DenseMatrixView<Complex>>& hbacDelayBindings
+    );
     ~HBACCore();
     
     HBACCore           (const HBACCore&)  = delete;
@@ -162,6 +163,9 @@ protected:
     std::vector<std::string> suffixes;
     std::vector<int> spurIndices;
     std::vector<std::vector<Int>> spurSignatures;
+
+    DelayLines& delayLines_;
+    DelayMatrixBindings<DenseMatrixView<Complex>>& hbacDelayBindings_;
 
     Vector<Real> omega;
 

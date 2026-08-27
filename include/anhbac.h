@@ -80,6 +80,7 @@ protected:
 
     DelayLines delayLines_;
     DelayMatrixBindings<DenseMatrixView<double>> hbDelayBindings_;
+    DelayMatrixBindings<DenseMatrixView<Complex>> hbacDelayBindings_;
 
     HBCore hbCore;
     HBACCore hbacCore;
