@@ -20,14 +20,16 @@ void SparsityMap::enumerate() {
     // Prepare a vector of map keys
     ordering.clear();
     for(auto it=smap.begin(); it!=smap.end(); ++it) {
-        ordering.push_back(it->first);
+        ordering.push_back({it->first, it->second.flags});
     }
     
     // Order them
     struct {
-        bool operator()(const MatrixEntryPosition& lhs, const MatrixEntryPosition& rhs) const {
+        bool operator()(const OrderedEntry& lhs, const OrderedEntry& rhs) const {
+            const auto& [l, lflags] = lhs;
+            const auto& [r, rflags] = rhs;
             // Compare first by column (unknown), then by row (equation)
-            return (lhs.second < rhs.second) || ((lhs.second == rhs.second) && (lhs.first < rhs.first));
+            return (l.second < r.second) || ((l.second == r.second) && (l.first < r.first));
         }
     } comparison;
     
@@ -37,7 +39,8 @@ void SparsityMap::enumerate() {
     MatrixEntryIndex num = 0;
     for(auto it=ordering.begin(); it!=ordering.end(); ++it) {
         // first = equation, second = unknown
-        smap[*it].index = num;
+        const auto& [mep, flags] = *it;
+        smap[mep].index = num;
         num++;
     }
 }
@@ -45,8 +48,9 @@ void SparsityMap::enumerate() {
 void SparsityMap::dump(int indent, std::ostream& os) const {
     std::string pfx = std::string(indent, ' ');
     for(auto& it : ordering) {
-        auto entry = find(it);
-        auto [e, u] = it;
+        const auto& [mep, flags] = it;
+        auto entry = find(mep);
+        auto [e, u] = mep;
         os << pfx << "(" << e << ", " << u << ") : ";
         if (entry) {
             os << entry->index;
@@ -139,8 +143,9 @@ template<typename IndexType, typename ValueType> bool KluMatrixCore<IndexType, V
     // CSC column pointers: AP has AN+1 entries, AP[c] is the offset of column c's
     // first nonzero, AP[AN] == nnz, and an empty column satisfies AP[c] == AP[c+1].
     for(auto it=m.positions().begin(); it!=m.positions().end(); ++it) {
-        auto row = it->first;
-        auto col = it->second;
+        const auto& [mep, flags] = *it;
+        auto row = mep.first;
+        auto col = mep.second;
 
         // Skip entries that have zero index (they correspond to ground)
         if (!row || !col) {

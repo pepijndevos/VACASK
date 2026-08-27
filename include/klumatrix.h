@@ -58,6 +58,8 @@ enum class EntryFlags : uint8_t {
     Resistive = 1,
     Reactive = 2,
     ResistiveReactive = 3, 
+    Delay = 4, 
+    EntryType = 7, 
 };
 DEFINE_FLAG_OPERATORS(EntryFlags);
 
@@ -80,6 +82,9 @@ public:
 
     // Type of map from MatrixEntryPosition into a linear array index
     typedef std::unordered_map<MatrixEntryPosition, Entry, MatrixEntryPositionHash> Map;
+
+    // Ordered entries type
+    typedef std::tuple<MatrixEntryPosition, EntryFlags> OrderedEntry;
 
     // Clear
     void clear();
@@ -107,10 +112,13 @@ public:
         }
         return &(it->second);
     };
-    
+
+    // Get map of entries
+    const Map& sparsity() const { return smap; };
+
     // Get vector of sorted matrix entry positions
-    std::vector<MatrixEntryPosition>& positions() { return ordering; };
-    const std::vector<MatrixEntryPosition>& positions() const { return ordering; };
+    std::vector<OrderedEntry>& positions() { return ordering; };
+    const std::vector<OrderedEntry>& positions() const { return ordering; };
 
     // Enumerate entries
     void enumerate();
@@ -120,7 +128,7 @@ public:
 
 private:
     Map smap;
-    std::vector<MatrixEntryPosition> ordering;
+    std::vector<OrderedEntry> ordering;
 };
 
 

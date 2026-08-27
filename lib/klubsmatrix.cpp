@@ -107,7 +107,8 @@ bool KluBlockSparseMatrixCore<IndexType, ValueType>::rebuild(SparsityMap& m, Equ
     atCol = 0;
     auto& positions = m.positions();
     for(size_t posNdx=0; posNdx<positions.size(); posNdx++) {
-        auto [row, col] = positions[posNdx];
+        auto [mep, flags] = positions[posNdx];
+        auto [row, col] = mep;
         // Make column index 0-based
         col--;
         // Reached next column
@@ -160,7 +161,8 @@ bool KluBlockSparseMatrixCore<IndexType, ValueType>::rebuild(SparsityMap& m, Equ
             for(auto blkPos = colBeginNdx; blkPos < colEndNdx ; blkPos++) {
                 // Get block row and column index
                 // We do not need blkCol - it is useful for debugging
-                auto [blkRow, blkCol] = positions[blkPos];
+                auto [blkMep, blkFlags] = positions[blkPos];
+                auto [blkRow, blkCol] = blkMep;
                 // These indices are 1-based, make them 0-based
                 blkRow--;
                 blkCol--;

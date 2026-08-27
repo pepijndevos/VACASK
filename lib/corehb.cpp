@@ -349,7 +349,12 @@ bool HBCore::getFrequencyDomainJacobians(KluBlockSparseComplexMatrix& jacSpec, c
     Vector<Complex> CFullJac(nfp);
 
     // Go through all dense blocks
-    for(auto& pos : circuit.sparsityMap().positions()) {
+    for(auto& [pos, flags] : circuit.sparsityMap().positions()) {
+        // Delay only blocks are skipped, we handle only nonlinear resistive/reactive Jacobian blocks
+        if ((flags & EntryFlags::EntryType) == EntryFlags::Delay) {
+            continue;
+        }
+        
         // Get block position (for debugging), make position 0-based
         auto [i, j] = pos;
         i--;

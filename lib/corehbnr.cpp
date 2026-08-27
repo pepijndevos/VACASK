@@ -510,8 +510,13 @@ std::tuple<bool, bool> HBNRSolver::buildSystem(bool continuePrevious) {
         return std::make_tuple(false, false); ;
     }
 
-    // For each block (ordered in column major order)
-    for(auto& pos : circuit.sparsityMap().positions()) {
+    // For each Jacobian block (ordered in column major order)
+    for(auto& [pos, flags] : circuit.sparsityMap().positions()) {
+        // Delay only blocks are skipped, we load only nonlinear resistive/reactive Jacobian blocks
+        if ((flags & EntryFlags::EntryType) == EntryFlags::Delay) {
+            continue;
+        }
+
         // Get block position (for debugging), make position 0-based
         auto [i, j] = pos;
         i--;
@@ -584,8 +589,8 @@ std::tuple<bool, bool> HBNRSolver::buildSystem(bool continuePrevious) {
         
         // DC is special, it has only a real component
         residualView[0] = -outputView[0] + inputView[0];
-        outOut.at(0,0) = -1;
-        outIn.at(0,0) = 1;
+        outOut.at(0,0) += -1;
+        outIn.at(0,0) += 1;
         
         // Frequencies above 0Hz
         for(decltype(nf) k=1; k<nf; k++) {
@@ -602,12 +607,12 @@ std::tuple<bool, bool> HBNRSolver::buildSystem(bool continuePrevious) {
             // Jacobian
             auto c = e.real();
             auto s = e.imag();
-            outOut.at(ndx,ndx) = -1;
-            outOut.at(ndx+1,ndx+1) = -1;
-            outIn.at(ndx,ndx) = c;
-            outIn.at(ndx+1,ndx) = s;
-            outIn.at(ndx,ndx+1) = -s;
-            outIn.at(ndx+1,ndx+1) = c;
+            outOut.at(ndx,ndx) += -1;
+            outOut.at(ndx+1,ndx+1) += -1;
+            outIn.at(ndx,ndx) += c;
+            outIn.at(ndx+1,ndx) += s;
+            outIn.at(ndx,ndx+1) += -s;
+            outIn.at(ndx+1,ndx+1) += c;
         }
     }
     

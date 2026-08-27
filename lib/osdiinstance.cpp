@@ -587,10 +587,10 @@ bool OsdiInstance::populateStructuresCore(Circuit& circuit, Status& s) {
         // Entries are considered resistive. Complex matrices should be a union of resistive 
         // and reactive entries. At this point real matrices (resistive or reactive) have 
         // the same sparsity pattern (union of both) as complex matrices. 
-        if (auto [_, ok] = circuit.createJacobianEntry(nout, nin, EntryFlags::Resistive, s); !ok) {
+        if (auto [_, ok] = circuit.createJacobianEntry(nout, nin, EntryFlags::Delay, s); !ok) {
             return false;
         }
-        if (auto [_, ok] = circuit.createJacobianEntry(nout, nout, EntryFlags::Resistive, s); !ok) {
+        if (auto [_, ok] = circuit.createJacobianEntry(nout, nout, EntryFlags::Delay, s); !ok) {
             return false;
         }
     }

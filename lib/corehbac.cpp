@@ -274,7 +274,12 @@ void HBACCore::fillDenseBlock(
 
 void HBACCore::fillMatrix() {
     acMatrix.zero();
-    for(auto& pos : circuit.sparsityMap().positions()) {
+    for(auto& [pos, flags] : circuit.sparsityMap().positions()) {
+        // Delay only blocks are skipped, we load only nonlinear resistive/reactive Jacobian blocks
+        if ((flags & EntryFlags::EntryType) == EntryFlags::Delay) {
+            continue;
+        }
+
         // Jacobian spectrum block, column 1 is G, column 2 is C
         auto [jacSpecBlock, found1] = jacSpec.block(pos);
         auto G = jacSpecBlock.column(0);
@@ -312,10 +317,11 @@ void HBACCore::fillMatrix() {
         auto td = delayLines_.delay(i);
         auto [outIn, outOut] = hbacDelayBindings_[i];
         
-        outOut.diagonal() = -1.0;
-        auto diag = outIn.diagonal();
+        auto outOutDiag = outOut.diagonal();
+        auto outInDiag = outIn.diagonal();
         for(decltype(nf) k=0; k<nf; k++) {
-            diag[k] = std::exp(Complex(0.0, -omega[k]*td));
+            outOutDiag[k] += -1;
+            outInDiag[k] += std::exp(Complex(0.0, -omega[k]*td));
         }
     }
 }
