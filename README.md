@@ -2,7 +2,9 @@
 <img src="cask.svg" width="200" alt="Cask">
 
 # About VACASK
-VACASK (Verilog-A Circuit Analysis Kernel) is an analog circuit simulator. VACASK uses the [OpenVAF-Reloaded Verilog-A compiler](https://github.com/OpenVAF-Reloaded/OpenVAF) for building the device models as shared libraries. The compiled device models are loaded by the simulator on demand at runtime. The simulator communicates with the models via the [OSDI API](https://openvaf.semimod.de/docs/details/osdi/). Currently OSDI API 0.4 is used which is supported only by OpenVAF-Reloaded. Of course, you can also create device models using VACASK's APIs in C++ and link them statically with the simulator. 
+VACASK (Verilog-A Circuit Analysis Kernel) is an analog circuit simulator. VACASK uses the [OpenVAF-Reloaded Verilog-A compiler](https://github.com/OpenVAF-Reloaded/OpenVAF) for building the device models as shared libraries. The compiled device models are loaded by the simulator on demand at runtime. The simulator communicates with the models via the [OSDI API](https://openvaf.semimod.de/docs/details/osdi/). Of course, you can also create device models using VACASK's APIs in C++ and link them statically with the simulator. 
+
+Currently OSDI API 0.4 is used as default. OpenVAF-Reloaded from the master branch exposes this version of the API. The development version of the API (0.5) is also supported (mb-experimental branch). Binaries are bundled with the version that exposes the latest API (0.5). 
 
 VACASK is not SPICE (although one could write a SPICE-compatible netlist parser for it with little effort). SPICE3 is more than 30 years old, written in C, and the code is hard to maintain. In some respect SPICE looks more like a proof of concept one writes before building the real thing. The way circuit equations are handled in SPICE makes it hard to extend the simulator with new algorithms. VACASK's goal is to be better than SPICE, not only in terms of what it offers, but also in terms of extensibility and ease of maintenance. 
 
@@ -236,7 +238,7 @@ All these components come as pre-built packages for [Debian](https://www.debian.
 - Scikit-rf
 - Matplotlib
 
-First, install the OpenVAF-Reloaded compiler. The latest development version of OpenVAF-Reloaded can be found at [https://fides.fe.uni-lj.si/openvaf/download](https://fides.fe.uni-lj.si/openvaf/download/). Make sure you download the OSDI 0.4 version. Of course, you can also take the OpenVAF-Reloaded binary from the VACASK binary packages (.deb and .tar.gz for Linux, .zip for Windows). If the OpenVAF-Reloaded binary you pick up is named `openvaf-r` you have the right one (it produces models with the OSDI 0.4 interface). If you decide to build the compiler yourself, git-clone the [OpenVAF-Reloaded repository](https://github.com/OpenVAF-Reloaded/OpenVAF). Instructions for building can be found in the [README.md](https://github.com/OpenVAF-Reloaded/OpenVAF/blob/master/README.md) file. 
+First, install the OpenVAF-Reloaded compiler. The latest development version of OpenVAF-Reloaded can be found at [https://fides.fe.uni-lj.si/openvaf/download](https://fides.fe.uni-lj.si/openvaf/download/). Make sure you download the OSDI 0.4 or 0.5 version. Of course, you can also take the OpenVAF-Reloaded binary from the VACASK binary packages (.deb and .tar.gz for Linux, .zip for Windows). If the OpenVAF-Reloaded binary you pick up is named `openvaf-r` you have the right one (it produces models with the OSDI 0.4/0.5 interface). If you decide to build the compiler yourself, git-clone the [OpenVAF-Reloaded repository](https://github.com/OpenVAF-Reloaded/OpenVAF). Instructions for building can be found in the [README.md](https://github.com/OpenVAF-Reloaded/OpenVAF/blob/master/README.md) file. 
 
 macOS users must build OpenVAF-Reloaded from sources. Make sure you [install all prerequisites](#macos).  Then follow these [short instructions for building OpenVAF](#building-openvaf-reloaded). 
 
