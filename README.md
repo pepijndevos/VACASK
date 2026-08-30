@@ -67,11 +67,11 @@ Yes we do. It is bundled with the binary packages. [The user's manual](docs/inde
 - conditional netlist blocks (@if-@elseif-@else-@end) - can be used for implementing automated binning
 - RPN interpreter for parameterized expression evaluation
 - integer, real, and string data types; vectors (homogeneous containers) and lists (heterogeneous containers)
-- a library of [built-in functions and constants](lib/context.cpp) for use in parameterized expressions
+- a library of [built-in functions](docs/expr-functions.md) and [constants](docs/expr-constants.md) for use in parameterized expressions
 - all SPICE analyses + [many more](#supported-analyses)
-- [options](lib/options.cpp) for fine tuning the simulator
+- [options](docs/cmd-options.md) for fine tuning the simulator
 - selection of what should be saved during simulation (save directives)
-- [parametric sweep](include/coresweep.h) of any analysis with arbitrary depth
+- [parametric sweep](docs/cmd-sweep.md) of any analysis with arbitrary depth
 - almost anything can be swept (instance, model, and subcircuit parameters, options, and circuit variables)
 - anything that can be swept can also be modified without reloading the circuit (no need to build a new netlist and restart the simulator)
 - automatic partial circuit elaboration when circuit topology changes due to a change in parameters, options, or variables
@@ -88,13 +88,13 @@ Yes we do. It is bundled with the binary packages. [The user's manual](docs/inde
 - numerical solvers based on the KLU sparse matrix library
 - SPICE ASCII/binary raw file output
 - embedded files in the netlist
-- postprocessing of results with external tools (see [python/rawfile.py](python/rawfile.py) and [demos](demo))
+- postprocessing of results with external tools (see [Python helpers](docs/python-overview.md) and [demos](demo))
 - a growing [library of Verilog-A models](devices/) (diode, BSIM3, BSIM4, BSIMBULK, ...)
 - simulator library that can be linked to 3rd party software (see API demo in  [demo/api](demo/api))
 - netlist parser with Spectre-like syntax
 - Ngspice netlist converter (under development, see [python/ng2vc.py](python/ng2vc.py))
 - [Xschem](https://xschem.sourceforge.io/stefan/index.html) schematic entry, analysis setup, and results display (use the latest development release). See [demo/xschem](demo/xschem) for more information. 
-- [IHP Open PDK](https://github.com/IHP-GmbH/IHP-Open-PDK) support. See [demo/ihp-sg13g2](demo/ihp-sg13g2) for more information. 
+- [IHP Open PDK](https://github.com/IHP-GmbH/IHP-Open-PDK) support for the sg13g2 and sg13cmos5l technologies. See [demo/ihp-sg13g2](demo/ihp-sg13g2) and [demo/ihp-sg13cmos5l](demo/ihp-sg13cmos5l) for more information. 
 - Verilog-A natures and disciplines for setting absolute tolerances on unknowns and residuals (see [demo/natures](demo/natures)). 
 - Monte Carlo analysis with Latin hypercube sampling (see [demo/mc](demo/mc)). 
 - Touchstone file to VACASK lumped model converter based on scikit-rf (see [demo/ts](demo/ts)). 
