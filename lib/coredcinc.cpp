@@ -41,7 +41,7 @@ DCIncrementalCore::~DCIncrementalCore() {
     delete outfile;
 }
 
-bool DCIncrementalCore::resolveOutputDescriptors(bool strict, Status& s) {
+bool DCIncrementalCore::resolveOutputDescriptors(bool strict, ErrorConsumer& errors) {
     // Clear output sources
     outputSources.clear();
     // Resolve output descriptors
@@ -51,11 +51,11 @@ bool DCIncrementalCore::resolveOutputDescriptors(bool strict, Status& s) {
         Instance *inst;
         switch (it->type) {
         case OutdSolComponent:
-            ok = addRealVarOutputSource(strict, it->id, incrementalSolution, it->id, s);
+            ok = addRealVarOutputSource(strict, it->id, incrementalSolution, it->id, errors);
             break;
         default:
             // Delegate to parent
-            ok = parentResolver.resolveOutputDescriptor(*it, outputSources, strict, s);
+            ok = parentResolver.resolveOutputDescriptor(*it, outputSources, strict, errors);
             break;
         }
         if (!ok) {
@@ -65,18 +65,18 @@ bool DCIncrementalCore::resolveOutputDescriptors(bool strict, Status& s) {
     return ok;
 }
 
-bool DCIncrementalCore::addDefaultOutputDescriptors(Status& s) {
+bool DCIncrementalCore::addDefaultOutputDescriptors(ErrorConsumer& errors) {
     // If output is suppressed, skip all this work
     if (!params.write || Simulator::noOutput()) {
         return true;
     }
     if (savesCount==0) {
-        return addAllUnknowns(PTSave("default", Id(), Id()), s);
+        return addAllUnknowns(PTSave("default", Id(), Id()), errors);
     }
     return true;
 }
 
-bool DCIncrementalCore::initializeOutputs(const std::string& name, Status& s) {
+bool DCIncrementalCore::initializeOutputs(const std::string& name, ErrorConsumer& errors) {
     if (!params.write || Simulator::noOutput()) {
         return true;
     }
@@ -94,7 +94,7 @@ bool DCIncrementalCore::initializeOutputs(const std::string& name, Status& s) {
     return true;
 }
 
-bool DCIncrementalCore::finalizeOutputs(Status& s) {
+bool DCIncrementalCore::finalizeOutputs(ErrorConsumer& errors) {
     if (outfile) {
         outfile->epilogue();
         delete outfile;
@@ -103,7 +103,7 @@ bool DCIncrementalCore::finalizeOutputs(Status& s) {
     return true;
 }
 
-bool DCIncrementalCore::deleteOutputs(Id name, Status& s) {
+bool DCIncrementalCore::deleteOutputs(Id name, ErrorConsumer& errors) {
     if (!params.write || Simulator::noOutput()) {
         return true;
     }
@@ -116,26 +116,24 @@ bool DCIncrementalCore::deleteOutputs(Id name, Status& s) {
     return true;
 }
     
-bool DCIncrementalCore::rebuild(Status& s) {
-    clearError();
+bool DCIncrementalCore::rebuild(ErrorConsumer& errors) {
     return true;
 }
 
 // System of equations is 
 //   G(x) dx = dJ
-CoreCoroutine DCIncrementalCore::coroutine(bool continuePrevious) {
+CoreCoroutine DCIncrementalCore::coroutine(bool continuePrevious, ErrorConsumer& errors) {
     initProgress(1, 0);
 
     jacobian.setAccounting(circuit.tables().accounting());
 
-    clearError();
     auto n = circuit.unknownCount();
     // Make sure structures are large enough
     incrementalSolution.resize(n+1);
     
-    auto opOk = opCore_.run(continuePrevious);
+    auto opOk = opCore_.run(continuePrevious, errors);
     if (!opOk) {
-        setError(DCIncrementalError::OperatingPointError);
+        errors.push(DcIncOperatingPointFailed{});
         co_yield CoreState::Aborted;
     }
 
@@ -156,9 +154,9 @@ CoreCoroutine DCIncrementalCore::coroutine(bool continuePrevious) {
     // Prepare RHS (add excitations given by delta parameter)
     zero(incrementalSolution);
     auto filter = [](Device* device) { return device->checkFlags(Device::Flags::GeneratesDCIncremental); };
-    if (!circuit.evalAndLoad(commons, nullptr, &lsRhs, filter)) {
+    if (!circuit.evalAndLoad(commons, nullptr, &lsRhs, filter, errors)) {
         // Load error
-        setError(DCIncrementalError::EvalAndLoad);
+        errors.push(DcIncEvalAndLoadFailed{});
         if (debug>0) {
             Simulator::dbg() << "Error in DC incremental excitation load.\n";
         }
@@ -179,16 +177,16 @@ CoreCoroutine DCIncrementalCore::coroutine(bool continuePrevious) {
     // We don't need max residual contribution because we do not check residual
 
     // Solve 
-    if (!jacobian.solve(dataWithoutBucket(incrementalSolution, bucketSize))) {
-        setError(DCIncrementalError::MatrixError);
+    if (!jacobian.solve(dataWithoutBucket(incrementalSolution, bucketSize), errors)) {
+        errors.push(DcIncMatrixError{});
         co_yield CoreState::Aborted;
     }
 
     // Set solution bucket to 0
     incrementalSolution[0] = 0.0;
 
-    if (options.solutioncheck && !jacobian.isFinite(dataWithoutBucket(incrementalSolution, bucketSize), true, true)) {
-        setError(DCIncrementalError::SolutionError);
+    if (options.solutioncheck && !jacobian.isFinite(dataWithoutBucket(incrementalSolution, bucketSize), true, true, errors)) {
+        errors.push(DcIncSolutionNotFinite{});
         if (options.smsig_debug) {
             Simulator::dbg() << "A solution entry is not finite. Solver failed.\n";
         }
@@ -209,8 +207,8 @@ CoreCoroutine DCIncrementalCore::coroutine(bool continuePrevious) {
     co_yield CoreState::Finished;
 }
 
-bool DCIncrementalCore::run(bool continuePrevious) {
-    auto c = coroutine(continuePrevious);
+bool DCIncrementalCore::run(bool continuePrevious, ErrorConsumer& errors) {
+    auto c = coroutine(continuePrevious, errors);
     bool ok = true;
     while (!c.done()) {
         if (c.resume()==CoreState::Aborted) {
@@ -219,39 +217,6 @@ bool DCIncrementalCore::run(bool continuePrevious) {
         };
     }
     return ok;
-}
-
-bool DCIncrementalCore::formatError(Status& s) const {
-    auto nr = UnknownNameResolver(circuit);
-    std::stringstream ss;
-    ss << std::scientific << std::setprecision(4);
-    
-    // First, handle AnalysisCore errors
-    if (lastError!=Error::OK) {
-        AnalysisCore::formatError(s);
-        return false;
-    }
-    
-    // Then handle DCIncrementalCore errors
-    switch (lastDcIncrError) {
-        case DCIncrementalError::EvalAndLoad:
-            s.set(Status::Analysis, "Jacobian evaluation failed.");
-            break;
-        case DCIncrementalError::MatrixError:
-            jacobian.formatError(s, &nr);
-            break;
-        case DCIncrementalError::SolutionError:
-            jacobian.formatError(s, &nr);
-            s.extend("Solution component is not finite.");
-            break;
-        case DCIncrementalError::OperatingPointError:
-            opCore_.formatError(s);
-            break;
-        default:
-            return true;
-    }
-    s.extend("Leaving DC incremental analysis.");
-    return false;
 }
 
 void DCIncrementalCore::dump(std::ostream& os) const {

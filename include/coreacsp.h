@@ -1,7 +1,6 @@
 #ifndef __ANCORESP_DEFINED
 #define __ANCORESP_DEFINED
 
-#include "status.h"
 #include "circuit.h"
 #include "core.h"
 #include "coreop.h"
@@ -70,22 +69,107 @@ typedef struct ACSPParameters {
     ACSPParameters();
 } ACSPParameters;
 
+SIMPLE_ERRORCLASS(SpSweepSetupFailed, "Failed to set up the S-parameter frequency sweep.");
+
+SIMPLE_ERRORCLASS(SpSweepComputeFailed, "S-parameter sweep point computation failed.");
+
+SIMPLE_ERRORCLASS(SpEvalAndLoadFailed, "Jacobian evaluation failed.");
+
+SIMPLE_ERRORCLASS(SpMatrixError, "S-parameter analysis matrix error.");
+
+SIMPLE_ERRORCLASS(SpSolutionNotFinite, "Solution component is not finite.");
+
+SIMPLE_ERRORCLASS(SpOperatingPointFailed, "Operating point analysis failed.");
+
+SIMPLE_ERRORCLASS(SpSingularMatrix, "Matrix is close to singular.");
+
+SIMPLE_ERRORCLASS(SpBadFrequency, "Frequency value cannot be converted to real.");
+
+SIMPLE_ERRORCLASS(SpSingularSMatrix, "S-parameter matrix is singular.");
+
+SIMPLE_ERRORCLASS(SpMatrixEntryNotFound, "Matrix entry not found.");
+
+SIMPLE_ERRORCLASS(SpDelayBindFailed, "Failed to bind delay lines to the S-parameter matrix.");
+
+SIMPLE_ERRORCLASS(SpBindFailed, "Failed to bind the S-parameter matrix.");
+
+ERRORCLASS(SpSweepAborted)
+    double frequency;
+    SpSweepAborted(double frequency) : frequency(frequency) {}
+    std::string format() const {
+        if (frequency >= 0) {
+            return "Leaving frequency sweep at frequency=" + std::to_string(frequency) + ".";
+        }
+        return "Leaving frequency sweep.";
+    }
+END_ERRORCLASS(SpSweepAborted);
+
+ERRORCLASS(SpPortSourceNotFound)
+    Id source;
+    SpPortSourceNotFound(Id source) : source(source) {}
+    std::string format() const { return "Port source '" + std::string(source) + "' not found."; }
+END_ERRORCLASS(SpPortSourceNotFound);
+
+ERRORCLASS(SpPortResistorNotFound)
+    Id resistor;
+    SpPortResistorNotFound(Id resistor) : resistor(resistor) {}
+    std::string format() const { return "Port resistor '" + std::string(resistor) + "' not found."; }
+END_ERRORCLASS(SpPortResistorNotFound);
+
+ERRORCLASS(SpPortSourceNotVoltage)
+    Id source;
+    SpPortSourceNotVoltage(Id source) : source(source) {}
+    std::string format() const { return "Port source '" + std::string(source) + "' must be a voltage source."; }
+END_ERRORCLASS(SpPortSourceNotVoltage);
+
+ERRORCLASS(SpPortResistorParams)
+    Id resistor;
+    SpPortResistorParams(Id resistor) : resistor(resistor) {}
+    std::string format() const {
+        return "Port resistor '" + std::string(resistor) + "' must have 'r', '$mfactor', and 'noisy' parameters.";
+    }
+END_ERRORCLASS(SpPortResistorParams);
+
+ERRORCLASS(SpPortResistorType)
+    Id resistor;
+    SpPortResistorType(Id resistor) : resistor(resistor) {}
+    std::string format() const {
+        return "Port resistor '" + std::string(resistor) + "' must not be a source and must have 2 terminals.";
+    }
+END_ERRORCLASS(SpPortResistorType);
+
+ERRORCLASS(SpPortResistorParamRead)
+    Id resistor;
+    std::string parameter;
+    SpPortResistorParamRead(Id resistor, std::string parameter) : resistor(resistor), parameter(std::move(parameter)) {}
+    std::string format() const {
+        return "Failed to read resistor parameter '" + parameter + "' for '" + std::string(resistor) + "'.";
+    }
+END_ERRORCLASS(SpPortResistorParamRead);
+
+ERRORCLASS(SpPortResistorParamType)
+    Id resistor;
+    std::string parameter;
+    SpPortResistorParamType(Id resistor, std::string parameter) : resistor(resistor), parameter(std::move(parameter)) {}
+    std::string format() const {
+        return "Resistor parameter '" + parameter + "' of '" + std::string(resistor) + "' is of wrong type.";
+    }
+END_ERRORCLASS(SpPortResistorParamType);
+
+ERRORCLASS(SpPortTopology)
+    Id source;
+    Id resistor;
+    SpPortTopology(Id source, Id resistor) : source(source), resistor(resistor) {}
+    std::string format() const {
+        return "Port defined by '" + std::string(source) + "' and '" + std::string(resistor) +
+               "' has incorrect topology. Positive source node must be connected to the resistor.";
+    }
+END_ERRORCLASS(SpPortTopology);
+
+
 class ACSPCore : public AnalysisCore {
 public:
     typedef ACSPParameters Parameters;
-    enum class SPError {
-        OK, 
-        Sweeper, 
-        SweepCompute, 
-        EvalAndLoad, 
-        MatrixError, 
-        SolutionError, 
-        OperatingPointError, 
-        SingularMatrix, 
-        BadFrequency, 
-        SingularS, 
-        MatrixEntryNotFound
-    };
 
     ACSPCore(
         OutputDescriptorResolver& parentResolver, ACSPParameters& params, OperatingPointCore& opCore, Circuit& circuit,
@@ -102,19 +186,16 @@ public:
     ACSPCore& operator=(const ACSPCore&)  = delete;
     ACSPCore& operator=(      ACSPCore&&) = delete;
 
-    // Format error, return false on error - this function is not cheap (works with strings)
-    bool formatError(Status& s=Status::ignore) const; 
+    bool addCoreOutputDescriptors(ErrorConsumer& errors);
+    bool addDefaultOutputDescriptors(ErrorConsumer& errors);
+    bool resolveOutputDescriptors(bool strict, ErrorConsumer& errors);
 
-    bool addCoreOutputDescriptors(Status& s);
-    bool addDefaultOutputDescriptors(Status& s);
-    bool resolveOutputDescriptors(bool strict, Status& s=Status::ignore);
-
-    bool rebuild(Status& s=Status::ignore); 
-    bool initializeOutputs(const std::string& name, Status& s=Status::ignore);
-    bool run(bool continuePrevious);
-    CoreCoroutine coroutine(bool continuePrevious);
-    bool finalizeOutputs(Status& s=Status::ignore);
-    bool deleteOutputs(Id name, Status& s=Status::ignore);
+    bool rebuild(ErrorConsumer& errors);
+    bool initializeOutputs(const std::string& name, ErrorConsumer& errors);
+    bool run(bool continuePrevious, ErrorConsumer& errors);
+    CoreCoroutine coroutine(bool continuePrevious, ErrorConsumer& errors);
+    bool finalizeOutputs(ErrorConsumer& errors);
+    bool deleteOutputs(Id name, ErrorConsumer& errors);
 
     void dump(std::ostream& os) const;
 
@@ -124,13 +205,6 @@ public:
 protected:
     static constexpr size_t bucketSize = 1;
     
-    // Clear error
-    void clearError() { AnalysisCore::clearError(); lastAcError = SPError::OK; }; 
-
-    void setError(SPError e) { lastAcError = e; lastError = Error::OK; };
-    SPError lastAcError;
-    double errorFreq;
-    Status errorStatus;
 
     VectorRepository<double>& dcSolution;
     VectorRepository<double>& dcStates;

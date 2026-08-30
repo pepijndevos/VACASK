@@ -1,7 +1,6 @@
 #ifndef __ANCOREOP_DEFINED
 #define __ANCOREOP_DEFINED
 
-#include "status.h"
 #include "circuit.h"
 #include "core.h"
 #include "klumatrix.h"
@@ -40,8 +39,43 @@ typedef struct OperatingPointParameters {
     String store {""};         // Name of stored solution slot to write
     Int write {1};             // Write the results to a file
 
-    OperatingPointParameters(); 
+    OperatingPointParameters();
 } OperatingPointParameters;
+
+
+//
+// Operating-point core errors
+//
+// None need a name resolver: they carry no node data, only a plain step count.
+// The offending node/convergence detail, when there is one, is reported by a
+// separate error pushed earlier by the NR solver or the matrix code.
+//
+
+SIMPLE_ERRORCLASS(OpInitialFailed, "Initial OP analysis failed.");
+
+ERRORCLASS(OpHomotopyFailed)
+    Int steps;
+    OpHomotopyFailed(Int steps) : steps(steps) {}
+    std::string format() const {
+        return "Homotopy failed, " + std::to_string(steps) + " step(s) tried.";
+    }
+END_ERRORCLASS(OpHomotopyFailed);
+
+SIMPLE_ERRORCLASS(OpNoAlgorithm, "No operating point algorithm tried.");
+
+SIMPLE_ERRORCLASS(OpNodesetType, "Nodeset must be a list or a string.");
+
+SIMPLE_ERRORCLASS(OpNodesetPreprocessFailed, "Failed to preprocess nodesets.");
+
+// Wraps the Status message from Circuit::createJacobianEntry() when adding the
+// extra-diagonal sparsity entry for a nodeset delta force fails.
+ERRORCLASS(OpNodesetEntryError)
+    std::string message;
+    OpNodesetEntryError(std::string message) : message(std::move(message)) {}
+    std::string format() const { return "Failed to add matrix entry for a nodeset delta force.\n" + message; }
+END_ERRORCLASS(OpNodesetEntryError);
+
+SIMPLE_ERRORCLASS(OpNrRebuildFailed, "Failed to rebuild internal structures of nonlinear solver.");
 
 
 // Operating point core functionality, assumes all circuit parameters and simulator options have been set
@@ -49,12 +83,6 @@ typedef struct OperatingPointParameters {
 class OperatingPointCore : public AnalysisCore {
 public:
     typedef OperatingPointParameters Parameters;
-    enum class OperatingPointError {
-        OK, 
-        InitialOp, 
-        Homotopy, 
-        NoAlgorithm, 
-    };
     
     OperatingPointCore(
         OutputDescriptorResolver& parentResolver, OperatingPointParameters& params, Circuit& circuit, 
@@ -69,26 +97,23 @@ public:
     OperatingPointCore& operator=(const OperatingPointCore&)  = delete;
     OperatingPointCore& operator=(      OperatingPointCore&&) = delete;
 
-    // Format error, return false on error - this function is not cheap (works with strings)
-    bool formatError(Status& s=Status::ignore) const; 
+    bool addDefaultOutputDescriptors(ErrorConsumer& errors);
+    bool resolveOutputDescriptors(bool strict, ErrorConsumer& errors);
 
-    bool addDefaultOutputDescriptors(Status& s);
-    bool resolveOutputDescriptors(bool strict, Status& s=Status::ignore);
+    std::tuple<bool, bool> preMapping(ErrorConsumer& errors);
+    bool populateStructures(ErrorConsumer& errors);
 
-    std::tuple<bool, bool> preMapping(Status& s=Status::ignore);
-    bool populateStructures(Status& s=Status::ignore);
-
-    bool rebuild(Status& s=Status::ignore); 
-    bool initializeOutputs(const std::string& name, Status& s=Status::ignore);
-    bool run(bool continuePrevious);
-    CoreCoroutine coroutine(bool continuePrevious);
-    bool finalizeOutputs(Status& s=Status::ignore);
-    bool deleteOutputs(Id name, Status& s=Status::ignore);
+    bool rebuild(ErrorConsumer& errors);
+    bool initializeOutputs(const std::string& name, ErrorConsumer& errors);
+    bool run(bool continuePrevious, ErrorConsumer& errors);
+    CoreCoroutine coroutine(bool continuePrevious, ErrorConsumer& errors);
+    bool finalizeOutputs(ErrorConsumer& errors);
+    bool deleteOutputs(Id name, ErrorConsumer& errors);
 
     virtual bool storeState(size_t ndx, bool storeDetails=true);
     virtual bool restoreState(size_t ndx);
     
-    virtual std::tuple<bool, bool> runSolver(bool continuePrevious);
+    virtual std::tuple<bool, bool> runSolver(bool continuePrevious, ErrorConsumer& errors);
     virtual Int iterations() const;
     virtual Int iterationLimit(bool continuePrevious) const;
 
@@ -102,15 +127,6 @@ public:
     static Id solutionTag;
 
 protected:
-    // Clear error
-    void clearError() { AnalysisCore::clearError(); lastOpError = OperatingPointError::OK; }; 
-
-    void setError(OperatingPointError e) { lastOpError = e; lastError = Error::OK; };
-    
-    OperatingPointError lastOpError;
-    Int errorForce;
-    Int homotopySteps;
-
     KluRealMatrix& jac; // Resistive Jacobian
     VectorRepository<double>& solution; // Solution history
     VectorRepository<double>& states; // Circuit states
@@ -130,6 +146,11 @@ protected:
     PreprocessedUserForces preprocessedNodeset;
 
 private:
+    // Resolves a Jacobian row/column index to a circuit node name for matrix
+    // error messages. Owned here (the matrix only borrows it via
+    // jac.setResolver()), so it must outlive jac's use of it.
+    UnknownNameResolver resolver_;
+
     NRSettings nrSettings;
     OpNRSolver nrSolver;
 

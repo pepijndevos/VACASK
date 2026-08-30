@@ -1,7 +1,6 @@
 #ifndef __ANCOREACXF_DEFINED
 #define __ANCOREACXF_DEFINED
 
-#include "status.h"
 #include "circuit.h"
 #include "core.h"
 #include "coreop.h"
@@ -61,23 +60,54 @@ typedef struct ACXFParameters {
 } ACXFParameters;
 
 
+ERRORCLASS(AcxfSourceNotFound)
+    Id instance;
+    AcxfSourceNotFound(Id instance) : instance(instance) {}
+    std::string format() const { return "Source '" + std::string(instance) + "' not found."; }
+END_ERRORCLASS(AcxfSourceNotFound);
+
+ERRORCLASS(AcxfNotSource)
+    Id instance;
+    AcxfNotSource(Id instance) : instance(instance) {}
+    std::string format() const { return "Instance '" + std::string(instance) + "' is not a source."; }
+END_ERRORCLASS(AcxfNotSource);
+
+SIMPLE_ERRORCLASS(AcxfSweepSetupFailed, "Failed to set up the AC transfer function sweep.");
+
+SIMPLE_ERRORCLASS(AcxfSweepComputeFailed, "AC transfer function sweep point computation failed.");
+
+SIMPLE_ERRORCLASS(AcxfEvalAndLoadFailed, "Jacobian evaluation failed.");
+
+SIMPLE_ERRORCLASS(AcxfMatrixError, "AC transfer function matrix error.");
+
+SIMPLE_ERRORCLASS(AcxfSolutionNotFinite, "Solution component is not finite.");
+
+SIMPLE_ERRORCLASS(AcxfOperatingPointFailed, "Operating point analysis failed.");
+
+SIMPLE_ERRORCLASS(AcxfSingularMatrix, "Matrix is close to singular.");
+
+SIMPLE_ERRORCLASS(AcxfBadFrequency, "Frequency value cannot be converted to real.");
+
+SIMPLE_ERRORCLASS(AcxfDelayBindFailed, "Failed to bind delay lines to the AC transfer function matrix.");
+
+SIMPLE_ERRORCLASS(AcxfBindFailed, "Failed to bind the AC transfer function matrix.");
+
+ERRORCLASS(AcxfSweepAborted)
+    double frequency;
+    AcxfSweepAborted(double frequency) : frequency(frequency) {}
+    std::string format() const {
+        if (frequency >= 0) {
+            return "Leaving frequency sweep at frequency=" + std::to_string(frequency) + ".";
+        }
+        return "Leaving frequency sweep.";
+    }
+END_ERRORCLASS(AcxfSweepAborted);
+
+
 class ACXFCore : public AnalysisCore {
 public:
     typedef ACXFParameters Parameters;
-    enum class ACXFError {
-        OK, 
-        NotFound, 
-        NotSource, 
-        Sweeper, 
-        SweepCompute, 
-        EvalAndLoad, 
-        MatrixError, 
-        SolutionError, 
-        OperatingPointError, 
-        SingularMatrix, 
-        BadFrequency, 
-    };
-    
+
     ACXFCore(
         OutputDescriptorResolver& parentResolver, ACXFParameters& params, OperatingPointCore& opCore, std::unordered_map<Id,size_t>& sourceIndex, 
         Circuit& circuit, CommonData& commons, 
@@ -93,19 +123,16 @@ public:
     ACXFCore& operator=(const ACXFCore&)  = delete;
     ACXFCore& operator=(      ACXFCore&&) = delete;
 
-    // Format error, return false on error - this function is not cheap (works with strings)
-    bool formatError(Status& s=Status::ignore) const; 
+    bool addCoreOutputDescriptors(ErrorConsumer& errors);
+    bool addDefaultOutputDescriptors(ErrorConsumer& errors);
+    bool resolveOutputDescriptors(bool strict, ErrorConsumer& errors);
 
-    bool addCoreOutputDescriptors(Status& s);
-    bool addDefaultOutputDescriptors(Status& s);
-    bool resolveOutputDescriptors(bool strict, Status& s=Status::ignore);
-
-    bool rebuild(Status& s=Status::ignore); 
-    bool initializeOutputs(const std::string& name, Status& s=Status::ignore);
-    CoreCoroutine coroutine(bool continuePrevious);
-    bool run(bool continuePrevious);
-    bool finalizeOutputs(Status& s=Status::ignore);
-    bool deleteOutputs(Id name, Status& s=Status::ignore);
+    bool rebuild(ErrorConsumer& errors);
+    bool initializeOutputs(const std::string& name, ErrorConsumer& errors);
+    CoreCoroutine coroutine(bool continuePrevious, ErrorConsumer& errors);
+    bool run(bool continuePrevious, ErrorConsumer& errors);
+    bool finalizeOutputs(ErrorConsumer& errors);
+    bool deleteOutputs(Id name, ErrorConsumer& errors);
 
     void dump(std::ostream& os) const;
 
@@ -115,15 +142,6 @@ public:
 protected:
     static constexpr size_t bucketSize = 1;
     
-    // Clear error
-    void clearError() { AnalysisCore::clearError(); lastAcTfError = ACXFError::OK; }; 
-
-    void setError(ACXFError e) { lastAcTfError = e; lastError = Error::OK; };
-    ACXFError lastAcTfError;
-    double errorFreq;
-    Status errorStatus;
-    Id errorInstance;
-
     VectorRepository<double>& dcSolution;
     VectorRepository<double>& dcStates;
     KluRealMatrix& dcJacobian;

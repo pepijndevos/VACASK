@@ -61,7 +61,7 @@ add_library(simlib STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/node.h
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/introspection.h
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/circuit.h 
-    ${CMAKE_CURRENT_SOURCE_DIR}/../include/cirdelay.h 
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include/coredelay.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/openvafcomp.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/klumatrix.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/klubsmatrix.h 
@@ -94,7 +94,7 @@ add_library(simlib STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/an.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/ansupport.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/ansolution.h 
-    ${CMAKE_CURRENT_SOURCE_DIR}/../include/answeep.h 
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include/coresweep.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/anop.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/andcinc.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/andcxf.h 
@@ -154,7 +154,7 @@ add_library(simlib STATIC
     natures.cpp
     node.cpp
     circuit.cpp
-    cirdelay.cpp
+    coredelay.cpp
     openvafcomp.cpp
     ciroptions.cpp 
     cirvariables.cpp 
@@ -193,7 +193,7 @@ add_library(simlib STATIC
     an.cpp
     ansupport.cpp 
     ansolution.cpp 
-    answeep.cpp
+    coresweep.cpp
     anop.cpp
     andcinc.cpp 
     andcxf.cpp 

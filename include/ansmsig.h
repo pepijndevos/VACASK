@@ -36,59 +36,54 @@ protected:
     // Add output descriptors common to all cores, no error message is returned 
     virtual bool addCommonOutputDescriptor(const OutputDescriptor& desc);
 
-    // Add core-specific output descriptors, no error message is returned 
-    virtual bool addCoreOutputDescriptors(Status& s);
-    
+    // Add core-specific output descriptors, no error message is returned
+    virtual bool addCoreOutputDescriptors(ErrorConsumer& errors);
+
     // Add operating point output descriptor(s) based on save, generates error message if verification is required
     // Returns ok, resolved
-    std::tuple<bool, bool> resolveOpSave(const PTSave& save, bool verify, Status& s=Status::ignore);
+    std::tuple<bool, bool> resolveOpSave(const PTSave& save, bool verify, ErrorConsumer& errors);
 
     // Add operating point output descriptor(s) based on save, needs to be specialized
-    virtual bool resolveSave(const PTSave& save, bool verify, Status& s=Status::ignore) { return true; };
+    virtual bool resolveSave(const PTSave& save, bool verify, ErrorConsumer& errors) { return true; };
 
     // Add default output descriptors if no save is specified
     // No error message is returned
-    virtual bool addDefaultOutputDescriptors(Status& s);
+    virtual bool addDefaultOutputDescriptors(ErrorConsumer& errors);
 
     // Remove all output descriptors from all cores, transfer parameters from smsig to op
     // No error message is returned
     virtual void clearOutputDescriptors();
 
     // Resolve oputput descriptors into output sources across all cores
-    virtual bool resolveOutputDescriptors(bool strict, Status& s=Status::ignore);
+    virtual bool resolveOutputDescriptors(bool strict, ErrorConsumer& errors);
 
     // Check if we need to add analysis-specific matrix entries or states
     // By default only op core needs this
-    virtual std::tuple<bool, bool> preMapping(Status& s=Status::ignore);
+    virtual std::tuple<bool, bool> preMapping(ErrorConsumer& errors);
 
     // Add analysis-specific matrix entries and states
     // By default only op core needs this
-    virtual bool populateStructures(Status& s=Status::ignore);
+    virtual bool populateStructures(ErrorConsumer& errors);
 
     // Rebuild cores
-    virtual bool rebuildCores(Status& s=Status::ignore); 
+    virtual bool rebuildCores(ErrorConsumer& errors);
 
     // Initialize outputs
-    virtual bool initializeOutputs(Status& s=Status::ignore);
+    virtual bool initializeOutputs(ErrorConsumer& errors);
 
     // Analysis core
     virtual AnalysisCore& analysisCore() { return smsigCore; };
 
     // Create core coroutine
-    virtual CoreCoroutine coreCoroutine(bool continuePrevious) {
-        return std::move(smsigCore.coroutine(continuePrevious));
+    virtual CoreCoroutine coreCoroutine(bool continuePrevious, ErrorConsumer& errors) {
+        return std::move(smsigCore.coroutine(continuePrevious, errors));
     };
     
-    // Format core error
-    virtual bool formatCoreError(Status& s=Status::ignore) {
-        return smsigCore.formatError(s);
-    };
-
     // Finalize outputs
-    virtual bool finalizeOutputs(Status& s=Status::ignore);
+    virtual bool finalizeOutputs(ErrorConsumer& errors);
 
     // Delete outputs
-    virtual bool deleteOutputs(Status& s=Status::ignore);
+    virtual bool deleteOutputs(ErrorConsumer& errors);
     
     // Analysis state storage for continuation in sweeps
     // Only op core has state storage
@@ -125,22 +120,22 @@ bool SmallSignal<CoreClass, DataMixin>::addCommonOutputDescriptor(const OutputDe
 }
 
 template<typename CoreClass, typename DataMixin> 
-bool SmallSignal<CoreClass, DataMixin>::addCoreOutputDescriptors(Status& s) {
+bool SmallSignal<CoreClass, DataMixin>::addCoreOutputDescriptors(ErrorConsumer& errors) {
     // False is returned if the descriptor is already there
-    if (!opCore.addCoreOutputDescriptors(s)) {
+    if (!opCore.addCoreOutputDescriptors(errors)) {
         return false;
     }
-    if (!smsigCore.addCoreOutputDescriptors(s)) {
+    if (!smsigCore.addCoreOutputDescriptors(errors)) {
         return false;
     }
     return true;
 }
 
-template<typename CoreClass, typename DataMixin> 
-bool SmallSignal<CoreClass, DataMixin>::addDefaultOutputDescriptors(Status& s) {
+template<typename CoreClass, typename DataMixin>
+bool SmallSignal<CoreClass, DataMixin>::addDefaultOutputDescriptors(ErrorConsumer& errors) {
     // Must be invoked on all cores regardless of return value
-    auto s1 = opCore.addDefaultOutputDescriptors(s);
-    auto s2 = smsigCore.addDefaultOutputDescriptors(s);
+    auto s1 = opCore.addDefaultOutputDescriptors(errors);
+    auto s2 = smsigCore.addDefaultOutputDescriptors(errors);
     return s1 && s2;
 }
 
@@ -154,15 +149,15 @@ void SmallSignal<CoreClass, DataMixin>::clearOutputDescriptors() {
 
 // Resolve output descriptors to output sources across all cores
 template<typename CoreClass, typename DataMixin> 
-bool SmallSignal<CoreClass, DataMixin>::resolveOutputDescriptors(bool strict, Status& s) {
+bool SmallSignal<CoreClass, DataMixin>::resolveOutputDescriptors(bool strict, ErrorConsumer& errors) {
     // Any error causes immediate exit if strict is true
     // Before exit an error message is formatted and status is set
-    if (!opCore.resolveOutputDescriptors(strict, s)) {
+    if (!opCore.resolveOutputDescriptors(strict, errors)) {
         if (strict) {
             return false;
         }
     }
-    if (!smsigCore.resolveOutputDescriptors(strict, s)) {
+    if (!smsigCore.resolveOutputDescriptors(strict, errors)) {
         if (strict) {
             return false;
         }
@@ -170,8 +165,8 @@ bool SmallSignal<CoreClass, DataMixin>::resolveOutputDescriptors(bool strict, St
     return true;
 }
 
-template<typename CoreClass, typename DataMixin> 
-std::tuple<bool, bool> SmallSignal<CoreClass, DataMixin>::resolveOpSave(const PTSave& save, bool verify, Status& s) {
+template<typename CoreClass, typename DataMixin>
+std::tuple<bool, bool> SmallSignal<CoreClass, DataMixin>::resolveOpSave(const PTSave& save, bool verify, ErrorConsumer& errors) {
     // OP saves
     static const auto idOpDefault = Id("opdefault");
     static const auto idOpFull = Id("opfull");
@@ -179,114 +174,100 @@ std::tuple<bool, bool> SmallSignal<CoreClass, DataMixin>::resolveOpSave(const PT
     static const auto idI = Id("i");
     static const auto idP = Id("p");
 
+    // When verification is not required, save-resolution errors are not fatal
+    // and must not reach the caller's error consumer.
+    ErrorConsumer sink;
+    ErrorConsumer& e1 = verify ? errors : sink;
+
     bool st = true;
-    Status& s1 = verify ? s : Status::ignore;
     if (save.typeName() == idOpDefault) {
-        st = opCore.addAllUnknowns(save, s1);
+        st = opCore.addAllUnknowns(save, e1);
     } else if (save.typeName() == idOpFull) {
-        st = opCore.addAllNodes(save, s1);
+        st = opCore.addAllNodes(save, e1);
     } else if (save.typeName() == idV) {
-        st = opCore.addNode(save, s1);
+        st = opCore.addNode(save, e1);
     } else if (save.typeName() == idI) {
-        st = opCore.addFlow(save, s1);
+        st = opCore.addFlow(save, e1);
     } else if (save.typeName() == idP) {
-        st = opCore.addInstanceOutvar(save, s1);
+        st = opCore.addInstanceOutvar(save, e1);
     } else {
         // Do not know how to handle this save
         if (verify) {
-            s.set(Status::Save, std::string("Analysis does not support save directive."));
-            s.extend(save.location());
+            errors.push(AnUnsupportedSaveDirective{save.location()});
         }
         // Return false, false (error, not handled)
         return std::make_tuple(false, false);
     }
     // Error detected in opCore save, verification required
     if (verify && !st) {
-        s.extend(save.location());
-    } 
+        errors.push(AnSaveDirectiveLocation{save.location()});
+    }
     // Status, handled
     return std::make_tuple(st, true);
 }
 
-template<typename CoreClass, typename DataMixin> 
-std::tuple<bool, bool> SmallSignal<CoreClass, DataMixin>::preMapping(Status& s) {
-    auto [ok, needsMapping] = opCore.preMapping(s);
+template<typename CoreClass, typename DataMixin>
+std::tuple<bool, bool> SmallSignal<CoreClass, DataMixin>::preMapping(ErrorConsumer& errors) {
+    auto [ok, needsMapping] = opCore.preMapping(errors);
     if (!ok) {
         return std::make_tuple(false, needsMapping);
     }
-    auto [ok1, map1] = smsigCore.preMapping(s);
+    auto [ok1, map1] = smsigCore.preMapping(errors);
     return std::make_tuple(ok&&ok1, needsMapping||map1);
 }
 
-template<typename CoreClass, typename DataMixin> 
-bool SmallSignal<CoreClass, DataMixin>::populateStructures(Status& s) {
-    auto ok = opCore.populateStructures(s);
+template<typename CoreClass, typename DataMixin>
+bool SmallSignal<CoreClass, DataMixin>::populateStructures(ErrorConsumer& errors) {
+    auto ok = opCore.populateStructures(errors);
     if (!ok) {
         return false;
     }
-    return smsigCore.populateStructures(s);
+    return smsigCore.populateStructures(errors);
 }
 
-template<typename CoreClass, typename DataMixin> 
-bool SmallSignal<CoreClass, DataMixin>::rebuildCores(Status& s) {
+template<typename CoreClass, typename DataMixin>
+bool SmallSignal<CoreClass, DataMixin>::rebuildCores(ErrorConsumer& errors) {
     // Create Jacobian - it is common to both cores, so we need to rebuild it here
-    if (!jac.rebuild(circuit.sparsityMap(), circuit.unknownCount())) {
-        jac.formatError(s);
+    if (!jac.rebuild(circuit.sparsityMap(), circuit.unknownCount(), errors)) {
         return false;
     }
 
     // Any error aborts immediately
-    if (!opCore.rebuild(s)) {
+    if (!opCore.rebuild(errors)) {
         return false;
     }
-    if (!smsigCore.rebuild(s)) {
+    if (!smsigCore.rebuild(errors)) {
         return false;
     }
 
     return true;
 }
 
-template<typename CoreClass, typename DataMixin> 
-bool SmallSignal<CoreClass, DataMixin>::initializeOutputs(Status& s) {
+template<typename CoreClass, typename DataMixin>
+bool SmallSignal<CoreClass, DataMixin>::initializeOutputs(ErrorConsumer& errors) {
     // Any error exits immediately
-    if (!opCore.initializeOutputs(prefixedName_+".op", s)) {
-        opCore.formatError(s);
+    if (!opCore.initializeOutputs(prefixedName_+".op", errors)) {
         return false;
     }
-    if (!smsigCore.initializeOutputs(prefixedName_, s)) {
-        smsigCore.formatError(s);
+    if (!smsigCore.initializeOutputs(prefixedName_, errors)) {
         return false;
     }
     return true;
 }
 
-template<typename CoreClass, typename DataMixin> 
-bool SmallSignal<CoreClass, DataMixin>::finalizeOutputs(Status& s) {
+template<typename CoreClass, typename DataMixin>
+bool SmallSignal<CoreClass, DataMixin>::finalizeOutputs(ErrorConsumer& errors) {
     // Finalization has to be performed on all cores, regardless of errors
-    Status s1, s2;
-    auto ok1 = opCore.finalizeOutputs(s1);
-    auto ok2 = smsigCore.finalizeOutputs(s2);
-    if (!ok1) {
-        s.set(s1);
-    }
-    if (!ok2) {
-        s.set(s2);
-    }
+    auto ok1 = opCore.finalizeOutputs(errors);
+    auto ok2 = smsigCore.finalizeOutputs(errors);
     return ok1 && ok2;
 }
 
-template<typename CoreClass, typename DataMixin> 
-bool SmallSignal<CoreClass, DataMixin>::deleteOutputs(Status& s) {
+template<typename CoreClass, typename DataMixin>
+bool SmallSignal<CoreClass, DataMixin>::deleteOutputs(ErrorConsumer& errors) {
     // Output needs to be deleted for all cores
-    Status s1, s2;
-    auto ok1 = opCore.deleteOutputs(prefixedName_+".op", s1);
-    auto ok2 = smsigCore.deleteOutputs(prefixedName_, s2);
-    if (!ok1) {
-        s.set(s1);
-    }
-    if (!ok2) {
-        s.set(s2);
-    }
+    auto ok1 = opCore.deleteOutputs(prefixedName_+".op", errors);
+    auto ok2 = smsigCore.deleteOutputs(prefixedName_, errors);
     return ok1 && ok2;
 }
 

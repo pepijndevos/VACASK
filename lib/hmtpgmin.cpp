@@ -8,7 +8,7 @@ GminStepping::GminStepping(Circuit& circuit, AnalysisCore& core, bool gdev)
     : Homotopy(circuit, core), gdev(gdev) {
 }
 
-std::tuple<bool, bool> GminStepping::run() {
+std::tuple<bool, bool> GminStepping::run(ErrorConsumer& errors) {
     auto& options = circuit.simulatorOptions().core();
     auto debug = options.homotopy_debug;
 
@@ -66,7 +66,7 @@ std::tuple<bool, bool> GminStepping::run() {
         // If previous runSolver() converged we can force bypass in first iteration
         // If not, we do not force it. 
         core.commonData().requestForcedBypass = converged && options.nr_contbypass;
-        std::tie(converged, leave) = core.runSolver(continuation);
+        std::tie(converged, leave) = core.runSolver(continuation, errors);
         itCount++;
         if (debug>0) {
             Simulator::dbg() << formatProgress() << ", step " << itCount << " " 
@@ -162,7 +162,7 @@ std::tuple<bool, bool> GminStepping::run() {
             core.commonData().requestForcedBypass = true;
 
             // Try with original gmin, but this time with continuation
-            std::tie(converged, leave) = core.runSolver(continuation);
+            std::tie(converged, leave) = core.runSolver(continuation, errors);
             itCount++;
             if (debug>0) {
                 Simulator::dbg() << formatProgress() << ", final step " 
@@ -200,7 +200,7 @@ Spice3GminStepping::Spice3GminStepping(Circuit& circuit, AnalysisCore& core)
     : Homotopy(circuit, core) {
 }
 
-std::tuple<bool, bool> Spice3GminStepping::run() {
+std::tuple<bool, bool> Spice3GminStepping::run(ErrorConsumer& errors) {
     auto& options = circuit.simulatorOptions().core();
     auto debug = options.homotopy_debug;
     bool converged = false;
@@ -244,7 +244,7 @@ std::tuple<bool, bool> Spice3GminStepping::run() {
         // If previous runSolver() converged we can force bypass in first iteration
         // If not, we do not force it. 
         core.commonData().requestForcedBypass = converged && options.nr_contbypass;
-        std::tie(converged, leave) = core.runSolver(continuation);
+        std::tie(converged, leave) = core.runSolver(continuation, errors);
         itCount++;
         if (debug>0) {
             Simulator::dbg() << formatProgress() << ", step " << itCount << " " 
@@ -270,7 +270,7 @@ std::tuple<bool, bool> Spice3GminStepping::run() {
             core.commonData().requestForcedBypass = true;
 
             // Try with original gmin, but this time with continuation
-            std::tie(converged, leave) = core.runSolver(continuation);
+            std::tie(converged, leave) = core.runSolver(continuation, errors);
             itCount++;
             if (debug>0) {
                 Simulator::dbg() << formatProgress() << ", final step  " 

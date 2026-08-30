@@ -7,12 +7,25 @@
 #include "parameterized.h"
 #include "parseroutput.h"
 #include "output.h"
-#include "answeep.h"
+#include "coresweep.h"
 #include "generator.h"
 #include "progress.h"
 #include "common.h"
 
 namespace NAMESPACE {
+
+// Save-directive errors shared by all analysis drivers.
+ERRORCLASS(AnUnsupportedSaveDirective)
+    Loc location;
+    AnUnsupportedSaveDirective(Loc location) : location(location) {}
+    std::string format() const { return "Analysis does not support save directive.\n" + location.toString(); }
+END_ERRORCLASS(AnUnsupportedSaveDirective);
+
+ERRORCLASS(AnSaveDirectiveLocation)
+    Loc location;
+    AnSaveDirectiveLocation(Loc location) : location(location) {}
+    std::string format() const { return location.toString(); }
+END_ERRORCLASS(AnSaveDirectiveLocation);
 
 // TODO: name_ -> prefixedName_ in output init/finalize/delete in all analyses in other branches
 
@@ -43,11 +56,11 @@ public:
     // Converts an output descriptor to output source and stores it in the given output sources list
     // This handles output descriptors that are not specific for an analysis core, 
     // i.e. it is called by a core when resolving a descriptor is delegated to the analysis
-    virtual bool resolveOutputDescriptor(const OutputDescriptor& descr, Output::SourcesList& srcs, bool strict, Status& s);
+    virtual bool resolveOutputDescriptor(const OutputDescriptor& descr, Output::SourcesList& srcs, bool strict, ErrorConsumer& errors) override;
 
     // Sweep API
     size_t sweepCount() const { return ptAnalysis.sweeps().size(); };
-    bool updateSweeper(Status& s=Status::ignore);
+    bool updateSweeper(ErrorConsumer& errors);
     
     // Add save from PTSave
     Analysis& add(const PTSave& p) & {
@@ -127,10 +140,10 @@ public:
     // 1) check if entries are needed 
     //    sparsity map is pre-filled by circuit elaborate() and/or previous analysis run
     //    Return value: ok, need mapping
-    virtual std::tuple<bool, bool> preMapping(Status& s=Status::ignore) { return std::make_tuple(true, false); };
+    virtual std::tuple<bool, bool> preMapping(ErrorConsumer& errors) { return std::make_tuple(true, false); };
 
     // 2) fill sparsity map and states vector with entries specific to analysis
-    virtual bool populateStructures(Status& s=Status::ignore) { return true; };
+    virtual bool populateStructures(ErrorConsumer& errors) { return true; };
     
     virtual void dump(std::ostream& os) const;
 
@@ -161,7 +174,7 @@ protected:
     // - interprets save directives by calling resolveSave()
     // - adds default output descriptors to cores if saves produce no output descriptors
     //   by calling addDefaultOutputDescriptors()
-    bool addOutputDescriptors(Status& s=Status::ignore);
+    bool addOutputDescriptors(ErrorConsumer& errors);
 
     // Clears all output descriptors
     // Called by addOutputDescriptors() before output descriptors are added. 
@@ -176,51 +189,48 @@ protected:
     // Adds core output descriptors of analysis cores (e.g. time, frequency). 
     // Called by addOutputDescriptors() before save directives are interpreted. 
     // Calls addCoreOutputDescriptors() method of all analysis cores. 
-    virtual bool addCoreOutputDescriptors(Status& s=Status::ignore) = 0;
+    virtual bool addCoreOutputDescriptors(ErrorConsumer& errors) = 0;
 
     // Resolves a save directive into one or more output descriptors and
     // stores them in output descriptor lists of analysis cores 
     // Called by addOutputDescriptors() when interpreting a save directive. 
     // Reimplemented by each analysis so that the dispatch of saves to cores 
     // can be customized. 
-    virtual bool resolveSave(const PTSave& save, bool verify, Status& s=Status::ignore) = 0;
+    virtual bool resolveSave(const PTSave& save, bool verify, ErrorConsumer& errors) = 0;
 
     // Adds default output descriptors to cores for which save directives 
     // produced no output descriptors. 
     // Called by addOutputDescriptors() after all save directives were interpreted. 
     // Calls addDefaultOutputDescriptors() method of all analysis cores. 
-    virtual bool addDefaultOutputDescriptors(Status& s) = 0;
+    virtual bool addDefaultOutputDescriptors(ErrorConsumer& errors) = 0;
     
     // Resolve output descriptors of all analysis cores
     // Called by toplevel analysis function (an.cpp) when setting data sources 
     // before analysis is run.  
     // Calls resolveOutputDescriptors() method of all analysis cores. 
-    virtual bool resolveOutputDescriptors(bool strict, Status& s=Status::ignore) = 0; 
+    virtual bool resolveOutputDescriptors(bool strict, ErrorConsumer& errors) = 0;
 
     // Rebuild internal structures
-    virtual bool rebuildCores(Status& s=Status::ignore) = 0;
+    virtual bool rebuildCores(ErrorConsumer& errors) = 0;
 
     // Initialize core output (once per sweep run)
-    virtual bool initializeOutputs(Status& s=Status::ignore) = 0;
+    virtual bool initializeOutputs(ErrorConsumer& errors) = 0;
 
     // Call Sweeper::restoreState() after initializeOutputs() if a sweep wraparound happened
     
     // Create coroutine
-    virtual CoreCoroutine coreCoroutine(bool continuePrevious) = 0;
+    virtual CoreCoroutine coreCoroutine(bool continuePrevious, ErrorConsumer& errors) = 0;
 
-    // Format core error
-    virtual bool formatCoreError(Status& s=Status::ignore) = 0;
-    
     // Call Sweeper::advance() after core coroutine finishes
 
     // Call Sweeper::storeState()
 
     // Finalize core output (once per sweep run)
-    virtual bool finalizeOutputs(Status& s=Status::ignore) = 0;
+    virtual bool finalizeOutputs(ErrorConsumer& errors) = 0;
 
     // Delete output files 
     // Called after analysis fails if strictoutput options is set
-    virtual bool deleteOutputs(Status& s=Status::ignore) = 0;
+    virtual bool deleteOutputs(ErrorConsumer& errors) = 0;
 
     // Call setSweepState() after finalizeOtuputs() and deleteOutputs() to restore circuit state
     // If not sweeping, call setAnalysisOptions() 

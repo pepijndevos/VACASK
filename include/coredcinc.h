@@ -1,7 +1,6 @@
 #ifndef __ANCOREDCINC_DEFINED
 #define __ANCOREDCINC_DEFINED
 
-#include "status.h"
 #include "circuit.h"
 #include "core.h"
 #include "coreop.h"
@@ -46,17 +45,19 @@ typedef struct DCIncrementalParameters {
 } DCIncrementalParameters;
 
 
+SIMPLE_ERRORCLASS(DcIncEvalAndLoadFailed, "Jacobian evaluation failed.");
+
+SIMPLE_ERRORCLASS(DcIncMatrixError, "DC incremental analysis matrix error.");
+
+SIMPLE_ERRORCLASS(DcIncSolutionNotFinite, "Solution component is not finite.");
+
+SIMPLE_ERRORCLASS(DcIncOperatingPointFailed, "Operating point analysis failed.");
+
+
 class DCIncrementalCore : public AnalysisCore {
 public:
     typedef DCIncrementalParameters Parameters;
-    enum class DCIncrementalError {
-        OK, 
-        EvalAndLoad, 
-        MatrixError, 
-        SolutionError, 
-        OperatingPointError, 
-        SingularMatrix, 
-    };
+
     DCIncrementalCore(
         OutputDescriptorResolver& parentResolver, DCIncrementalParameters& params, OperatingPointCore& opCore, Circuit& circuit, 
         CommonData& commons, KluRealMatrix& jacobian, Vector<double>& incrementalSolution
@@ -68,18 +69,15 @@ public:
     DCIncrementalCore& operator=(const DCIncrementalCore&)  = delete;
     DCIncrementalCore& operator=(      DCIncrementalCore&&) = delete;
 
-    // Format error, return false on error - this function is not cheap (works with strings)
-    bool formatError(Status& s=Status::ignore) const; 
+    bool addDefaultOutputDescriptors(ErrorConsumer& errors);
+    bool resolveOutputDescriptors(bool strict, ErrorConsumer& errors);
 
-    bool addDefaultOutputDescriptors(Status& s);
-    bool resolveOutputDescriptors(bool strict, Status& s=Status::ignore);
-
-    bool rebuild(Status& s=Status::ignore); 
-    bool initializeOutputs(const std::string& name, Status& s=Status::ignore);
-    CoreCoroutine coroutine(bool continuePrevious);
-    bool run(bool continuePrevious);
-    bool finalizeOutputs(Status& s=Status::ignore);
-    bool deleteOutputs(Id name, Status& s=Status::ignore);
+    bool rebuild(ErrorConsumer& errors);
+    bool initializeOutputs(const std::string& name, ErrorConsumer& errors);
+    CoreCoroutine coroutine(bool continuePrevious, ErrorConsumer& errors);
+    bool run(bool continuePrevious, ErrorConsumer& errors);
+    bool finalizeOutputs(ErrorConsumer& errors);
+    bool deleteOutputs(Id name, ErrorConsumer& errors);
 
     void dump(std::ostream& os) const;
 
@@ -89,12 +87,6 @@ public:
 protected:
     static constexpr size_t bucketSize = 1;
     
-    // Clear error
-    void clearError() { AnalysisCore::clearError(); lastDcIncrError = DCIncrementalError::OK; }; 
-
-    void setError(DCIncrementalError e) { lastDcIncrError = e; lastError = Error::OK; };
-    DCIncrementalError lastDcIncrError;
-    Status errorStatus;
 
     KluRealMatrix& jacobian;
     Vector<double>& incrementalSolution;

@@ -27,41 +27,42 @@ bool HB::addCommonOutputDescriptor(const OutputDescriptor& desc) {
     return core.addOutputDescriptor(desc);
 }
 
-bool HB::addCoreOutputDescriptors(Status& s) {
-    if (!core.addCoreOutputDescriptors(s)) {
+bool HB::addCoreOutputDescriptors(ErrorConsumer& errors) {
+    if (!core.addCoreOutputDescriptors(errors)) {
         return false;
     }
     return true;
 }
 
-bool HB::resolveOutputDescriptors(bool strict, Status& s) {
+bool HB::resolveOutputDescriptors(bool strict, ErrorConsumer& errors) {
     // Trigger resolving in core analyses
-    return core.resolveOutputDescriptors(strict, s);
+    return core.resolveOutputDescriptors(strict, errors);
 }
 
-bool HB::resolveSave(const PTSave& save, bool verify, Status& s) {
+bool HB::resolveSave(const PTSave& save, bool verify, ErrorConsumer& errors) {
     static const auto idDefault = Id("default");
     static const auto idFull = Id("full");
     static const auto idV = Id("v");
     static const auto idI = Id("i");
     static const auto idP = Id("p");
 
-    bool st = true;
-    Status& s1 = verify ? s : Status::ignore;
+    // When verification is not required, save-resolution errors are not fatal.
+    ErrorConsumer sink;
+    ErrorConsumer& e1 = verify ? errors : sink;
     // TODO: handle output variables someday
+    bool st = true;
     if (save.typeName() == idDefault) {
-        st = core.addAllUnknowns(save, s1);
+        st = core.addAllUnknowns(save, e1);
     } else if (save.typeName() == idFull) {
-        st = core.addAllNodes(save, s1);
+        st = core.addAllNodes(save, e1);
     } else if (save.typeName() == idV) {
-        st = core.addNode(save, s1);
+        st = core.addNode(save, e1);
     } else if (save.typeName() == idI) {
-        st = core.addFlow(save, s1);
+        st = core.addFlow(save, e1);
     } else {
         // Report error only if verification is required
         if (verify) {
-            s.set(Status::Save, std::string("Analysis does not support save directive."));
-            s.extend(save.location());
+            errors.push(AnUnsupportedSaveDirective{save.location()});
             return false;
         } else {
             // No verification required, OK
@@ -70,8 +71,7 @@ bool HB::resolveSave(const PTSave& save, bool verify, Status& s) {
     }
 
     if (verify && !st) {
-        // Format error
-        s.extend(save.location());
+        errors.push(AnSaveDirectiveLocation{save.location()});
         return false;
     }
 
@@ -79,25 +79,25 @@ bool HB::resolveSave(const PTSave& save, bool verify, Status& s) {
     return true;
 }
 
-bool HB::addDefaultOutputDescriptors(Status& s) {
-    return core.addDefaultOutputDescriptors(s);
+bool HB::addDefaultOutputDescriptors(ErrorConsumer& errors) {
+    return core.addDefaultOutputDescriptors(errors);
 }
 
-bool HB::initializeOutputs(Status& s) {
-    return core.initializeOutputs(prefixedName_, s);
+bool HB::initializeOutputs(ErrorConsumer& errors) {
+    return core.initializeOutputs(prefixedName_, errors);
 }
 
-bool HB::finalizeOutputs(Status& s) {
-    return core.finalizeOutputs(s);
+bool HB::finalizeOutputs(ErrorConsumer& errors) {
+    return core.finalizeOutputs(errors);
 }
 
-bool HB::deleteOutputs(Status& s) {
-    return core.deleteOutputs(prefixedName_, s);
+bool HB::deleteOutputs(ErrorConsumer& errors) {
+    return core.deleteOutputs(prefixedName_, errors);
 }
 
-bool HB::rebuildCores(Status& s) {
+bool HB::rebuildCores(ErrorConsumer& errors) {
     // Jacobian will be built by the core
-    return core.rebuild(s);
+    return core.rebuild(errors);
 }
 
 size_t HB::analysisStateStorageSize() const { 
@@ -124,12 +124,12 @@ void HB::makeStateIncoherent(size_t ndx) {
     core.makeStateIncoherent(ndx);
 }
 
-std::tuple<bool, bool> HB::preMapping(Status& s) {
-    return core.preMapping(s);
+std::tuple<bool, bool> HB::preMapping(ErrorConsumer& errors) {
+    return core.preMapping(errors);
 }
 
-bool HB::populateStructures(Status& s) {
-    return core.populateStructures(s);
+bool HB::populateStructures(ErrorConsumer& errors) {
+    return core.populateStructures(errors);
 }
 
 void HB::dump(std::ostream& os) const {

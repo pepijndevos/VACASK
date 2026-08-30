@@ -27,8 +27,8 @@ void CommonData::reset() {
     
     // Set by analysis core
     iteration = 0;
-    requestForcedBypass = false;      // Request forced bypass in next NR iteration for all bypassable devices 
-                                      // regardless of their converged state. 
+    requestForcedBypass = false;      // Request forced bypass in next NR iteration for all bypassable devices
+                                      // regardless of their converged state.
 }
 
 void CommonData::fromOptions(const SimulatorOptions& options) {

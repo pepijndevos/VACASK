@@ -25,7 +25,7 @@ protected:
 template<> SmallSignal<DCXFCore, DCXFData>::SmallSignal(const std::string& name, Circuit& circuit, PTAnalysis& ptAnalysis);
 
 // Resolve save specialization
-template<> bool SmallSignal<DCXFCore, DCXFData>::resolveSave(const PTSave& save, bool verify, Status& s);
+template<> bool SmallSignal<DCXFCore, DCXFData>::resolveSave(const PTSave& save, bool verify, ErrorConsumer& errors);
 
 // Dump specialization
 template<> void SmallSignal<DCXFCore, DCXFData>::dump(std::ostream& os) const;

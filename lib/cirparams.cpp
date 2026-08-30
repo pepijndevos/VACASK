@@ -262,13 +262,15 @@ std::tuple<bool, bool, bool> Circuit::elaborateChanges(
 ) {
     auto t0 = Accounting::wclk();
     tables_.accounting().acctNew.chgelab++; 
+
+    ErrorConsumer ec(s);
     
     // Mark circuit as unelaborated
     clearFlags(Flags::Elaborated);
 
     // First, write variables if we have a sweeper
     if (sweeper) {
-        auto [ok, changed] = sweeper->write(ParameterSweeper::ParameterFamily::Variable, what, s);
+        auto [ok, changed] = sweeper->write(ParameterSweeper::ParameterFamily::Variable, what, ec);
         if (!ok) {
             s.extend("Failed to write swept variables.");
             tables_.accounting().acctNew.tchgelab += Accounting::wclkDelta(t0);
@@ -281,7 +283,7 @@ std::tuple<bool, bool, bool> Circuit::elaborateChanges(
 
     // Propagate variable changes to inner sweeps
     if (sweeper && variablesChanged) {
-        if (!an->updateSweeper(s)) {
+        if (!an->updateSweeper(ec)) {
             return std::make_tuple(false, false, false);
         }
     }
@@ -328,7 +330,7 @@ std::tuple<bool, bool, bool> Circuit::elaborateChanges(
 
     // Write swept options to places where scalar sweeps are bound
     if (sweeper) { 
-        if (auto [ok, _] = sweeper->write(ParameterSweeper::ParameterFamily::Option, what, s); !ok) {
+        if (auto [ok, _] = sweeper->write(ParameterSweeper::ParameterFamily::Option, what, ec); !ok) {
             s.extend("Failed to write swept options.");
             tables_.accounting().acctNew.tchgelab += Accounting::wclkDelta(t0);
             return std::make_tuple(false, false, false);
@@ -347,7 +349,7 @@ std::tuple<bool, bool, bool> Circuit::elaborateChanges(
 
     // Write instance and model parameters if we have a sweeper
     if (sweeper) {
-        auto [ok, changed] = sweeper->write(ParameterSweeper::ParameterFamily::Instance | ParameterSweeper::ParameterFamily::Model, what, s); 
+        auto [ok, changed] = sweeper->write(ParameterSweeper::ParameterFamily::Instance | ParameterSweeper::ParameterFamily::Model, what, ec);
         if (!ok) {
             s.extend("Failed to write swept instance and model parameters.");
             tables_.accounting().acctNew.tchgelab += Accounting::wclkDelta(t0);
@@ -429,7 +431,7 @@ std::tuple<bool, bool, bool> Circuit::elaborateChanges(
     bool analysisNeedsSparsity = false;
     if (an) {
         bool preMappingOk;
-        std::tie(preMappingOk, analysisNeedsSparsity) = an->preMapping(s);
+        std::tie(preMappingOk, analysisNeedsSparsity) = an->preMapping(ec);
         if (!preMappingOk) {
             s.extend("Failed to pre-map analysis.");
             tables_.accounting().acctNew.tchgelab += Accounting::wclkDelta(t0);
@@ -463,7 +465,7 @@ std::tuple<bool, bool, bool> Circuit::elaborateChanges(
     }
 
     // Populate structures with parts needed by the analysis
-    if (an && analysisNeedsSparsity && !an->populateStructures(s)) { 
+    if (an && analysisNeedsSparsity && !an->populateStructures(ec)) { 
         s.extend("Failed to map analysis.");
         tables_.accounting().acctNew.tchgelab += Accounting::wclkDelta(t0);
         return std::make_tuple(false, false, false);

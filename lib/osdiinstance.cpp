@@ -618,7 +618,7 @@ bool OsdiInstance::bindCore(
     KluMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
     KluMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
     DelayLines* delayLines, 
-    Status& s
+    ErrorConsumer& ec
 ) {
     auto descr = model()->device()->descriptor();
     // Bind nodes
@@ -647,7 +647,7 @@ bool OsdiInstance::bindCore(
             
             // Set resistive Jacobian element pointer
             if (matResist && !(jacResistArray[i] = matResist->valuePtr(MatrixEntryPosition(e, u), compResist, mepResist))) {
-                s.set(Status::BadConversion, "Matrix is of incorrect type.");
+                ec.push(OsdiBindMatrixWrongType{});
                 return false;
             }
 
@@ -657,7 +657,7 @@ bool OsdiInstance::bindCore(
                 if (reactivePointer) {
                     // Set reactive Jacobian pointer
                     if (!(*reactivePointer = matReact->valuePtr(MatrixEntryPosition(e, u), compReact, mepReact))) {
-                        s.set(Status::BadConversion, "Matrix is of incorrect type.");
+                        ec.push(OsdiBindMatrixWrongType{});
                         return false;
                     }
                 }
@@ -675,7 +675,7 @@ bool OsdiInstance::bindCore(
             // y_node is input, z_node is output
             auto nin = nodes_[descr->absdelays[i].y_node];
             auto nout = nodes_[descr->absdelays[i].z_node];
-            if (!delayLines->bindToUnknowns(atLine, nin->unknownIndex(), nout->unknownIndex(), s)) {
+            if (!delayLines->bindToUnknowns(atLine, nin->unknownIndex(), nout->unknownIndex(), ec)) {
                 return false;
             }
         }
@@ -1224,7 +1224,7 @@ bool OsdiInstance::outputBypassCheckCore(Circuit& circuit, CommonData& commons, 
     return converged;
 }
 
-bool OsdiInstance::evalCore(Circuit& circuit, CommonData& commons, OsdiSimInfo& simInfo, EvalSetup& evalSetup) {
+bool OsdiInstance::evalCore(Circuit& circuit, CommonData& commons, OsdiSimInfo& simInfo, EvalSetup& evalSetup, ErrorConsumer& errors) {
     // Get descriptor 
     auto model_ = model();
     auto device = model_->device();
@@ -1464,7 +1464,7 @@ bool OsdiInstance::evalCore(Circuit& circuit, CommonData& commons, OsdiSimInfo& 
     return true;
 }
 
-bool OsdiInstance::loadCore(Circuit& circuit, CommonData& commons, LoadSetup& loadSetup) {
+bool OsdiInstance::loadCore(Circuit& circuit, CommonData& commons, LoadSetup& loadSetup, ErrorConsumer& errors) {
     // Get descriptor
     auto model_ = model();
     auto device = model_->device();
@@ -1516,6 +1516,7 @@ bool OsdiInstance::loadCore(Circuit& circuit, CommonData& commons, LoadSetup& lo
         } else {
             // Not supported, needs support in OpenVAF
             // At this point it is not needed. 
+            errors.push(OsdiUnsupportedTranJacOffs(name()));
             return false;
         }
     }
@@ -1640,12 +1641,14 @@ bool OsdiInstance::loadCore(Circuit& circuit, CommonData& commons, LoadSetup& lo
                 }
                 // Store delay always
                 if (!loadSetup.delayLines_->setDelay(delayNdx, td)) {
+                    errors.push(OsdiDelayChangeDetected(name()));
                     return false;
                 }
             } else {
                 // No maxdelay, delay is determined at first timepoint
                 if (loadSetup.firstTimepoint) {
                     if (!loadSetup.delayLines_->setDelay(delayNdx, td)) {
+                        errors.push(OsdiDelayChangeDetected(name()));
                         return false;
                     }
                     loadSetup.delayLines_->setMaxDelay(delayNdx, td);

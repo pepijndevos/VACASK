@@ -5,8 +5,8 @@
 namespace NAMESPACE {
 
 Tran::Tran(Id name, Circuit& circuit, PTAnalysis& ptAnalysis) 
-    : Analysis(name, circuit, ptAnalysis), 
-      opCore(*this, params.core().opParams, circuit, commons, jac, opSolution, states, delayLines_, delayBindings_), 
+    : Analysis(name, circuit, ptAnalysis),
+      opCore(*this, params.core().opParams, circuit, commons, jac, opSolution, states, delayLines_, delayBindings_),
       tranCore(*this, params.core(), opCore, circuit, commons, jac, opSolution, solution, states, delayLines_, delayBindings_) { 
 }
 
@@ -32,26 +32,26 @@ bool Tran::addCommonOutputDescriptor(const OutputDescriptor& desc) {
     return s1 && s2;
 }
 
-bool Tran::addCoreOutputDescriptors(Status& s) {
+bool Tran::addCoreOutputDescriptors(ErrorConsumer& errors) {
     // False is returned if something goes wrong
-    if (!opCore.addCoreOutputDescriptors(s)) {
+    if (!opCore.addCoreOutputDescriptors(errors)) {
         return false;
     }
-    if (!tranCore.addCoreOutputDescriptors(s)) {
+    if (!tranCore.addCoreOutputDescriptors(errors)) {
         return false;
     }
     return true;
 }
 
-bool Tran::resolveOutputDescriptors(bool strict, Status& s) {
+bool Tran::resolveOutputDescriptors(bool strict, ErrorConsumer& errors) {
     // Any error causes immediate exit if strict is true
     // Before exit an error message is formatted and status is set
-    if (!opCore.resolveOutputDescriptors(strict, s)) {
+    if (!opCore.resolveOutputDescriptors(strict, errors)) {
         if (strict) {
             return false;
         }
     }
-    if (!tranCore.resolveOutputDescriptors(strict, s)) {
+    if (!tranCore.resolveOutputDescriptors(strict, errors)) {
         if (strict) {
             return false;
         }
@@ -59,7 +59,7 @@ bool Tran::resolveOutputDescriptors(bool strict, Status& s) {
     return true;
 }
 
-bool Tran::resolveSave(const PTSave& save, bool verify, Status& s) {
+bool Tran::resolveSave(const PTSave& save, bool verify, ErrorConsumer& errors) {
     // Tran saves
     static const auto idOpDefault = Id("default");
     static const auto idOpFull = Id("full");
@@ -67,23 +67,25 @@ bool Tran::resolveSave(const PTSave& save, bool verify, Status& s) {
     static const auto idI = Id("i");
     static const auto idP = Id("p");
 
+    // When verification is not required, save-resolution errors are not fatal.
+    ErrorConsumer sink;
+    ErrorConsumer& e1 = verify ? errors : sink;
+
     bool st = true;
-    Status& s1 = verify ? s : Status::ignore;
     if (save.typeName() == idOpDefault) {
-        st = tranCore.addAllUnknowns(save, s1);
+        st = tranCore.addAllUnknowns(save, e1);
     } else if (save.typeName() == idOpFull) {
-        st = tranCore.addAllNodes(save, s1);
+        st = tranCore.addAllNodes(save, e1);
     } else if (save.typeName() == idV) {
-        st = tranCore.addNode(save, s1);
+        st = tranCore.addNode(save, e1);
     } else if (save.typeName() == idI) {
-        st = tranCore.addFlow(save, s1);
+        st = tranCore.addFlow(save, e1);
     } else if (save.typeName() == idP) {
-        st = tranCore.addInstanceOutvar(save, s1);
+        st = tranCore.addInstanceOutvar(save, e1);
     } else {
         // Report error only if verification is required
         if (verify) {
-            s.set(Status::Save, std::string("Analysis does not support save directive."));
-            s.extend(save.location());
+            errors.push(AnUnsupportedSaveDirective{save.location()});
             return false;
         } else {
             // No verification required, OK
@@ -91,8 +93,7 @@ bool Tran::resolveSave(const PTSave& save, bool verify, Status& s) {
         }
     }
     if (verify && !st) {
-        // Format error
-        s.extend(save.location());
+        errors.push(AnSaveDirectiveLocation{save.location()});
         return false;
     }
 
@@ -100,60 +101,41 @@ bool Tran::resolveSave(const PTSave& save, bool verify, Status& s) {
     return true;
 }
 
-bool Tran::addDefaultOutputDescriptors(Status& s) {
+bool Tran::addDefaultOutputDescriptors(ErrorConsumer& errors) {
     // Must be invoked on all cores regardless of return value
-    auto s1 = opCore.addDefaultOutputDescriptors(s);
-    auto s2 = tranCore.addDefaultOutputDescriptors(s);
+    auto s1 = opCore.addDefaultOutputDescriptors(errors);
+    auto s2 = tranCore.addDefaultOutputDescriptors(errors);
     return s1 && s2;
 }
 
-bool Tran::initializeOutputs(Status& s) {
+bool Tran::initializeOutputs(ErrorConsumer& errors) {
     // Any error exits immediately
-    if (!opCore.initializeOutputs(prefixedName_+".op", s)) {
-        opCore.formatError(s);
+    if (!opCore.initializeOutputs(prefixedName_+".op", errors)) {
         return false;
     }
-    if (!tranCore.initializeOutputs(prefixedName_, s)) {
-        tranCore.formatError(s);
+    if (!tranCore.initializeOutputs(prefixedName_, errors)) {
         return false;
     }
     return true;
 }
 
-bool Tran::finalizeOutputs(Status& s) {
+bool Tran::finalizeOutputs(ErrorConsumer& errors) {
     // Finalization has to be performed on all cores, regardless of errors
-    Status s1, s2;
-    auto ok1 = opCore.finalizeOutputs(s1);
-    auto ok2 = tranCore.finalizeOutputs(s2);
-    if (!ok1) {
-        s.set(s1);
-    }
-    if (!ok2) {
-        // Error in tranCore will mask the error in op core
-        s.set(s2);
-    }
+    auto ok1 = opCore.finalizeOutputs(errors);
+    auto ok2 = tranCore.finalizeOutputs(errors);
     return ok1 && ok2;
 }
 
-bool Tran::deleteOutputs(Status& s) {
+bool Tran::deleteOutputs(ErrorConsumer& errors) {
     // Output needs to be deleted for all cores
-    Status s1, s2;
-    auto ok1 = opCore.deleteOutputs(prefixedName_+".op", s1);
-    auto ok2 = tranCore.deleteOutputs(prefixedName_, s2);
-    if (!ok1) {
-        s.set(s1);
-    }
-    if (!ok2) {
-        // Error in tranCore will mask the error in op core
-        s.set(s2);
-    }
+    auto ok1 = opCore.deleteOutputs(prefixedName_+".op", errors);
+    auto ok2 = tranCore.deleteOutputs(prefixedName_, errors);
     return ok1 && ok2;
 }
 
-bool Tran::rebuildCores(Status& s) {
+bool Tran::rebuildCores(ErrorConsumer& errors) {
     // Create Jacobian - it is common to Op and tran core, so we need to rebuild it here
-    if (!jac.rebuild(circuit.sparsityMap(), circuit.unknownCount())) {
-        jac.formatError(s);
+    if (!jac.rebuild(circuit.sparsityMap(), circuit.unknownCount(), errors)) {
         return false;
     }
 
@@ -165,10 +147,10 @@ bool Tran::rebuildCores(Status& s) {
 
     // First rebuild the tranCore because its rebuild function stores ICs 
     // in slot 2 of opCore's nrSolver's forces. 
-    if (!tranCore.rebuild(s)) {
+    if (!tranCore.rebuild(errors)) {
         return false;
     }
-    if (!opCore.rebuild(s)) {
+    if (!opCore.rebuild(errors)) {
         return false;
     }
     return true;
@@ -203,22 +185,22 @@ void Tran::makeStateIncoherent(size_t ndx) {
     opCore.makeStateIncoherent(ndx);
 }
 
-std::tuple<bool, bool> Tran::preMapping(Status& s) {
-    auto [ok, needsMapping] = opCore.preMapping(s);
+std::tuple<bool, bool> Tran::preMapping(ErrorConsumer& errors) {
+    auto [ok, needsMapping] = opCore.preMapping(errors);
     if (!ok) {
         return std::make_tuple(false, needsMapping);
     }
-    auto [ok1, map1] = tranCore.preMapping(s);
+    auto [ok1, map1] = tranCore.preMapping(errors);
     return std::make_tuple(ok&&ok1, needsMapping||map1);
-    
+
 }
 
-bool Tran::populateStructures(Status& s) {
-    auto ok = opCore.populateStructures(s);
+bool Tran::populateStructures(ErrorConsumer& errors) {
+    auto ok = opCore.populateStructures(errors);
     if (!ok) {
         return false;
     }
-    return tranCore.populateStructures(s);
+    return tranCore.populateStructures(errors);
 }
 
 void Tran::dump(std::ostream& os) const {

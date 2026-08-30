@@ -57,8 +57,7 @@ public:
     // Extends last message without setting a new error code
     void extend(const std::string& msg);
     void extend(const Loc& point);
-    void prefix(const std::string& msg);
-
+    
     bool ignored() { return ignoreFlag; };
 
     // Checks if error is set

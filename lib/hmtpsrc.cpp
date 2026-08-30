@@ -38,7 +38,7 @@ static Homotopy* createHomotopy(Circuit& circuit, AnalysisCore& core, Homotopy& 
     }
 }
 
-std::tuple<bool, bool> SourceStepping::run() {
+std::tuple<bool, bool> SourceStepping::run(ErrorConsumer& errors) {
     auto& options = circuit.simulatorOptions().core();
     auto debug = options.homotopy_debug;
     double goodFactor = 0.0;
@@ -61,7 +61,7 @@ std::tuple<bool, bool> SourceStepping::run() {
     itCount=0;
     
     // Try solving without gmin stepping at source scale factor = 0.0
-    std::tie(converged, leave) = core.runSolver(continuation);
+    std::tie(converged, leave) = core.runSolver(continuation, errors);
     if (debug>0) {
         Simulator::dbg() << formatProgress() << ", initial solve " 
             << (converged ? "converged in " : "failed to converge in ")
@@ -76,7 +76,7 @@ std::tuple<bool, bool> SourceStepping::run() {
             if (!homotopy) {
                 continue;
             }
-            std::tie(converged, leave) = homotopy->run();
+            std::tie(converged, leave) = homotopy->run(errors);
             if (debug>0) {
                 Simulator::dbg() << formatProgress() << ", " << (converged ? "converged" : "failed to converge") << ".\n";
             }
@@ -108,7 +108,7 @@ std::tuple<bool, bool> SourceStepping::run() {
             // If previous runSolver() converged we can force bypass in first iteration
             // If not, we do not force it. 
             core.commonData().requestForcedBypass = converged && options.nr_contbypass;
-            std::tie(converged, leave) = core.runSolver(continuation);
+            std::tie(converged, leave) = core.runSolver(continuation, errors);
             itCount++;
             if (debug>0) {
                 Simulator::dbg() << formatProgress() << ", step " << itCount << " " 
@@ -195,7 +195,7 @@ Spice3SourceStepping::Spice3SourceStepping(Circuit& circuit, AnalysisCore& core)
     : Homotopy(circuit, core) {
 }
 
-std::tuple<bool, bool> Spice3SourceStepping::run() {
+std::tuple<bool, bool> Spice3SourceStepping::run(ErrorConsumer& errors) {
     auto& options = circuit.simulatorOptions().core();
     auto debug = options.homotopy_debug;
     bool converged = false;
@@ -226,7 +226,7 @@ std::tuple<bool, bool> Spice3SourceStepping::run() {
         // If previous runSolver() converged we can force bypass in first iteration
         // If not, we do not force it. 
         core.commonData().requestForcedBypass = converged && options.nr_contbypass;
-        std::tie(converged, leave) = core.runSolver(continuation);
+        std::tie(converged, leave) = core.runSolver(continuation, errors);
         itCount++;
         if (debug>0) {
             Simulator::dbg() << formatProgress() << ", step " << itCount << " " 

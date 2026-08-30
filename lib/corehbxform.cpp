@@ -35,7 +35,7 @@ namespace NAMESPACE {
 // frequencies as in the book. If trigonometric functions have a decent 
 // implementation this should not be neccessary. 
 
-bool HBCore::buildTransformMatrix(DenseMatrix<double>& XF, Status& s) {
+bool HBCore::buildTransformMatrix(DenseMatrix<double>& XF, ErrorConsumer& errors) {
     auto n = timepoints.size();
     auto m = spurs_.spectrum().size();
     auto ncoef = 2*m-1;
@@ -96,12 +96,12 @@ bool HBCore::buildTransformMatrix(DenseMatrix<double>& XF, Status& s) {
     return true;
 }
 
-bool HBCore::buildAPFT(Status& s) {
+bool HBCore::buildAPFT(ErrorConsumer& errors) {
     auto n = timepoints.size();
     auto m = spurs_.spectrum().size();
     auto ncoef = 2*m-1;
 
-    if (!buildTransformMatrix(IAPFT, s)) {
+    if (!buildTransformMatrix(IAPFT, errors)) {
         return false;
     }
 
@@ -118,7 +118,7 @@ bool HBCore::buildAPFT(Status& s) {
     rowPerm_.resize(ncoef);
     VectorView rowPermView(rowPerm_);
     if (!coeffs.factorAndInvert(APFT, &rowPermView)) {
-        s.set(Status::Analysis, "Failed to compute forward transform matrix.");
+        errors.push(HbForwardTransformFailed{});
         return false;
     }
 

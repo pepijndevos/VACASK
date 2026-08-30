@@ -122,7 +122,7 @@ public:
         KluMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
         KluMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
         DelayLines* delayLines, 
-        Status& s=Status::ignore
+        ErrorConsumer& ec
     ) { return true; };
 
     // Evaluate instances and load results
@@ -132,7 +132,7 @@ public:
     virtual bool load(Circuit& circuit, LoadSetup& loadSetup) { return true; };
 
     // Evaluate instances and load results
-    virtual bool evalAndLoad(Circuit& circuit, CommonData& commons, EvalSetup* evalSetup, LoadSetup* loadSetup) { return true; };
+    virtual bool evalAndLoad(Circuit& circuit, CommonData& commons, EvalSetup* evalSetup, LoadSetup* loadSetup, ErrorConsumer& errors) { return true; };
     
     // A model created with this method is owned by the circuit. 
     // No need to delete it manually, it will get deleted when the circuit is deleted. 

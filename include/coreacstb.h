@@ -1,7 +1,6 @@
 #ifndef __ANCORESTB_DEFINED
 #define __ANCORESTB_DEFINED
 
-#include "status.h"
 #include "circuit.h"
 #include "core.h"
 #include "coreop.h"
@@ -94,22 +93,45 @@ typedef struct ACStbParameters {
     ACStbParameters();
 } ACStbParameters;
 
+SIMPLE_ERRORCLASS(StbSweepSetupFailed, "Failed to set up the stability analysis frequency sweep.");
+
+SIMPLE_ERRORCLASS(StbSweepComputeFailed, "Stability analysis sweep point computation failed.");
+
+SIMPLE_ERRORCLASS(StbEvalAndLoadFailed, "Jacobian evaluation failed.");
+
+SIMPLE_ERRORCLASS(StbMatrixError, "Stability analysis matrix error.");
+
+SIMPLE_ERRORCLASS(StbSolutionNotFinite, "Solution component is not finite.");
+
+SIMPLE_ERRORCLASS(StbOperatingPointFailed, "Operating point analysis failed.");
+
+SIMPLE_ERRORCLASS(StbSingularMatrix, "Matrix is close to singular.");
+
+SIMPLE_ERRORCLASS(StbBadFrequency, "Frequency value cannot be converted to real.");
+
+SIMPLE_ERRORCLASS(StbBadProbe, "Probe must be a voltage source.");
+
+SIMPLE_ERRORCLASS(StbBadLocalGnd, "Local ground node not found.");
+
+SIMPLE_ERRORCLASS(StbDelayBindFailed, "Failed to bind delay lines to the stability analysis matrix.");
+
+SIMPLE_ERRORCLASS(StbBindFailed, "Failed to bind the stability analysis matrix.");
+
+ERRORCLASS(StbSweepAborted)
+    double frequency;
+    StbSweepAborted(double frequency) : frequency(frequency) {}
+    std::string format() const {
+        if (frequency >= 0) {
+            return "Leaving frequency sweep at frequency=" + std::to_string(frequency) + ".";
+        }
+        return "Leaving frequency sweep.";
+    }
+END_ERRORCLASS(StbSweepAborted);
+
+
 class ACStbCore : public AnalysisCore {
 public:
     typedef ACStbParameters Parameters;
-    enum class StbError {
-        OK, 
-        Sweeper, 
-        SweepCompute, 
-        EvalAndLoad, 
-        MatrixError, 
-        SolutionError, 
-        OperatingPointError, 
-        SingularMatrix, 
-        BadFrequency, 
-        BadProbe, 
-        BadLocalGnd, 
-    };
 
     enum class StbResult {
         Wf=0, Wr, W, y11, y12, y21, y22, COUNT
@@ -130,19 +152,16 @@ public:
     ACStbCore& operator=(const ACStbCore&)  = delete;
     ACStbCore& operator=(      ACStbCore&&) = delete;
 
-    // Format error, return false on error - this function is not cheap (works with strings)
-    bool formatError(Status& s=Status::ignore) const; 
+    bool addCoreOutputDescriptors(ErrorConsumer& errors);
+    bool addDefaultOutputDescriptors(ErrorConsumer& errors);
+    bool resolveOutputDescriptors(bool strict, ErrorConsumer& errors);
 
-    bool addCoreOutputDescriptors(Status& s);
-    bool addDefaultOutputDescriptors(Status& s);
-    bool resolveOutputDescriptors(bool strict, Status& s=Status::ignore);
-
-    bool rebuild(Status& s=Status::ignore); 
-    bool initializeOutputs(const std::string& name, Status& s=Status::ignore);
-    bool run(bool continuePrevious);
-    CoreCoroutine coroutine(bool continuePrevious);
-    bool finalizeOutputs(Status& s=Status::ignore);
-    bool deleteOutputs(Id name, Status& s=Status::ignore);
+    bool rebuild(ErrorConsumer& errors);
+    bool initializeOutputs(const std::string& name, ErrorConsumer& errors);
+    bool run(bool continuePrevious, ErrorConsumer& errors);
+    CoreCoroutine coroutine(bool continuePrevious, ErrorConsumer& errors);
+    bool finalizeOutputs(ErrorConsumer& errors);
+    bool deleteOutputs(Id name, ErrorConsumer& errors);
 
     void dump(std::ostream& os) const;
 
@@ -152,13 +171,6 @@ public:
 protected:
     static constexpr size_t bucketSize = 1;
     
-    // Clear error
-    void clearError() { AnalysisCore::clearError(); lastAcError = StbError::OK; }; 
-
-    void setError(StbError e) { lastAcError = e; lastError = Error::OK; };
-    StbError lastAcError;
-    double errorFreq;
-    Status errorStatus;
 
     VectorRepository<double>& dcSolution;
     VectorRepository<double>& dcStates;

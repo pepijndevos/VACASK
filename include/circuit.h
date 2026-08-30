@@ -15,7 +15,7 @@
 #include "parameterized.h"
 #include "klumatrix.h"
 #include "hierdevice.h"
-#include "answeep.h"
+#include "coresweep.h"
 #include "node.h"
 #include "pool.h"
 #include "common.h"
@@ -23,6 +23,17 @@
 
 
 namespace NAMESPACE {
+
+// A device with nonzero instance count uses a feature the current analysis
+// does not support (delay, variable delay, explicit time dependence).
+ERRORCLASS(CircuitIllegalDeviceFeatures)
+    Id device;
+    std::string features;
+    CircuitIllegalDeviceFeatures(Id device, std::string features) : device(device), features(std::move(features)) {}
+    std::string format() const {
+        return "Device '" + std::string(device) + "' uses unsupported features:\n  " + features;
+    }
+END_ERRORCLASS(CircuitIllegalDeviceFeatures);
 
 // Device/instance/model pointer storage
 // - The circuit has a vector of device pointers, it owns these devices
@@ -210,7 +221,7 @@ public:
     // Checks device flags, returns true if any of the flags is set for a device with nonzero instances
     // Devices with any of the exceptions flags set are exempt from check. 
     // Returns true if circuit uses prohibited features. 
-    bool usesIllegalDeviceFeatures(Device::Flags prohibitedFeatures, Device::Flags exceptions, Status& s=Status::ignore);
+    bool usesIllegalDeviceFeatures(Device::Flags prohibitedFeatures, Device::Flags exceptions, ErrorConsumer& ec);
 
     // Clear circuit (return to the state that existed immediately after the constructor was called)
     void clear();
@@ -468,13 +479,13 @@ public:
         KluMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
         KluMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
         DelayLines* delayLines, 
-        Status& s=Status::ignore
+        ErrorConsumer& ec
     );
     // Return value: ok, hierarchy changed
     std::tuple<bool, bool> propagateDownHierarchy(Status& s=Status::ignore);
     
     bool applyInstanceFlags(Instance::Flags fClear, Instance::Flags fSet);
-    bool evalAndLoad(CommonData& commons, EvalSetup* evalSetup, LoadSetup* loadSetup, bool (*deviceSelector)(Device*));
+    bool evalAndLoad(CommonData& commons, EvalSetup* evalSetup, LoadSetup* loadSetup, bool (*deviceSelector)(Device*), ErrorConsumer& errors);
     
     // Simulator options (Parameterized class with simulator options core)
     // IStruct<SimulatorOptions>& simulatorOptions() { return simOptions; };

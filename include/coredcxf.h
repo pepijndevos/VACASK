@@ -1,7 +1,6 @@
 #ifndef __ANCOREDCXF_DEFINED
 #define __ANCOREDCXF_DEFINED
 
-#include "status.h"
 #include "circuit.h"
 #include "core.h"
 #include "coreop.h"
@@ -53,19 +52,28 @@ typedef struct DCXFParameters {
 } DCXFParameters;
 
 
+ERRORCLASS(DcxfSourceNotFound)
+    Id instance;
+    DcxfSourceNotFound(Id instance) : instance(instance) {}
+    std::string format() const { return "Source '" + std::string(instance) + "' not found."; }
+END_ERRORCLASS(DcxfSourceNotFound);
+
+ERRORCLASS(DcxfNotSource)
+    Id instance;
+    DcxfNotSource(Id instance) : instance(instance) {}
+    std::string format() const { return "Instance '" + std::string(instance) + "' is not a source."; }
+END_ERRORCLASS(DcxfNotSource);
+
+SIMPLE_ERRORCLASS(DcxfMatrixError, "DC transfer function analysis matrix error.");
+
+SIMPLE_ERRORCLASS(DcxfSolutionNotFinite, "Solution component is not finite.");
+
+SIMPLE_ERRORCLASS(DcxfOperatingPointFailed, "Operating point analysis failed.");
+
+
 class DCXFCore : public AnalysisCore {
 public:
     typedef DCXFParameters Parameters;
-    enum class DCXFError {
-        OK, 
-        NotFound, 
-        NotSource, 
-        EvalAndLoad, 
-        MatrixError, 
-        SolutionError, 
-        OperatingPointError, 
-        SingularMatrix, 
-    };
     DCXFCore(
         OutputDescriptorResolver& parentResolver, DCXFParameters& params, OperatingPointCore& opCore, std::unordered_map<Id,size_t>& sourceIndex, 
         Circuit& circuit, CommonData& commons, KluRealMatrix& jacobian, Vector<double>& incrementalSolution, 
@@ -79,18 +87,15 @@ public:
     DCXFCore& operator=(const DCXFCore&)  = delete;
     DCXFCore& operator=(      DCXFCore&&) = delete;
 
-    // Format error, return false on error - this function is not cheap (works with strings)
-    bool formatError(Status& s=Status::ignore) const; 
+    bool addDefaultOutputDescriptors(ErrorConsumer& errors);
+    bool resolveOutputDescriptors(bool strict, ErrorConsumer& errors);
 
-    bool addDefaultOutputDescriptors(Status& s);
-    bool resolveOutputDescriptors(bool strict, Status& s=Status::ignore);
-
-    bool rebuild(Status& s=Status::ignore); 
-    bool initializeOutputs(const std::string& name, Status& s=Status::ignore);
-    CoreCoroutine coroutine(bool continuePrevious);
-    bool run(bool continuePrevious);
-    bool finalizeOutputs(Status& s=Status::ignore);
-    bool deleteOutputs(Id name, Status& s=Status::ignore);
+    bool rebuild(ErrorConsumer& errors);
+    bool initializeOutputs(const std::string& name, ErrorConsumer& errors);
+    CoreCoroutine coroutine(bool continuePrevious, ErrorConsumer& errors);
+    bool run(bool continuePrevious, ErrorConsumer& errors);
+    bool finalizeOutputs(ErrorConsumer& errors);
+    bool deleteOutputs(Id name, ErrorConsumer& errors);
 
     void dump(std::ostream& os) const;
 
@@ -100,12 +105,6 @@ public:
 protected:
     static constexpr size_t bucketSize = 1;
     
-    // Clear error
-    void clearError() { AnalysisCore::clearError(); lastDcTfError = DCXFError::OK; }; 
-
-    void setError(DCXFError e) { lastDcTfError = e; lastError = Error::OK; };
-    DCXFError lastDcTfError;
-    Id errorInstance;
     
     KluRealMatrix& jacobian;
     Vector<double>& incrementalSolution;

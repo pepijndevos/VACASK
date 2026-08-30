@@ -48,7 +48,7 @@ namespace NAMESPACE {
 // Slots 1, 2, ... correspond to past values (at t_{k}, t_{k-1}, ...)
 // Therefore historyOffset needs to be set to 1
 
-std::tuple<bool, bool> PreprocessedUserForces::set(Circuit& circuit, ValueVector& userForces, Status& s) {
+std::tuple<bool, bool> PreprocessedUserForces::set(Circuit& circuit, ValueVector& userForces, ErrorConsumer& errors) {
     clear();
 
     // 0 -> 1 -> 2
@@ -70,16 +70,11 @@ std::tuple<bool, bool> PreprocessedUserForces::set(Circuit& circuit, ValueVector
             case 0:
                 node1 = node2 = nullptr;
                 if (it.type()!=Value::Type::String) {
-                    s.set(Status::BadArguments, "Expecting a string at position "+std::to_string(nsNdx)+".");
+                    errors.push(UserForcesExpectString{nsNdx});
                     return std::make_tuple(false, false);
                 }
                 id1 = it.val<String>();
                 node1 = circuit.findNode(id1);
-                // Node not found is an error
-                // if (!node1) {
-                //     s.set(Status::BadArguments, "Cannot find node '"+std::string(id1)+"' during force preprocessing.");
-                //     return std::make_tuple(false, false);
-                // }
                 state = 1;
                 break;
             case 1:
@@ -95,15 +90,10 @@ std::tuple<bool, bool> PreprocessedUserForces::set(Circuit& circuit, ValueVector
                     case Value::Type::String:
                         id2 = it.val<String>();
                         node2 = circuit.findNode(id2);
-                        // Node not found is an error
-                        // if (!node2) {
-                        //     s.set(Status::BadArguments, "Cannot find node '"+std::string(id2)+"' during force preprocessing.");
-                        //     return std::make_tuple(false, false);
-                        // }
                         state = 2;
                         break;
                     default:
-                        s.set(Status::BadArguments, "Expecting a string, an integer, or a real at position "+std::to_string(nsNdx)+".");
+                        errors.push(UserForcesExpectStringOrValue{nsNdx});
                         return std::make_tuple(false, false);
                 }
                 break;
@@ -118,7 +108,7 @@ std::tuple<bool, bool> PreprocessedUserForces::set(Circuit& circuit, ValueVector
                         state = 4;
                         break;
                     default:
-                        s.set(Status::BadArguments, "Expecting an integer or a real at position "+std::to_string(nsNdx)+".");
+                        errors.push(UserForcesExpectValue{nsNdx});
                         return std::make_tuple(false, false);
                 }
                 break;
@@ -158,12 +148,12 @@ std::tuple<bool, bool> PreprocessedUserForces::set(Circuit& circuit, ValueVector
 
     
 OpNRSolver::OpNRSolver(
-    Circuit& circuit, CommonData& commons, KluRealMatrix& jac, 
-    VectorRepository<double>& states, VectorRepository<double>& solution, 
-    DelayLines* delayLines, DelayMatrixBindings<double*>* delayBindings, 
+    Circuit& circuit, CommonData& commons, KluRealMatrix& jac,
+    VectorRepository<double>& states, VectorRepository<double>& solution,
+    DelayLines* delayLines, DelayMatrixBindings<double*>* delayBindings,
     NRSettings& settings, Int forcesSize
-) : circuit(circuit), commons(commons), states(states), 
-    NRSolver(circuit.tables().accounting(), jac, solution, settings, 1), 
+) : circuit(circuit), commons(commons), states(states),
+    NRSolver(circuit.tables().accounting(), jac, solution, settings, 1),
     delayLines_(delayLines), delayBindings_(delayBindings) {
     // Bucket size is 1
     // Slot 0 is for sweep continuation and homotopy (set via CoreStateStorage object)
@@ -196,7 +186,7 @@ OpNRSolver::OpNRSolver(
     };
 }
 
-bool OpNRSolver::setForces(Int ndx, const AnnotatedSolution& solution, bool abortOnError) {
+bool OpNRSolver::setForces(Int ndx, const AnnotatedSolution& solution, bool abortOnError, ErrorConsumer& errors) {
     // Get forces
     auto& f = forces(ndx);
 
@@ -226,7 +216,7 @@ bool OpNRSolver::setForces(Int ndx, const AnnotatedSolution& solution, bool abor
             continue;
         }
 
-        if (!setForceOnUnknown(f, node, value)) {
+        if (!setForceOnUnknown(f, node, value, errors)) {
             error = true;
             break;
         }
@@ -235,7 +225,7 @@ bool OpNRSolver::setForces(Int ndx, const AnnotatedSolution& solution, bool abor
     return !error;
 }
 
-bool OpNRSolver::setForces(Int ndx, const PreprocessedUserForces& preprocessed, bool uicMode, bool abortOnError) {
+bool OpNRSolver::setForces(Int ndx, const PreprocessedUserForces& preprocessed, bool uicMode, bool abortOnError, ErrorConsumer& errors) {
     // Get forces
     Forces& f = forces(ndx);
 
@@ -260,7 +250,7 @@ bool OpNRSolver::setForces(Int ndx, const PreprocessedUserForces& preprocessed, 
         // Check if node was found
         auto node = preprocessed.nodes[i];
         auto value = preprocessed.nodeValues[i];
-        if (!setForceOnUnknown(f, node, value)) {
+        if (!setForceOnUnknown(f, node, value, errors)) {
             error = true;
             if (abortOnError) {
                 return false;
@@ -287,7 +277,7 @@ bool OpNRSolver::setForces(Int ndx, const PreprocessedUserForces& preprocessed, 
         } else if (u1==0) {
             // Check if first node is ground, convert it to a force on an unknown
             // v(0,x) = value -> v(x)=-value
-            if (!setForceOnUnknown(f, node2, -value)) {
+            if (!setForceOnUnknown(f, node2, -value, errors)) {
                 error = true;
                 if (abortOnError) {
                     return false;
@@ -295,7 +285,7 @@ bool OpNRSolver::setForces(Int ndx, const PreprocessedUserForces& preprocessed, 
             }
         } else if (u2==0) {
             // v(x,0) = value -> v(x)=value
-            if (!setForceOnUnknown(f, node1, value)) {
+            if (!setForceOnUnknown(f, node1, value, errors)) {
                 error = true;
                 if (abortOnError) {
                     return false;
@@ -332,9 +322,7 @@ bool OpNRSolver::setForces(Int ndx, const PreprocessedUserForces& preprocessed, 
                 // Both nodes are forced
                 // Does delta force conflict with node forces
                 if (f.unknownValue_[u1]-f.unknownValue_[u2]!=value) {
-                    lastOpNRError = OpNRSolverError::ConflictDelta;
-                    errorNode1 = node1;
-                    errorNode2 = node2;
+                    errors.push(OpNrConflictDelta{id1, id2});
                     error = true;
                     if (abortOnError) {
                         return false;
@@ -375,7 +363,7 @@ bool OpNRSolver::setForces(Int ndx, const PreprocessedUserForces& preprocessed, 
     return true;
 }
 
-bool OpNRSolver::setForceOnUnknown(Forces& f, Node* node, double value) {
+bool OpNRSolver::setForceOnUnknown(Forces& f, Node* node, double value, ErrorConsumer& errors) {
     // Unknown
     auto u = node->unknownIndex();
     // Is it a ground node? 
@@ -385,8 +373,7 @@ bool OpNRSolver::setForceOnUnknown(Forces& f, Node* node, double value) {
     }
     // Is it conflicting with a previous nodeset
     if (f.unknownForced_[u] && f.unknownValue_[u]!=value) {
-        lastOpNRError = OpNRSolverError::ConflictNode;
-        errorNode1 = node;
+        errors.push(OpNrConflictNode{node->name()});
         return false;
     }
     f.unknownValue_[u] = value;
@@ -467,12 +454,9 @@ bool OpNRSolver::rebuild(size_t nSolComp) {
     return true;
 }
 
-bool OpNRSolver::initialize(bool continuePrevious) {
+bool OpNRSolver::initialize(bool continuePrevious, ErrorConsumer& errors) {
     // This method is called once on entering run()
     // This is the right place to set up vectors
-
-    // Clear OP NR solver error
-    clearError();
 
     // Clear flags
     clearFlags();
@@ -523,11 +507,11 @@ bool OpNRSolver::initialize(bool continuePrevious) {
             globalSolRef = true;
             historicSolRef = true;
         } else {
-            lastError = Error::BadSolReference;
+            errors.push(OpNrBadSolutionReference(options.relref));
             return false;
         }
     } else {
-        lastError = Error::BadSolReference;
+        errors.push(OpNrBadSolutionReference(options.relrefsol));
         return false;
     }
 
@@ -555,11 +539,11 @@ bool OpNRSolver::initialize(bool continuePrevious) {
             globalResRef = true;
             historicResRef = true;
         } else {
-            lastError = Error::BadResReference;
+            errors.push(OpNrBadResidualReference(options.relref));
             return false;
         }
     } else {
-        lastError = Error::BadResReference;
+        errors.push(OpNrBadResidualReference(options.relrefres));
         return false;
     }
     
@@ -616,10 +600,9 @@ void OpNRSolver::loadShunts(double gshunt, bool loadJacobian) {
     }
 }
 
-bool OpNRSolver::evalAndLoadWrapper(EvalSetup& evalSetup, LoadSetup& loadSetup) {
-    lastError = Error::OK;
+bool OpNRSolver::evalAndLoadWrapper(EvalSetup& evalSetup, LoadSetup& loadSetup, ErrorConsumer& errors) {
     evalSetup.requestHighPrecision = highPrecision;
-    if (!circuit.evalAndLoad(commons, &evalSetup, &loadSetup, nullptr)) {
+    if (!circuit.evalAndLoad(commons, &evalSetup, &loadSetup, nullptr, errors)) {
         // Load error
         if (settings.debug>2) {
             Simulator::dbg() << "Evaluation error.\n";
@@ -668,9 +651,7 @@ void OpNRSolver::setNodesetAndIcFlags(bool continuePrevious) {
     evalSetup_.icEnabled = forcesEnabled.size()>2 && forcesEnabled[2];
 }
 
-std::tuple<bool, bool> OpNRSolver::buildSystem(bool continuePrevious) {
-    lastError = Error::OK;
-
+std::tuple<bool, bool> OpNRSolver::buildSystem(bool continuePrevious, ErrorConsumer& errors) {
     auto n = circuit.unknownCount();
 
     // Remove forces originating from nodesets after nsiter iterations
@@ -717,7 +698,7 @@ std::tuple<bool, bool> OpNRSolver::buildSystem(bool continuePrevious) {
     commons.requestForcedBypass = false;
 
     // Evaluate and load
-    auto evalSt = evalAndLoadWrapper(evalSetup_, loadSetup_);
+    auto evalSt = evalAndLoadWrapper(evalSetup_, loadSetup_, errors);
     if (!evalSt) {
         return std::make_tuple(false, evalSetup_.limitingApplied);
     }
@@ -762,8 +743,7 @@ std::tuple<bool, bool> OpNRSolver::buildSystem(bool continuePrevious) {
         if (settings.debug) {
             Simulator::dbg() << "Failed to load forced values at iteration " << iteration << "\n";
         }
-        lastOpNRError = OpNRSolverError::LoadForces;
-        errorIteration = iteration;
+        errors.push(OpNrLoadForcesError{});
         std::make_tuple(false, evalSetup_.limitingApplied);
     }
 
@@ -1117,24 +1097,28 @@ void OpNRSolver::updateMaxima() {
     }
 }
 
-std::string OpNRSolver::formatConvergence() const {
+std::string formatOpConvergence(
+    bool preventedConvergence, bool iterationConverged,
+    bool residualCheck, double maxResidual, bool residualWithinTol, Id maxResidualNode,
+    Int iteration, double maxDelta, bool deltaWithinTol, Id maxDeltaNode
+) {
     std::stringstream ss;
     ss << std::scientific << std::setprecision(2);
     std::string s = (preventedConvergence ? "convergence not allowed" : "");
     if (!preventedConvergence) {
         s += (iterationConverged ? "converged" : "");
-        if (settings.residualCheck) {
+        if (residualCheck) {
             ss.str(""); ss << maxResidual;
             if (s.length()>0) {
                 s +=", ";
             }
             s += "worst residual=";
-            s += ss.str(); 
+            s += ss.str();
             if (!residualWithinTol) {
                 s += " >TOL";
             }
             s += " @ ";
-            s += (maxResidualNode ? std::string(maxResidualNode->name()) : "(unknown)");
+            s += (maxResidualNode ? std::string(maxResidualNode) : "(unknown)");
         }
         if (iteration>1) {
             ss.str(""); ss << maxDelta;
@@ -1142,42 +1126,36 @@ std::string OpNRSolver::formatConvergence() const {
                 s +=", ";
             }
             s += "worst delta=";
-            s += ss.str(); 
+            s += ss.str();
             if (!deltaWithinTol) {
                 s += " >TOL";
             }
             s += " @ ";
-            s += (maxDeltaNode ? std::string(maxDeltaNode->name()) : "(unknown)");
+            s += (maxDeltaNode ? std::string(maxDeltaNode) : "(unknown)");
         }
     }
 
     return s;
 }
 
-bool OpNRSolver::formatError(Status& s, NameResolver* resolver) const {
-    // Error in NRSolver
-    if (lastError!=NRSolver::Error::OK) {
-        NRSolver::formatError(s, resolver);
-        return false;
-    }
+std::string OpNRSolver::formatConvergence() const {
+    return formatOpConvergence(
+        preventedConvergence, iterationConverged,
+        settings.residualCheck, maxResidual, residualWithinTol,
+        maxResidualNode ? maxResidualNode->name() : Id(),
+        iteration, maxDelta, deltaWithinTol,
+        maxDeltaNode ? maxDeltaNode->name() : Id()
+    );
+}
 
-    switch (lastOpNRError) {
-        case OpNRSolverError::ConflictNode:
-            s.set(Status::Force, "Conflicting forces for node '"+std::string(errorNode1->name())+"'.");
-            return false;
-        case OpNRSolverError::ConflictDelta:
-            s.set(Status::Force, "Forcing delta on node pair ('"
-                        +std::string(errorNode1->name())+"', '"
-                        +std::string(errorNode2->name())
-                        +"') conflicts previous forces."
-                    );
-            return false;
-        case OpNRSolverError::LoadForces:
-            s.set(Status::Force, "Failed to load forces.");
-            return false;
-        default:
-            return true;
-    }
+void OpNRSolver::pushConvergenceReport(ErrorConsumer& errors) {
+    errors.push(OpNrConvergenceReport{
+        preventedConvergence, iterationConverged,
+        settings.residualCheck, maxResidual, residualWithinTol,
+        maxResidualNode ? maxResidualNode->name() : Id(),
+        iteration, maxDelta, deltaWithinTol,
+        maxDeltaNode ? maxDeltaNode->name() : Id()
+    });
 }
 
 void OpNRSolver::dumpSolution(std::ostream& os, double* solution, const char* prefix) {

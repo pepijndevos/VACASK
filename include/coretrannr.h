@@ -10,8 +10,24 @@
 
 namespace NAMESPACE {
 
+ERRORCLASS(TranNrBadFlickerExponent)
+    Id instance;
+    TranNrBadFlickerExponent(Id instance) : instance(instance) {}
+    std::string format() const {
+        return "Flicker noise exponent out of range for '" + std::string(instance) + "'.";
+    }
+END_ERRORCLASS(TranNrBadFlickerExponent);
+
+ERRORCLASS(TranNrFlickerExponentChanged)
+    Id instance;
+    TranNrFlickerExponentChanged(Id instance) : instance(instance) {}
+    std::string format() const {
+        return "Flicker noise exponent is not constant for '" + std::string(instance) + "'.";
+    }
+END_ERRORCLASS(TranNrFlickerExponentChanged);
+
 // Transient NR solver is almost identical to OP NR solver
-// This one is used for all points, but the first one. 
+// This one is used for all points, but the first one.
 class TranNRSolver : public OpNRSolver {
 public:
     TranNRSolver(
@@ -21,18 +37,6 @@ public:
         const CircularBuffer<double>& timepointHistory_,
         NRSettings& settings, IntegratorCoeffs& integCoeffs
     );
-
-    enum class TranNRSolverError {
-        OK, 
-        BadFlickerExponent, 
-        FlickerExponentChanged, 
-    };
-
-    // Clear error
-    void clearError() { OpNRSolver::clearError(); lastTranNRError = TranNRSolverError::OK; }; 
-
-    // Format error, return false on error - this function is not cheap (works with strings)
-    bool formatError(Status& s=Status::ignore, NameResolver* resolver=nullptr) const; 
 
     // Called in the beginning of transient noise analysis
     // Takes ownership of noise blocks
@@ -47,7 +51,7 @@ public:
     void disableNoise();
 
     // Collect noise scaling
-    bool collectNoiseScaling();
+    bool collectNoiseScaling(ErrorConsumer& errors);
 
     // Build noise residual. We expose this for noise generator coefficient initalization. 
     // Return value: ok
@@ -55,7 +59,7 @@ public:
     
     // Called on accepted timepoint
     // Return value: ok, sample index changed
-    std::tuple<bool, bool> advanceNoise(double time, double h, std::mt19937_64& gen);
+    std::tuple<bool, bool> advanceNoise(double time, double h, std::mt19937_64& gen, ErrorConsumer& errors);
 
     // Called on rejected timepoint
     bool revertNoise(double time, double h, std::mt19937_64& gen);
@@ -65,7 +69,7 @@ public:
     // Can be called after the solver succeeds. Call it only once because it overwrites 
     // noiseResidual which is the RHS for the solver. 
     // Returns true on success
-    bool computeNoiseSolutionContribution();
+    bool computeNoiseSolutionContribution(ErrorConsumer& errors);
 
     // Returns RealVector (solution contribution of noise)
     const RealVector& noiseSolutionContribution() { return noiseResidual; };
@@ -73,14 +77,14 @@ public:
     // Override method for deciding which residual to check
     virtual void rebuildCheckResidualFlags() override;
 
-    virtual bool initialize(bool continuePrevious) override;
+    virtual bool initialize(bool continuePrevious, ErrorConsumer& errors) override;
 
     // No need to override buildSysten() and computeResidual() to set 
     // nodeset and ic flags to false because 
     // nodeset flag is off due to continue mode and 
     // ic flag is off due to forces slot 2 not being present. 
     // Override buildSystem() for loading trasient noise residuals. 
-    virtual std::tuple<bool, bool> buildSystem(bool continuePrevious) override;
+    virtual std::tuple<bool, bool> buildSystem(bool continuePrevious, ErrorConsumer& errors) override;
 
     // Need to obverride this because in transient noise we include noise residual
     // in tolerance reference
@@ -108,10 +112,6 @@ private:
     // thread-local storage. Today's single-threaded use is correct.
     RealVector noisePower;
     RealVector noiseExponent;
-
-protected:
-    TranNRSolverError lastTranNRError;
-    Instance* errorInstance;
 };
 
 }

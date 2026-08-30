@@ -53,7 +53,7 @@ Analysis* Analysis::create(
     return an;
 }
 
-bool Analysis::addOutputDescriptors(Status& s) {
+bool Analysis::addOutputDescriptors(ErrorConsumer& errors) {
     // Clear old descriptors in all cores
     clearOutputDescriptors();
 
@@ -61,60 +61,72 @@ bool Analysis::addOutputDescriptors(Status& s) {
     auto nSweeps = sweepCount();
     for(decltype(nSweeps) i=0; i<nSweeps; i++) {
         if (!addCommonOutputDescriptor(OutputDescriptor(OutdSweepvar, ptAnalysis.sweeps()[i].name(), i))) {
-            s.set(Status::Analysis, "Failed to add output descriptor for sweep variable '"+std::string(ptAnalysis.sweeps()[i].name())+"'.");
+            errors.push(CoreAddOutputDescriptor{"sweep variable '"+std::string(ptAnalysis.sweeps()[i].name())+"'"});
             return false;
         }
     }
 
     // Add core output descriptors
-    if (!addCoreOutputDescriptors(s)) {
+    if (!addCoreOutputDescriptors(errors)) {
         return false;
     }
 
     // Add saves
     bool strict;
-    
+
     // Add saves, unknown saves are ignored, known ones are checked for syntax
     strict = false;
     for(auto& save : commonSaves) {
-        // Ignore failures, unless strict is true
-        Status saveSt;
-        auto ok = resolveSave(save, strict, saveSt);
+        // Ignore failures, unless strict is true (then push onto the caller's consumer)
+        ErrorConsumer saveErrors;
+        auto ok = resolveSave(save, strict, strict ? errors : saveErrors);
         // Semantic error in save directive results in ok=false, it is always an error
         // Failure to add a descriptor in strict mode results in ok=false and thus an error
         // Unsupported descriptor type in strict mode results in ok=false and thus error
         // Unsupported save directive is not an error unless in strict mode
         if (strict && !ok) {
-            s.set(saveSt);
             return false;
         }
     }
 
     // Add default saves if needed (no saves specified)
     // Ignore errors and conflicts
-    addDefaultOutputDescriptors(s);
+    addDefaultOutputDescriptors(errors);
 
     return true;
 }
 
-bool Analysis::resolveOutputDescriptor(const OutputDescriptor& descr, Output::SourcesList& srcs, bool strict, Status& s) {
+bool Analysis::resolveOutputDescriptor(const OutputDescriptor& descr, Output::SourcesList& srcs, bool strict, ErrorConsumer& errors) {
     // Abstract analysis handles only sweep variables
     switch (descr.type) {
-        case OutdSweepvar: 
+        case OutdSweepvar:
             srcs.emplace_back(&sweeper, descr.ndx, descr.name);
             break;
         default:
             DBGCHECK(true, "Unknown output descriptor type.");
+            if (strict) {
+                errors.push(CoreAddOutputDescriptor{"'"+std::string(descr.name)+"'"});
+            }
             return false;
     }
     return true;
 }
 
-bool Analysis::updateSweeper(Status& s) {
-    return sweeper.update(advancedSweepIndex, s);
+bool Analysis::updateSweeper(ErrorConsumer& errors) {
+    return sweeper.update(advancedSweepIndex, errors);
 }
 
 AnalysisCoroutine Analysis::coroutine(Status& s) {
+    // Error consumer that wraps Status, used for passing into core functions
+    // that should abort analysis immediately on failure
+    ErrorConsumer statusWrapper(s);
+
+    // Errors reported by analysis cores are collected on this stack and
+    // formatted when a core aborts. 
+    // Passed to hot loops. 
+    ErrorStack es;
+    ErrorConsumer coreErrors(es);
+
     // Output descriptors are created with analysis
     // Binding must be done here, just before the core analysis is run
 
@@ -196,19 +208,19 @@ AnalysisCoroutine Analysis::coroutine(Status& s) {
         }
 
         // Setup sweeper
-        if (!sweeper.setup(s)) {
+        if (!sweeper.setup(statusWrapper)) {
             s.extend("Failed to set up sweep for analysis '"+std::string(name_)+"'.");
             co_yield AnalysisState::Aborted;
         }
-        
+
         // Bind sweeper to actual parameters and options
-        if (!sweeper.bind(circuit, simOptions, s)) {
+        if (!sweeper.bind(circuit, simOptions, statusWrapper)) {
             s.extend("Failed to bind sweep parameters.");
             co_yield AnalysisState::Aborted;
         }
 
         // Collect current values so we can restore them later
-        if (!sweeper.storeState(s)) {
+        if (!sweeper.storeState(statusWrapper)) {
             s.extend("Failed to store initial circuit state.");
             co_yield AnalysisState::Aborted;
         }
@@ -253,7 +265,7 @@ AnalysisCoroutine Analysis::coroutine(Status& s) {
 
             // Need to re-bind sweeper if hierarchy changed
             if (hierarchyChanged) {
-                if (!sweeper.bind(circuit, simOptions, s)) {
+                if (!sweeper.bind(circuit, simOptions, statusWrapper)) {
                     s.extend("Failed to re-bind sweep parameters.");
                     co_yield AnalysisState::Aborted;
                 }
@@ -271,14 +283,14 @@ AnalysisCoroutine Analysis::coroutine(Status& s) {
 
                 // Only the first time (while outputsBound=false)
                 if (!outputsBound) {
-                    if (!addOutputDescriptors(s)) {
+                    if (!addOutputDescriptors(statusWrapper)) {
                         s.extend("Failed to construct list of outputs.");
                         co_yield AnalysisState::Aborted;
                     }
                 }
                 
                 // Rebuild core
-                if (!rebuildCores(s)) {
+                if (!rebuildCores(statusWrapper)) {
                     s.extend("Failed to rebuild analysis structures.");
                     co_yield AnalysisState::Aborted;
                 }
@@ -288,7 +300,7 @@ AnalysisCoroutine Analysis::coroutine(Status& s) {
                               (outputsBound && circuit.simulatorOptions().core().strictsave>1);
                 
                 // Bind outputs
-                if (!resolveOutputDescriptors(strict, s)) {
+                if (!resolveOutputDescriptors(strict, statusWrapper)) {
                     s.extend("Failed to bind analysis outputs.");
                     co_yield AnalysisState::Aborted;
                 }
@@ -324,7 +336,7 @@ AnalysisCoroutine Analysis::coroutine(Status& s) {
             
             // Initialize outputs (core needs to be rebuilt for this)
             if (!outputInitialized) {
-                if (!initializeOutputs(s)) {
+                if (!initializeOutputs(statusWrapper)) {
                     s.extend("Failed to initialize results output.");
                     co_yield AnalysisState::Aborted;
                 }
@@ -350,14 +362,14 @@ AnalysisCoroutine Analysis::coroutine(Status& s) {
             }
 
             // Create coroutine, continue mode on if state has been restored
-            auto cc = coreCoroutine(restoredState);
+            auto cc = coreCoroutine(restoredState, coreErrors);
             while (cc) {
                 bool exitLoop = false;
                 auto state = cc.resume();
                 switch (state) {
                     case CoreState::Aborted:
                         // Aborting a core aborts the analysis (and sweep)
-                        formatCoreError(s);
+                        s.set(Status::Analysis, coreErrors.format());
                         s.extend("Analysis '"+std::string(name_)+"' aborted.");
                         s.extend("Sweep aborted @ "+sweeper.progress()+".");
                         co_yield AnalysisState::Aborted;
@@ -453,7 +465,7 @@ AnalysisCoroutine Analysis::coroutine(Status& s) {
         commons.allowContinueStateBypass = false;
 
         // Create list of output descriptors
-        ok = addOutputDescriptors(s);
+        ok = addOutputDescriptors(statusWrapper);
         if (!ok) {
             s.extend("Failed to construct list of outputs.");
             co_yield AnalysisState::Aborted;
@@ -463,7 +475,7 @@ AnalysisCoroutine Analysis::coroutine(Status& s) {
         bool strict = circuit.simulatorOptions().core().strictsave>0;
         
         // Rebuild core structures for simulation (always, because there is only one core run)
-        ok = rebuildCores(s);
+        ok = rebuildCores(statusWrapper);
         if (!ok) {
             s.extend("Failed to rebuild analysis structures.");
             co_yield AnalysisState::Aborted;
@@ -477,14 +489,14 @@ AnalysisCoroutine Analysis::coroutine(Status& s) {
         );
         
         // Bind outputs
-        ok = resolveOutputDescriptors(strict, s);
+        ok = resolveOutputDescriptors(strict, statusWrapper);
         if (!ok) {
             s.extend("Failed to bind analysis outputs.");
             co_yield AnalysisState::Aborted;
         }
 
         // Initialize outputs
-        outputInitialized = initializeOutputs(s);
+        outputInitialized = initializeOutputs(statusWrapper);
         if (!outputInitialized) {
             s.extend("Failed to initialize results output.");
             co_yield AnalysisState::Aborted;
@@ -503,12 +515,12 @@ AnalysisCoroutine Analysis::coroutine(Status& s) {
         // Run core simulation, dump results
         if (outputInitialized && preAnalysisOk) {
             // Create coroutine, continue mode off
-            auto cc = coreCoroutine(false);
+            auto cc = coreCoroutine(false, coreErrors);
             while (cc) {
                 auto state = cc.resume();
                 switch (state) {
                     case CoreState::Aborted:
-                        formatCoreError(s);
+                        s.set(Status::Analysis, coreErrors.format());
                         s.extend("Analysis '"+std::string(name_)+"' aborted.");
                         co_yield AnalysisState::Aborted;
                         break;
@@ -582,13 +594,15 @@ bool Analysis::finish(Status& s) {
         // Delete output files, even if outputs were not initialized
         auto strictoutput = circuit.simulatorOptions().core().strictoutput;
         if (strictoutput>=1) {
-            deleteOutputs();
+            ErrorConsumer ec(s);
+            deleteOutputs(ec);
         }
         ok = false;
     } else {
         // Finalize output files
         if (outputInitialized) {
-            ok = finalizeOutputs(s);
+            ErrorConsumer ec(s);
+            ok = finalizeOutputs(ec);
             if (!ok) {
                 s.extend("Failed to finalize results output.");
             }

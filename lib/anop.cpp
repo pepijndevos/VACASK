@@ -10,7 +10,7 @@
 namespace NAMESPACE {
 
 OperatingPoint::OperatingPoint(Id name, Circuit& circuit, PTAnalysis& ptAnalysis) 
-    : Analysis(name, circuit, ptAnalysis), 
+    : Analysis(name, circuit, ptAnalysis),
       core(*this, params.core(), circuit, commons, jac, solution, states, delayLines_, delayBindings_) {
 };
 
@@ -27,16 +27,16 @@ bool OperatingPoint::addCommonOutputDescriptor(const OutputDescriptor& desc) {
     return core.addOutputDescriptor(desc);
 }
 
-bool OperatingPoint::addCoreOutputDescriptors(Status& s) {
-    if (!core.addCoreOutputDescriptors(s)) {
+bool OperatingPoint::addCoreOutputDescriptors(ErrorConsumer& errors) {
+    if (!core.addCoreOutputDescriptors(errors)) {
         return false;
     }
     return true;
 }
 
-bool OperatingPoint::resolveOutputDescriptors(bool strict, Status& s) {
+bool OperatingPoint::resolveOutputDescriptors(bool strict, ErrorConsumer& errors) {
     // Trigger resolving in core analyses
-    if (!core.resolveOutputDescriptors(strict, s)) {
+    if (!core.resolveOutputDescriptors(strict, errors)) {
         if (strict) {
             return false;
         }
@@ -44,30 +44,33 @@ bool OperatingPoint::resolveOutputDescriptors(bool strict, Status& s) {
     return true;
 }
 
-bool OperatingPoint::resolveSave(const PTSave& save, bool verify, Status& s) {
+bool OperatingPoint::resolveSave(const PTSave& save, bool verify, ErrorConsumer& errors) {
     static const auto idDefault = Id("default");
     static const auto idFull = Id("full");
     static const auto idV = Id("v");
     static const auto idI = Id("i");
     static const auto idP = Id("p");
 
+    // When verification is not required, errors from save resolution are not fatal
+    // and must not reach the caller's error consumer.
+    ErrorConsumer sink;
+    ErrorConsumer& e1 = verify ? errors : sink;
+
     bool st = true;
-    Status& s1 = verify ? s : Status::ignore;
     if (save.typeName() == idDefault) {
-        st = core.addAllUnknowns(save, s1);
+        st = core.addAllUnknowns(save, e1);
     } else if (save.typeName() == idFull) {
-        st = core.addAllNodes(save, s1);
+        st = core.addAllNodes(save, e1);
     } else if (save.typeName() == idV) {
-        st = core.addNode(save, s1);
+        st = core.addNode(save, e1);
     } else if (save.typeName() == idI) {
-        st = core.addFlow(save, s1);
+        st = core.addFlow(save, e1);
     } else if (save.typeName() == idP) {
-        st = core.addInstanceOutvar(save, s1);
+        st = core.addInstanceOutvar(save, e1);
     } else {
         // Report error only if verification is required
         if (verify) {
-            s.set(Status::Save, std::string("Analysis does not support save directive."));
-            s.extend(save.location());
+            errors.push(AnUnsupportedSaveDirective{save.location()});
             return false;
         } else {
             // No verification required, OK
@@ -76,8 +79,7 @@ bool OperatingPoint::resolveSave(const PTSave& save, bool verify, Status& s) {
     }
 
     if (verify && !st) {
-        // Format error
-        s.extend(save.location());
+        errors.push(AnSaveDirectiveLocation{save.location()});
         return false;
     }
 
@@ -85,31 +87,30 @@ bool OperatingPoint::resolveSave(const PTSave& save, bool verify, Status& s) {
     return true;
 }
 
-bool OperatingPoint::addDefaultOutputDescriptors(Status& s) {
-    return core.addDefaultOutputDescriptors(s);
+bool OperatingPoint::addDefaultOutputDescriptors(ErrorConsumer& errors) {
+    return core.addDefaultOutputDescriptors(errors);
 }
 
-bool OperatingPoint::initializeOutputs(Status& s) {
-    return core.initializeOutputs(prefixedName_, s);
+bool OperatingPoint::initializeOutputs(ErrorConsumer& errors) {
+    return core.initializeOutputs(prefixedName_, errors);
 }
 
-bool OperatingPoint::finalizeOutputs(Status& s) {
-    return core.finalizeOutputs(s);
+bool OperatingPoint::finalizeOutputs(ErrorConsumer& errors) {
+    return core.finalizeOutputs(errors);
 }
 
-bool OperatingPoint::deleteOutputs(Status& s) {
-    return core.deleteOutputs(prefixedName_, s);
+bool OperatingPoint::deleteOutputs(ErrorConsumer& errors) {
+    return core.deleteOutputs(prefixedName_, errors);
 }
 
-bool OperatingPoint::rebuildCores(Status& s) {
+bool OperatingPoint::rebuildCores(ErrorConsumer& errors) {
     // Create Jacobian - it is common to both cores in small-signal analyses
-    // Therefore we build it outside the core before the core is rebuilt. 
-    if (!jac.rebuild(circuit.sparsityMap(), circuit.unknownCount())) {
-        jac.formatError(s);
+    // Therefore we build it outside the core before the core is rebuilt.
+    if (!jac.rebuild(circuit.sparsityMap(), circuit.unknownCount(), errors)) {
         return false;
     }
 
-    return core.rebuild(s);
+    return core.rebuild(errors);
 }
 
 size_t OperatingPoint::analysisStateStorageSize() const { 
@@ -136,12 +137,12 @@ void OperatingPoint::makeStateIncoherent(size_t ndx) {
     core.makeStateIncoherent(ndx);
 }
 
-std::tuple<bool, bool> OperatingPoint::preMapping(Status& s) {
-    return core.preMapping(s);
+std::tuple<bool, bool> OperatingPoint::preMapping(ErrorConsumer& errors) {
+    return core.preMapping(errors);
 }
 
-bool OperatingPoint::populateStructures(Status& s) {
-    return core.populateStructures(s);
+bool OperatingPoint::populateStructures(ErrorConsumer& errors) {
+    return core.populateStructures(errors);
 }
 
 void OperatingPoint::dump(std::ostream& os) const {

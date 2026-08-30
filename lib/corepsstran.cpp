@@ -37,19 +37,19 @@ PssTranCore::PssTranCore(
 // rebuild
 // ----------------------------------------------------------------
 
-bool PssTranCore::rebuild(Status& s) {
-    if (!TranCore::rebuild(s)) return false;
+bool PssTranCore::rebuild(ErrorConsumer& errors) {
+    if (!TranCore::rebuild(errors)) return false;
     auto n = circuit.unknownCount();
-    if (!lastAlr_.rebuild(circuit.sparsityMap(), n)) {
-        s.set(Status::Analysis, "PssTranCore: failed to rebuild Alr scratch matrix.");
+    if (!lastAlr_.rebuild(circuit.sparsityMap(), n, errors)) {
+        errors.push(PssTranAlrScratchRebuild{});
         return false;
     }
 
     // Resize AM scratch/history buffers to match Jacobian non-zero count.
     auto nnz = jacobian.nnz();
 
-    if (!scratchC_.rebuild(circuit.sparsityMap(), n)) {
-        s.set(Status::Analysis, "PssTranCore: failed to rebuild C scratch matrix.");
+    if (!scratchC_.rebuild(circuit.sparsityMap(), n, errors)) {
+        errors.push(PssTranCScratchRebuild{});
         return false;
     }
 
@@ -105,7 +105,7 @@ void PssTranCore::setShootIC(const Vector<double>& x0) {
 // clearTrajectory
 // ----------------------------------------------------------------
 
-bool PssTranCore::clearTrajectory() {
+bool PssTranCore::clearTrajectory(ErrorConsumer& errors) {
     phiValid_  = false;
 
     auto n = circuit.unknownCount();
@@ -164,9 +164,8 @@ bool PssTranCore::clearTrajectory() {
     ls.reactiveJacobianFactor = 1.0;
     ls.reactiveResidual       = qHist_.futureData();   // future slot already zeroed above
 
-    if (!circuit.evalAndLoad(commons, &es, &ls, nullptr)) {
-        setError(PssTranError::EvalCFailed);
-        pssErrorTime = 0;
+    if (!circuit.evalAndLoad(commons, &es, &ls, nullptr, errors)) {
+        errors.push(PssTranEvalCFailed{0.0});
         return false;
     }
     qHist_.advance();
@@ -189,7 +188,7 @@ bool PssTranCore::clearTrajectory() {
 // ----------------------------------------------------------------
 // onTimestepAccepted — inline Phi advancement
 // ----------------------------------------------------------------
-bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
+bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order, ErrorConsumer& errors) {
     // Read-only for the whole function - every use below (leadingCoeff(),
     // a(), b(), b1(), aScaled(), bScaled() via differentiate()) only reads
     // the coefficients TranCore already computed for this step, so a
@@ -210,10 +209,25 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
 
     // Get Alr = G_k + alpha_k * C_k from the factored NR jacobian
     std::copy(jacobian.data(), jacobian.data() + nnz, lastAlr_.data());
-    if (!lastAlr_.refactor()) {
-        setError(PssTranError::AlrFactorizationFailed);
-        pssErrorTime = tSolve;
-        return false;
+    bool forceFullFactorization = false;
+    if (lastAlr_.isFactored()) {
+        // Refactor (if possible). A refactor failure is not fatal here.
+        if (!lastAlr_.refactor(errors)) {
+            // Failed, try again by fully factoring
+            forceFullFactorization = true;
+        }
+    }
+    if (forceFullFactorization || !lastAlr_.isFactored()) {
+        // Full factorization
+        if (!lastAlr_.factor(errors)) {
+            // Failed, give up. lastAlr_.factor() has pushed the error.
+            errors.push(PssTranAlrFactorizationFailed{tSolve});
+            return false;
+        }
+        // Full factorization recovered, drop the non-fatal refactor error
+        if (forceFullFactorization) {
+            errors.clear();
+        }
     }
 
     // Get the current C_k and q(x_k) by using evalAndLoad. C_k will be saved
@@ -239,9 +253,8 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
     qHist_.zeroFuture();   // load targets accumulate (+=); the ring slot may hold stale data from size_ steps ago
     ls.reactiveResidual       = qHist_.futureData();
 
-    if (!circuit.evalAndLoad(commons, &es, &ls, nullptr)) {
-        setError(PssTranError::EvalCFailed);
-        pssErrorTime = tSolve;
+    if (!circuit.evalAndLoad(commons, &es, &ls, nullptr, errors)) {
+        errors.push(PssTranEvalCFailed{tSolve});
         return false;
     }
     // Snapshot current C_k directly into cHistData_'s future slot - no
@@ -292,10 +305,8 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
         std::copy(cHistData_.at(p).begin(), cHistData_.at(p).end(), scratchC_.data());
         for (decltype(n) j = 0; j < n; j++) {
             auto rhs_col = phiFuture.column(j);
-            if (!scratchC_.product(Phi_kmi.column(j), rhs_colbuf)) {
-                setError(PssTranError::CPhiProductFailed);
-                pssErrorTime = tSolve;
-                pssErrorColumn = j;
+            if (!scratchC_.product(Phi_kmi.column(j), rhs_colbuf, errors)) {
+                errors.push(PssTranCPhiProductFailed{tSolve, j});
                 return false;
             }
             rhs_col.addScaled(rhsColBufView, gammaC_[p]);
@@ -306,10 +317,8 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
             std::copy(gHistData_.at(p).begin(), gHistData_.at(p).end(), scratchC_.data());
             for (decltype(n) j = 0; j < n; j++) {
                 auto rhs_col = phiFuture.column(j);
-                if (!scratchC_.product(Phi_kmi.column(j), rhs_colbuf)) {
-                    setError(PssTranError::GPhiProductFailed);
-                    pssErrorTime = tSolve;
-                    pssErrorColumn = j;
+                if (!scratchC_.product(Phi_kmi.column(j), rhs_colbuf, errors)) {
+                    errors.push(PssTranGPhiProductFailed{tSolve, j});
                     return false;
                 }
                 rhs_col.addScaled(rhsColBufView, gammaG_[p]);
@@ -319,9 +328,8 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
 
     // Solve for Phi_k
     // Alr * Phi_k = sum_{i=1}^order (gamma_i * C_k-i * Phi_k-i)
-    if (!lastAlr_.solveBlock(phiFuture.data().data(), static_cast<Int>(n))) {
-        setError(PssTranError::BlockAlrSolveFailed);
-        pssErrorTime = tSolve;
+    if (!lastAlr_.solveBlock(phiFuture.data().data(), static_cast<Int>(n), errors)) {
+        errors.push(PssTranBlockAlrSolveFailed{tSolve});
         return false;
     }
     phiHist_.advance();   // phiHist_.at(0) now holds PhiT at this step
@@ -366,9 +374,9 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order) {
 // ----------------------------------------------------------------
 // integrateAdjointMonodromy
 // ----------------------------------------------------------------
-bool PssTranCore::integrateAdjointMonodromy(DenseMatrix<double>& Omega){
+bool PssTranCore::integrateAdjointMonodromy(DenseMatrix<double>& Omega, ErrorConsumer& errors) {
     if (trajectory_.empty()) {
-        setError(PssTranError::NoTrajectory);
+        errors.push(PssTranNoTrajectory{});
         return false;
     }
 
@@ -387,16 +395,16 @@ bool PssTranCore::integrateAdjointMonodromy(DenseMatrix<double>& Omega){
     KluRealMatrix scratchA;
     KluRealMatrix scratchC;
     KluRealMatrix scratchG;
-    if (!scratchA.rebuild(circuit.sparsityMap(), n)) {
-        setError(PssTranError::ScratchRebuild);
+    if (!scratchA.rebuild(circuit.sparsityMap(), n, errors)) {
+        errors.push(PssTranOmegaScratchRebuild{});
         return false;
     }
-    if (!scratchC.rebuild(circuit.sparsityMap(), n)) {
-        setError(PssTranError::ScratchRebuild);
+    if (!scratchC.rebuild(circuit.sparsityMap(), n, errors)) {
+        errors.push(PssTranOmegaScratchRebuild{});
         return false;
     }
-    if (!scratchG.rebuild(circuit.sparsityMap(), n)) {
-        setError(PssTranError::ScratchRebuild);
+    if (!scratchG.rebuild(circuit.sparsityMap(), n, errors)) {
+        errors.push(PssTranOmegaScratchRebuild{});
         return false;
     }
 
@@ -423,10 +431,25 @@ bool PssTranCore::integrateAdjointMonodromy(DenseMatrix<double>& Omega){
 
         // Load A_k into scratchA and refactor for tsolve
         std::copy(acRec.aData.begin(), acRec.aData.end(), scratchA.data());
-        if (!scratchA.refactor()) {
-            setError(PssTranError::ScratchRefactorFailed);
-            pssErrorIndexK = k;
-            return false;
+        bool forceFullFactorization = false;
+        if (scratchA.isFactored()) {
+            // Refactor (if possible). A refactor failure is not fatal here.
+            if (!scratchA.refactor(errors)) {
+                // Failed, try again by fully factoring
+                forceFullFactorization = true;
+            }
+        }
+        if (forceFullFactorization || !scratchA.isFactored()) {
+            // Full factorization
+            if (!scratchA.factor(errors)) {
+                // Failed, give up. scratchA.factor() has pushed the error.
+                errors.push(PssTranScratchRefactorFailed{k});
+                return false;
+            }
+            // Full factorization recovered, drop the non-fatal refactor error
+            if (forceFullFactorization) {
+                errors.clear();
+            }
         }
 
         // Build RHS: rhs[:,j] = sum_i [ C_{k+i}^T * gammaC_i * Omega_{k+i}[:,j]
@@ -456,18 +479,14 @@ bool PssTranCore::integrateAdjointMonodromy(DenseMatrix<double>& Omega){
                 for (decltype(n) row = 0; row < n; row++) om_col[row] = Om.at(row, j);
                 if (gC != 0.0) {
                     if (!scratchC.tproduct(om_col.data(), rhs_col.data())) {
-                        setError(PssTranError::CTProductFailed);
-                        pssErrorIndexK = k;
-                        pssErrorIndexI = i;
+                        errors.push(PssTranCTProductFailed{k, i});
                         return false;
                     }
                     for (decltype(n) row = 0; row < n; row++) rhs.at(row, j) += gC * rhs_col[row];
                 }
                 if (gG != 0.0) {
                     if (!scratchG.tproduct(om_col.data(), rhs_col.data())) {
-                        setError(PssTranError::GTProductFailed);
-                        pssErrorIndexK = k;
-                        pssErrorIndexI = i;
+                        errors.push(PssTranGTProductFailed{k, i});
                         return false;
                     }
                     for (decltype(n) row = 0; row < n; row++) rhs.at(row, j) += gG * rhs_col[row];
@@ -476,9 +495,8 @@ bool PssTranCore::integrateAdjointMonodromy(DenseMatrix<double>& Omega){
         }
 
         // Solve A_k^T * Omega_k = rhs (overwrites rhs with solution)
-        if (!scratchA.tsolveBlock(rhs.data().data(), static_cast<Int>(n))) {
-            setError(PssTranError::TSolveBlockFailed);
-            pssErrorIndexK = k;
+        if (!scratchA.tsolveBlock(rhs.data().data(), static_cast<Int>(n), errors)) {
+            errors.push(PssTranTSolveBlockFailed{k});
             return false;
         }
 
@@ -503,12 +521,12 @@ void PssTranCore::enableTrajectoryCapture() {
 // ----------------------------------------------------------------
 // computePsiT
 // ----------------------------------------------------------------
-bool PssTranCore::computePsiT() {
+bool PssTranCore::computePsiT(ErrorConsumer& errors) {
     auto n = circuit.unknownCount();
     psiCurrent_.assign(n, 0.0);
 
     if (!phiValid_) {
-        setError(PssTranError::NoAcceptedSteps);
+        errors.push(PssTranNoAcceptedSteps{});
         return false;
     }
 
@@ -523,7 +541,7 @@ bool PssTranCore::computePsiT() {
     // since-mutated) live transient timestep history.
     IntegratorCoeffs ic = getIntegCoeffs();
     if (!ic.computeSensitivities(lastStepH_) || !ic.scaleDifferentiatorSensitivities(lastStepH_)) {
-        setError(PssTranError::PsiSensitivityFailed);
+        errors.push(PssTranPsiSensitivityFailed{});
         return false;
     }
 
@@ -551,8 +569,8 @@ bool PssTranCore::computePsiT() {
 
     // Psi_T = -J_N^{-1} * d(qdot_N)/d(h_{N-1})   (J_N = lastAlr_, already
     // factored from the last accepted step's Newton solve)
-    if (!lastAlr_.solve(psiTrhs_.data())) {
-        setError(PssTranError::PsiSolveFailed);
+    if (!lastAlr_.solve(psiTrhs_.data(), errors)) {
+        errors.push(PssTranPsiSolveFailed{});
         return false;
     }
     VectorView(psiCurrent_).scaledVector(VectorView(psiTrhs_), -1.0);
@@ -565,7 +583,7 @@ bool PssTranCore::computePsiT() {
 // ----------------------------------------------------------------
 
 // Override to change the output file name
-bool PssTranCore::initializeOutputs(Id name, Status& s) {
+bool PssTranCore::initializeOutputs(Id name, ErrorConsumer& errors) {
     if (!params.write || Simulator::noOutput()) {
         return true;
     }
@@ -586,81 +604,8 @@ bool PssTranCore::initializeOutputs(Id name, Status& s) {
         }
         outfile->setPlotname("Periodic Steady State " + method);
     }
-    outfile->prologue(s);
+    outfile->prologue();
     return true;
 }
-
-bool PssTranCore::formatError(Status& s) const {
-    // First, handle TranCore and AnalysisCore errors
-    if (lastTranError!=TranCore::TranError::OK || lastError!=Error::OK) {
-        TranCore::formatError(s);
-        return false;
-    }
-    
-    // Then handle PssTranCore errors
-    switch (lastPssTranError) {
-        case PssTranError::EvalCFailed:
-            s.set(Status::Analysis, "PssTranCore: evalAndLoad(C) failed at t="+std::to_string(pssErrorTime)+".");
-            break;
-        case PssTranError::AlrFactorizationFailed:
-            s.set(Status::Analysis, "PssTranCore: Alr refactorisation failed at t="+std::to_string(pssErrorTime)+".");
-            break;
-        case PssTranError::CPhiProductFailed:
-            s.set(Status::Analysis, 
-                "PssTranCore: C*Phi product failed at t="+std::to_string(pssErrorTime)+
-                ", column "+std::to_string(pssErrorColumn)+"."
-            );
-            break;   
-        case PssTranError::GPhiProductFailed:
-            s.set(Status::Analysis, 
-                "PssTranCore: G*Phi product failed at t="+std::to_string(pssErrorTime)+
-                ", column "+std::to_string(pssErrorColumn)+"."
-            );
-            break;
-        case PssTranError::BlockAlrSolveFailed:
-            s.set(Status::Analysis, "PssTranCore: block Alr solve failed at t="+std::to_string(pssErrorTime)+".");
-            break;
-        case PssTranError::PsiSensitivityFailed:
-            s.set(Status::Analysis, "PssTranCore: Psi_T coefficient sensitivity computation failed.");
-            break;
-        case PssTranError::PsiSolveFailed:
-            s.set(Status::Analysis, "PssTranCore: Psi_T solve failed.");
-            break;
-        case PssTranError::NoAcceptedSteps:
-            s.set(Status::Analysis, "PssTranCore: no accepted steps since clearTrajectory(). PhiT is not available.");
-            break;
-        case PssTranError::NoTrajectory:
-            s.set(Status::Analysis, "PssTranCore: no trajectory captured. Call enableTrajectoryCapture() before the final shoot.");
-            break;
-        case PssTranError::ScratchRebuild:
-            s.set(Status::Analysis, "PssTranCore: failed to rebuild scratch matrix for Omega integration.");
-            break;
-        case PssTranError::ScratchRefactorFailed:
-            s.set(Status::Analysis, "PssTranCore: scratchA refactor failed at backward step k="+std::to_string(pssErrorIndexK)+".");
-            break;
-        case PssTranError::CTProductFailed:
-            s.set(Status::Analysis, 
-                "PssTranCore: C^T product failed at backward step k="+std::to_string(pssErrorIndexK)+
-                " i="+std::to_string(pssErrorIndexI)+"."
-            );
-            break;
-        case PssTranError::GTProductFailed:
-            s.set(Status::Analysis, 
-                "PssTranCore: G^T product failed at backward step k="+std::to_string(pssErrorIndexK)+
-                " i="+std::to_string(pssErrorIndexI)+"."
-            );
-            break;
-        
-        case PssTranError::TSolveBlockFailed:
-            s.set(Status::Analysis, 
-                "PssTranCore: tsolveBlock failed at backward step k="+std::to_string(pssErrorIndexK)+"."
-            );
-            break;
-        default:
-            return true;
-    }
-    return false;
-}
-
 
 } // namespace NAMESPACE

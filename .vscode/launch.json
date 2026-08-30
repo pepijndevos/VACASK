@@ -1,4 +1,4 @@
-{
+opnr{
     // Use IntelliSense to learn about possible attributes.
     // Hover to view descriptions of existing attributes.
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
@@ -25,11 +25,11 @@
             "request": "launch",
             "program": "${workspaceFolder}/../build.${workspaceRootFolderName}/Debug/simulator/vacask",
             
-             "args": [ "-df", "-dp", "${workspaceFolder}/test/test_op.sim" ],
+            // "args": [ "-df", "-dp", "${workspaceFolder}/test/test_op.sim" ],
             // "args": [ "-df", "${workspaceFolder}/test/test_opnl.sim" ],
             // "args": [ "-df", "${workspaceFolder}/test/test_opnodeset.sim" ],
             // "args": [ "-df", "${workspaceFolder}/test/test_opstore.sim" ],
-            // "args": [ "-df", "${workspaceFolder}/test/test_opsweep.sim" ],
+             "args": [ "-df", "${workspaceFolder}/test/test_opsweep.sim" ],
             // "args": [ "-df", "${workspaceFolder}/test/test_sweep.sim" ],
             // "args": [ "-df", "${workspaceFolder}/test/test_sweeppar.sim" ],
             // "args": [ "-df", "${workspaceFolder}/test/test_sweepvar.sim" ],
@@ -158,7 +158,7 @@
             // "args": [ "-df", "${workspaceFolder}/demo/ts/inductor.sim" ], 
             // "args": [ "-df", "${workspaceFolder}/demo/ts/inductor-tap.sim" ], 
             // "args": [ "-df", "${workspaceFolder}/demo/behavioral/lightbulb.sim" ], 
-             "args": [ "-df", "${workspaceFolder}/demo/delay/tline.sim" ], 
+            // "args": [ "-df", "${workspaceFolder}/demo/delay/tline.sim" ], 
             // "args": [ "-dp" ], 
             // "args": [ "-df", "${workspaceFolder}/benchmark/c6288/vacask/runme.sim" ], 
             // "args": [ "-df", "${workspaceFolder}/benchmark/c6288/vacask-ieb/runme.sim" ], 

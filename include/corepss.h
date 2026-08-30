@@ -109,25 +109,37 @@ typedef struct PssParameters {
 } PssParameters;
 
 
+SIMPLE_ERRORCLASS(PssCircuitUsesUnsupportedFeatures, "Circuit uses features not supported by PSS analysis.");
+
+SIMPLE_ERRORCLASS(PssTperInvalid, "Period should be >0.");
+
+SIMPLE_ERRORCLASS(PssForcesFailed, "Failed to set forces.");
+
+SIMPLE_ERRORCLASS(PssStabstepInvalid, "Stabilization timestep must be smaller than the period.");
+
+SIMPLE_ERRORCLASS(PssStabilisationTranFailed, "PSS stabilisation transient failed.");
+
+SIMPLE_ERRORCLASS(PssShootingTranFailed, "PSS transient failed.");
+
+SIMPLE_ERRORCLASS(PssSensitivityFailed, "PSS sensitivity integration failed.");
+
+SIMPLE_ERRORCLASS(PssSingularJacobian, "Singular Jacobian.");
+
+ERRORCLASS(PssNoConvergence)
+    Int iterations;
+    PssNoConvergence(Int iterations) : iterations(iterations) {}
+    std::string format() const {
+        return "PSS failed to converge in " + std::to_string(iterations) + " iterations.";
+    }
+END_ERRORCLASS(PssNoConvergence);
+
+SIMPLE_ERRORCLASS(PssAdjointFailed, "Adjoint monodromy computation failed.");
+
+SIMPLE_ERRORCLASS(PssAdjointDisabled, "Adjoint monodromy was not computed. Set adjoint=1 before running PSS.");
+
+
 class PssCore : public AnalysisCore {
 public:
-    enum class PssError {
-        OK,
-        NoConvergence,
-        SensitivityFailed,
-        AdjointFailed,
-        AdjointDisabled,
-        LinearSolveFailed,
-        OutputError,
-        TperInvalid,
-        SingularJacobian,
-        StabstepInvalid, 
-        StabilisationTranFailed,
-        OpFailed, 
-        ShootingTranFailed, 
-        ForcesFailed, 
-    };
-
     PssCore(
         OutputDescriptorResolver& parentResolver,
         PssParameters& params,
@@ -146,17 +158,14 @@ public:
     PssCore& operator=(const PssCore&)  = delete;
     PssCore& operator=(      PssCore&&) = delete;
 
-    // Format error, return false on error - this function is not cheap (works with strings)
-    bool formatError(Status& s = Status::ignore) const;
-    
-    bool addDefaultOutputDescriptors(Status& s);
-    
-    bool rebuild(Status& s = Status::ignore);
-    bool initializeOutputs(Id name, Status& s = Status::ignore);
-    bool run(bool continuePrevious);
-    CoreCoroutine coroutine(bool continuePrevious);
-    bool finalizeOutputs(Status& s = Status::ignore);
-    bool deleteOutputs(Id name, Status& s = Status::ignore);
+    bool addDefaultOutputDescriptors(ErrorConsumer& errors);
+
+    bool rebuild(ErrorConsumer& errors);
+    bool initializeOutputs(Id name, ErrorConsumer& errors);
+    bool run(bool continuePrevious, ErrorConsumer& errors);
+    CoreCoroutine coroutine(bool continuePrevious, ErrorConsumer& errors);
+    bool finalizeOutputs(ErrorConsumer& errors);
+    bool deleteOutputs(Id name, ErrorConsumer& errors);
 
     virtual bool storeState(size_t ndx, bool storeDetails=true);
     virtual bool restoreState(size_t ndx);
@@ -173,10 +182,10 @@ public:
     const DenseMatrix<double>& convergedMonodromy() const { return phiT_; }
 
     // Converged adjoint monodromy matrix Omega. Valid after a successful run()
-    // with adjoint enabled. Returns false and sets the error (formattable via
-    // formatError()) if adjoint monodromy was not computed (params.adjoint==0).
+    // with adjoint enabled. Returns false and pushes an error onto errors if
+    // adjoint monodromy was not computed (params.adjoint==0).
     // Return value: ok, adjont monodromy matrix reference
-    std::tuple<bool, const DenseMatrix<double>&> convergedAdjointMonodromy();
+    std::tuple<bool, const DenseMatrix<double>&> convergedAdjointMonodromy(ErrorConsumer& errors);
 
 protected:
     // Prepare stabilisation transient
@@ -186,13 +195,6 @@ protected:
     // applicable period (stabilisation period or shoot period T0). Shared
     // by prepareStabilisation() and runShoot().
     void clampStepToMaxacfreq(TranParameters& tp, double period) const;
-
-    // Clear error
-    void clearError() { AnalysisCore::clearError(); lastPssError = PssError::OK; }
-
-    void setError(PssError e) { lastPssError = e; lastError = Error::OK; }
-    PssError lastPssError;
-    Id errorId;
 
     KluRealMatrix& jacobian;            // Resistive Jacobian
     VectorRepository<double>& solution; // Solution history
@@ -234,12 +236,12 @@ private:
     // On return, solution_.vector() holds the initial guess x0 for the
     // Newton loop.
     // Return value: ok, period
-    std::tuple<bool, double> runStabilisation(bool continuePrevious);
+    std::tuple<bool, double> runStabilisation(bool continuePrevious, ErrorConsumer& errors);
 
     // Integrate one period T0 from the initial condition in solution_.vector().
     // On return, solution_.vector() holds xT, the endpoint of the shoot.
     // pssTran_.trajectory() is populated with G(t) and C(t) snapshots.
-    bool runShoot(double T0);
+    bool runShoot(double T0, ErrorConsumer& errors);
 
     // Compute the phase constraint vector alpha.
     // alpha fixes the phase of the PSS solution so the (n+1) x (n+1)

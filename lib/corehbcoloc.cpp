@@ -13,7 +13,7 @@ namespace NAMESPACE {
 //   Steady-state methods for simulating analog and microwave circuits, 
 //   Springer, 1990. 
 
-bool HBCore::buildColocation(Status& s) {
+bool HBCore::buildColocation(ErrorConsumer& errors) {
     auto& options = circuit.simulatorOptions().core();
     auto debug = options.hb_debug;
     
@@ -22,7 +22,7 @@ bool HBCore::buildColocation(Status& s) {
 
     // Need DC + at least one nonzero frequency to read fmin / fmax below
     if (n<2) {
-        s.set(Status::BadArguments, "Spectrum must contain at least one nonzero frequency.");
+        errors.push(HbSpectrumNoNonzero{});
         return false;
     }
 
@@ -34,7 +34,7 @@ bool HBCore::buildColocation(Status& s) {
     auto fmin = spurs_.spectrum()[1];
 
     if (params.samplefac<1.0) {
-        s.set(Status::BadArguments, "samplefac must be >=1.");
+        errors.push(HbSamplefacTooSmall{});
         return false;
     }
     
@@ -74,13 +74,13 @@ bool HBCore::buildColocation(Status& s) {
             timepoints.push_back(params.tstart+i*tstep+dist(gen));
         }
     } else {
-        s.set(Status::BadArguments, "Unknown samplmode.");
+        errors.push(HbSamplemodeUnknown{});
         return false;
     }
 
     // Build fd->td transform matrix from timepoints
-    if (!buildTransformMatrix(IAPFT)) {
-        s.set(Status::CreationFailed, "Failed to build transform matrix.");
+    if (!buildTransformMatrix(IAPFT, errors)) {
+        errors.push(HbTransformMatrixFailed{});
         return false;
     }
     
@@ -115,7 +115,7 @@ bool HBCore::buildColocation(Status& s) {
         }
         
         if (maxNorm2<=0) {
-            s.set(Status::Analysis, "Zero norm encountered while computing colocation points.");
+            errors.push(HbColocationZeroNorm{});
             return false;
         }
 

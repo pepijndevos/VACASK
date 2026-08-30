@@ -30,17 +30,21 @@ OperatingPointCore::OperatingPointCore(
     CommonData& commons, 
     KluRealMatrix& jacobian, VectorRepository<double>& solution, VectorRepository<double>& states, 
     DelayLines& delayLines, DelayMatrixBindings<double*>& delayBindings
-) : AnalysisCore(parentResolver, circuit, commons), params(params), outfile(nullptr), 
-      jac(jacobian), solution(solution), states(states), delayLines_(delayLines), delayBindings_(delayBindings), 
-      nrSolver(circuit, commons, jacobian, states, solution, &delayLines_, &delayBindings_, nrSettings), 
+) : AnalysisCore(parentResolver, circuit, commons), params(params), outfile(nullptr),
+      jac(jacobian), solution(solution), states(states), delayLines_(delayLines), delayBindings_(delayBindings),
+      resolver_(circuit),
+      nrSolver(circuit, commons, jacobian, states, solution, &delayLines_, &delayBindings_, nrSettings),
       converged_(false), continueState(nullptr), nodesetsMasterSwitch(true) {
+    // Error messages name the offending node via the circuit's unknown->name map.
+    // The matrix only borrows the resolver; this core owns it.
+    jac.setResolver(&resolver_);
 }
 
 OperatingPointCore::~OperatingPointCore() {
     delete outfile;
 }
 
-bool OperatingPointCore::resolveOutputDescriptors(bool strict, Status& s) {
+bool OperatingPointCore::resolveOutputDescriptors(bool strict, ErrorConsumer& errors) {
     // Clear output sources
     outputSources.clear();
     // Resolve output descriptors
@@ -50,14 +54,14 @@ bool OperatingPointCore::resolveOutputDescriptors(bool strict, Status& s) {
         Instance *inst;
         switch (it->type) {
         case OutdSolComponent:
-            ok = addRealVarOutputSource(strict, it->id, solution, it->id, s);
+            ok = addRealVarOutputSource(strict, it->id, solution, it->id, errors);
             break;
         case OutdOutvar:
-            ok = addOutvarOutputSource(strict, it->idId.id1, it->idId.id2, it->name, s);
+            ok = addOutvarOutputSource(strict, it->idId.id1, it->idId.id2, it->name, errors);
             break;
         default:
             // Delegate to parent
-            ok = parentResolver.resolveOutputDescriptor(*it, outputSources, strict, s);
+            ok = parentResolver.resolveOutputDescriptor(*it, outputSources, strict, errors);
             break;
         }
         if (!ok) {
@@ -67,18 +71,18 @@ bool OperatingPointCore::resolveOutputDescriptors(bool strict, Status& s) {
     return ok;
 }
 
-bool OperatingPointCore::addDefaultOutputDescriptors(Status& s) {
+bool OperatingPointCore::addDefaultOutputDescriptors(ErrorConsumer& errors) {
     // If output is suppressed, skip all this work
     if (!params.write || Simulator::noOutput()) {
         return true;
     }
     if (savesCount==0) {
-        return addAllUnknowns(PTSave("default", Id(), Id()), s);
+        return addAllUnknowns(PTSave("default", Id(), Id()), errors);
     }
     return true;
 }
 
-bool OperatingPointCore::initializeOutputs(const std::string& name, Status& s) {
+bool OperatingPointCore::initializeOutputs(const std::string& name, ErrorConsumer& errors) {
     if (!params.write || Simulator::noOutput()) {
         return true;
     }
@@ -96,7 +100,7 @@ bool OperatingPointCore::initializeOutputs(const std::string& name, Status& s) {
     return true;
 }
 
-bool OperatingPointCore::finalizeOutputs(Status &s) {
+bool OperatingPointCore::finalizeOutputs(ErrorConsumer& errors) {
     if (outfile) {
         outfile->epilogue();
         delete outfile;
@@ -115,7 +119,7 @@ bool OperatingPointCore::finalizeOutputs(Status &s) {
     return true;
 }
 
-bool OperatingPointCore::deleteOutputs(Id name, Status &s) {
+bool OperatingPointCore::deleteOutputs(Id name, ErrorConsumer& errors) {
     if (!params.write || Simulator::noOutput()) {
         return true;
     }
@@ -157,33 +161,33 @@ bool OperatingPointCore::restoreState(size_t ndx) {
     }
 }
 
-std::tuple<bool, bool> OperatingPointCore::preMapping(Status& s) {
-    // Go through nodesets. Decode, set, and check delta part. 
+std::tuple<bool, bool> OperatingPointCore::preMapping(ErrorConsumer& errors) {
+    // Go through nodesets. Decode, set, and check delta part.
     // No need to check unknowns part because diagonal entries are
-    // always allocated by Circuit. 
+    // always allocated by Circuit.
     auto& nsParam = params.nodeset;
     if (nsParam.type()==Value::Type::String) {
-        // It is a string. 
-        // Will retrieve DC solution and set it as nodeset. 
-        // Nothing to do here because DC solutions do not introduce delta foces. 
+        // It is a string.
+        // Will retrieve DC solution and set it as nodeset.
+        // Nothing to do here because DC solutions do not introduce delta foces.
         return std::make_tuple(true, false);
     } else if (nsParam.type()==Value::Type::ValueVec) {
         // It is a list
         // Retrieve it and check if we need extra matrix entries
         auto& valVec = nsParam.val<ValueVector>();
-        auto [ok, needsMapping] = preprocessedNodeset.set(circuit, valVec, s);
+        auto [ok, needsMapping] = preprocessedNodeset.set(circuit, valVec, errors);
         if (!ok) {
-            s.extend("Failed to preprocess nodesets.");
+            errors.push(OpNodesetPreprocessFailed{});
         }
         return std::make_tuple(ok, needsMapping);
     } else {
         // Unsupported type, signal an error.
-        s.set(Status::BadArguments, "Nodeset must be a list or a string.");
+        errors.push(OpNodesetType{});
         return std::make_tuple(false, false);
     }
 }
 
-bool OperatingPointCore::populateStructures(Status& s) {
+bool OperatingPointCore::populateStructures(ErrorConsumer& errors) {
     // Go through node pairs and add entries to sparsity map
     for(auto& pair : preprocessedNodeset.nodePairs) {
         auto [node1, node2] = pair;
@@ -191,13 +195,19 @@ bool OperatingPointCore::populateStructures(Status& s) {
             // One of the two nodes was not found, ignore pair
             continue;
         }
-        
+
         // Forcing entries are resistive
+        // We need status to collect the error messages from a function that
+        // primarily faces the user and communicates through Status. 
+        // We wrap the error message in an error class. 
+        Status s;
         if (auto [_, ok] = circuit.createJacobianEntry(node1, node2, EntryFlags::Resistive, s); !ok) {
+            errors.push(OpNodesetEntryError{s.message()});
             return false;
         }
-        
+
         if (auto [_, ok] = circuit.createJacobianEntry(node2, node1, EntryFlags::Resistive, s); !ok) {
+            errors.push(OpNodesetEntryError{s.message()});
             return false;
         }
     }
@@ -206,20 +216,18 @@ bool OperatingPointCore::populateStructures(Status& s) {
 }
 
 
-bool OperatingPointCore::rebuild(Status& s) {
-    clearError();
-    
+bool OperatingPointCore::rebuild(ErrorConsumer& errors) {
     // Size delay line information
     delayLines_.scale(circuit.delayHistoryCount());
-    
+
     // Bind Jacobian entries, bind delay line inputs and outputs
     // Resistive parts bound to entries of jac, reactive parts not bound
-    if (!circuit.bind(&jac, Component::Real, std::nullopt, nullptr, Component::Real, std::nullopt, &delayLines_, s)) {
+    if (!circuit.bind(&jac, Component::Real, std::nullopt, nullptr, Component::Real, std::nullopt, &delayLines_, errors)) {
         return false;
     }
 
     // Bind to delay line matrix entries
-    if (!delayLines_.bindToMatrix(jac, std::nullopt, delayBindings_, s)) {
+    if (!delayLines_.bindToMatrix(jac, std::nullopt, delayBindings_, errors)) {
         return false;
     }
 
@@ -258,10 +266,9 @@ bool OperatingPointCore::rebuild(Status& s) {
                 Simulator::wrn() << "Warning, solution '"+solutionName+"' not found. No user nodesets applied.\n";
             } else {
                 // Nodesets from solution repository
-                if (!nrSolver.setForces(1, *solPtr, strictforce)) {
-                    // Abort if strictforce is set
+                if (!nrSolver.setForces(1, *solPtr, strictforce, errors)) {
+                    // Abort if strictforce is set (setForces has pushed the detail onto the error stack)
                     if (strictforce) {
-                        nrSolver.formatError(s);
                         return false;
                     }
                 }
@@ -272,29 +279,31 @@ bool OperatingPointCore::rebuild(Status& s) {
         }
     } else if (params.nodeset.type()==Value::Type::ValueVec) {
         // A list with possibly delta forces
-        if (!nrSolver.setForces(1, preprocessedNodeset, false, strictforce)) {
-            // Abort on error if strictforce is set
+        if (!nrSolver.setForces(1, preprocessedNodeset, false, strictforce, errors)) {
+            // Abort on error if strictforce is set (setForces has pushed the detail onto the error stack)
             if (strictforce) {
-                nrSolver.formatError(s);
                 return false;
             }
         }
     } else {
         // Error
-        s.set(Status::BadArguments, "Nodeset must be a list or a string.");
+        errors.push(OpNodesetType{});
         return false;
     }
-    
+
     // Rebuild NR solver structures
     if (!nrSolver.rebuild(circuit.unknownCount())) {
-        s.set(Status::NonlinearSolver, "Failed to rebuild internal structures of nonlinear solver.");
+        errors.push(OpNrRebuildFailed{});
         return false;
     }
 
     return true;
 }
 
-std::tuple<bool, bool> OperatingPointCore::runSolver(bool continuePrevious) {
+std::tuple<bool, bool> OperatingPointCore::runSolver(bool continuePrevious, ErrorConsumer& errors) {
+    // Each solver run starts with an empty error stack
+    errors.clear();
+
     auto& options = circuit.simulatorOptions().core();
     auto strictforce = options.strictforce; 
     // Assume no initial state given, start with standard initial point. 
@@ -335,7 +344,7 @@ std::tuple<bool, bool> OperatingPointCore::runSolver(bool continuePrevious) {
             // Ignore forces conflicts arising from stored solution. Slot 0 is for sweep continuation and homotopy. 
             // There should be no such conflicts as we are applying forces to nodes only, not node deltas. 
             strictforce = false;
-            if (!nrSolver.setForces(0, continueState->solution, strictforce)) {
+            if (!nrSolver.setForces(0, continueState->solution, strictforce, errors)) {
                 if (strictforce) {
                     // Failed, strictforce set
                     return std::make_tuple(false, false);
@@ -375,7 +384,7 @@ std::tuple<bool, bool> OperatingPointCore::runSolver(bool continuePrevious) {
         }
     }
 
-    auto converged = nrSolver.run(runInContinueMode);
+    auto converged = nrSolver.run(runInContinueMode, errors);
     auto abort = nrSolver.checkFlags(OpNRSolver::Flags::Abort);
     return std::make_tuple(converged, abort);
 }
@@ -423,10 +432,8 @@ Int OperatingPointCore::iterationLimit(bool continuePrevious) const {
 //   - source stepping
 //   - spice3 source stepping
 // Each message starts with a nrSolver error message
-CoreCoroutine OperatingPointCore::coroutine(bool continuePrevious) {
+CoreCoroutine OperatingPointCore::coroutine(bool continuePrevious, ErrorConsumer& errors) {
     initProgress(1, 0);
-
-    clearError();
 
     auto& options = circuit.simulatorOptions().core();
     converged_ = false;
@@ -446,9 +453,9 @@ CoreCoroutine OperatingPointCore::coroutine(bool continuePrevious) {
     auto skipinitial = options.op_skipinitial;
     if (!skipinitial) {    
         tried = true;
-        std::tie(converged_, leave) = runSolver(continuePrevious);
+        std::tie(converged_, leave) = runSolver(continuePrevious, errors);
         if (!converged_) {
-            setError(OperatingPointError::InitialOp);
+            errors.push(OpInitialFailed{});
         }
         if (debug>0) {
             if (converged_) {
@@ -460,10 +467,11 @@ CoreCoroutine OperatingPointCore::coroutine(bool continuePrevious) {
     }
 
     // Try homotopy
-    homotopySteps = 0;
+    Int homotopySteps = 0;
     if (!converged_ && !leave && options.op_homotopy.size()>0) {
         Homotopy* homotopy;
         for(auto it : options.op_homotopy) {
+            // Clear errors at each homotopy run start
             if (it==Homotopy::gdev) {
                 if (debug>0) {
                     Simulator::dbg() << "Trying gdev stepping.\n";
@@ -500,7 +508,7 @@ CoreCoroutine OperatingPointCore::coroutine(bool continuePrevious) {
             }
             // Run
             tried = true;
-            std::tie(converged_, leave) = homotopy->run();
+            std::tie(converged_, leave) = homotopy->run(errors);
             homotopySteps += homotopy->stepCount();
             if (debug>0) {
                 if (converged_) {
@@ -515,7 +523,7 @@ CoreCoroutine OperatingPointCore::coroutine(bool continuePrevious) {
             }
         }
         if (!converged_) {
-            setError(OperatingPointError::Homotopy);
+            errors.push(OpHomotopyFailed{homotopySteps});
         }
     }
     
@@ -523,7 +531,7 @@ CoreCoroutine OperatingPointCore::coroutine(bool continuePrevious) {
         // Did not leave early
         if (!tried) {
             // No algorithm tried
-            setError(OperatingPointError::NoAlgorithm);
+            errors.push(OpNoAlgorithm{});
         } else if (converged_) {
             // Tried and converged, write results
             if (outfile && params.write) {
@@ -546,8 +554,8 @@ CoreCoroutine OperatingPointCore::coroutine(bool continuePrevious) {
     }
 }
 
-bool OperatingPointCore::run(bool continuePrevious) {
-    auto c = coroutine(continuePrevious);
+bool OperatingPointCore::run(bool continuePrevious, ErrorConsumer& errors) {
+    auto c = coroutine(continuePrevious, errors);
     bool ok = true;
     while (!c.done()) {
         if (c.resume()==CoreState::Aborted) {
@@ -556,35 +564,6 @@ bool OperatingPointCore::run(bool continuePrevious) {
         };
     }
     return ok;
-}
-
-bool OperatingPointCore::formatError(Status& s) const {
-    auto nr = UnknownNameResolver(circuit);
-    std::stringstream ss;
-    ss << std::scientific << std::setprecision(4);
-
-    // Delegate to NRSolver (which in turn delegates to KluMatrix)
-    auto solverError = nrSolver.formatError(s, &nr);
-    
-    // First, handle AnalysisCore errors
-    if (lastError!=Error::OK) {
-        AnalysisCore::formatError(s);
-        return false;
-    }
-    
-    // Then handle OperatingPointCore errors
-    switch (lastOpError) {
-        case OperatingPointError::InitialOp:
-            s.extend("Initial OP analysis failed.");
-            return false;
-        case OperatingPointError::Homotopy:
-            s.set(Status::Analysis, "Homotopy failed, "+std::to_string(homotopySteps)+" step(s) tried.");
-            return false;
-        case OperatingPointError::NoAlgorithm:
-            s.set(Status::Analysis, "No operating point algorithm tried."); 
-            return false;
-    }
-    return solverError;
 }
 
 void OperatingPointCore::dump(std::ostream& os) const {

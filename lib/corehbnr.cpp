@@ -7,9 +7,9 @@
 namespace NAMESPACE {
 
 HBNRSolver::HBNRSolver(
-        Circuit& circuit, 
-        CommonData& commons, 
-        KluBlockSparseRealMatrix& jacColoc, 
+        Circuit& circuit,
+        CommonData& commons,
+        KluBlockSparseRealMatrix& jacColoc,
         KluBlockSparseRealMatrix& bsjac, 
         VectorRepository<double>& solution, 
         Vector<Complex>& solutionFD, 
@@ -78,7 +78,7 @@ HBNRSolver::HBNRSolver(
     };
 }
 
-bool HBNRSolver::setForces(Int ndx, const AnnotatedSolution& storedSolution, bool abortOnError) {
+bool HBNRSolver::setForces(Int ndx, const AnnotatedSolution& storedSolution, bool abortOnError, ErrorConsumer& errors) {
     // Get forces
     auto& f = forces(ndx);
 
@@ -152,7 +152,7 @@ bool HBNRSolver::setForces(Int ndx, const AnnotatedSolution& storedSolution, boo
         checkNames = false;
     } else {
         // Cannot apply stored solution, no names nor matching length vector
-        lastHBNRError = HBNRSolverError::ForcesError;
+        errors.push(HbNrForcesError{});
         // Abort always regardless of abortOnError
         return false;
     }
@@ -173,7 +173,7 @@ bool HBNRSolver::setForces(Int ndx, const AnnotatedSolution& storedSolution, boo
             // Node not found. No forces will be applied to this unknown. 
             // If abortOnError is set, abort 
             if (abortOnError) {
-                lastHBNRError = HBNRSolverError::ForcesError;
+                errors.push(HbNrForcesError{});
                 return false;
             }
             // Otherwise continue to next force
@@ -271,9 +271,8 @@ bool HBNRSolver::rebuild(size_t nSolComp) {
     return true;
 }
 
-bool HBNRSolver::initialize(bool continuePrevious) {
+bool HBNRSolver::initialize(bool continuePrevious, ErrorConsumer& errors) {
     // Clear HB NR solver error
-    clearError();
 
     // Number fo frequency components and timepoints
     auto nt = timepoints.size();
@@ -362,10 +361,9 @@ bool HBNRSolver::postRun(bool continuePrevious) {
     return true;
 }
 
-bool HBNRSolver::evalAndLoadWrapper(EvalSetup& evalSetup, LoadSetup& loadSetup) {
-    lastError = Error::OK;
+bool HBNRSolver::evalAndLoadWrapper(EvalSetup& evalSetup, LoadSetup& loadSetup, ErrorConsumer& errors) {
     evalSetup.requestHighPrecision = highPrecision;
-    if (!circuit.evalAndLoad(commons, &evalSetup, &loadSetup, nullptr)) {
+    if (!circuit.evalAndLoad(commons, &evalSetup, &loadSetup, nullptr, errors)) {
         // Load error
         if (settings.debug>2) {
             Simulator::dbg() << "Evaluation error.\n";
@@ -395,7 +393,7 @@ bool HBNRSolver::evalAndLoadWrapper(EvalSetup& evalSetup, LoadSetup& loadSetup) 
     return true;
 }
 
-bool HBNRSolver::evaluate(bool continuePrevious) {
+bool HBNRSolver::evaluate(bool continuePrevious, ErrorConsumer& errors) {
     // Jacobian values at colocation points are stored in jacColoc with dense 
     // blocks of size nt x 2, where nt is the number of colocation points. 
     // Resistive Jacobian is bound to 0-based subentry (0, 0) of each dense block. 
@@ -443,7 +441,7 @@ bool HBNRSolver::evaluate(bool continuePrevious) {
         // - resistive residuals for all equations at t_k
         // - reactive residuals for all equations at t_k
         // Values are stored in jacColoc. 
-        auto ok = evalAndLoadWrapper(evalSetup_, loadSetup_);
+        auto ok = evalAndLoadWrapper(evalSetup_, loadSetup_, errors);
         if (!ok) {
             return false;
         }
@@ -462,7 +460,7 @@ bool HBNRSolver::evaluate(bool continuePrevious) {
     return true;
 }
 
-std::tuple<bool, bool> HBNRSolver::buildSystem(bool continuePrevious) {
+std::tuple<bool, bool> HBNRSolver::buildSystem(bool continuePrevious, ErrorConsumer& errors) {
     // Let Jr_ijk and Jc_ijk denote the resistive and reactive Jacobian value 
     // from block with 1-based position (i+1, j+1) at timepoint with index k. 
     // i, j and k are all 0-based. 
@@ -508,7 +506,7 @@ std::tuple<bool, bool> HBNRSolver::buildSystem(bool continuePrevious) {
     }
 
     // Evaluate at colocation points
-    if (!evaluate(continuePrevious)) {
+    if (!evaluate(continuePrevious, errors)) {
         return std::make_tuple(false, false); ;
     }
 
@@ -623,8 +621,7 @@ std::tuple<bool, bool> HBNRSolver::buildSystem(bool continuePrevious) {
         if (settings.debug) {
             Simulator::dbg() << "Failed to load forced values at iteration " << iteration << "\n";
         }
-        lastHBNRError = HBNRSolverError::LoadForces;
-        errorIteration = iteration;
+        errors.push(HbNrLoadForces{});
         return std::make_tuple(false, evalSetup_.limitingApplied);
     }
     
@@ -810,25 +807,6 @@ std::string HBNRSolver::formatConvergence() const {
     }
 
     return s;
-}
-
-bool HBNRSolver::formatError(Status& s, NameResolver* resolver) const {
-    // Error in NRSolver
-    if (lastError!=NRSolver::Error::OK) {
-        NRSolver::formatError(s, resolver);
-        return false;
-    }
-
-    switch (lastHBNRError) {
-        case HBNRSolverError::ForcesError:
-            s.set(Status::Force, "Failed to apply forces.");
-            return false;            
-        case HBNRSolverError::LoadForces:
-            s.set(Status::Force, "Failed to load forces.");
-            return false;
-        default:
-            return true;
-    }
 }
 
 void HBNRSolver::dumpSolution(std::ostream& os, double* solution, const char* prefix) {

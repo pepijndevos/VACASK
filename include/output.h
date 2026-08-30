@@ -4,7 +4,8 @@
 #include "identifier.h"
 #include "value.h"
 #include "ansupport.h"
-#include "answeep.h"
+#include "coresweep.h"
+#include "errorstack.h"
 #include <complex>
 #include <vector>
 #include <string>
@@ -103,7 +104,8 @@ public:
             // Sweep variable (real) -> real value
             case Type::Sweep:
                 Value v;
-                if (sweeperPtr->compute(index, v)) {
+                ErrorConsumer ec;
+                if (sweeperPtr->compute(index, v, ec)) {
                     if (v.type()==Value::Type::Int) {
                         return v.val<Int>();
                     } else if (v.type()==Value::Type::Real) {
@@ -152,7 +154,8 @@ public:
             // Sweep variable (real) -> complex value
             case Type::Sweep:
                 Value v;
-                if (sweeperPtr->compute(index, v)) {
+                ErrorConsumer ec;
+                if (sweeperPtr->compute(index, v, ec)) {
                     if (v.type()==Value::Type::Int) {
                         return v.val<Int>();
                     } else if (v.type()==Value::Type::Real) {

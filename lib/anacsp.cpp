@@ -5,7 +5,7 @@
 namespace NAMESPACE {
 
 template<> SmallSignal<ACSPCore, ACSPData>::SmallSignal(const std::string& name, Circuit& circuit, PTAnalysis& ptAnalysis) 
-    : Analysis(name, circuit, ptAnalysis), 
+    : Analysis(name, circuit, ptAnalysis),
       opCore(*this, params.core().opParams, circuit, commons, jac, solution, states, delayLines_, opDelayBindings_),
       smsigCore(
         *this, params.core(), opCore, circuit, commons,
@@ -14,45 +14,33 @@ template<> SmallSignal<ACSPCore, ACSPData>::SmallSignal(const std::string& name,
       ) {
 }
 
-template<> bool SmallSignal<ACSPCore, ACSPData>::resolveSave(const PTSave& save, bool verify, Status& s) {
+template<> bool SmallSignal<ACSPCore, ACSPData>::resolveSave(const PTSave& save, bool verify, ErrorConsumer& errors) {
     // ACSP saves
-    
+
     bool st = true;
     bool handled = true;
 
     // Check number of ports
     auto portCount = params.core().ports.size() / 2;
     if (portCount<=0) {
-        s.set(Status::BadArguments, "Ports vector must define at least one port.");
+        errors.push(SpPortsVectorEmpty{});
         return false;
     }
     if (params.core().ports.size() % 2 != 0) {
-        s.set(Status::BadArguments, "Ports vector must define an even number of components.");
+        errors.push(SpPortsVectorOdd{});
         return false;
     }
 
     // No saves, but those of OP analysis, delegate
     // Handle OP saves
-    std::tie(st, handled) = resolveOpSave(save, verify, s); 
-    // Not handled error was formatted by resolveOpSave()
-    // Also all op errors were formatted
+    std::tie(st, handled) = resolveOpSave(save, verify, errors);
+    // Not handled error was pushed by resolveOpSave()
+    // Also all op errors were pushed
     if (verify) {
         // Verification required, return status
         return st;
-    } else {
-        // No verification required, OK
-        return true;
     }
-    
-    // Handled save via smsigCore, check error if verification required
-    if (verify && !st) {
-        // Format error
-        smsigCore.formatError(s);
-        s.extend(save.location());
-        return false;
-    } 
-    
-    // No error
+    // No verification required, OK
     return true;
 }
 

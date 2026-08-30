@@ -1,6 +1,7 @@
 #ifndef __NRSOLVER_DEFINED
 #define __NRSOLVER_DEFINED
 
+#include <stdexcept>
 #include "ansupport.h"
 #include "options.h"
 #include "klumatrix.h"
@@ -91,34 +92,47 @@ enum class NRSolverFlags : uint8_t {
 };
 DEFINE_FLAG_OPERATORS(NRSolverFlags);
 
+
+//
+// Newton-Raphson solver errors
+//
+// None need a name resolver: they either carry no data or carry a plain
+// iteration count / detail string. The offending node, when there is one, is
+// reported by a separate error pushed by the matrix or the forces code.
+//
+
+SIMPLE_ERRORCLASS(NrEvalLoadError, "Evaluation/load error.");
+
+SIMPLE_ERRORCLASS(NrNonFiniteSolution, "Solution component is not finite.");
+
+SIMPLE_ERRORCLASS(NrBadRelRefSol, "Unsupported relrefsol value.");
+
+SIMPLE_ERRORCLASS(NrBadRelRefRes, "Unsupported relrefres value.");
+
+// The solver-specific convergence report (formatConvergence()) is pushed as a
+// separate message before this one.
+SIMPLE_ERRORCLASS(NrConvergenceError, "NR solver failed to converge.");
+
+ERRORCLASS(NrLeftLoop)
+    Int iteration;
+    NrLeftLoop(Int iteration) : iteration(iteration) {}
+    std::string format() const {
+        return "Leaving core NR loop in iteration " + std::to_string(iteration) + ".";
+    }
+END_ERRORCLASS(NrLeftLoop);
+
+
 class NRSolver : public FlagBase<NRSolverFlags> {
 public:
-    enum class Error {
-        OK, 
-        ForcesIndex, 
-        EvalAndLoad, 
-        LinearSolver, 
-        SolutionError, 
-        Convergence, 
-        BadSolReference, 
-        BadResReference, 
-    };
-
     NRSolver(
-        Accounting& acct, 
-        KluRealMatrixCore& jac, VectorRepository<double>& solution, 
-        NRSettings& settings, 
+        Accounting& acct,
+        KluRealMatrixCore& jac, VectorRepository<double>& solution,
+        NRSettings& settings,
         size_t bucketSize=0
     );
 
-    // Clear error
-    void clearError() { lastError = Error::OK; }; 
-
-    // Format error, return false on error - this function is not cheap (works with strings)
-    bool formatError(Status& s=Status::ignore, NameResolver* resolver=nullptr) const; 
-
     // Return value: ok, prevent convergence
-    virtual std::tuple<bool, bool> buildSystem(bool continuePrevious) = 0;
+    virtual std::tuple<bool, bool> buildSystem(bool continuePrevious, ErrorConsumer& errors) = 0;
 
     // Return values: ok, residual ok
     virtual std::tuple<bool, bool> checkResidual() = 0;
@@ -130,9 +144,9 @@ public:
     virtual bool rebuild(size_t n);
 
     // Initialize run (upsize internal structures)
-    // Called once at the beginning of NRSolver::run() 
-    // Must set lastError on failure
-    virtual bool initialize(bool continuePrevious) = 0;
+    // Called once at the beginning of NRSolver::run()
+    // Pushes onto errors on failure
+    virtual bool initialize(bool continuePrevious, ErrorConsumer& errors) = 0;
 
     // Pre-iteration tasks, called at the beginning of iteration
     // Must set lastError on failure
@@ -164,25 +178,20 @@ public:
     Forces& forces(Int ndx);
     const Forces& forces(Int ndx) const;
 
-    // Enable/disable forces slot
+    // Enable/disable forces slot. An out-of-range slot is a caller bug (the
+    // slot count is fixed by resizeForces()), so it throws rather than reports.
     bool enableForces(Int ndx, bool enable) {
-        lastError = Error::OK;
-
         if (ndx<0 || ndx>=forcesList.size()) {
-            lastError = Error::ForcesIndex;
-            return false;
+            throw std::out_of_range("NRSolver::enableForces: forces slot index out of range");
         }
-        forcesEnabled[ndx] = enable; 
+        forcesEnabled[ndx] = enable;
         return true;
     };
 
-    // Set forces factor
+    // Set forces factor. Out-of-range slot: see enableForces().
     bool setForcesFactor(Int ndx, double factor) {
-        lastError = Error::OK;
-
         if (ndx<0 || ndx>=forcesList.size()) {
-            lastError = Error::ForcesIndex;
-            return false;
+            throw std::out_of_range("NRSolver::setForcesFactor: forces slot index out of range");
         }
 
         forcesFactor[ndx] = factor;
@@ -200,9 +209,9 @@ public:
         return false;
     };
 
-    // Clear error, run solver
-    // Return values: ok, number of iterations
-    bool run(bool continuePrevious);
+    // Run solver, pushing any failure onto errors.
+    // Return value: converged
+    bool run(bool continuePrevious, ErrorConsumer& errors);
 
     // Return number of iterations spent in NR loop
     Int iterations() const { return iteration; }; 
@@ -212,7 +221,12 @@ public:
 
     // Format convergence state
     virtual std::string formatConvergence() const { return ""; };
-    
+
+    // Push a solver-specific convergence report onto errors. Called when the
+    // solver fails to converge with no other error recorded, right before the
+    // generic "failed to converge" error. Default: nothing.
+    virtual void pushConvergenceReport(ErrorConsumer& errors) {};
+
 protected:
     // Bucket size
     size_t bucketSize_;
@@ -248,11 +262,6 @@ protected:
     bool iterationConverged;
     // Sufficient number of consecutive iterations converged (settings.convIter), solver done
     bool converged;
-
-    // Error information
-    Error lastError;
-    Int errorIteration;
-    Int errorForcesIndex;
 };
 
 }

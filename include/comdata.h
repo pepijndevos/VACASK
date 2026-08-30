@@ -4,6 +4,7 @@
 #include "value.h"
 #include "options.h"
 #include "natures.h"
+#include "errorstack.h"
 #include "common.h"
 
 
@@ -34,7 +35,7 @@ typedef struct CommonData {
     
     // Bypass control
     bool allowContinueStateBypass;
-    bool requestForcedBypass; 
+    bool requestForcedBypass;
 
     // Natures subset
     // This is a subset of all natures. These natures are used by this circuit. 

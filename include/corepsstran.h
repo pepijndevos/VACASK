@@ -81,25 +81,92 @@
 
 namespace NAMESPACE {
 
+SIMPLE_ERRORCLASS(PssTranAlrScratchRebuild, "PssTranCore: failed to rebuild Alr scratch matrix.");
+
+SIMPLE_ERRORCLASS(PssTranCScratchRebuild, "PssTranCore: failed to rebuild C scratch matrix.");
+
+ERRORCLASS(PssTranEvalCFailed)
+    double t;
+    PssTranEvalCFailed(double t) : t(t) {}
+    std::string format() const { return "PssTranCore: evalAndLoad(C) failed at t=" + std::to_string(t) + "."; }
+END_ERRORCLASS(PssTranEvalCFailed);
+
+ERRORCLASS(PssTranAlrFactorizationFailed)
+    double t;
+    PssTranAlrFactorizationFailed(double t) : t(t) {}
+    std::string format() const { return "PssTranCore: Alr refactorisation failed at t=" + std::to_string(t) + "."; }
+END_ERRORCLASS(PssTranAlrFactorizationFailed);
+
+ERRORCLASS(PssTranCPhiProductFailed)
+    double t;
+    UnknownIndex column;
+    PssTranCPhiProductFailed(double t, UnknownIndex column) : t(t), column(column) {}
+    std::string format() const {
+        return "PssTranCore: C*Phi product failed at t=" + std::to_string(t) + ", column " + std::to_string(column) + ".";
+    }
+END_ERRORCLASS(PssTranCPhiProductFailed);
+
+ERRORCLASS(PssTranGPhiProductFailed)
+    double t;
+    UnknownIndex column;
+    PssTranGPhiProductFailed(double t, UnknownIndex column) : t(t), column(column) {}
+    std::string format() const {
+        return "PssTranCore: G*Phi product failed at t=" + std::to_string(t) + ", column " + std::to_string(column) + ".";
+    }
+END_ERRORCLASS(PssTranGPhiProductFailed);
+
+ERRORCLASS(PssTranBlockAlrSolveFailed)
+    double t;
+    PssTranBlockAlrSolveFailed(double t) : t(t) {}
+    std::string format() const { return "PssTranCore: block Alr solve failed at t=" + std::to_string(t) + "."; }
+END_ERRORCLASS(PssTranBlockAlrSolveFailed);
+
+SIMPLE_ERRORCLASS(PssTranPsiSensitivityFailed, "PssTranCore: Psi_T coefficient sensitivity computation failed.");
+
+SIMPLE_ERRORCLASS(PssTranPsiSolveFailed, "PssTranCore: Psi_T solve failed.");
+
+SIMPLE_ERRORCLASS(PssTranNoAcceptedSteps, "PssTranCore: no accepted steps since clearTrajectory(). PhiT is not available.");
+
+SIMPLE_ERRORCLASS(PssTranNoTrajectory, "PssTranCore: no trajectory captured. Call enableTrajectoryCapture() before the final shoot.");
+
+SIMPLE_ERRORCLASS(PssTranOmegaScratchRebuild, "PssTranCore: failed to rebuild scratch matrix for Omega integration.");
+
+ERRORCLASS(PssTranScratchRefactorFailed)
+    Int k;
+    PssTranScratchRefactorFailed(Int k) : k(k) {}
+    std::string format() const {
+        return "PssTranCore: scratchA refactor failed at backward step k=" + std::to_string(k) + ".";
+    }
+END_ERRORCLASS(PssTranScratchRefactorFailed);
+
+ERRORCLASS(PssTranCTProductFailed)
+    Int k;
+    Int i;
+    PssTranCTProductFailed(Int k, Int i) : k(k), i(i) {}
+    std::string format() const {
+        return "PssTranCore: C^T product failed at backward step k=" + std::to_string(k) + " i=" + std::to_string(i) + ".";
+    }
+END_ERRORCLASS(PssTranCTProductFailed);
+
+ERRORCLASS(PssTranGTProductFailed)
+    Int k;
+    Int i;
+    PssTranGTProductFailed(Int k, Int i) : k(k), i(i) {}
+    std::string format() const {
+        return "PssTranCore: G^T product failed at backward step k=" + std::to_string(k) + " i=" + std::to_string(i) + ".";
+    }
+END_ERRORCLASS(PssTranGTProductFailed);
+
+ERRORCLASS(PssTranTSolveBlockFailed)
+    Int k;
+    PssTranTSolveBlockFailed(Int k) : k(k) {}
+    std::string format() const {
+        return "PssTranCore: tsolveBlock failed at backward step k=" + std::to_string(k) + ".";
+    }
+END_ERRORCLASS(PssTranTSolveBlockFailed);
+
 class PssTranCore : public TranCore {
 public:
-    enum class PssTranError {
-        OK, 
-        EvalCFailed, 
-        AlrFactorizationFailed, 
-        CPhiProductFailed,
-        GPhiProductFailed,
-        BlockAlrSolveFailed,
-        PsiSensitivityFailed,
-        PsiSolveFailed,
-        NoAcceptedSteps,
-        NoTrajectory, 
-        ScratchRebuild, 
-        ScratchRefactorFailed, 
-        CTProductFailed, 
-        GTProductFailed, 
-        TSolveBlockFailed, 
-    };
     PssTranCore(
         OutputDescriptorResolver& parentResolver,
         TranParameters& params,
@@ -119,19 +186,16 @@ public:
     PssTranCore& operator=(const PssTranCore&)  = delete;
     PssTranCore& operator=(      PssTranCore&&) = delete;
 
-    // Format error, return false on error - this function is not cheap (works with strings)
-    bool formatError(Status& s=Status::ignore) const; 
-
-    bool initializeOutputs(Id name, Status& s = Status::ignore);
+    bool initializeOutputs(Id name, ErrorConsumer& errors);
 
     // Hides TranCore::rebuild().  Calls TranCore::rebuild() then rebuilds
     // lastAlr_ and scratchC_ with the circuit sparsity pattern.
-    bool rebuild(Status& s = Status::ignore);
+    bool rebuild(ErrorConsumer& errors);
 
     // Reset the sensitivity state before a new shooting iteration.
     // Sets every phiHist_ slot to Identity (Phi(t0) = I).
     // Must be called by PssCore before each run().
-    bool clearTrajectory();
+    bool clearTrajectory(ErrorConsumer& errors);
 
     // Populate preprocessedIc with all circuit unknowns from x0 so that
     // TranCore's UIC branch (nrSolver.setForces then solution = unknownValue_)
@@ -140,12 +204,12 @@ public:
     void setShootIC(const Vector<double>& x0);
 
     // Is sensitivity information valid
-    bool phiValid() { 
+    bool phiValid(ErrorConsumer& errors) {
         if (!phiValid_) {
-            setError(PssTranError::NoAcceptedSteps);
+            errors.push(PssTranNoAcceptedSteps{});
             return false;
-        }    
-        return true; 
+        }
+        return true;
     };
 
     // Return reference to current Phi
@@ -159,7 +223,7 @@ public:
     // Compute Psi_T = dxT/dT (theory/pss.md, "Computing Psi_T") from the
     // last accepted step of the shoot. Must be called after the shoot has
     // finished (phiValid() true) and before the next clearTrajectory().
-    bool computePsiT();
+    bool computePsiT(ErrorConsumer& errors);
 
     // State x1 at the first accepted timepoint of the shoot (index 0 is the
     // ground bucket, same convention as the solution/x0 vectors). Valid after
@@ -174,24 +238,14 @@ public:
     void enableTrajectoryCapture();
 
     // Backwards-integrate the adjoint monodromy matrix
-    bool integrateAdjointMonodromy(DenseMatrix<double>& Omega);
+    bool integrateAdjointMonodromy(DenseMatrix<double>& Omega, ErrorConsumer& errors);
 
 protected:
     // Called by TranCore at every accepted timestep with jacobian holding
     // the factored Alr_k = G_k + alpha_k * C_k from the NR solve.
     // Evaluates C_k, advances Phi through one BDF LMS step using a block
     // solve directly into phiHist_'s future slot, then advance()s it.
-    virtual bool onTimestepAccepted(double tSolve, double hk, Int order);
-
-    // Clear error
-    void clearError() { TranCore::clearError(); lastPssTranError = PssTranError::OK; }; 
-
-    void setError(PssTranError e) { lastPssTranError = e; lastTranError = TranCore::TranError::OK; };
-    PssTranError lastPssTranError;
-    double pssErrorTime;
-    UnknownIndex pssErrorColumn;
-    Int pssErrorIndexK;
-    Int pssErrorIndexI;
+    virtual bool onTimestepAccepted(double tSolve, double hk, Int order, ErrorConsumer& errors) override;
 
 private:
     // Record of data needed for backward adjoint integration at each accepted step

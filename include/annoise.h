@@ -13,7 +13,7 @@ namespace NAMESPACE {
 // Noise analysis data
 class NoiseData {
 protected:
-    KluComplexMatrix acMatrix; 
+    KluComplexMatrix acMatrix;
     Vector<Complex> acSolution;
 
     std::unordered_map<std::pair<Id, Id>, size_t> contributionOffset; 
@@ -26,7 +26,7 @@ protected:
 template<> SmallSignal<NoiseCore, NoiseData>::SmallSignal(const std::string& name, Circuit& circuit, PTAnalysis& ptAnalysis);
 
 // Resolve save specialization
-template<> bool SmallSignal<NoiseCore, NoiseData>::resolveSave(const PTSave& save, bool verify, Status& s);
+template<> bool SmallSignal<NoiseCore, NoiseData>::resolveSave(const PTSave& save, bool verify, ErrorConsumer& errors);
 
 // Dump specialization
 template<> void SmallSignal<NoiseCore, NoiseData>::dump(std::ostream& os) const;

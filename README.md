@@ -71,7 +71,7 @@ Yes we do. It is bundled with the binary packages. [The user's manual](docs/inde
 - all SPICE analyses + [many more](#supported-analyses)
 - [options](lib/options.cpp) for fine tuning the simulator
 - selection of what should be saved during simulation (save directives)
-- [parametric sweep](include/answeep.h) of any analysis with arbitrary depth
+- [parametric sweep](include/coresweep.h) of any analysis with arbitrary depth
 - almost anything can be swept (instance, model, and subcircuit parameters, options, and circuit variables)
 - anything that can be swept can also be modified without reloading the circuit (no need to build a new netlist and restart the simulator)
 - automatic partial circuit elaboration when circuit topology changes due to a change in parameters, options, or variables

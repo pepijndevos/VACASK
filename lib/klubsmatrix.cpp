@@ -6,7 +6,7 @@
 
 namespace NAMESPACE {
 
-template<typename IndexType, typename ValueType> KluBlockSparseMatrixCore<IndexType, ValueType>::KluBlockSparseMatrixCore(bool largeBucket) 
+template<typename IndexType, typename ValueType> KluBlockSparseMatrixCore<IndexType, ValueType>::KluBlockSparseMatrixCore(bool largeBucket)
     : blockBucket_(nullptr), largeBucket_(largeBucket) {
 }
 
@@ -65,7 +65,7 @@ Complex* KluBlockSparseMatrixCore<IndexType, ValueType>::cxValuePtr(
 }
 
 template<typename IndexType, typename ValueType> 
-bool KluBlockSparseMatrixCore<IndexType, ValueType>::rebuild(SparsityMap& m, EquationIndex n, EquationIndex nbRow, UnknownIndex nbCol, bool storageOnly) {
+bool KluBlockSparseMatrixCore<IndexType, ValueType>::rebuild(SparsityMap& m, EquationIndex n, EquationIndex nbRow, UnknownIndex nbCol, ErrorConsumer& ec, bool storageOnly) {
     KluMatrixCore<IndexType, ValueType>::clearError();
     
     KluMatrixCore<IndexType, ValueType>::deleteKluObjects();
@@ -223,7 +223,7 @@ bool KluBlockSparseMatrixCore<IndexType, ValueType>::rebuild(SparsityMap& m, Equ
         st = klu_l_defaults(&common);
     }
     if (!st) {
-        lastError = Error::Defaults;
+        ec.push(KluDefaultsError{});
         // Set smap to nullptr indicating failed rebuild()
         smap = nullptr;
         return false;
@@ -236,7 +236,7 @@ bool KluBlockSparseMatrixCore<IndexType, ValueType>::rebuild(SparsityMap& m, Equ
             symbolic = klu_l_analyze(AN, AP.data(), AI.data(), &common);
         }
         if (!symbolic) {
-            lastError = Error::Analysis;
+            ec.push(KluAnalysisError{});
             // Set smap to nullptr indicating failed rebuild()
             smap = nullptr;
             return false;

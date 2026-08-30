@@ -13,7 +13,7 @@ namespace NAMESPACE {
 // ACStb analysis data
 class ACStbData {
 protected:
-    KluComplexMatrix acMatrix; 
+    KluComplexMatrix acMatrix;
     Vector<Complex> acSolution;
 
     Vector<Complex> resultsVector;
@@ -23,7 +23,7 @@ protected:
 template<> SmallSignal<ACStbCore, ACStbData>::SmallSignal(const std::string& name, Circuit& circuit, PTAnalysis& ptAnalysis);
 
 // Resolve save specialization
-template<> bool SmallSignal<ACStbCore, ACStbData>::resolveSave(const PTSave& save, bool verify, Status& s);
+template<> bool SmallSignal<ACStbCore, ACStbData>::resolveSave(const PTSave& save, bool verify, ErrorConsumer& errors);
 
 // Dump specialization
 template<> void SmallSignal<ACStbCore, ACStbData>::dump(std::ostream& os) const;

@@ -366,7 +366,7 @@ bool OsdiDevice::bind(
     KluMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
     KluMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
     DelayLines* delayLines, 
-    Status& s
+    ErrorConsumer& ec
 ) {
     // Call bind() for all instances
     for(auto model : models()) {
@@ -376,7 +376,7 @@ bool OsdiDevice::bind(
                 matResist, compResist, mepResist, 
                 matReact, compReact, mepReact, 
                 delayLines, 
-                s
+                ec
             )) {
                 return false;
             }
@@ -385,7 +385,9 @@ bool OsdiDevice::bind(
     return true;
 }
 
-bool OsdiDevice::evalAndLoad(Circuit& circuit, CommonData& commons, EvalSetup* evalSetup, LoadSetup* loadSetup) {
+
+
+bool OsdiDevice::evalAndLoad(Circuit& circuit, CommonData& commons, EvalSetup* evalSetup, LoadSetup* loadSetup, ErrorConsumer& errors) {
     auto& opt = circuit.simulatorOptions().core();
     OsdiSimInfo simInfo;
 
@@ -466,11 +468,11 @@ bool OsdiDevice::evalAndLoad(Circuit& circuit, CommonData& commons, EvalSetup* e
             continue;
         }
         for(auto instance : model->instances()) {
-            if (evalSetup && !static_cast<OsdiInstance*>(instance)->evalCore(circuit, commons, simInfo, *evalSetup)) {
+            if (evalSetup && !static_cast<OsdiInstance*>(instance)->evalCore(circuit, commons, simInfo, *evalSetup, errors)) {
                 return false;
             }
             if (loadSetup) {
-                auto lst = static_cast<OsdiInstance*>(instance)->loadCore(circuit, commons, *loadSetup);
+                auto lst = static_cast<OsdiInstance*>(instance)->loadCore(circuit, commons, *loadSetup, errors);
                 if (!lst) {
                     return false;
                 }

@@ -2,7 +2,6 @@
 #define __ANCORETRAN_DEFINED
 
 #include <random>
-#include "status.h"
 #include "circuit.h"
 #include "core.h"
 #include "klumatrix.h"
@@ -67,34 +66,66 @@ typedef struct TranParameters {
     TranParameters();
 } TranParameters;
 
+SIMPLE_ERRORCLASS(TranIcType, "Initial conditions must be a list or a string.");
+
+SIMPLE_ERRORCLASS(TranIcPreprocessFailed, "Failed to preprocess initial conditions.");
+
+// Wraps the Status message from Circuit::createJacobianEntry() when adding the
+// extra-diagonal sparsity entry for an initial-condition delta force fails.
+ERRORCLASS(TranIcEntryError)
+    std::string message;
+    TranIcEntryError(std::string message) : message(std::move(message)) {}
+    std::string format() const { return "Failed to add matrix entry for an initial-condition delta force.\n" + message; }
+END_ERRORCLASS(TranIcEntryError);
+
+SIMPLE_ERRORCLASS(TranNrRebuildFailed, "Failed to rebuild internal structures of nonlinear solver.");
+
+SIMPLE_ERRORCLASS(TranEvalAndLoadFailed, "Initial state evaluation failed.");
+
+SIMPLE_ERRORCLASS(TranOperatingPointFailed, "Operating point analysis failed.");
+
+SIMPLE_ERRORCLASS(TranTstopNegative, "Transient stop time must not be negative.");
+
+SIMPLE_ERRORCLASS(TranTstartAfterStop, "Transient recording start time is after stop time.");
+
+SIMPLE_ERRORCLASS(TranMaxstepNegative, "Transient maximal step time must not be negative.");
+
+ERRORCLASS(TranMethodUnknown)
+    Id method;
+    TranMethodUnknown(Id method) : method(method) {}
+    std::string format() const { return "Unknown integration method '" + std::string(method) + "'."; }
+END_ERRORCLASS(TranMethodUnknown);
+
+SIMPLE_ERRORCLASS(TranNoiseModeUnknown, "Unknown transient noise mode.");
+
+SIMPLE_ERRORCLASS(TranNoisefmaxNegative, "Transient noisefmax must not be negative.");
+
+SIMPLE_ERRORCLASS(TranOversampleTooSmall, "Transient oversample must be >=1.");
+
+SIMPLE_ERRORCLASS(TranNoisefminTooHigh, "Transient noisefmin must be below noisefmax.");
+
+SIMPLE_ERRORCLASS(TranNoiseRowsExceeded, "Too many transient noise generator rows.");
+
+SIMPLE_ERRORCLASS(TranIcModeUnknown, "Unknown initial conditions mode.");
+
+SIMPLE_ERRORCLASS(TranPredictorFailed, "Failed to compute predictor coefficients.");
+
+SIMPLE_ERRORCLASS(TranCorrectorFailed, "Failed to compute integrator coefficients.");
+
+SIMPLE_ERRORCLASS(TranTimestepTooSmall, "Timestep too small. Transient analysis aborted.");
+
+SIMPLE_ERRORCLASS(TranBadLteReference, "Unsupported relreflte value.");
+
+SIMPLE_ERRORCLASS(TranBreakpointPanic, "Panic in breakpoint handling.");
+
+SIMPLE_ERRORCLASS(TranNrSolverFailed, "Transient NR solver failed.");
+
 // Operating point core functionality, assumes all circuit parameters and simulator options have been set
 // This core uses no other core
 class TranCore : public AnalysisCore {
 public:
     typedef TranParameters Parameters;
-    enum class TranError {
-        OK, 
-        Tstop, 
-        Tstart, 
-        Maxstep, 
-        Fmin, 
-        Fmax, 
-        Oversample, 
-        NoiseMode, 
-        Rows, 
-        Method, 
-        IcMode, 
-        Predictor, 
-        Corrector, 
-        EvalAndLoad, 
-        MatrixError, 
-        OperatingPointError, 
-        NRSolver, 
-        TimestepTooSmall, 
-        BadLteReference, 
-        BreakPointPanic, 
-    };
-    
+
     TranCore(
         OutputDescriptorResolver& parentResolver, TranParameters& params, OperatingPointCore& opCore, 
         Circuit& circuit, CommonData& commons, 
@@ -109,23 +140,20 @@ public:
     TranCore& operator=(const TranCore&)  = delete;
     TranCore& operator=(      TranCore&&) = delete;
 
-    // Format error, return false on error - this function is not cheap (works with strings)
-    bool formatError(Status& s=Status::ignore) const; 
+    bool addCoreOutputDescriptors(ErrorConsumer& errors);
+    bool addDefaultOutputDescriptors(ErrorConsumer& errors);
+    bool resolveOutputDescriptors(bool strict, ErrorConsumer& errors);
 
-    bool addCoreOutputDescriptors(Status& s);
-    bool addDefaultOutputDescriptors(Status& s);
-    bool resolveOutputDescriptors(bool strict, Status& s=Status::ignore);
+    std::tuple<bool, bool> preMapping(ErrorConsumer& errors);
+    bool populateStructures(ErrorConsumer& errors);
 
-    std::tuple<bool, bool> preMapping(Status& s=Status::ignore);
-    bool populateStructures(Status& s=Status::ignore);
-
-    bool rebuild(Status& s=Status::ignore); 
-    bool initializeOutputs(const std::string& name, Status& s=Status::ignore);
+    bool rebuild(ErrorConsumer& errors);
+    bool initializeOutputs(const std::string& name, ErrorConsumer& errors);
     void install(ProgressReporter* p);
-    CoreCoroutine coroutine(bool continuePrevious);
-    bool run(bool continuePrevious);
-    bool finalizeOutputs(Status& s=Status::ignore);
-    bool deleteOutputs(Id name, Status& s=Status::ignore);
+    CoreCoroutine coroutine(bool continuePrevious, ErrorConsumer& errors);
+    bool run(bool continuePrevious, ErrorConsumer& errors);
+    bool finalizeOutputs(ErrorConsumer& errors);
+    bool deleteOutputs(Id name, ErrorConsumer& errors);
 
     void dump(std::ostream& os) const;
 
@@ -148,13 +176,6 @@ public:
     static Id noiseSde;
 
 protected:
-    // Clear error
-    void clearError() { AnalysisCore::clearError(); lastTranError = TranError::OK; }; 
-
-    void setError(TranError e) { lastTranError = e; lastError = Error::OK; };
-    TranError lastTranError;
-    Id errorId;
-    
     VectorRepository<double>& opSolution; // Solution history
     KluRealMatrix& jacobian; // Resistive Jacobian
     VectorRepository<double>& solution; // Solution history
@@ -178,14 +199,14 @@ protected:
     // getIntegCoeffs()/getPastTimesteps() still reflect exactly the state
     // used to solve this step, not a history already advanced past it.
     // Return false to abort the analysis.
-    virtual bool onTimestepAccepted(double /*tSolve*/, double /*hk*/, Int /*order*/) { return true; }
+    virtual bool onTimestepAccepted(double tSolve, double hk, Int order, ErrorConsumer& errors) { return true; }
 
 protected:
     TranParameters& params;
 
 private:
     std::tuple<size_t, size_t, size_t> countNoiseSources() const;
-    bool evalAndLoadWrapper(EvalSetup& evalSetup, LoadSetup& loadSetup);
+    bool evalAndLoadWrapper(EvalSetup& evalSetup, LoadSetup& loadSetup, ErrorConsumer& errors);
 
     // Update breakpoint, but only if it is after last
     void updateBreakPoint(double& bp, double candidate, double last) { if (candidate<bp && candidate>last) bp = candidate; };
@@ -200,6 +221,7 @@ private:
     // list binds references to them, so both must be fully constructed first.
     IntegratorCoeffs integCoeffs;
     CircularBuffer<double> pastTimesteps;
+
     TranNRSolver nrSolver;
     IntegratorCoeffs predictorCoeffs;
     CircularBuffer<double> breakPoints;

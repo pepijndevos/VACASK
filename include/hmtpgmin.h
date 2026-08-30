@@ -16,7 +16,7 @@ public:
     GminStepping& operator=(const GminStepping&)  = delete;
     GminStepping& operator=(      GminStepping&&) = delete;
 
-    std::tuple<bool, bool> run();
+    std::tuple<bool, bool> run(ErrorConsumer& errors);
     
     std::string formatProgress() const;
 
@@ -35,7 +35,7 @@ public:
     Spice3GminStepping& operator=(const Spice3GminStepping&)  = delete;
     Spice3GminStepping& operator=(      Spice3GminStepping&&) = delete;
     
-    std::tuple<bool, bool> run();
+    std::tuple<bool, bool> run(ErrorConsumer& errors);
     
     std::string formatProgress() const;
 };

@@ -10,6 +10,41 @@
 
 namespace NAMESPACE {
 
+SIMPLE_ERRORCLASS(OsdiBindMatrixWrongType, "Matrix is of incorrect type.");
+
+ERRORCLASS(OsdiUnsupportedTranJacOffs)
+    Id instance;
+    OsdiUnsupportedTranJacOffs(Id instance) : instance(instance) {}
+    std::string format() const {
+        return "OSDI unsupported transient Jacobian load with offset in instace '" + std::to_string(instance) + "'.'";
+    }
+END_ERRORCLASS(OsdiUnsupportedTranJacOffs);
+
+ERRORCLASS(OsdiEvalFailed)
+    Id instance;
+    OsdiEvalFailed(Id instance) : instance(instance) {}
+    std::string format() const {
+        return "OSDI evaluation failed for instance '" + std::to_string(instance) + "'.'";
+    }
+END_ERRORCLASS(OsdiEvalFailed);
+
+ERRORCLASS(OsdiLoadFailed)
+    Id instance;
+    OsdiLoadFailed(Id instance) : instance(instance) {}
+    std::string format() const {
+        return "OSDI load failed for instance '" + std::to_string(instance) + "'.'";
+    }
+END_ERRORCLASS(OsdiLoadFailed);
+
+ERRORCLASS(OsdiDelayChangeDetected)
+    Id instance;
+    OsdiDelayChangeDetected(Id instance) : instance(instance) {}
+    std::string format() const {
+        return "OSDI delay change detected in instance '" + std::to_string(instance) + "'.'";
+    }
+END_ERRORCLASS(OsdiDelayChangeDetected);
+
+
 class Circuit;
 
 // Dangling terminal policy: connect dangling terminals to internal nodes
@@ -93,12 +128,12 @@ public:
         KluMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
         KluMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
         DelayLines* delayLines, 
-        Status& s=Status::ignore
+        ErrorConsumer& ec
     );
     bool inputBypassCheckCore(Circuit& circuit, CommonData& commons, EvalSetup& evalSetup);
     bool outputBypassCheckCore(Circuit& circuit, CommonData& commons, EvalSetup& evalSetup);
-    bool evalCore(Circuit& circuit, CommonData& commons, OsdiSimInfo& simInfo, EvalSetup& evalSetup);
-    bool loadCore(Circuit& circuit, CommonData& commons, LoadSetup& loadSetup);
+    bool evalCore(Circuit& circuit, CommonData& commons, OsdiSimInfo& simInfo, EvalSetup& evalSetup, ErrorConsumer& errors);
+    bool loadCore(Circuit& circuit, CommonData& commons, LoadSetup& loadSetup, ErrorConsumer& errors);
     
 protected:
     OsdiFile::OsdiCollapsedNodesIndex collapsedNodesPatternSize() const { return model()->device()->collapsedNodesPatternSize(); };

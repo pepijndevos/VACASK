@@ -1,4 +1,4 @@
-#include "cirdelay.h"
+#include "coredelay.h"
 
 
 namespace NAMESPACE {
@@ -7,7 +7,7 @@ template<typename T> bool DelayLines::bindToMatrix(
     std::conditional_t<std::is_same_v<T, Complex*>, KluComplexMatrix, KluRealMatrix>& mat,
     const std::optional<MatrixEntryPosition>& mep,
     DelayMatrixBindings<T>& bindings,
-    Status& s
+    ErrorConsumer& ec
 ) {
     // Loop through all delay lines, get both unknowns (in, out)
     auto n = static_cast<GlobalStorageIndex>(inputUnknown_.size());
@@ -30,7 +30,7 @@ template<typename T> bool DelayLines::bindToMatrix(
             outOut = mat.valuePtr(MatrixEntryPosition(out, out), Component::Real, mep);
         }
         if (!outIn || !outOut) {
-            s.set(Status::BadConversion, "Matrix entry not found for delay element.");
+            ec.push(DelayMatrixEntryNotFound{});
             return false;
         }
         bindings[slot] = std::make_tuple(outIn, outOut);
@@ -42,13 +42,13 @@ template<typename T> bool DelayLines::bindToMatrix(
 // bindings and (via the conditional_t in the declaration) the matrix type
 // - double*/KluRealMatrix for a real matrix, Complex*/KluComplexMatrix for
 // a complex one.
-template bool DelayLines::bindToMatrix<double*>(KluRealMatrix&, const std::optional<MatrixEntryPosition>&, DelayMatrixBindings<double*>&, Status&);
-template bool DelayLines::bindToMatrix<Complex*>(KluComplexMatrix&, const std::optional<MatrixEntryPosition>&, DelayMatrixBindings<Complex*>&, Status&);
+template bool DelayLines::bindToMatrix<double*>(KluRealMatrix&, const std::optional<MatrixEntryPosition>&, DelayMatrixBindings<double*>&, ErrorConsumer&);
+template bool DelayLines::bindToMatrix<Complex*>(KluComplexMatrix&, const std::optional<MatrixEntryPosition>&, DelayMatrixBindings<Complex*>&, ErrorConsumer&);
 
 template<typename T> bool DelayLines::bindToBlockMatrix(
     std::conditional_t<std::is_same_v<T, DenseMatrixView<Complex>>, KluBlockSparseComplexMatrix, KluBlockSparseRealMatrix>& mat,
     DelayMatrixBindings<T>& bindings,
-    Status& s
+    ErrorConsumer& ec
 ) {
     // Loop through all delay lines, get both unknowns (in, out)
     auto n = static_cast<GlobalStorageIndex>(inputUnknown_.size());
@@ -64,7 +64,7 @@ template<typename T> bool DelayLines::bindToBlockMatrix(
         auto [blockOutIn, foundOutIn] = mat.block(MatrixEntryPosition(out, in));
         auto [blockOutOut, foundOutOut] = mat.block(MatrixEntryPosition(out, out));
         if (!foundOutIn || !foundOutOut) {
-            s.set(Status::BadConversion, "Matrix entry not found for delay element.");
+            ec.push(DelayMatrixEntryNotFound{});
             return false;
         }
         // Built via emplace_back (constructing the tuple's DenseMatrixViews
@@ -82,7 +82,7 @@ template<typename T> bool DelayLines::bindToBlockMatrix(
 // stored in bindings and (via the conditional_t in the declaration) the
 // matrix type - DenseMatrixView<double>/KluBlockSparseRealMatrix for a real
 // matrix, DenseMatrixView<Complex>/KluBlockSparseComplexMatrix for a complex one.
-template bool DelayLines::bindToBlockMatrix<DenseMatrixView<double>>(KluBlockSparseRealMatrix&, DelayMatrixBindings<DenseMatrixView<double>>&, Status&);
-template bool DelayLines::bindToBlockMatrix<DenseMatrixView<Complex>>(KluBlockSparseComplexMatrix&, DelayMatrixBindings<DenseMatrixView<Complex>>&, Status&);
+template bool DelayLines::bindToBlockMatrix<DenseMatrixView<double>>(KluBlockSparseRealMatrix&, DelayMatrixBindings<DenseMatrixView<double>>&, ErrorConsumer&);
+template bool DelayLines::bindToBlockMatrix<DenseMatrixView<Complex>>(KluBlockSparseComplexMatrix&, DelayMatrixBindings<DenseMatrixView<Complex>>&, ErrorConsumer&);
 
 }

@@ -1,4 +1,4 @@
-#include "answeep.h"
+#include "coresweep.h"
 #include "circuit.h"
 #include "introspection.h"
 #include "devbase.h"
@@ -9,7 +9,7 @@ namespace NAMESPACE {
 // TODO: speed up parameter change propagation (do it only for changed instances/models)
 // TODO: speed up topology rebuild
 
-Id ScalarSweep::modeLin = Id::createStatic("lin"); 
+Id ScalarSweep::modeLin = Id::createStatic("lin");
 Id ScalarSweep::modeDec = Id::createStatic("dec"); 
 Id ScalarSweep::modeOct = Id::createStatic("oct"); 
 
@@ -42,7 +42,7 @@ std::string ScalarSweep::progress() const {
     return std::to_string(at_+1)+"/"+std::to_string(end);
 }
 
-bool ScalarSweep::setupSteppedSweep(Real from_, Real to_, Real step_, Status& s) {
+bool ScalarSweep::setupSteppedSweep(Real from_, Real to_, Real step_, ErrorConsumer& errors) {
     from = from_;
     to = to_;
     step = step_;
@@ -51,7 +51,7 @@ bool ScalarSweep::setupSteppedSweep(Real from_, Real to_, Real step_, Status& s)
         // Increasing
         double nStepsF = (to - from) / step;
         if (nStepsF-1>std::numeric_limits<Int>::max()) {
-            s.set(Status::Range, "Sweep step too small.");
+            errors.push(SweepStepTooSmall{});
             return false;
         }
         end = std::ceil(nStepsF);
@@ -66,7 +66,7 @@ bool ScalarSweep::setupSteppedSweep(Real from_, Real to_, Real step_, Status& s)
         // Decreasing
         double nStepsF = (to - from) / step;
         if (nStepsF-1>std::numeric_limits<Int>::max()) {
-            s.set(Status::Range, "Sweep step too small.");
+            errors.push(SweepStepTooSmall{});
             return false;
         }
         end = std::ceil(nStepsF);
@@ -79,25 +79,25 @@ bool ScalarSweep::setupSteppedSweep(Real from_, Real to_, Real step_, Status& s)
         }
     } else {
         // Error
-        s.set(Status::Range, "Bad stepped sweep range. Check from, to, and step.");
+        errors.push(SweepBadSteppedRange{});
         return false;
     }
     sweepType = SweepType::Stepped;
     return true;
 }
 
-bool ScalarSweep::setupValueSweep(const Value& values, Status& s) {
+bool ScalarSweep::setupValueSweep(const Value& values, ErrorConsumer& errors) {
     vals = &values;
     if (!values.isVector()) {
-        s.set(Status::BadArguments, "Sweep values must be a vector.");
+        errors.push(SweepValuesNotVector{});
         return false;
     }
     if (values.size()<=0) {
-        s.set(Status::BadArguments, "Values vector must have at least one component.");
+        errors.push(SweepValuesEmpty{});
         return false;
     }
     if (values.size()>std::numeric_limits<Int>::max()) {
-        s.set(Status::Range, "Too many sweep values given.");
+        errors.push(SweepTooManyValues{});
         return false;
     }
     end = values.size();
@@ -105,11 +105,11 @@ bool ScalarSweep::setupValueSweep(const Value& values, Status& s) {
     return true;
 }
 
-bool ScalarSweep::setupLinearSweep(Real from_, Real to_, Int points, Status& s) {
+bool ScalarSweep::setupLinearSweep(Real from_, Real to_, Int points, ErrorConsumer& errors) {
     from = from_;
     to = to_;
     if (points<0) {
-        s.set(Status::Range, "Number of intervals (specified by points parameter) must be nonnegative.");
+        errors.push(SweepNegativeIntervals{});
         return false;
     }
     end = points+1;
@@ -117,27 +117,27 @@ bool ScalarSweep::setupLinearSweep(Real from_, Real to_, Int points, Status& s) 
     return true;
 }
 
-bool ScalarSweep::setupLogSweep(Real from_, Real to_, Real factor_, Int pointsPerFactor, Status& s) {
+bool ScalarSweep::setupLogSweep(Real from_, Real to_, Real factor_, Int pointsPerFactor, ErrorConsumer& errors) {
     from = from_;
     to = to_;
     factor = factor_;
     if (pointsPerFactor<=0) {
-        s.set(Status::Range, "Number of sweep points must be greater than zero.");
+        errors.push(SweepNonPositivePoints{});
         return false;
     }
     if (factor<=0) {
-        s.set(Status::Range, "Factor must be greater than zero.");
+        errors.push(SweepNonPositiveFactor{});
         return false;
     }
     // Logarthmic steps (per decade)
     if (from<=0 || to<=0) {
-        s.set(Status::Range, "Starting point and end point of a logarithmic sweep must be greater than zero.");
+        errors.push(SweepNonPositiveLogEndpoints{});
         return false;
     }
     // Compute number of points
     auto nStepsF = std::abs(pointsPerFactor * std::log(to / from)/std::log(factor));
     if (nStepsF-2>std::numeric_limits<Int>::max()) {
-        s.set(Status::Range, "Too many points in sweep.");
+        errors.push(SweepTooManyPoints{});
         return false;
     }
     end = std::ceil(nStepsF) + 1;
@@ -145,16 +145,20 @@ bool ScalarSweep::setupLogSweep(Real from_, Real to_, Real factor_, Int pointsPe
     return true;
 }
 
-bool ScalarSweep::compute(Value& v, Status& s) const {
+bool ScalarSweep::compute(Value& v, ErrorConsumer& errors) const {
     switch (sweepType) {
         case SweepType::Stepped:
             v = from + step*at_;
             return true;
-        case SweepType::Value:
-            if (!vals->getScalar(v, at_, s)) {
+        case SweepType::Value: {
+            Status st;
+            if (!vals->getScalar(v, at_, st)) {
+                errors.push(SweepValueReadDetail{st.message()});
+                errors.push(SweepValueNotReadable{static_cast<long>(at_)});
                 return false;
             }
             return true;
+        }
         case SweepType::Lin:
             if (end<2) {
                 v = from;
@@ -205,7 +209,7 @@ ParameterSweeper::ParameterSweeper(Circuit& circuit, const std::vector<PTSweep>&
     : circuit(circuit), ptSweeps(ptSweeps), sweepPos(0) {
 }
 
-bool ParameterSweeper::setup(Status& s) {
+bool ParameterSweeper::setup(ErrorConsumer& errors) {
     // Number of sweeps
     auto n = ptSweeps.size();
 
@@ -235,18 +239,20 @@ bool ParameterSweeper::setup(Status& s) {
         IStruct<SweepSettings> sw;
         sw.core().name = ptcomp.name();
         sw.core().location = ptcomp.location();
-        auto [ok, changed] = sw.setParameters(ptSweeps[i].parameters(), circuit.variableEvaluator(), ctx, s);
+        Status st;
+        auto [ok, changed] = sw.setParameters(ptSweeps[i].parameters(), circuit.variableEvaluator(), ctx, st);
         if (!ok) {
-            s.extend("Error in settings evaluation for sweep '"+std::string(ptcomp.name())+"'.");
-            s.extend(ptcomp.location());
+            errors.push(SweepSettingsEvalDetail{st.message()});
+            errors.push(SweepSettingsEvalError{ptcomp.name()});
+            errors.push(SweepLocation{ptcomp.location()});
             return false;
         }
         comp = std::move(sw.core());
 
         // Vector component sweeps not supported yet
         if (comp.component>=0) {
-            s.set(Status::Unsupported, "Sweep '"+std::string(comp.name)+"': vector component sweeps are not supported yet.");
-            s.extend(comp.location);
+            errors.push(SweepVectorComponentUnsupported{comp.name});
+            errors.push(SweepLocation{comp.location});
             return false;
         }
 
@@ -279,15 +285,15 @@ bool ParameterSweeper::setup(Status& s) {
         }
         if (specCount>1) {
             // Error
-            s.set(Status::Conflicting, "Sweep '"+std::string(comp.name)+"': specify only one of the following: global, option, model, instance.");
-            s.extend(comp.location);
+            errors.push(SweepMultipleFamilies{comp.name});
+            errors.push(SweepLocation{comp.location});
             return false;
         }
 
         // Setup ScalarSweep
-        if (!scalarSweeps[i].setup(comp, s)) {
-            s.extend("Failed to set up sweep '"+std::string(comp.name)+"'.");
-            s.extend(comp.location); 
+        if (!scalarSweeps[i].setup(comp, errors)) {
+            errors.push(SweepSetupFailed{comp.name});
+            errors.push(SweepLocation{comp.location});
             return false;
         }
         extent *= scalarSweeps[i].count();
@@ -296,31 +302,33 @@ bool ParameterSweeper::setup(Status& s) {
     return true;
 }
 
-bool ParameterSweeper::update(int advancedSweepIndex, Status& s) {
+bool ParameterSweeper::update(int advancedSweepIndex, ErrorConsumer& errors) {
     // Loop from advancedSweepIndex+1 to end of sweeps
     RpnEvaluationNetlistContext ctx;
     for(Int i=advancedSweepIndex+1; i<settings.size(); i++) {
         // Recompute expressions, update settings structure
         IStruct<SweepSettings> sw;
         sw.core() = settings[i];
-        auto [ok, changed] = sw.setParameters(ptSweeps[i].parameters().expressions(), circuit.variableEvaluator(), ctx, s);
+        Status st;
+        auto [ok, changed] = sw.setParameters(ptSweeps[i].parameters().expressions(), circuit.variableEvaluator(), ctx, st);
         if (!ok) {
+            errors.push(SweepSettingsEvalDetail{st.message()});
             return false;
         }
         settings[i] = sw.core();
 
         // Set up scalar sweep
         auto& swp = settings[i];
-        if (!scalarSweeps[i].setup(settings[i], s)) {
-            s.extend("Failed to update sweep '"+std::string(swp.name)+"'.");
-            s.extend(swp.location); 
+        if (!scalarSweeps[i].setup(settings[i], errors)) {
+            errors.push(SweepUpdateFailed{swp.name});
+            errors.push(SweepLocation{swp.location});
             return false;
         }
     }
     return true;
 }
 
-bool ParameterSweeper::bind(Circuit& circuit, IStruct<SimulatorOptions>& opt, Status& s) {
+bool ParameterSweeper::bind(Circuit& circuit, IStruct<SimulatorOptions>& opt, ErrorConsumer& errors) {
     circuit_ = &circuit;
     parameterizedObject.clear();
     parameterIndex.clear();
@@ -331,23 +339,23 @@ bool ParameterSweeper::bind(Circuit& circuit, IStruct<SimulatorOptions>& opt, St
             // Variables - need to get them via ContextStack because circuit returns only const references
             auto ptr = circuit_->getVariable(it->variable);
             if (!ptr) {
-                s.set(Status::NotFound, "Sweep '"+std::string(it->name)+"': variable '"+std::string(it->variable)+"' not found.");
-                s.extend(it->location);
+                errors.push(SweepVariableNotFound{it->name, it->variable});
+                errors.push(SweepLocation{it->location});
                 return false;
             }
-            // Variables are always free 
-            // because they are the ones that are specified as constants 
+            // Variables are always free
+            // because they are the ones that are specified as constants
             parameterizedObject.push_back(nullptr);
             parameterIndex.push_back(0);
         } else if (parameterFamily[i] == ParameterFamily::Option) {
             // Simulator option
             auto [ndx, found] = circuit.simulatorOptions().parameterIndex(it->option);
             if (!found) {
-                s.set(Status::NotFound, "Sweep '"+std::string(it->name)+"': simulator option '"+std::string(it->option)+"' not found.");
-                s.extend(it->location);
+                errors.push(SweepOptionNotFound{it->name, it->option});
+                errors.push(SweepLocation{it->location});
                 return false;
             }
-            // Sweeping a simulator options overrides any expression for that option 
+            // Sweeping a simulator options overrides any expression for that option
             // that was specified outside analysis or with analysis
             parameterizedObject.push_back(&opt);
             parameterIndex.push_back(ndx);
@@ -356,30 +364,30 @@ bool ParameterSweeper::bind(Circuit& circuit, IStruct<SimulatorOptions>& opt, St
             Model* modPtr;
             if (!it->model) {
                 // Instance name not given
-                s.set(Status::NotFound, "Sweep '"+std::string(it->name)+"': instance name not given.");
-                s.extend(it->location);
+                errors.push(SweepInstanceNameMissing{it->name});
+                errors.push(SweepLocation{it->location});
                 return false;
             } else {
                 modPtr = circuit.findModel(it->model);
                 if (!modPtr) {
-                    s.set(Status::NotFound, "Sweep '"+std::string(it->name)+"': model '"+std::string(it->model)+"' not found.");
-                    s.extend(it->location);
+                    errors.push(SweepModelNotFound{it->name, it->model});
+                    errors.push(SweepLocation{it->location});
                     return false;
                 }
                 if (!it->parameter) {
-                    s.set(Status::NotFound, "Sweep '"+std::string(it->name)+"': model parameter name not given.");
-                    s.extend(it->location);
+                    errors.push(SweepModelParameterMissing{it->name});
+                    errors.push(SweepLocation{it->location});
                     return false;
                 }
                 auto [ndx, found] = modPtr->parameterIndex(it->parameter);
                 if (!found) {
-                    s.set(Status::NotFound, "Sweep '"+std::string(it->name)+"': parameter '"+std::string(it->parameter)+"' of model '"+std::string(it->model)+"' not found.");
-                    s.extend(it->location);
+                    errors.push(SweepModelParameterNotFound{it->name, it->model, it->parameter});
+                    errors.push(SweepLocation{it->location});
                     return false;
                 }
                 if (!modPtr->parameterIsFree(it->parameter)) {
-                    s.set(Status::NotFound, "Sweep '"+std::string(it->name)+"': parameter '"+std::string(it->parameter)+"' of model '"+std::string(it->model)+"' is bound to an expression.");
-                    s.extend(it->location);
+                    errors.push(SweepModelParameterBound{it->name, it->model, it->parameter});
+                    errors.push(SweepLocation{it->location});
                     return false;
                 }
                 parameterizedObject.push_back(modPtr);
@@ -391,41 +399,41 @@ bool ParameterSweeper::bind(Circuit& circuit, IStruct<SimulatorOptions>& opt, St
             Instance* instPtr;
             if (!it->instance) {
                 // Instance name not given
-                s.set(Status::NotFound, "Sweep '"+std::string(it->name)+"': instance name not given.");
-                s.extend(it->location);
+                errors.push(SweepInstanceNameMissing{it->name});
+                errors.push(SweepLocation{it->location});
                 return false;
             } else {
                 // Find instance
                 instPtr = circuit.findInstance(it->instance);
                 if (!instPtr) {
-                    s.set(Status::NotFound, "Sweep '"+std::string(it->name)+"': instance '"+std::string(it->instance)+"' not found.");
-                    s.extend(it->location);
+                    errors.push(SweepInstanceNotFound{it->name, it->instance});
+                    errors.push(SweepLocation{it->location});
                     return false;
-                } 
+                }
             }
             ParameterIndex paramNdx;
             if (!it->parameter) {
                 // Parameter name not given, try principal parameter
                 auto [ndx, hasPrincipal] = instPtr->principalParameterIndex();
                 if (!hasPrincipal) {
-                    s.set(Status::NotFound, "Sweep '"+std::string(it->name)+"': instance '"+std::string(it->instance)+"' has no principal parameter.");
-                    s.extend(it->location);
+                    errors.push(SweepNoPrincipalParameter{it->name, it->instance});
+                    errors.push(SweepLocation{it->location});
                     return false;
                 }
                 paramNdx = ndx;
             } else {
                 auto [ndx, found] = instPtr->parameterIndex(it->parameter);
                 if (!found) {
-                    s.set(Status::NotFound, "Sweep '"+std::string(it->name)+"': parameter '"+std::string(it->parameter)+"' of instance '"+std::string(it->instance)+"' not found.");
-                    s.extend(it->location);
+                    errors.push(SweepInstanceParameterNotFound{it->name, it->instance, it->parameter});
+                    errors.push(SweepLocation{it->location});
                     return false;
                 }
                 paramNdx = ndx;
             }
             auto paramName = instPtr->parameterName(paramNdx);
             if (!instPtr->parameterIsFree(paramName)) {
-                s.set(Status::NotFound, "Sweep '"+std::string(it->name)+"': parameter '"+std::string(paramName)+"' of instance '"+std::string(it->instance)+"' is bound to an expression.");
-                s.extend(it->location);
+                errors.push(SweepInstanceParameterBound{it->name, it->instance, paramName});
+                errors.push(SweepLocation{it->location});
                 return false;
             }
             parameterizedObject.push_back(instPtr);
@@ -435,7 +443,7 @@ bool ParameterSweeper::bind(Circuit& circuit, IStruct<SimulatorOptions>& opt, St
     return true;
 }
 
-bool ParameterSweeper::storeState(Status& s) {
+bool ParameterSweeper::storeState(ErrorConsumer& errors) {
     auto n = settings.size();
     decltype(n) i=0;
     storedValues.resize(n);
@@ -443,10 +451,11 @@ bool ParameterSweeper::storeState(Status& s) {
         if (parameterFamily[i]==ParameterSweeper::ParameterFamily::Variable) {
             storedValues[i] = *circuit_->getVariable(it->variable);
         } else {
-            bool ok = parameterizedObject[i]->getParameter(parameterIndex[i], storedValues[i], s);
+            Status st;
+            bool ok = parameterizedObject[i]->getParameter(parameterIndex[i], storedValues[i], st);
             if (!ok) {
-                s.set(Status::NotFound, "Sweep '"+std::string(it->name)+"': failed to read parameter value.");
-                s.extend(it->location);
+                errors.push(SweepParameterReadFailed{it->name});
+                errors.push(SweepLocation{it->location});
                 return false;
             }
         }
@@ -498,15 +507,16 @@ std::string ParameterSweeper::progress() const {
         }
         txt += scalarSweeps[i].progress();
         Value v;
-        if (scalarSweeps[i].compute(v)) {
+        ErrorConsumer sink;
+        if (scalarSweeps[i].compute(v, sink)) {
             txt += " ("+v.str()+")";
         }
-        
+
     }
     return txt;
 }
 
-std::tuple<bool, bool> ParameterSweeper::write(ParameterFamily types, WriteValues what, Status& s) {
+std::tuple<bool, bool> ParameterSweeper::write(ParameterFamily types, WriteValues what, ErrorConsumer& errors) {
     auto n = settings.size();
     bool changed = false;
     // Always write everything
@@ -524,23 +534,27 @@ std::tuple<bool, bool> ParameterSweeper::write(ParameterFamily types, WriteValue
             vPtr = &(storedValues[i]);
         } else {
             // Compute value
-            if (!scalarSweeps[i].compute(v, s)) { 
+            if (!scalarSweeps[i].compute(v, errors)) {
                 return std::make_tuple(false, false);
             }
             vPtr = &v;
         }
-        
+
         // Write
         if (parameterFamily[i]==ParameterSweeper::ParameterFamily::Variable) {
-            auto [ok, ch] = circuit_->setVariable(it->variable, *vPtr, s);
+            Status st;
+            auto [ok, ch] = circuit_->setVariable(it->variable, *vPtr, st);
             changed |= ch;
             if (!ok) {
+                errors.push(SweepVariableWriteDetail{st.message()});
                 return std::make_tuple(false, changed);
             }
         } else {
-            auto [ok, ch] = parameterizedObject[i]->setParameter(parameterIndex[i], *vPtr, s);
+            Status st;
+            auto [ok, ch] = parameterizedObject[i]->setParameter(parameterIndex[i], *vPtr, st);
             changed |= ch;
             if (!ok) {
+                errors.push(SweepParameterWriteDetail{st.message()});
                 return std::make_tuple(false, changed);
             }
         }
@@ -556,8 +570,8 @@ Int ParameterSweeper::valueIndex(Int ndx) const {
     return scalarSweeps[ndx].at();
 }
 
-bool ParameterSweeper::compute(Int ndx, Value& v, Status& s) const {
-    return scalarSweeps[ndx].compute(v, s);
+bool ParameterSweeper::compute(Int ndx, Value& v, ErrorConsumer& errors) const {
+    return scalarSweeps[ndx].compute(v, errors);
 }
 
 }

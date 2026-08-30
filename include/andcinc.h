@@ -20,7 +20,7 @@ protected:
 template<> SmallSignal<DCIncrementalCore, DCIncrementalData>::SmallSignal(const std::string& name, Circuit& circuit, PTAnalysis& ptAnalysis);
 
 // Resolve save specialization
-template<> bool SmallSignal<DCIncrementalCore, DCIncrementalData>::resolveSave(const PTSave& save, bool verify, Status& s);
+template<> bool SmallSignal<DCIncrementalCore, DCIncrementalData>::resolveSave(const PTSave& save, bool verify, ErrorConsumer& errors);
 
 // Dump specialization
 template<> void SmallSignal<DCIncrementalCore, DCIncrementalData>::dump(std::ostream& os) const;

@@ -1,7 +1,6 @@
 #ifndef __ANCORENOISE_DEFINED
 #define __ANCORENOISE_DEFINED
 
-#include "status.h"
 #include "circuit.h"
 #include "core.h"
 #include "coreop.h"
@@ -65,24 +64,59 @@ typedef struct NoiseParameters {
 } NoiseParameters;
 
 
+ERRORCLASS(NoiseInstanceNotFound)
+    Id instance;
+    NoiseInstanceNotFound(Id instance) : instance(instance) {}
+    std::string format() const { return "Instance '" + std::string(instance) + "' not found."; }
+END_ERRORCLASS(NoiseInstanceNotFound);
+
+ERRORCLASS(NoiseContribNotFound)
+    Id instance;
+    Id contribution;
+    NoiseContribNotFound(Id instance, Id contribution) : instance(instance), contribution(contribution) {}
+    std::string format() const {
+        return "Noise contribution '" + std::string(contribution) + "' of instance '" + std::string(instance) + "' not found.";
+    }
+END_ERRORCLASS(NoiseContribNotFound);
+
+SIMPLE_ERRORCLASS(NoiseSweepSetupFailed, "Failed to set up the noise analysis frequency sweep.");
+
+SIMPLE_ERRORCLASS(NoiseSweepComputeFailed, "Noise analysis sweep point computation failed.");
+
+SIMPLE_ERRORCLASS(NoiseEvalAndLoadFailed, "Jacobian evaluation failed.");
+
+SIMPLE_ERRORCLASS(NoisePsdFailed, "Power spectral density evaluation failed.");
+
+SIMPLE_ERRORCLASS(NoiseMatrixError, "Noise analysis matrix error.");
+
+SIMPLE_ERRORCLASS(NoiseSolutionNotFinite, "Solution component is not finite.");
+
+SIMPLE_ERRORCLASS(NoiseOperatingPointFailed, "Operating point analysis failed.");
+
+SIMPLE_ERRORCLASS(NoiseSingularMatrix, "Matrix is close to singular.");
+
+SIMPLE_ERRORCLASS(NoiseBadFrequency, "Frequency value cannot be converted to real.");
+
+SIMPLE_ERRORCLASS(NoiseDelayBindFailed, "Failed to bind delay lines to the noise analysis matrix.");
+
+SIMPLE_ERRORCLASS(NoiseBindFailed, "Failed to bind the noise analysis matrix.");
+
+ERRORCLASS(NoiseSweepAborted)
+    double frequency;
+    NoiseSweepAborted(double frequency) : frequency(frequency) {}
+    std::string format() const {
+        if (frequency >= 0) {
+            return "Leaving frequency sweep at frequency=" + std::to_string(frequency) + ".";
+        }
+        return "Leaving frequency sweep.";
+    }
+END_ERRORCLASS(NoiseSweepAborted);
+
+
 class NoiseCore : public AnalysisCore {
 public:
     typedef NoiseParameters Parameters;
-    enum class NoiseError {
-        OK, 
-        NotFound, 
-        ContribNotFound, 
-        Sweeper, 
-        SweepCompute, 
-        EvalAndLoad, 
-        PsdError, 
-        MatrixError, 
-        SolutionError, 
-        OperatingPointError, 
-        SingularMatrix, 
-        BadFrequency, 
-    };
-    
+
     NoiseCore(
         OutputDescriptorResolver& parentResolver, NoiseParameters& params, OperatingPointCore& opCore,
         std::unordered_map<std::pair<Id, Id>, size_t>& contributionOffset,
@@ -100,19 +134,16 @@ public:
     NoiseCore& operator=(const NoiseCore&)  = delete;
     NoiseCore& operator=(      NoiseCore&&) = delete;
 
-    // Format error, return false on error - this function is not cheap (works with strings)
-    bool formatError(Status& s=Status::ignore) const; 
+    bool addCoreOutputDescriptors(ErrorConsumer& errors);
+    bool addDefaultOutputDescriptors(ErrorConsumer& errors);
+    bool resolveOutputDescriptors(bool strict, ErrorConsumer& errors);
 
-    bool addCoreOutputDescriptors(Status& s);
-    bool addDefaultOutputDescriptors(Status& s);
-    bool resolveOutputDescriptors(bool strict, Status& s=Status::ignore);
-
-    bool rebuild(Status& s=Status::ignore); 
-    bool initializeOutputs(const std::string& name, Status& s=Status::ignore);
-    CoreCoroutine coroutine(bool continuePrevious);
-    bool run(bool continuePrevious);
-    bool finalizeOutputs(Status& s=Status::ignore);
-    bool deleteOutputs(Id name, Status& s=Status::ignore);
+    bool rebuild(ErrorConsumer& errors);
+    bool initializeOutputs(const std::string& name, ErrorConsumer& errors);
+    CoreCoroutine coroutine(bool continuePrevious, ErrorConsumer& errors);
+    bool run(bool continuePrevious, ErrorConsumer& errors);
+    bool finalizeOutputs(ErrorConsumer& errors);
+    bool deleteOutputs(Id name, ErrorConsumer& errors);
 
     void dump(std::ostream& os) const;
 
@@ -121,16 +152,6 @@ public:
 
 protected:
     static constexpr size_t bucketSize = 1;
-    
-    // Clear error
-    void clearError() { AnalysisCore::clearError(); lastNoiseError = NoiseError::OK; }; 
-
-    void setError(NoiseError e) { lastNoiseError = e; lastError = Error::OK; };
-    NoiseError lastNoiseError;
-    double errorFreq;
-    Status errorStatus;
-    Id errorInstance;
-    Id errorContrib;
     
     VectorRepository<double>& dcSolution;
     VectorRepository<double>& dcStates;

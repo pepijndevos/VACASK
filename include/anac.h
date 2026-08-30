@@ -14,7 +14,7 @@ namespace NAMESPACE {
 // AC analysis data
 class AcData {
 protected:
-    KluComplexMatrix acMatrix; 
+    KluComplexMatrix acMatrix;
     Vector<Complex> acSolution;
 };
 
@@ -22,7 +22,7 @@ protected:
 template<> SmallSignal<ACCore, AcData>::SmallSignal(const std::string& name, Circuit& circuit, PTAnalysis& ptAnalysis);
 
 // Resolve save specialization
-template<> bool SmallSignal<ACCore, AcData>::resolveSave(const PTSave& save, bool verify, Status& s);
+template<> bool SmallSignal<ACCore, AcData>::resolveSave(const PTSave& save, bool verify, ErrorConsumer& errors);
 
 // Dump specialization
 template<> void SmallSignal<ACCore, AcData>::dump(std::ostream& os) const;

@@ -146,10 +146,10 @@ template<> bool BuiltinVccsInstance::bindCore(
     KluMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
     KluMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
     DelayLines* delayLines, 
-    Status& s
+    ErrorConsumer& ec
 );
-template<> bool BuiltinVccsInstance::evalCore(Circuit& circuit, CommonData& commons, EvalSetup& els);
-template<> bool BuiltinVccsInstance::loadCore(Circuit& circuit, CommonData& commons, LoadSetup& els);
+template<> bool BuiltinVccsInstance::evalCore(Circuit& circuit, CommonData& commons, EvalSetup& els, ErrorConsumer& errors);
+template<> bool BuiltinVccsInstance::loadCore(Circuit& circuit, CommonData& commons, LoadSetup& els, ErrorConsumer& errors);
 
 // VCVS
 template<> void BuiltinVcvs::defineInternals();
@@ -165,10 +165,10 @@ template<> bool BuiltinVcvsInstance::bindCore(
     KluMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
     KluMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
     DelayLines* delayLines, 
-    Status& s
+    ErrorConsumer& ec
 );
-template<> bool BuiltinVcvsInstance::evalCore(Circuit& circuit, CommonData& commons, EvalSetup& els);
-template<> bool BuiltinVcvsInstance::loadCore(Circuit& circuit, CommonData& commons, LoadSetup& els);
+template<> bool BuiltinVcvsInstance::evalCore(Circuit& circuit, CommonData& commons, EvalSetup& els, ErrorConsumer& errors);
+template<> bool BuiltinVcvsInstance::loadCore(Circuit& circuit, CommonData& commons, LoadSetup& els, ErrorConsumer& errors);
 
 // CCCS
 template<> void BuiltinCccs::defineInternals();
@@ -184,10 +184,10 @@ template<> bool BuiltinCccsInstance::bindCore(
     KluMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
     KluMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
     DelayLines* delayLines, 
-    Status& s
+    ErrorConsumer& ec
 );
-template<> bool BuiltinCccsInstance::evalCore(Circuit& circuit, CommonData& commons, EvalSetup& els);
-template<> bool BuiltinCccsInstance::loadCore(Circuit& circuit, CommonData& commons, LoadSetup& els);
+template<> bool BuiltinCccsInstance::evalCore(Circuit& circuit, CommonData& commons, EvalSetup& els, ErrorConsumer& errors);
+template<> bool BuiltinCccsInstance::loadCore(Circuit& circuit, CommonData& commons, LoadSetup& els, ErrorConsumer& errors);
 
 // CCVS
 template<> void BuiltinCcvs::defineInternals();
@@ -203,10 +203,10 @@ template<> bool BuiltinCcvsInstance::bindCore(
     KluMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
     KluMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
     DelayLines* delayLines, 
-    Status& s
+    ErrorConsumer& ec
 );
-template<> bool BuiltinCcvsInstance::evalCore(Circuit& circuit, CommonData& commons, EvalSetup& els);
-template<> bool BuiltinCcvsInstance::loadCore(Circuit& circuit, CommonData& commons, LoadSetup& els);
+template<> bool BuiltinCcvsInstance::evalCore(Circuit& circuit, CommonData& commons, EvalSetup& els, ErrorConsumer& errors);
+template<> bool BuiltinCcvsInstance::loadCore(Circuit& circuit, CommonData& commons, LoadSetup& els, ErrorConsumer& errors);
 
 
 struct DevMutualInstanceParams {
@@ -255,10 +255,10 @@ template<> bool BuiltinMutualInstance::bindCore(
     KluMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
     KluMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
     DelayLines* delayLines, 
-    Status& s
+    ErrorConsumer& ec
 );
-template<> bool BuiltinMutualInstance::evalCore(Circuit& circuit, CommonData& commons, EvalSetup& evalSetup);
-template<> bool BuiltinMutualInstance::loadCore(Circuit& circuit, CommonData& commons, LoadSetup& loadSetup);
+template<> bool BuiltinMutualInstance::evalCore(Circuit& circuit, CommonData& commons, EvalSetup& evalSetup, ErrorConsumer& errors);
+template<> bool BuiltinMutualInstance::loadCore(Circuit& circuit, CommonData& commons, LoadSetup& loadSetup, ErrorConsumer& errors);
 
 }
 

@@ -14,65 +14,69 @@ Analysis* HBAC::create(PTAnalysis& ptAnalysis, Circuit& circuit, Status& s) {
     return new HBAC(ptAnalysis.name(), circuit, ptAnalysis);
 }
 
-bool HBAC::resolveSave(const PTSave& save, bool verify, Status& s) {
+bool HBAC::resolveSave(const PTSave& save, bool verify, ErrorConsumer& errors) {
     static const auto idDefault  = Id("default");
     static const auto idFull     = Id("full");
     static const auto idDv       = Id("dv");
     static const auto idDi       = Id("di");
 
+    // When verification is not required, save-resolution errors are not fatal.
+    ErrorConsumer sink;
+    ErrorConsumer& e1 = verify ? errors : sink;
+
     bool st = true;
     bool handled = true;
-    Status& s1 = verify ? s : Status::ignore;
     if (save.typeName() == idDefault) {
-        st = hbacCore.addAllUnknowns(save, s1);
+        st = hbacCore.addAllUnknowns(save, e1);
     } else if (save.typeName() == idFull) {
-        st = hbacCore.addAllNodes(save, s1);
+        st = hbacCore.addAllNodes(save, e1);
     } else if (save.typeName() == idDv) {
-        st = hbacCore.addNode(save, s1);
+        st = hbacCore.addNode(save, e1);
     } else if (save.typeName() == idDi) {
-        st = hbacCore.addFlow(save, s1);
+        st = hbacCore.addFlow(save, e1);
     } else {
-        std::tie(st, handled) = resolveHbSave(save, verify, s1);
+        std::tie(st, handled) = resolveHbSave(save, verify, e1);
         if (!verify) {
             st = true;
         }
     }
 
     if (verify && !st) {
-        s.extend(save.location());
+        errors.push(AnSaveDirectiveLocation{save.location()});
         return false;
     }
     return true;
 }
 
-std::tuple<bool, bool> HBAC::resolveHbSave(const PTSave& save, bool verify, Status& s) {
+std::tuple<bool, bool> HBAC::resolveHbSave(const PTSave& save, bool verify, ErrorConsumer& errors) {
     static const auto idHbDefault = Id("hbdefault");
     static const auto idHbFull    = Id("hbfull");
     static const auto idV         = Id("v");
     static const auto idI         = Id("i");
     static const auto idP         = Id("p");
 
+    ErrorConsumer sink;
+    ErrorConsumer& e1 = verify ? errors : sink;
+
     bool st = true;
-    Status& s1 = verify ? s : Status::ignore;
     if (save.typeName() == idHbDefault) {
-        st = hbCore.addAllUnknowns(save, s1);
+        st = hbCore.addAllUnknowns(save, e1);
     } else if (save.typeName() == idHbFull) {
-        st = hbCore.addAllNodes(save, s1);
+        st = hbCore.addAllNodes(save, e1);
     } else if (save.typeName() == idV) {
-        st = hbCore.addNode(save, s1);
+        st = hbCore.addNode(save, e1);
     } else if (save.typeName() == idI) {
-        st = hbCore.addFlow(save, s1);
+        st = hbCore.addFlow(save, e1);
     } else if (save.typeName() == idP) {
-        st = hbCore.addInstanceOutvar(save, s1);
+        st = hbCore.addInstanceOutvar(save, e1);
     } else {
         if (verify) {
-            s.set(Status::Save, std::string("Analysis does not support save directive."));
-            s.extend(save.location());
+            errors.push(AnUnsupportedSaveDirective{save.location()});
         }
         return std::make_tuple(false, false);
     }
     if (verify && !st) {
-        s.extend(save.location());
+        errors.push(AnSaveDirectiveLocation{save.location()});
     }
     return std::make_tuple(st, true);
 }
@@ -83,19 +87,19 @@ bool HBAC::addCommonOutputDescriptor(const OutputDescriptor& desc) {
     return s1 && s2;
 }
 
-bool HBAC::addCoreOutputDescriptors(Status& s) {
-    if (!hbCore.addCoreOutputDescriptors(s)) {
+bool HBAC::addCoreOutputDescriptors(ErrorConsumer& errors) {
+    if (!hbCore.addCoreOutputDescriptors(errors)) {
         return false;
     }
-    if (!hbacCore.addCoreOutputDescriptors(s)) {
+    if (!hbacCore.addCoreOutputDescriptors(errors)) {
         return false;
     }
     return true;
 }
 
-bool HBAC::addDefaultOutputDescriptors(Status& s) {
-    auto s1 = hbCore.addDefaultOutputDescriptors(s);
-    auto s2 = hbacCore.addDefaultOutputDescriptors(s);
+bool HBAC::addDefaultOutputDescriptors(ErrorConsumer& errors) {
+    auto s1 = hbCore.addDefaultOutputDescriptors(errors);
+    auto s2 = hbacCore.addDefaultOutputDescriptors(errors);
     return s1 && s2;
 }
 
@@ -104,13 +108,13 @@ void HBAC::clearOutputDescriptors() {
     hbacCore.clearOutputDescriptors();
 }
 
-bool HBAC::resolveOutputDescriptors(bool strict, Status& s) {
-    if (!hbCore.resolveOutputDescriptors(strict, s)) {
+bool HBAC::resolveOutputDescriptors(bool strict, ErrorConsumer& errors) {
+    if (!hbCore.resolveOutputDescriptors(strict, errors)) {
         if (strict) {
             return false;
         }
     }
-    if (!hbacCore.resolveOutputDescriptors(strict, s)) {
+    if (!hbacCore.resolveOutputDescriptors(strict, errors)) {
         if (strict) {
             return false;
         }
@@ -118,67 +122,51 @@ bool HBAC::resolveOutputDescriptors(bool strict, Status& s) {
     return true;
 }
 
-std::tuple<bool, bool> HBAC::preMapping(Status& s) {
-    auto [ok, needsMapping] = hbCore.preMapping(s);
+std::tuple<bool, bool> HBAC::preMapping(ErrorConsumer& errors) {
+    auto [ok, needsMapping] = hbCore.preMapping(errors);
     if (!ok) {
         return std::make_tuple(false, needsMapping);
     }
-    auto [ok1, map1] = hbacCore.preMapping(s);
+    auto [ok1, map1] = hbacCore.preMapping(errors);
     return std::make_tuple(ok && ok1, needsMapping || map1);
 }
 
-bool HBAC::populateStructures(Status& s) {
-    if (!hbCore.populateStructures(s)) {
+bool HBAC::populateStructures(ErrorConsumer& errors) {
+    if (!hbCore.populateStructures(errors)) {
         return false;
     }
-    return hbacCore.populateStructures(s);
+    return hbacCore.populateStructures(errors);
 }
 
-bool HBAC::rebuildCores(Status& s) {
-    if (!hbCore.rebuild(s)) {
+bool HBAC::rebuildCores(ErrorConsumer& errors) {
+    if (!hbCore.rebuild(errors)) {
         return false;
     }
-    if (!hbacCore.rebuild(s)) {
+    if (!hbacCore.rebuild(errors)) {
         return false;
     }
     return true;
 }
 
-bool HBAC::initializeOutputs(Status& s) {
-    if (!hbCore.initializeOutputs(prefixedName_+".hb", s)) {
-        hbCore.formatError(s);
+bool HBAC::initializeOutputs(ErrorConsumer& errors) {
+    if (!hbCore.initializeOutputs(prefixedName_+".hb", errors)) {
         return false;
     }
-    if (!hbacCore.initializeOutputs(prefixedName_, s)) {
-        hbacCore.formatError(s);
+    if (!hbacCore.initializeOutputs(prefixedName_, errors)) {
         return false;
     }
     return true;
 }
 
-bool HBAC::finalizeOutputs(Status& s) {
-    Status s1, s2;
-    auto ok1 = hbCore.finalizeOutputs(s1);
-    auto ok2 = hbacCore.finalizeOutputs(s2);
-    if (!ok1) {
-        s.set(s1);
-    }
-    if (!ok2) {
-        s.set(s2);
-    }
+bool HBAC::finalizeOutputs(ErrorConsumer& errors) {
+    auto ok1 = hbCore.finalizeOutputs(errors);
+    auto ok2 = hbacCore.finalizeOutputs(errors);
     return ok1 && ok2;
 }
 
-bool HBAC::deleteOutputs(Status& s) {
-    Status s1, s2;
-    auto ok1 = hbCore.deleteOutputs(prefixedName_+".hb", s1);
-    auto ok2 = hbacCore.deleteOutputs(prefixedName_, s2);
-    if (!ok1) {
-        s.set(s1);
-    }
-    if (!ok2) {
-        s.set(s2);
-    }
+bool HBAC::deleteOutputs(ErrorConsumer& errors) {
+    auto ok1 = hbCore.deleteOutputs(prefixedName_+".hb", errors);
+    auto ok2 = hbacCore.deleteOutputs(prefixedName_, errors);
     return ok1 && ok2;
 }
 

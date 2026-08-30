@@ -44,19 +44,85 @@ typedef struct HBParameters {
 } HBParameters;
 
 
+class HbUnknownNameResolver : public NameResolver {
+public:
+    HbUnknownNameResolver(Circuit& circuit, size_t nb=0) : circuit(circuit), nb(nb) {};
+
+    void setTimepointCount(size_t n) { nb = n; };
+
+    virtual Id operator()(MatrixEntryIndex u) {
+        if (nb>0) {
+            return circuit.reprNode(u/nb+1)->name();
+        } else {
+            return Id();
+        }
+    };
+
+private:
+    Circuit& circuit;
+    size_t nb;
+};
+
+
+
+SIMPLE_ERRORCLASS(HbNoAlgorithm, "No HB algorithm tried.");
+
+SIMPLE_ERRORCLASS(HbSolverBuildFailed, "Failed to rebuild internal structures of nonlinear solver.");
+
+SIMPLE_ERRORCLASS(HbSolverInitFailed, "Failed to initialize internal structures of nonlinear solver.");
+
+SIMPLE_ERRORCLASS(HbInitialFailed, "Initial HB analysis failed.");
+
+ERRORCLASS(HbHomotopyFailed)
+    Int steps;
+    HbHomotopyFailed(Int steps) : steps(steps) {}
+    std::string format() const { return "Homotopy failed, " + std::to_string(steps) + " step(s) tried."; }
+END_ERRORCLASS(HbHomotopyFailed);
+
+SIMPLE_ERRORCLASS(HbEvaluationFailed, "Evaluation at given nodeset failed.");
+
+SIMPLE_ERRORCLASS(HbFreqEmpty, "freq must have at least one component.");
+
+SIMPLE_ERRORCLASS(HbFreqZeroExplicit, "Zero frequency should not be specified explicitly.");
+
+SIMPLE_ERRORCLASS(HbNharmNonPositive, "nharm must be >0.");
+
+SIMPLE_ERRORCLASS(HbNharmComponentNonPositive, "nharm components must be >0.");
+
+SIMPLE_ERRORCLASS(HbNharmCountMismatch, "Number of nharm components must match number of freq components.");
+
+SIMPLE_ERRORCLASS(HbNharmType, "nharm must be an integer or an integer vector.");
+
+SIMPLE_ERRORCLASS(HbTruncateUnknown, "Unknown spectrum truncation method.");
+
+SIMPLE_ERRORCLASS(HbSpursBuildFailed, "Failed to build the HB frequency spectrum.");
+
+SIMPLE_ERRORCLASS(HbSpectrumTooSmall, "Too few frequencies in spectrum.");
+
+SIMPLE_ERRORCLASS(HbSpectrumNoNonzero, "Spectrum must contain at least one nonzero frequency.");
+
+SIMPLE_ERRORCLASS(HbSamplefacTooSmall, "samplefac must be >=1.");
+
+SIMPLE_ERRORCLASS(HbSamplemodeUnknown, "Unknown samplmode.");
+
+SIMPLE_ERRORCLASS(HbTransformMatrixFailed, "Failed to build transform matrix.");
+
+SIMPLE_ERRORCLASS(HbColocationZeroNorm, "Zero norm encountered while computing colocation points.");
+
+SIMPLE_ERRORCLASS(HbForwardTransformFailed, "Failed to compute forward transform matrix.");
+
+SIMPLE_ERRORCLASS(HbNodesetNotFound, "Nodeset not found.");
+
+SIMPLE_ERRORCLASS(HbVariableDelayUnsupported, "HB solver cannot handle circuits with variable delay.");
+
+SIMPLE_ERRORCLASS(HbBindFailed, "Failed to bind the HB Jacobian.");
+
+SIMPLE_ERRORCLASS(HbDelayBindFailed, "Failed to bind delay lines to the HB Jacobian.");
+
+
 class HBCore : public AnalysisCore {
 public:
     typedef HBParameters Parameters;
-    enum class HBError {
-        OK, 
-        NoAlgorithm,
-        SolverBuild,  
-        SolverInit,  
-        InitialHB, 
-        Homotopy,
-        NoNodeset, 
-        EvaluationError, 
-    };
 
     HBCore(
         OutputDescriptorResolver& parentResolver, HBParameters& params, Circuit& circuit, CommonData& commons, 
@@ -70,34 +136,31 @@ public:
     HBCore& operator=(const HBCore&)  = delete;
     HBCore& operator=(      HBCore&&) = delete;
 
-    // Format error, return false on error - this function is not cheap (works with strings)
-    bool formatError(Status& s=Status::ignore) const; 
+    bool addCoreOutputDescriptors(ErrorConsumer& errors);
+    bool addDefaultOutputDescriptors(ErrorConsumer& errors);
+    bool resolveOutputDescriptors(bool strict, ErrorConsumer& errors);
 
-    bool addCoreOutputDescriptors(Status& s);
-    bool addDefaultOutputDescriptors(Status& s);
-    bool resolveOutputDescriptors(bool strict, Status& s=Status::ignore);
+    bool rebuild(ErrorConsumer& errors);
+    bool initializeOutputs(const std::string& name, ErrorConsumer& errors);
+    bool run(bool continuePrevious, ErrorConsumer& errors);
+    CoreCoroutine coroutine(bool continuePrevious, ErrorConsumer& errors);
+    bool finalizeOutputs(ErrorConsumer& errors);
+    bool deleteOutputs(Id name, ErrorConsumer& errors);
 
-    bool rebuild(Status& s=Status::ignore); 
-    bool initializeOutputs(const std::string& name, Status& s=Status::ignore);
-    bool run(bool continuePrevious);
-    CoreCoroutine coroutine(bool continuePrevious);
-    bool finalizeOutputs(Status& s=Status::ignore);
-    bool deleteOutputs(Id name, Status& s=Status::ignore);
-
-    bool buildGrid(Status& s=Status::ignore);
-    bool buildColocation(Status& s=Status::ignore);
-    bool buildAPFT(Status& s=Status::ignore);
+    bool buildGrid(ErrorConsumer& errors);
+    bool buildColocation(ErrorConsumer& errors);
+    bool buildAPFT(ErrorConsumer& errors);
 
     virtual bool storeState(size_t ndx, bool storeDetails=true);
     virtual bool restoreState(size_t ndx);
     
-    virtual std::tuple<bool, bool> runSolver(bool continuePrevious);
+    virtual std::tuple<bool, bool> runSolver(bool continuePrevious, ErrorConsumer& errors);
     virtual Int iterations() const;
     virtual Int iterationLimit(bool continuePrevious) const;
 
     // Set stored solutiuon for evaluation, does not set up Jacobian to save memory
     // Bind circuit to jacColoc and evaluate at current solution
-    bool evaluateAtNodeset();
+    bool evaluateAtNodeset(ErrorConsumer& errors);
     bool getFrequencyDomainJacobians(KluBlockSparseComplexMatrix& jacSpec, const Spurs& prunedSpurs);
 
     void dump(std::ostream& os) const;
@@ -116,15 +179,9 @@ public:
     static Id solutionTag;
 
 protected:
-    // Clear error
-    void clearError() { AnalysisCore::clearError(); lastHbError = HBError::OK; }; 
+    bool buildTransformMatrix(DenseMatrix<double>& XF, ErrorConsumer& errors);
 
-    void setError(HBError e) { lastHbError = e; lastError = Error::OK; };
-    
-    bool buildTransformMatrix(DenseMatrix<double>& XF, Status& s=Status::ignore);
-
-    HBError lastHbError;
-    Int homotopySteps; 
+    Int homotopySteps;
 
     // Block-sparse matrix with rectangular blocks for 
     // storing Jacobian values at colocation timepoints
@@ -178,6 +235,11 @@ private:
     DenseMatrix<double> GammaInvColumnMajor;
     // Pivot scratch for coeffs.factorAndInvert() in buildAPFT() (LAPACK ipiv storage type)
     std::vector<int> rowPerm_;
+
+    // Resolves an HB block-matrix column index to a circuit node name for
+    // matrix error messages. Owned here (bsjac only borrows it via
+    // setResolver()); its timepoint count is filled in once known.
+    HbUnknownNameResolver hbResolver_;
 
     // Declared last so spurs_, timepoints, and the transform matrices it
     // captures by reference are fully constructed before its init list runs.

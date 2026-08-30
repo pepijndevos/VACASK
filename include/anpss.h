@@ -30,27 +30,24 @@ public:
 
 protected:
     virtual bool addCommonOutputDescriptor(const OutputDescriptor& desc);
-    virtual bool addCoreOutputDescriptors(Status& s=Status::ignore);
-    virtual bool resolveSave(const PTSave& save, bool verify, Status& s=Status::ignore);
-    virtual bool addDefaultOutputDescriptors(Status& s=Status::ignore);
+    virtual bool addCoreOutputDescriptors(ErrorConsumer& errors);
+    virtual bool resolveSave(const PTSave& save, bool verify, ErrorConsumer& errors);
+    virtual bool addDefaultOutputDescriptors(ErrorConsumer& errors);
     virtual void clearOutputDescriptors();
-    virtual bool resolveOutputDescriptors(bool strict, Status& s=Status::ignore);
+    virtual bool resolveOutputDescriptors(bool strict, ErrorConsumer& errors);
 
-    virtual std::tuple<bool, bool> preMapping(Status& s=Status::ignore);
-    virtual bool populateStructures(Status& s=Status::ignore);
-    
-    virtual bool rebuildCores(Status& s=Status::ignore);
-    virtual bool initializeOutputs(Status& s=Status::ignore);
+    virtual std::tuple<bool, bool> preMapping(ErrorConsumer& errors);
+    virtual bool populateStructures(ErrorConsumer& errors);
+
+    virtual bool rebuildCores(ErrorConsumer& errors);
+    virtual bool initializeOutputs(ErrorConsumer& errors);
     virtual AnalysisCore& analysisCore() { return pssCore_; }
-    virtual CoreCoroutine coreCoroutine(bool continuePrevious) {
-        return std::move(pssCore_.coroutine(continuePrevious));
-    }
-    virtual bool formatCoreError(Status& s=Status::ignore) {
-        return pssCore_.formatError(s);
+    virtual CoreCoroutine coreCoroutine(bool continuePrevious, ErrorConsumer& errors) {
+        return std::move(pssCore_.coroutine(continuePrevious, errors));
     }
 
-    virtual bool finalizeOutputs(Status& s=Status::ignore);
-    virtual bool deleteOutputs(Status& s=Status::ignore);
+    virtual bool finalizeOutputs(ErrorConsumer& errors);
+    virtual bool deleteOutputs(ErrorConsumer& errors);
 
     virtual size_t analysisStateStorageSize() const;
     virtual size_t allocateAnalysisStateStorage(size_t n);

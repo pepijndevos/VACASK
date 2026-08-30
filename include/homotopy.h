@@ -25,9 +25,9 @@ public:
     // Need this because we are going to hold derived objects via a base pointer
     virtual ~Homotopy() = default;
 
-    // Run homotopy
+    // Run homotopy, pushing any failure onto errors
     // Return value: coverged, abort
-    virtual std::tuple<bool, bool> run() { return std::make_tuple(false, false); };
+    virtual std::tuple<bool, bool> run(ErrorConsumer& errors) { return std::make_tuple(false, false); };
     
     // Format progress message
     virtual std::string formatProgress() const { return "Unknown homotopy"; };

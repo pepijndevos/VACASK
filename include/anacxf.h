@@ -13,7 +13,7 @@ namespace NAMESPACE {
 // ACXF analysis data
 class ACXFData {
 protected:
-    KluComplexMatrix acMatrix; 
+    KluComplexMatrix acMatrix;
     Vector<Complex> acSolution;
 
     std::unordered_map<Id,size_t> sourceIndex;
@@ -27,7 +27,7 @@ protected:
 template<> SmallSignal<ACXFCore, ACXFData>::SmallSignal(const std::string& name, Circuit& circuit, PTAnalysis& ptAnalysis);
 
 // Resolve save specialization
-template<> bool SmallSignal<ACXFCore, ACXFData>::resolveSave(const PTSave& save, bool verify, Status& s);
+template<> bool SmallSignal<ACXFCore, ACXFData>::resolveSave(const PTSave& save, bool verify, ErrorConsumer& errors);
 
 // Dump specialization
 template<> void SmallSignal<ACXFCore, ACXFData>::dump(std::ostream& os) const;

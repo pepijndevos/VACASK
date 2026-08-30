@@ -1,7 +1,6 @@
 #ifndef __ANCOREAC_DEFINED
 #define __ANCOREAC_DEFINED
 
-#include "status.h"
 #include "circuit.h"
 #include "core.h"
 #include "coreop.h"
@@ -71,21 +70,42 @@ typedef struct ACParameters {
 } ACParameters;
 
 
+SIMPLE_ERRORCLASS(AcSweepSetupFailed, "Failed to set up the AC frequency sweep.");
+
+SIMPLE_ERRORCLASS(AcSweepComputeFailed, "AC sweep point computation failed.");
+
+SIMPLE_ERRORCLASS(AcEvalAndLoadFailed, "Jacobian evaluation failed.");
+
+SIMPLE_ERRORCLASS(AcMatrixError, "AC matrix error.");
+
+SIMPLE_ERRORCLASS(AcSolutionNotFinite, "Solution component is not finite.");
+
+SIMPLE_ERRORCLASS(AcOperatingPointFailed, "Operating point analysis failed.");
+
+SIMPLE_ERRORCLASS(AcSingularMatrix, "Matrix is close to singular.");
+
+SIMPLE_ERRORCLASS(AcBadFrequency, "Frequency value cannot be converted to real.");
+
+SIMPLE_ERRORCLASS(AcDelayBindFailed, "Failed to bind delay lines to the AC matrix.");
+
+SIMPLE_ERRORCLASS(AcBindFailed, "Failed to bind the AC matrix.");
+
+ERRORCLASS(AcSweepAborted)
+    double frequency;
+    AcSweepAborted(double frequency) : frequency(frequency) {}
+    std::string format() const {
+        if (frequency >= 0) {
+            return "Leaving frequency sweep at frequency=" + std::to_string(frequency) + ".";
+        }
+        return "Leaving frequency sweep.";
+    }
+END_ERRORCLASS(AcSweepAborted);
+
+
 class ACCore : public AnalysisCore {
 public:
     typedef ACParameters Parameters;
-    enum class AcError {
-        OK, 
-        Sweeper, 
-        SweepCompute, 
-        EvalAndLoad, 
-        MatrixError, 
-        SolutionError, 
-        OperatingPointError, 
-        SingularMatrix, 
-        BadFrequency, 
-    };
-       
+
     ACCore(
         OutputDescriptorResolver& parentResolver, ACParameters& params, OperatingPointCore& opCore, Circuit& circuit, 
         CommonData& commons, 
@@ -100,19 +120,16 @@ public:
     ACCore& operator=(const ACCore&)  = delete;
     ACCore& operator=(      ACCore&&) = delete;
 
-    // Format error, return false on error - this function is not cheap (works with strings)
-    bool formatError(Status& s=Status::ignore) const; 
+    bool addCoreOutputDescriptors(ErrorConsumer& errors);
+    bool addDefaultOutputDescriptors(ErrorConsumer& errors);
+    bool resolveOutputDescriptors(bool strict, ErrorConsumer& errors);
 
-    bool addCoreOutputDescriptors(Status& s);
-    bool addDefaultOutputDescriptors(Status& s);
-    bool resolveOutputDescriptors(bool strict, Status& s=Status::ignore);
-
-    bool rebuild(Status& s=Status::ignore); 
-    bool initializeOutputs(const std::string& name, Status& s=Status::ignore);
-    bool run(bool continuePrevious);
-    CoreCoroutine coroutine(bool continuePrevious);
-    bool finalizeOutputs(Status& s=Status::ignore);
-    bool deleteOutputs(Id name, Status& s=Status::ignore);
+    bool rebuild(ErrorConsumer& errors);
+    bool initializeOutputs(const std::string& name, ErrorConsumer& errors);
+    bool run(bool continuePrevious, ErrorConsumer& errors);
+    CoreCoroutine coroutine(bool continuePrevious, ErrorConsumer& errors);
+    bool finalizeOutputs(ErrorConsumer& errors);
+    bool deleteOutputs(Id name, ErrorConsumer& errors);
 
     void dump(std::ostream& os) const;
 
@@ -121,14 +138,6 @@ public:
 
 protected:
     static constexpr size_t bucketSize = 1;
-
-    // Clear error
-    void clearError() { AnalysisCore::clearError(); lastAcError = AcError::OK; }; 
-
-    void setError(AcError e) { lastAcError = e; lastError = Error::OK; };
-    AcError lastAcError;
-    double errorFreq;
-    Status errorStatus;
 
     VectorRepository<double>& dcSolution;
     VectorRepository<double>& dcStates;

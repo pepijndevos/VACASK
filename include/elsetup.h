@@ -5,7 +5,7 @@
 #include <limits>
 #include "ansupport.h"
 #include "coretrancoef.h"
-#include "cirdelay.h"
+#include "coredelay.h"
 #include "common.h"
 
 

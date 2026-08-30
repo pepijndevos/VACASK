@@ -39,10 +39,10 @@ namespace NAMESPACE {
 // Analysis::setAnalysisOptions() before rebuild() is called. 
 // Slots can be activated/deactivated,. 
 NRSolver::NRSolver(
-    Accounting& acct, KluRealMatrixCore& jac, 
-    VectorRepository<double>& solution, 
+    Accounting& acct, KluRealMatrixCore& jac,
+    VectorRepository<double>& solution,
     NRSettings& settings, size_t bucketSize
-) : acct(acct), jac(jac), solution(solution), settings(settings), 
+) : acct(acct), jac(jac), solution(solution), settings(settings),
     bucketSize_(bucketSize), iteration(0) {
 }
 
@@ -84,7 +84,7 @@ bool NRSolver::postConvergenceCheck(bool continuePrevious) {
     return true; 
 }
 
-bool NRSolver::run(bool continuePrevious) {
+bool NRSolver::run(bool continuePrevious, ErrorConsumer& errors) {
     auto t0 = Accounting::wclk();
     acct.acctNew.nrcall++;
 
@@ -109,13 +109,10 @@ bool NRSolver::run(bool continuePrevious) {
 
     // Allow lower precision
     highPrecision = false;
-    
-    // Clear error
-    clearError();
 
     // Initialize structures
-    if (!initialize(continuePrevious)) {
-        // Assume initiđalize() has set lastError
+    if (!initialize(continuePrevious, errors)) {
+        // initialize() has pushed the error
         if (settings.debug) {
             Simulator::dbg() << "NR solver initialization step failed.\n";
         }
@@ -133,7 +130,11 @@ bool NRSolver::run(bool continuePrevious) {
     if (settings.debug) {
         Simulator::dbg() << "Starting NR algorithm " << (continuePrevious ? "with given initial solution" : "with zero initial solution") << ".\n";
     }
-    
+
+    // Errors on the stack before the loop. A concrete failure pushes at least
+    // one; if the count is unchanged afterwards nothing concrete went wrong.
+    std::size_t errorMark = errors.pushedCount();
+
     // Main loop
     do {
         // Assume no convergence
@@ -170,11 +171,10 @@ bool NRSolver::run(bool continuePrevious) {
         }
         
         bool buildOk;
-        std::tie(buildOk, preventedConvergence) = buildSystem(continuePrevious);
+        std::tie(buildOk, preventedConvergence) = buildSystem(continuePrevious, errors);
         if (!buildOk) {
             // Load error or abort
-            lastError = Error::EvalAndLoad;
-            errorIteration = iteration;
+            errors.push(NrEvalLoadError{});
             break;
         }
         if (bucketSize_>0) {
@@ -183,18 +183,16 @@ bool NRSolver::run(bool continuePrevious) {
         }
 
         // Check if system is finite
-        if (settings.matrixCheck && !jac.isFinite(true, true)) {
-            lastError = Error::LinearSolver;
-            errorIteration = iteration;
+        if (settings.matrixCheck && !jac.isFinite(true, true, errors)) {
+            // jac.isFinite() has pushed the offending-entry error
             if (settings.debug) {
                 Simulator::dbg() << "A matrix entry is not finite. Solver failed.\n";
             }
             break;
         }
 
-        if (settings.rhsCheck && !jac.isFinite(dataWithoutBucket(delta, bucketSize_), true, true)) {
-            lastError = Error::LinearSolver;
-            errorIteration = iteration;
+        if (settings.rhsCheck && !jac.isFinite(dataWithoutBucket(delta, bucketSize_), true, true, errors)) {
+            // jac.isFinite() has pushed the offending-entry error
             if (settings.debug) {
                 Simulator::dbg() << "An RHS entry is not finite. Solver failed.\n";
             }
@@ -246,31 +244,32 @@ bool NRSolver::run(bool continuePrevious) {
         //          because it fails the residual check
 
         // Factorization
-        bool forceFullFactorization = false;        
+        bool forceFullFactorization = false;
         if (jac.isFactored()) {
-            // Refactor (if possible)
-            if (!jac.refactor()) {
+            // Refactor (if possible). A refactor failure is not fatal here. 
+            if (!jac.refactor(errors)) {
                 // Failed, try again by fully factoring
                 forceFullFactorization = true;
-            } 
+            }
         }
         if (forceFullFactorization || !jac.isFactored()) {
             // Full factorization
-            if (!jac.factor()) {
-                // Failed, give up
-                lastError = Error::LinearSolver;
-                errorIteration = iteration;
+            if (!jac.factor(errors)) {
+                // Failed, give up. jac.factor() has pushed the error.
                 if (settings.debug) {
                     Simulator::dbg() << "LU factorization failed.\n";
                 }
                 break;
             }
+            // Clear refactor error
+            if (forceFullFactorization) {
+                errors.clear();
+            }
         }
 
         // Solve, use vector without ground component
-        if (!jac.solve(dataWithoutBucket(delta, bucketSize_))) {
-            lastError = Error::LinearSolver;
-            errorIteration = iteration;
+        if (!jac.solve(dataWithoutBucket(delta, bucketSize_), errors)) {
+            // jac.solve() has pushed the error
             if (settings.debug) {
                 Simulator::dbg() << "Failed to solve factored system.\n";
             }
@@ -288,9 +287,9 @@ bool NRSolver::run(bool continuePrevious) {
 
         acct.acctNew.nriter++;
 
-        if (settings.solutionCheck && !jac.isFinite(dataWithoutBucket(delta, bucketSize_), true, true)) {
-            lastError = Error::SolutionError;
-            errorIteration = iteration;
+        if (settings.solutionCheck && !jac.isFinite(dataWithoutBucket(delta, bucketSize_), true, true, errors)) {
+            // jac.isFinite() has pushed the offending-entry error
+            errors.push(NrNonFiniteSolution{});
             if (settings.debug) {
                 Simulator::dbg() << "A solution entry is not finite. Solver failed.\n";
             }
@@ -423,49 +422,20 @@ bool NRSolver::run(bool continuePrevious) {
         converged = false;
     }
 
-    if (!converged && lastError==Error::OK) {
-        lastError = Error::Convergence;
-        errorIteration = iteration;
+    if (!converged) {
+        // Ran out of iterations with no concrete failure recorded: the solver
+        // simply did not converge in time.
+        if (iteration >= itlim && errors.pushedCount() == errorMark) {
+            pushConvergenceReport(errors);
+            errors.push(NrConvergenceError{});
+        }
+        // "Leaving core NR loop in iteration N" trailer, pushed once here.
+        errors.push(NrLeftLoop{iteration});
     }
-    
+
+
     acct.acctNew.tnr += Accounting::wclkDelta(t0);
     return converged;
-}
-
-bool NRSolver::formatError(Status& s, NameResolver* resolver) const {
-    auto matrixError = jac.formatError(s, resolver);
-    switch (lastError) {
-        case Error::ForcesIndex:
-            s.set(Status::Range, "Force index out of range.");
-            return false;
-        case Error::EvalAndLoad:
-            s.set(Status::NonlinearSolver, "Evaluation/load error.");
-            s.extend("Leaving core NR loop in iteration "+std::to_string(errorIteration)+"."); 
-            return false;
-        case Error::LinearSolver: 
-            s.extend("Leaving core NR loop in iteration "+std::to_string(errorIteration)+"."); 
-            return false;
-        case Error::SolutionError:
-            s.extend("Solution component is not finite."); 
-            s.extend("Leaving core NR loop in iteration "+std::to_string(errorIteration)+"."); 
-            return false;
-        case Error::Convergence: {
-            s.set(Status::NonlinearSolver, "NR solver failed to converge.");
-            auto str = formatConvergence();
-            if (str.length()>0) {
-                s.extend(str);
-            }
-            s.extend("Leaving core NR loop in iteration "+std::to_string(errorIteration)+"."); 
-            return false;
-        }
-        case Error::BadSolReference: 
-            s.set(Status::NonlinearSolver, "Unsupported relrefsol value.");
-            break;
-        case Error::BadResReference: 
-            s.set(Status::NonlinearSolver, "Unsupported relrefres value.");
-            break;
-    }
-    return matrixError;
 }
 
 }

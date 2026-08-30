@@ -16,7 +16,7 @@ public:
     SourceStepping& operator=(const SourceStepping&)  = delete;
     SourceStepping& operator=(      SourceStepping&&) = delete;
 
-    std::tuple<bool, bool> run();
+    std::tuple<bool, bool> run(ErrorConsumer& errors);
     
     std::string formatProgress() const;
 
@@ -35,7 +35,7 @@ public:
     Spice3SourceStepping& operator=(const Spice3SourceStepping&)  = delete;
     Spice3SourceStepping& operator=(      Spice3SourceStepping&&) = delete;
 
-    std::tuple<bool, bool> run();
+    std::tuple<bool, bool> run(ErrorConsumer& errors);
     
     std::string formatProgress() const;
 };

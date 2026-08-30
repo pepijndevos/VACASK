@@ -1,7 +1,6 @@
 #ifndef __ANCOREHBAC_DEFINED
 #define __ANCOREHBAC_DEFINED
 
-#include "status.h"
 #include "circuit.h"
 #include "core.h"
 #include "corehb.h"
@@ -56,22 +55,84 @@ typedef struct HBACParameters {
 } HBACParameters;
 
 
+SIMPLE_ERRORCLASS(HbAcMaxharmType, "Maxharm vector must be an integer vector.");
+
+SIMPLE_ERRORCLASS(HbAcMaxharmSize, "Maxharm vector size must match the number of fundamental frequencies.");
+
+SIMPLE_ERRORCLASS(HbAcMaxharmScalarType, "Maxharm scalar must be an integer.");
+
+ERRORCLASS(HbAcOutspurNotFound)
+    size_t index;
+    HbAcOutspurNotFound(size_t index) : index(index) {}
+    std::string format() const { return "Output spur #" + std::to_string(index) + " not found."; }
+END_ERRORCLASS(HbAcOutspurNotFound);
+
+SIMPLE_ERRORCLASS(HbAcOutspurSingleNotFound, "Output spur not found.");
+
+SIMPLE_ERRORCLASS(HbAcNoOutspur, "No output spur given.");
+
+SIMPLE_ERRORCLASS(HbAcOutspurChanged, "Output spurs are not allowed to change.");
+
+SIMPLE_ERRORCLASS(HbAcSpurPruneFailed, "Failed to prune the HB spur set.");
+
+SIMPLE_ERRORCLASS(HbAcMixingMapFailed, "Failed to build the HB mixing map.");
+
+SIMPLE_ERRORCLASS(HbAcDelayBindFailed, "Failed to bind delay lines to the HBAC matrix.");
+
+ERRORCLASS(HbAcMagLength)
+    Id instance;
+    HbAcMagLength(Id instance) : instance(instance) {}
+    std::string format() const {
+        return "smag length exceeds spur length for instance '" + std::string(instance) + "'.";
+    }
+END_ERRORCLASS(HbAcMagLength);
+
+ERRORCLASS(HbAcPhaseLength)
+    Id instance;
+    HbAcPhaseLength(Id instance) : instance(instance) {}
+    std::string format() const {
+        return "sphase length exceeds spur length for instance '" + std::string(instance) + "'.";
+    }
+END_ERRORCLASS(HbAcPhaseLength);
+
+ERRORCLASS(HbAcSpurNotFound)
+    size_t spur;
+    Id instance;
+    HbAcSpurNotFound(size_t spur, Id instance) : spur(spur), instance(instance) {}
+    std::string format() const {
+        return "Spur #" + std::to_string(spur) + " specified for instance '" + std::string(instance) + "' not found.";
+    }
+END_ERRORCLASS(HbAcSpurNotFound);
+
+SIMPLE_ERRORCLASS(HbAcHbFailed, "HB analysis failed.");
+
+SIMPLE_ERRORCLASS(HbAcMatrixError, "HBAC matrix error.");
+
+SIMPLE_ERRORCLASS(HbAcSingularMatrix, "Matrix is close to singular.");
+
+SIMPLE_ERRORCLASS(HbAcSolutionNotFinite, "Solution component is not finite.");
+
+SIMPLE_ERRORCLASS(HbAcBadFrequency, "Frequency value cannot be converted to real.");
+
+SIMPLE_ERRORCLASS(HbAcSweepSetupFailed, "Failed to set up the HBAC frequency sweep.");
+
+SIMPLE_ERRORCLASS(HbAcSweepComputeFailed, "HBAC sweep point computation failed.");
+
+ERRORCLASS(HbAcSweepAborted)
+    double frequency;
+    HbAcSweepAborted(double frequency) : frequency(frequency) {}
+    std::string format() const {
+        if (frequency >= 0) {
+            return "Leaving frequency sweep at frequency=" + std::to_string(frequency) + ".";
+        }
+        return "Leaving frequency sweep.";
+    }
+END_ERRORCLASS(HbAcSweepAborted);
+
+
 class HBACCore : public AnalysisCore {
 public:
     typedef HBACParameters Parameters;
-    enum class HBACError {
-        OK, 
-        Sweeper, 
-        SweepCompute, 
-        MatrixError, 
-        SolutionError, 
-        HBError, 
-        SingularMatrix, 
-        BadFrequency, 
-        MagLength, 
-        PhaseLength, 
-        SpurNotFound, 
-    };
 
     typedef struct Excitation {
         Instance* source;
@@ -95,19 +156,16 @@ public:
     HBACCore& operator=(const HBACCore&)  = delete;
     HBACCore& operator=(      HBACCore&&) = delete;
 
-    // Format error, return false on error - this function is not cheap (works with strings)
-    bool formatError(Status& s=Status::ignore) const; 
+    bool addCoreOutputDescriptors(ErrorConsumer& errors);
+    bool addDefaultOutputDescriptors(ErrorConsumer& errors);
+    bool resolveOutputDescriptors(bool strict, ErrorConsumer& errors);
 
-    bool addCoreOutputDescriptors(Status& s);
-    bool addDefaultOutputDescriptors(Status& s);
-    bool resolveOutputDescriptors(bool strict, Status& s=Status::ignore);
-
-    bool rebuild(Status& s=Status::ignore); 
-    bool initializeOutputs(Id name, Status& s=Status::ignore);
-    bool run(bool continuePrevious);
-    CoreCoroutine coroutine(bool continuePrevious);
-    bool finalizeOutputs(Status& s=Status::ignore);
-    bool deleteOutputs(Id name, Status& s=Status::ignore);
+    bool rebuild(ErrorConsumer& errors);
+    bool initializeOutputs(Id name, ErrorConsumer& errors);
+    bool run(bool continuePrevious, ErrorConsumer& errors);
+    CoreCoroutine coroutine(bool continuePrevious, ErrorConsumer& errors);
+    bool finalizeOutputs(ErrorConsumer& errors);
+    bool deleteOutputs(Id name, ErrorConsumer& errors);
 
     void dump(std::ostream& os) const;
 
@@ -118,7 +176,7 @@ protected:
     // Bucket size is nf
 
     // Collect excitations
-    bool collectExcitations();
+    bool collectExcitations(ErrorConsumer& errors);
 
     // Excitations
     Vector<Excitation> excitations;
@@ -134,19 +192,6 @@ protected:
 
     // Build matrix
     void fillMatrix();
-
-    // Clear error
-    // errorFreq is read unconditionally by formatError() (outside the lastHBACError
-    // switch), so unlike the other auxiliary error fields it must be reset here to
-    // avoid a stale value leaking into errors raised before the frequency sweep.
-    void clearError() { AnalysisCore::clearError(); lastHBACError = HBACError::OK; errorFreq = -1.0; };
-
-    void setError(HBACError e) { lastHBACError = e; lastError = Error::OK; };
-    HBACError lastHBACError;
-    double errorFreq;
-    Status errorStatus;
-    Instance* errorInst;
-    size_t errorSpur;
 
     VectorRepository<Complex>& hbSolution;
     KluBlockSparseComplexMatrix& jacSpec;

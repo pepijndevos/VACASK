@@ -33,7 +33,8 @@ public:
     //           matrix is never offset-loaded and block() views of a missing
     //           block are never dereferenced past element 0.
     // All current users pass true.
-    KluBlockSparseMatrixCore(bool largeBucket=true);
+    // Resolver is installed via setResolver() (see KluMatrixCore); errors per-call.
+    KluBlockSparseMatrixCore(bool largeBucket = true);
     ~KluBlockSparseMatrixCore();
 
     KluBlockSparseMatrixCore           (const KluBlockSparseMatrixCore&)  = delete;
@@ -82,7 +83,8 @@ public:
     // Set elements to zero, clear error
     // If storageOnly is true the structures for accessing scalar entries (AP, AI) are not built. 
     // Such matrices cannot be factored/solved. 
-    bool rebuild(SparsityMap& m, EquationIndex n, EquationIndex nbRow, UnknownIndex nbCol, bool storageOnly=false);
+    bool rebuild(SparsityMap& m, EquationIndex n, EquationIndex nbRow, UnknownIndex nbCol, ErrorConsumer& ec,
+                 bool storageOnly=false);
 
     // Returns the linear nonzero element index coresponding to dense block
     // at block position mep (0-based), block element position blockMep (1-based). 

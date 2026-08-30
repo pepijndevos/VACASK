@@ -8,13 +8,17 @@
 
 namespace NAMESPACE {
 
+SIMPLE_ERRORCLASS(HbNrForcesError, "Failed to apply forces.");
+
+SIMPLE_ERRORCLASS(HbNrLoadForces, "Failed to load forces.");
+
 class HBNRSolver : public NRSolver {
 public:
     // No forces. 
     HBNRSolver(
-        Circuit& circuit, 
-        CommonData& commons, 
-        KluBlockSparseRealMatrix& jacColoc, 
+        Circuit& circuit,
+        CommonData& commons,
+        KluBlockSparseRealMatrix& jacColoc,
         KluBlockSparseRealMatrix& bsjac, 
         VectorRepository<double>& solution, 
         Vector<Complex>& solutionFD,
@@ -29,35 +33,23 @@ public:
         NRSettings& settings
     ); 
 
-    enum class HBNRSolverError {
-        OK, 
-        ForcesError, 
-        LoadForces, 
-    };
-
     // Format convergence
     virtual std::string formatConvergence() const override;
-    
-    // Clear error
-    void clearError() { NRSolver::clearError(); lastHBNRError = HBNRSolverError::OK; }; 
-
-    // Format error, return false on error - this function is not cheap (works with strings)
-    bool formatError(Status& s=Status::ignore, NameResolver* resolver=nullptr) const; 
 
     // Set forces based on an annotated solution
-    bool setForces(Int ndx, const AnnotatedSolution& solution, bool abortOnError);
+    bool setForces(Int ndx, const AnnotatedSolution& solution, bool abortOnError, ErrorConsumer& errors);
     
     virtual bool rebuild(size_t nSolComp);
-    virtual bool initialize(bool continuePrevious);
+    virtual bool initialize(bool continuePrevious, ErrorConsumer& errors);
     virtual bool preIteration(bool continuePrevious);
     virtual bool postSolve(bool continuePrevious);
     virtual bool postConvergenceCheck(bool continuePrevious);
     virtual bool postIteration(bool continuePrevious);
     virtual bool postRun(bool continuePrevious); 
     
-    bool evaluate(bool continuePrevious);
+    bool evaluate(bool continuePrevious, ErrorConsumer& errors);
     
-    virtual std::tuple<bool, bool> buildSystem(bool continuePrevious);
+    virtual std::tuple<bool, bool> buildSystem(bool continuePrevious, ErrorConsumer& errors);
     virtual std::tuple<bool, bool> checkResidual();
     virtual std::tuple<bool, bool> checkDelta();
     
@@ -69,7 +61,7 @@ public:
 protected:
     bool loadForces(bool loadJacobian=true); 
 
-    bool evalAndLoadWrapper(EvalSetup& evalSetup, LoadSetup& loadSetup);
+    bool evalAndLoadWrapper(EvalSetup& evalSetup, LoadSetup& loadSetup, ErrorConsumer& errors);
 
     CommonData& commons;
     
@@ -124,8 +116,6 @@ protected:
 
     DelayLines& delayLines_;
     DelayMatrixBindings<DenseMatrixView<double>>& delayBindings_;
-
-    HBNRSolverError lastHBNRError;
 };
 
 }

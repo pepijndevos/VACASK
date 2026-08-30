@@ -1131,14 +1131,13 @@ bool Circuit::collapseNodes(Node* n1, Node* n2, Status& s) {
     return true;
 }
 
-bool Circuit::usesIllegalDeviceFeatures(Device::Flags prohibitedFeatures, Device::Flags exceptions, Status& s) {
+bool Circuit::usesIllegalDeviceFeatures(Device::Flags prohibitedFeatures, Device::Flags exceptions, ErrorConsumer& ec) {
     for(size_t i=0; i<deviceCount(); i++) {
         auto* d = device(i);
         if (d->anyFlags(exceptions)) {
             continue;
         }
         if (d->instanceCount()>0 && d->anyFlags(prohibitedFeatures)) {
-            s.set(Status::Unsupported, "Device '"+std::string(d->name())+"' uses unsupported features");
             auto matched = d->flags() & prohibitedFeatures;
             std::string txt;
             if (bool(matched & DeviceFlags::Absdelay)) {
@@ -1150,7 +1149,7 @@ bool Circuit::usesIllegalDeviceFeatures(Device::Flags prohibitedFeatures, Device
             if (bool(matched & DeviceFlags::UsesAbstime)) {
                 txt += std::string((txt.size() ? ", " : "")) + "depends on time";
             }
-            s.extend("  "+txt);
+            ec.push(CircuitIllegalDeviceFeatures{d->name(), std::move(txt)});
             return true;
         }
     }
@@ -1379,7 +1378,7 @@ bool Circuit::bind(
     KluMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
     KluMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
     DelayLines* delayLines, 
-    Status& s
+    ErrorConsumer& ec
 ) {
     // Call bind() for all devices
     for(auto& dev : devices) {
@@ -1388,7 +1387,7 @@ bool Circuit::bind(
             matResist, compResist, mepResist, 
             matReact, compReact, mepReact, 
             delayLines, 
-            s
+            ec
         )) {
             return false;
         }
@@ -1408,7 +1407,7 @@ bool Circuit::applyInstanceFlags(Instance::Flags fClear, Instance::Flags fSet) {
     return true;
 }
 
-bool Circuit::evalAndLoad(CommonData& commons, EvalSetup* evalSetup, LoadSetup* loadSetup, bool (*deviceSelector)(Device*)) {
+bool Circuit::evalAndLoad(CommonData& commons, EvalSetup* evalSetup, LoadSetup* loadSetup, bool (*deviceSelector)(Device*), ErrorConsumer& errors) {
     auto t0 = Accounting::wclk();
     tables_.accounting().acctNew.evalload++; 
     
@@ -1459,7 +1458,7 @@ bool Circuit::evalAndLoad(CommonData& commons, EvalSetup* evalSetup, LoadSetup* 
             if constexpr(devacct) {
                 td0 = Accounting::wclk();
             }
-            if (!devPtr->evalAndLoad(*this, commons, evalSetup, loadSetup)) {
+            if (!devPtr->evalAndLoad(*this, commons, evalSetup, loadSetup, errors)) {
                 retval = false;
                 break;
             }

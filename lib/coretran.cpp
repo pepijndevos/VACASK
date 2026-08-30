@@ -282,18 +282,18 @@ TranCore::~TranCore() {
     delete outfile;
 }
 
-bool TranCore::addDefaultOutputDescriptors(Status& s) {
+bool TranCore::addDefaultOutputDescriptors(ErrorConsumer& errors) {
     // If output is suppressed, skip all this work
     if (!params.write || Simulator::noOutput()) {
         return true;
     }
     if (savesCount==0) {
-        return addAllUnknowns(PTSave("default", Id(), Id()), s);
+        return addAllUnknowns(PTSave("default", Id(), Id()), errors);
     }
     return true;
 }
 
-bool TranCore::resolveOutputDescriptors(bool strict, Status& s) {
+bool TranCore::resolveOutputDescriptors(bool strict, ErrorConsumer& errors) {
     // Clear output sources
     outputSources.clear();
     // Resolve output descriptors
@@ -303,17 +303,17 @@ bool TranCore::resolveOutputDescriptors(bool strict, Status& s) {
         Instance *inst;
         switch (it->type) {
         case OutdSolComponent:
-            ok = addRealVarOutputSource(strict, it->id, solution, it->id, s);
+            ok = addRealVarOutputSource(strict, it->id, solution, it->id, errors);
             break;
         case OutdOutvar:
-            ok = addOutvarOutputSource(strict, it->idId.id1, it->idId.id2, it->name, s);
+            ok = addOutvarOutputSource(strict, it->idId.id1, it->idId.id2, it->name, errors);
             break;
         case OutdTime:
             outputSources.emplace_back(&(nrSolver.evalSetup().time), it->name);
             break;
         default:
             // Delegate to parent
-            ok = parentResolver.resolveOutputDescriptor(*it, outputSources, strict, s);
+            ok = parentResolver.resolveOutputDescriptor(*it, outputSources, strict, errors);
             break;
         }
         if (!ok) {
@@ -323,46 +323,46 @@ bool TranCore::resolveOutputDescriptors(bool strict, Status& s) {
     return ok;
 }
 
-bool TranCore::addCoreOutputDescriptors(Status& s) {
+bool TranCore::addCoreOutputDescriptors(ErrorConsumer& errors) {
     // If output is suppressed, skip all this work
     if (!params.write || Simulator::noOutput()) {
         return true;
     }
     
     if (!addOutputDescriptor(OutputDescriptor(OutdTime, "time"))) {
-        s.set(Status::Analysis, std::string("Failed to add output descriptor for time."));
+        errors.push(CoreAddOutputDescriptor{"time"});
         return false;
     }
     return true;
 }
 
-std::tuple<bool, bool> TranCore::preMapping(Status& s) {
-    // Go through ics. Decode, set, and check delta part. 
+std::tuple<bool, bool> TranCore::preMapping(ErrorConsumer& errors) {
+    // Go through ics. Decode, set, and check delta part.
     // No need to check unknowns part because diagonal entries are
-    // always allocated by Circuit. 
+    // always allocated by Circuit.
     auto& icParam = params.ic;
     if (icParam.type()==Value::Type::String) {
-        // It is a string. 
-        // Will retrieve DC solution and set it as nodeset. 
-        // Nothing to do here because DC solutions do not introduce delta foces. 
+        // It is a string.
+        // Will retrieve DC solution and set it as nodeset.
+        // Nothing to do here because DC solutions do not introduce delta foces.
         return std::make_tuple(true, false);
     } else if (icParam.type()==Value::Type::ValueVec) {
         // It is a list
         // Retrieve it and check if we need extra matrix entries
         auto& valVec = icParam.val<ValueVector>();
-        auto [ok, needsMapping] = preprocessedIc.set(circuit, valVec, s);
+        auto [ok, needsMapping] = preprocessedIc.set(circuit, valVec, errors);
         if (!ok) {
-            s.extend("Failed to preprocess initial conditions.");
+            errors.push(TranIcPreprocessFailed{});
         }
         return std::make_tuple(ok, needsMapping);
     } else {
         // Unsupported type, signal an error.
-        s.set(Status::BadArguments, "Initial conditions must be a list or a string.");
+        errors.push(TranIcType{});
         return std::make_tuple(false, false);
     }
 }
 
-bool TranCore::populateStructures(Status& s) {
+bool TranCore::populateStructures(ErrorConsumer& errors) {
     // Go through node pairs and add entries to sparsity map
     for(auto& pair : preprocessedIc.nodePairs) {
         auto [node1, node2] = pair;
@@ -370,13 +370,19 @@ bool TranCore::populateStructures(Status& s) {
             // One of the two nodes was not found, ignore pair
             continue;
         }
-        
+
         // IC forces are all resistive
+        // We need status to collect the error messages from a function that
+        // primarily faces the user and communicates through Status. 
+        // We wrap the error message in an error class. 
+        Status s;
         if (auto [_, ok] = circuit.createJacobianEntry(node1, node2, EntryFlags::Resistive, s); !ok) {
+            errors.push(TranIcEntryError{s.message()});
             return false;
         }
-        
+
         if (auto [_, ok] = circuit.createJacobianEntry(node2, node1, EntryFlags::Resistive, s); !ok) {
+            errors.push(TranIcEntryError{s.message()});
             return false;
         }
     }
@@ -384,14 +390,13 @@ bool TranCore::populateStructures(Status& s) {
     return true;
 }
 
-bool TranCore::rebuild(Status& s) {
-    clearError();
+bool TranCore::rebuild(ErrorConsumer& errors) {
     // We are using the same Jacobian as operating point analysis
 
     // Bind Jacobian entries
     // OperatingPointCore has bound the resistive part of the Jacobian
-    // Let's bind the reactive part 
-    if (!circuit.bind(nullptr, Component::Real, std::nullopt, &jacobian, Component::Real, std::nullopt, nullptr, s)) {
+    // Let's bind the reactive part
+    if (!circuit.bind(nullptr, Component::Real, std::nullopt, &jacobian, Component::Real, std::nullopt, nullptr, errors)) {
         return false;
     }
 
@@ -453,11 +458,9 @@ bool TranCore::rebuild(Status& s) {
             } else {
                 // Initial conditions from solution repository
                 // if (!opCore_.solver().forces(2).set(circuit, *solPtr, strictforce)) {
-                if (!opCore_.solver().setForces(2, *solPtr, strictforce)) {
-                    // Abort on error if strictforce is set
+                if (!opCore_.solver().setForces(2, *solPtr, strictforce, errors)) {
+                    // Abort on error if strictforce is set (setForces has pushed the detail onto the error stack)
                     if (strictforce) {
-                        auto nr = UnknownNameResolver(circuit);
-                        opCore_.solver().formatError(s, &nr);
                         return false;
                     }
                     Simulator::wrn() << "Warning, setting IC forces from solution '"+solutionName+"' failed.\n";
@@ -474,11 +477,9 @@ bool TranCore::rebuild(Status& s) {
         // opCore_ solver slot 2 holds IC forces treated in OP mode 
         // ({"1", "2", 5.0} is treated as a delta force)
         bool uicMode = false;
-        if (!opCore_.solver().setForces(2, preprocessedIc, uicMode, strictforce)) {
-            // Abort on error if strictforce is set
+        if (!opCore_.solver().setForces(2, preprocessedIc, uicMode, strictforce, errors)) {
+            // Abort on error if strictforce is set (setForces has pushed the detail onto the error stack)
             if (strictforce) {
-                auto nr = UnknownNameResolver(circuit);
-                opCore_.solver().formatError(s, &nr);
                 return false;
             }
             Simulator::wrn() << "Warning, setting IC forces failed.\n";
@@ -486,13 +487,13 @@ bool TranCore::rebuild(Status& s) {
         }
     } else {
         // Error
-        s.set(Status::BadArguments, "Initial conditions must be a list or a string.");
+        errors.push(TranIcType{});
         return false;
     }
 
     // Rebuild transient NR solver structures
     if (!nrSolver.rebuild(circuit.unknownCount())) {
-        s.set(Status::NonlinearSolver, "Failed to rebuild internal structures of nonlinear solver.");
+        errors.push(TranNrRebuildFailed{});
         return false;
     }
 
@@ -501,7 +502,7 @@ bool TranCore::rebuild(Status& s) {
     return true;
 }
 
-bool TranCore::initializeOutputs(const std::string& name, Status& s) {
+bool TranCore::initializeOutputs(const std::string& name, ErrorConsumer& errors) {
     if (!params.write || Simulator::noOutput()) {
         return true;
     }
@@ -519,7 +520,7 @@ bool TranCore::initializeOutputs(const std::string& name, Status& s) {
     return true;
 }
 
-bool TranCore::finalizeOutputs(Status& s) {
+bool TranCore::finalizeOutputs(ErrorConsumer& errors) {
     if (outfile) {
         outfile->epilogue();
         delete outfile;
@@ -537,7 +538,7 @@ bool TranCore::finalizeOutputs(Status& s) {
     return true;
 }
 
-bool TranCore::deleteOutputs(Id name, Status& s) {
+bool TranCore::deleteOutputs(Id name, ErrorConsumer& errors) {
     if (!params.write || Simulator::noOutput()) {
         return true;
     }
@@ -550,11 +551,10 @@ bool TranCore::deleteOutputs(Id name, Status& s) {
     return true;
 }
 
-bool TranCore::evalAndLoadWrapper(EvalSetup& evalSetup, LoadSetup& loadSetup) {
-    clearError();
-    if (!circuit.evalAndLoad(commons, &evalSetup, &loadSetup, nullptr)) {
+bool TranCore::evalAndLoadWrapper(EvalSetup& evalSetup, LoadSetup& loadSetup, ErrorConsumer& errors) {
+    if (!circuit.evalAndLoad(commons, &evalSetup, &loadSetup, nullptr, errors)) {
         // Load error
-        setError(TranError::EvalAndLoad);
+        errors.push(TranEvalAndLoadFailed{});
         if (circuit.simulatorOptions().core().tran_debug>0) {
             Simulator::dbg() << "Evaluation error.\n";
         }
@@ -626,8 +626,7 @@ std::tuple<size_t, size_t, size_t> TranCore::countNoiseSources() const {
     return std::make_tuple(nWhite, nFlicker, maxNsCount);
 }
 
-CoreCoroutine TranCore::coroutine(bool continuePrevious) {
-    clearError();
+CoreCoroutine TranCore::coroutine(bool continuePrevious, ErrorConsumer& errors) {
 
     const double pi = std::numbers::pi;
 
@@ -649,18 +648,18 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
 
     // Check parameters
     if (params.stop<0) {
-        setError(TranError::Tstop);
+        errors.push(TranTstopNegative{});
         co_yield CoreState::Aborted;
     }
 
     // Recording start must be before stop, unless stop is 0
     if (params.start>=params.stop && params.stop>0) {
-        setError(TranError::Tstart);
+        errors.push(TranTstartAfterStop{});
         co_yield CoreState::Aborted;
     }
 
     if (params.maxstep<0) {
-        setError(TranError::Maxstep);
+        errors.push(TranMaxstepNegative{});
         co_yield CoreState::Aborted;
     }
 
@@ -681,8 +680,7 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
         maxOrder = 2;
         integCoeffs.setMethod(IntegratorCoeffs::Method::BDF, maxOrder, options.tran_xmu);
     } else {
-        setError(TranError::Method);
-        errorId = options.tran_method;
+        errors.push(TranMethodUnknown{options.tran_method});
         co_yield CoreState::Aborted;
     }
 
@@ -697,20 +695,20 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
     if (noisefmax) {
         // Check noise mode
         if (params.noisemode!=noiseZoh && params.noisemode!=noiseSde) {
-            setError(TranError::NoiseMode);
+            errors.push(TranNoiseModeUnknown{});
             co_yield CoreState::Aborted;
         }
 
         // Check noisefmax
         if (noisefmax<0) {
-            setError(TranError::Fmax);
+            errors.push(TranNoisefmaxNegative{});
             co_yield CoreState::Aborted;
         }
 
         // Check oversample
         double oversampling = params.oversample;
         if (oversampling<1) {
-            setError(TranError::Oversample);
+            errors.push(TranOversampleTooSmall{});
             co_yield CoreState::Aborted;
         }
 
@@ -726,7 +724,7 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
 
         // Check noisefmin
         if (noisefmin>=noisefmax) {
-            setError(TranError::Fmin);
+            errors.push(TranNoisefminTooHigh{});
             co_yield CoreState::Aborted;
         }
 
@@ -749,7 +747,7 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
             auto ktune = k;
             if (k>63) {
                 // Too many rows
-                setError(TranError::Rows);
+                errors.push(TranNoiseRowsExceeded{});
                 co_yield CoreState::Aborted;
             }
 
@@ -883,8 +881,8 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
             opCore_.solver().enableForces(icForcesSlot, true);    
         }
         // Run op analysis
-        if (!opCore_.run(opContinuePrevious)) {
-            setError(TranError::OperatingPointError);
+        if (!opCore_.run(opContinuePrevious, errors)) {
+            errors.push(TranOperatingPointFailed{});
             co_yield CoreState::Aborted;
         }
         // Copy solution to transient solution
@@ -916,10 +914,10 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
                 // Get solution from repository
                 auto solPtr = circuit.storedSolution(solutionName);    
                 if (solPtr && solPtr->typeTag()==OperatingPointCore::solutionTag) {
-                    if (!nrSolver.setForces(2, *solPtr, strictforce)) {
+                    if (!nrSolver.setForces(2, *solPtr, strictforce, errors)) {
                         // Abort on error if strictforce is set
                         if (strictforce) {
-                            setError(TranError::NRSolver);
+                            errors.push(TranNrSolverFailed{});
                             co_yield CoreState::Aborted;
                         }
                         Simulator::wrn() << "Warning, setting IC forces from solution '"+solutionName+"' failed.\n";
@@ -929,10 +927,10 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
             }
         } else if (icParam.type()==Value::Type::ValueVec) {
             // IC is given as a list of user-defined ICs
-            if (!nrSolver.setForces(2, preprocessedIc, uicMode, strictforce)) {
+            if (!nrSolver.setForces(2, preprocessedIc, uicMode, strictforce, errors)) {
                 // Abort on error if strictforce is set
                 if (strictforce) {
-                    setError(TranError::NRSolver);
+                    errors.push(TranNrSolverFailed{});
                     co_yield CoreState::Aborted;
                 }
                 Simulator::wrn() << "Warning, setting IC forces failed.\n";
@@ -946,7 +944,7 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
         // Copy node forces from transient core's solver slot 2 to solution vector
         solution.vector() = nrSolver.forces(2).unknownValue_;
     } else {
-        setError(TranError::IcMode);
+        errors.push(TranIcModeUnknown{});
         co_yield CoreState::Aborted;
     }
     // opCore_.dump(Simulator::dbg()); Simulator::dbg() << "\n";
@@ -1013,15 +1011,14 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
     states.futureVector() = states.vector();
     // Evaluate and load residual and residual derivative in future slot
     // allowBypass is false by default so no bypass takes place
-    if (!evalAndLoadWrapper(esInit, lsInit)) {
+    if (!evalAndLoadWrapper(esInit, lsInit, errors)) {
         // Error was already set in the wrapper
         co_yield CoreState::Aborted;
     }
     // First buildNoiseResidual() call just prepares flicker noise coefficients
     // Noise samples are all 0 so the generated residual contribution would also be 0. 
     if (noisefmax) {
-        if (!nrSolver.collectNoiseScaling()) {
-            setError(TranError::NRSolver);
+        if (!nrSolver.collectNoiseScaling(errors)) {
             co_yield CoreState::Aborted;
         }
     }
@@ -1130,9 +1127,8 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
     // At this point solutiom at t=0 is accepted
     // Advance transient noise generators
     if (noisefmax) {
-        auto [ok, changed] = nrSolver.advanceNoise(tSolve, hk, randomGenerator);
+        auto [ok, changed] = nrSolver.advanceNoise(tSolve, hk, randomGenerator, errors);
         if (!ok) {
-            setError(TranError::NRSolver);
             co_yield CoreState::Aborted;
         }
     }
@@ -1201,12 +1197,12 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
         integCoeffs.setOrder(order);
         bool havePredictor = pointsSinceLastDiscontinuity>=predictorCoeffs.minimalPredictorHistory(); // ???
         if (havePredictor && !(predictorCoeffs.compute(pastTimesteps, hk) && predictorCoeffs.scalePredictor(hk))) {
-            setError(TranError::Predictor);
+            errors.push(TranPredictorFailed{});
             co_yield CoreState::Aborted;
         }
         // Integrator coeffs must be scaled
         if (!(integCoeffs.compute(pastTimesteps, hk) && integCoeffs.scaleDifferentiator(hk))) {
-            setError(TranError::Corrector);
+            errors.push(TranCorrectorFailed{});
             co_yield CoreState::Aborted;
         }
 
@@ -1252,8 +1248,11 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
         // Prepare differentiator history, first past state is at offset 1 (we are using slots 1, 2, ...)
         integCoeffs.prepareDifferentiatorHistory(states, 1);
 
-        // Solve
-        auto solutionOk = nrSolver.run(true);
+        // Solve. A convergence failure here is not fatal - the step is rejected
+        // and retried with a smaller timestep - so start from an empty stack and
+        // only keep whatever this solve reports.
+        errors.clear();
+        auto solutionOk = nrSolver.run(true, errors);
         // Simulator::out() << "  Solver iterations: " << nrSolver.iterations() << "\n";
         if (!solutionOk) {
             // Solver failed. Did we have an Abort request? 
@@ -1269,8 +1268,8 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
         // Solution is OK, solve for negative noise contribution
         // computeNoiseContribution can be active only in transient noise analysis
         if (solutionOk && computeNoiseContribution) {
-            if (!nrSolver.computeNoiseSolutionContribution()) {
-                setError(TranError::NRSolver);
+            if (!nrSolver.computeNoiseSolutionContribution(errors)) {
+                errors.push(TranNrSolverFailed{});
                 co_yield CoreState::Aborted;
             }
             // Compute noiseless solution
@@ -1438,12 +1437,7 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
             // Reduce integration order to 1
             newOrder = 1;
             if (debug>0) {
-                if (debug>0) {
-                    Status tmps;
-                    auto nr = UnknownNameResolver(circuit);
-                    nrSolver.formatError(tmps, &nr);
-                    Simulator::out() << tmps.message() << "\n";
-                }
+                Simulator::out() << errors.format() << "\n";
                 Simulator::dbg() << "  Solver failed, will reject point.\n";
             }
         } else if (!havePredictor) {
@@ -1535,12 +1529,12 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
                         // Maximum over all unknowns, maximum over past timepoints
                         tolref = nrSolver.globalMaxSolution()[ndx];
                     } else {
-                        setError(TranError::BadLteReference);
+                        errors.push(TranBadLteReference{});
                         co_yield CoreState::Aborted;
                     }
                     tol = std::max(std::fabs(tolref*options.reltol), commons.unknown_abstol[i]);
                 } else {
-                    setError(TranError::BadLteReference);
+                    errors.push(TranBadLteReference{});
                     co_yield CoreState::Aborted;
                 }
 
@@ -1669,7 +1663,7 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
             // If not, panic
             if (tk<breakPoints.at(1) || tk>breakPoints.at(0)) {
                 DBGCHECK(true, "Internal breakpoint handling error at rejection, t="+std::to_string(tk)+".");
-                setError(TranError::BreakPointPanic);
+                errors.push(TranBreakpointPanic{});
                 co_yield CoreState::Aborted;
             }
             // Is next break point after tk
@@ -1801,12 +1795,12 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
             // sensitivity integrator must replay integCoeffs with the same
             // order that was in effect when this step was accepted.
             // This is a customization function.
-            // User is responsible for setting the error code and handling it during formatting.
+            // A subclass reports its own failure by pushing onto errors.
             // Called before pastTimesteps/tk are updated below, so a
             // subclass reading getIntegCoeffs()/getPastTimesteps() here sees
             // exactly the state compute() used for this step - not a buffer
             // that has already been advanced past it.
-            if (!onTimestepAccepted(tSolve, hk, order)) {
+            if (!onTimestepAccepted(tSolve, hk, order, errors)) {
                 co_yield CoreState::Aborted;
             }
 
@@ -1825,9 +1819,8 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
 
             // Advance transient noise generators
             if (noisefmax) {
-                auto [ok, changed] = nrSolver.advanceNoise(tSolveNew, hkNew, randomGenerator);
+                auto [ok, changed] = nrSolver.advanceNoise(tSolveNew, hkNew, randomGenerator, errors);
                 if (!ok) {
-                    setError(TranError::NRSolver);
                     co_yield CoreState::Aborted;
                 }
             }
@@ -1879,7 +1872,7 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
         
         // Check for timestep too small
         if (hk<tSolve*timeRelativeTolerance) {
-            setError(TranError::TimestepTooSmall);
+            errors.push(TranTimestepTooSmall{});
             co_yield CoreState::Aborted;
         }
 
@@ -1900,8 +1893,8 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious) {
     co_yield CoreState::Finished;
 }
 
-bool TranCore::run(bool continuePrevious) {
-    auto c = coroutine(continuePrevious);
+bool TranCore::run(bool continuePrevious, ErrorConsumer& errors) {
+    auto c = coroutine(continuePrevious, errors);
     bool ok = true;
     while (!c.done()) {
         if (c.resume()==CoreState::Aborted) {
@@ -1911,80 +1904,6 @@ bool TranCore::run(bool continuePrevious) {
     }
     return ok;
 }
-
-bool TranCore::formatError(Status& s) const {
-    auto nr = UnknownNameResolver(circuit);
-    std::stringstream ss;
-    ss << std::scientific << std::setprecision(4);
-    
-    // First, handle AnalysisCore errors
-    if (lastError!=Error::OK) {
-        AnalysisCore::formatError(s);
-        return false;
-    }
-    
-    // Then handle TranCore errors
-    switch (lastTranError) {
-        case TranError::EvalAndLoad:
-            s.set(Status::Analysis, "Initial state evaluation failed.");
-            break;
-        case TranError::MatrixError:
-            jacobian.formatError(s, &nr);
-            break;
-        case TranError::OperatingPointError:
-            opCore_.formatError(s);
-            break;
-        case TranError::NRSolver:
-            nrSolver.formatError(s, &nr);
-            break;
-        case TranError::Tstop: 
-            s.set(Status::Analysis, "Transient stop time must not be negative.");
-            break;
-        case TranError::Tstart: 
-            s.set(Status::Analysis, "Transient recording start time is after stop time.");
-            break;
-        case TranError::Maxstep: 
-            s.set(Status::Analysis, "Transient maximal step time must not be negative. ");
-            break;
-        case TranError::NoiseMode: 
-            s.set(Status::Analysis, "Unknown transient noise mode.");
-            break;
-        case TranError::Fmin: 
-            s.set(Status::Analysis, "Transient noisefmin must be below noisefmax.");
-            break;
-        case TranError::Fmax: 
-            s.set(Status::Analysis, "Transient noisefmax must not be negative.");
-            break;
-        case TranError::Oversample: 
-            s.set(Status::Analysis, "Transient oversample must be >=1.");
-            break;
-        case TranError::Method: 
-            s.set(Status::Analysis, "Unknown integration method '"+std::string(errorId)+"'.");
-            break;
-        case TranError::IcMode: 
-            s.set(Status::Analysis, "Unknown initial conditions mode.");
-            break;
-        case TranError::Predictor:
-            s.set(Status::Analysis, "Failed to compute predictor coefficients.");
-            break;
-        case TranError::Corrector: 
-            s.set(Status::Analysis, "Failed to compute integrator coefficients.");
-            break;
-        case TranError::TimestepTooSmall: 
-            s.set(Status::Analysis, "Timestep too small. Transient analysis aborted.");
-            break;
-        case TranError::BadLteReference: 
-            s.set(Status::Analysis, "Unsupported relreflte value.");
-            break;
-        case TranError::BreakPointPanic: 
-            s.set(Status::Analysis, "Panic in breakpoint handling.");
-            break;
-        default:
-            return true;
-    }
-    return false;
-}
-
 
 void TranCore::dump(std::ostream& os) const {
     AnalysisCore::dump(os);
