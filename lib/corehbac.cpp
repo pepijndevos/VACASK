@@ -504,7 +504,7 @@ bool HBACCore::collectExcitations() {
                     continue;
                 }
 
-                excitations.push_back(Excitation(inst, {}, {}));
+                excitations.push_back(Excitation{inst, {}, {}});
                 for(decltype(nSpurs) i=0; i<nSpurs; i++) {
                     auto [ok, ndx] = spurs_.smsigFreqIndex(spurs[i]);
                     if (!ok) {
