@@ -100,6 +100,7 @@ jobs:
         run: ci/bundle.sh --openvaf-dir "$OPENVAF_DIR"
 
       - name: Upload build artifacts
+        if: always()
         uses: actions/upload-artifact@v6
         with:
           name: vacask-${{ matrix.os }}

@@ -25,6 +25,7 @@ case "$OS" in
         cmake ninja-build \
         bison flex flex-devel \
         suitesparse-devel \
+        blas-devel lapack-devel \
         llvm-devel clang clang-devel
       # The simulator spawns "python3" from PATH at runtime (see libplatform.cpp)
       # to run test control blocks that import numpy/scipy. AlmaLinux's python3
@@ -42,6 +43,7 @@ case "$OS" in
         cmake ninja-build \
         bison flex libfl-dev \
         libsuitesparse-dev \
+      libblas-dev liblapack-dev \
         llvm-dev libclang-dev clang \
         python3 python3-numpy python3-scipy
       BOOST_TOOLSET=clang
