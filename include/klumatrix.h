@@ -302,20 +302,6 @@ public:
     using Symbolic = typename std::conditional<std::is_same<int32_t,IndexType>::value, klu_symbolic, klu_l_symbolic>::type;
     using Numeric = typename std::conditional<std::is_same<int32_t,IndexType>::value, klu_numeric, klu_l_numeric>::type;
 
-    enum class Error {
-        OK, 
-        Defaults, 
-        Analysis, 
-        Factorization, 
-        Refactorization, 
-        ReciprocalPivotGrowth, 
-        ReciprocalCondEstimate, 
-        MatrixInfNan, 
-        VectorInfNan, 
-        MulVecSizeMismatch, 
-        Solve
-    };
-    
     // Every method that can fail takes an ErrorConsumer& to report through
     // (a default-constructed one is a silent sink). A NameResolver, used to turn
     // an offending row/column index into a node name when an error is built, can
@@ -347,10 +333,6 @@ public:
     void setResolver(NameResolver* resolver) { resolver_ = resolver; }
     NameResolver* resolver() const { return resolver_; }
 
-    // Format error, return false on error - this function is not cheap (works with strings)
-    // A null resolver falls back to the one stored in the matrix.
-    bool formatError(Status& s=Status::ignore, NameResolver* resolver=nullptr) const;
-
     // (row, col) of the nonzero at value-array index idx, or (-1, -1) if the
     // sparsity pattern is not available (storage-only matrix).
     std::tuple<IndexType, IndexType> elementAt(IndexType idx) const {
@@ -363,15 +345,6 @@ public:
         }
         return std::make_tuple(-1, -1);
     }
-
-    // Error element
-    std::tuple<IndexType, IndexType> errorElement() const { return elementAt(errorIndex); }
-
-    // Error row
-    IndexType errorRow() const { return errorIndex; }; 
-
-    // Error row
-    IndexType errorRank() const { return errorRank_; };
 
     // Rebuild it based on the given sparsity map, set to zero, clear error
     bool rebuild(SparsityMap& m, EquationIndex n, ErrorConsumer& ec);
@@ -513,14 +486,6 @@ protected:
     // MatrixAccess: writes are discarded, reads are meaningless. Never zeroed
     // after rebuild() and aliased by every missing position.
     ValueType bucket_;
-
-    // Clear error
-    void clearError() { lastError = Error::OK; }; 
-
-    Error lastError;
-    IndexType errorIndex;
-    IndexType errorRank_;
-    bool errorNan;
 };
 
 // KluMatrixCore does not include a MatrixAcces interface

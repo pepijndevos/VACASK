@@ -7,7 +7,6 @@
 #include "platform.h"
 #include "cmd.h"
 #include "config.h"
-#include "errorstack.h"
 #include "common.h"
 #include <filesystem>
 #include <unordered_set>
@@ -45,8 +44,6 @@ int main(int argc, char**argv) {
     bool noOutput = false;
     std::string extraTomlFile;
     std::string tomlFile;
-
-    auto a = error_registry();
 
     // Simulator information
     Simulator::out() << 

@@ -105,8 +105,8 @@ END_ERRORCLASS(OpNrBadResidualReference);
 // in explicitly, so the text can be produced without an OpNRSolver instance.
 std::string formatOpConvergence(
     bool preventedConvergence, bool iterationConverged,
-    bool residualCheck, double maxResidual, bool residualWithinTol, Id maxResidualNode,
-    Int iteration, double maxDelta, bool deltaWithinTol, Id maxDeltaNode
+    bool residualCheckValid, double maxResidual, bool residualWithinTol, Id maxResidualNode,
+    bool deltaCheckValid, double maxDelta, bool deltaWithinTol, Id maxDeltaNode
 );
 
 // Carries a full snapshot of the convergence state so the report can be
@@ -114,29 +114,29 @@ std::string formatOpConvergence(
 ERRORCLASS(OpNrConvergenceReport)
     bool preventedConvergence;
     bool iterationConverged;
-    bool residualCheck;
+    bool residualCheckValid;
     double maxResidual;
     bool residualWithinTol;
     Id maxResidualNode;
-    Int iteration;
+    bool deltaCheckValid;
     double maxDelta;
     bool deltaWithinTol;
     Id maxDeltaNode;
 
     OpNrConvergenceReport(
         bool preventedConvergence, bool iterationConverged,
-        bool residualCheck, double maxResidual, bool residualWithinTol, Id maxResidualNode,
-        Int iteration, double maxDelta, bool deltaWithinTol, Id maxDeltaNode
+        bool residualCheckValid, double maxResidual, bool residualWithinTol, Id maxResidualNode,
+        bool deltaCheckValid, double maxDelta, bool deltaWithinTol, Id maxDeltaNode
     ) : preventedConvergence(preventedConvergence), iterationConverged(iterationConverged),
-        residualCheck(residualCheck), maxResidual(maxResidual), residualWithinTol(residualWithinTol),
-        maxResidualNode(maxResidualNode), iteration(iteration), maxDelta(maxDelta),
+        residualCheckValid(residualCheckValid), maxResidual(maxResidual), residualWithinTol(residualWithinTol),
+        maxResidualNode(maxResidualNode), deltaCheckValid(deltaCheckValid), maxDelta(maxDelta),
         deltaWithinTol(deltaWithinTol), maxDeltaNode(maxDeltaNode) {}
 
     std::string format() const {
         return formatOpConvergence(
             preventedConvergence, iterationConverged,
-            residualCheck, maxResidual, residualWithinTol, maxResidualNode,
-            iteration, maxDelta, deltaWithinTol, maxDeltaNode
+            residualCheckValid, maxResidual, residualWithinTol, maxResidualNode,
+            deltaCheckValid, maxDelta, deltaWithinTol, maxDeltaNode
         );
     }
 END_ERRORCLASS(OpNrConvergenceReport);
@@ -275,13 +275,15 @@ protected:
     //   1 .. current
     
     // Convergence check auxiliary results
-    double maxResidual; 
-    double maxNormResidual; 
+    bool residualCheckValid;
+    double maxResidual;
+    double maxNormResidual;
     double l2normResidual2;
     Node* maxResidualNode;
     bool residualWithinTol;
-    double maxDelta; 
-    double maxNormDelta; 
+    bool deltaCheckValid;
+    double maxDelta;
+    double maxNormDelta;
     Node* maxDeltaNode;
     bool deltaWithinTol;
 };

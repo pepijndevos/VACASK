@@ -304,7 +304,12 @@ CoreCoroutine DCXFCore::coroutine(bool continuePrevious, ErrorConsumer& errors) 
     
     setProgress(1);
 
-    co_yield CoreState::Finished;
+    if (error) {
+        co_yield CoreState::Aborted;
+    } else {
+        co_yield CoreState::Finished;
+    }
+    
 }
 
 bool DCXFCore::run(bool continuePrevious, ErrorConsumer& errors) {

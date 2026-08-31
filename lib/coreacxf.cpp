@@ -42,14 +42,16 @@ ACXFCore::ACXFCore(
     DelayLines& delayLines, DelayMatrixBindings<Complex*>& delayBindings
 ) : AnalysisCore(parentResolver, circuit, commons), params(params), outfile(nullptr), opCore_(opCore), sourceIndex(sourceIndex), 
     dcSolution(dcSolution), dcStates(dcStates), dcJacobian(dcJacobian), 
-    acMatrix(acMatrix), acSolution(acSolution), sources(sources), tf(tf), yin(yin), zin(zin), 
-    delayLines_(delayLines), delayBindings_(delayBindings) {
-    
+    acMatrix(acMatrix), acSolution(acSolution), sources(sources), tf(tf), yin(yin), zin(zin),
+    delayLines_(delayLines), delayBindings_(delayBindings), resolver_(circuit) {
+
     // Set analysis type for the initial operating point analysis
     auto& elsSystem = opCore_.solver().evalSetup();
     elsSystem.staticAnalysis = true;
     elsSystem.dcAnalysis = false;
     elsSystem.acAnalysis = true;
+
+    acMatrix.setResolver(&resolver_);
 }
 
 ACXFCore::~ACXFCore() {
@@ -390,7 +392,6 @@ CoreCoroutine ACXFCore::coroutine(bool continuePrevious, ErrorConsumer& errors) 
         // Check if matrix entries are finite, no need to check RHS 
         // since we loaded it without any computation (i.e. we only used mag and phase)
         if (options.matrixcheck && !acMatrix.isFinite(true, true, errors)) {
-            auto nr = UnknownNameResolver(circuit);
             errors.push(AcxfMatrixError{});
             if (debug>2) {
                 Simulator::dbg() << "A matrix entry is not finite.\n";

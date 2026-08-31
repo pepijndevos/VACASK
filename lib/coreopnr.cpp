@@ -154,7 +154,8 @@ OpNRSolver::OpNRSolver(
     NRSettings& settings, Int forcesSize
 ) : circuit(circuit), commons(commons), states(states),
     NRSolver(circuit.tables().accounting(), jac, solution, settings, 1),
-    delayLines_(delayLines), delayBindings_(delayBindings) {
+    delayLines_(delayLines), delayBindings_(delayBindings),
+    residualCheckValid(false), deltaCheckValid(false) {
     // Bucket size is 1
     // Slot 0 is for sweep continuation and homotopy (set via CoreStateStorage object)
     // Slot 1 is 
@@ -546,7 +547,11 @@ bool OpNRSolver::initialize(bool continuePrevious, ErrorConsumer& errors) {
         errors.push(OpNrBadResidualReference(options.relrefres));
         return false;
     }
-    
+
+    // No residual/delta check performed yet this run
+    residualCheckValid = false;
+    deltaCheckValid = false;
+
     return true;
 }
 
@@ -744,7 +749,7 @@ std::tuple<bool, bool> OpNRSolver::buildSystem(bool continuePrevious, ErrorConsu
             Simulator::dbg() << "Failed to load forced values at iteration " << iteration << "\n";
         }
         errors.push(OpNrLoadForcesError{});
-        std::make_tuple(false, evalSetup_.limitingApplied);
+        return std::make_tuple(false, evalSetup_.limitingApplied);
     }
 
     // Prevent convergence if limiting was applied
@@ -867,7 +872,11 @@ std::tuple<bool, bool> OpNRSolver::checkResidual() {
     maxNormResidual = 0.0;
     l2normResidual2 = 0.0;
     maxResidualNode = nullptr;
-    
+
+    // From here on maxResidual/maxResidualNode hold well-defined values, so
+    // the convergence report can safely include them.
+    residualCheckValid = true;
+
     // Assume residual is OK
     residualWithinTol = true;
     
@@ -969,14 +978,18 @@ std::tuple<bool, bool> OpNRSolver::checkDelta() {
     maxDelta = 0.0;
     maxNormDelta = 0.0;
     maxDeltaNode = nullptr;
-    
-    // Check convergence (see if delta is small enough), 
+
+    // From here on maxDelta/maxDeltaNode hold well-defined values, so the
+    // convergence report can safely include them.
+    deltaCheckValid = true;
+
+    // Check convergence (see if delta is small enough),
     // but only if this is iteration 2 or later
     // In iteration 1 assume we did not converge
-    
+
     // Assume we converged
     deltaWithinTol = true;
-    
+
     double* xdelta = delta.data();
 
     // Get point maximum for each solution nature
@@ -1099,15 +1112,15 @@ void OpNRSolver::updateMaxima() {
 
 std::string formatOpConvergence(
     bool preventedConvergence, bool iterationConverged,
-    bool residualCheck, double maxResidual, bool residualWithinTol, Id maxResidualNode,
-    Int iteration, double maxDelta, bool deltaWithinTol, Id maxDeltaNode
+    bool residualCheckValid, double maxResidual, bool residualWithinTol, Id maxResidualNode,
+    bool deltaCheckValid, double maxDelta, bool deltaWithinTol, Id maxDeltaNode
 ) {
     std::stringstream ss;
     ss << std::scientific << std::setprecision(2);
     std::string s = (preventedConvergence ? "convergence not allowed" : "");
     if (!preventedConvergence) {
         s += (iterationConverged ? "converged" : "");
-        if (residualCheck) {
+        if (residualCheckValid) {
             ss.str(""); ss << maxResidual;
             if (s.length()>0) {
                 s +=", ";
@@ -1120,7 +1133,7 @@ std::string formatOpConvergence(
             s += " @ ";
             s += (maxResidualNode ? std::string(maxResidualNode) : "(unknown)");
         }
-        if (iteration>1) {
+        if (deltaCheckValid) {
             ss.str(""); ss << maxDelta;
             if (s.length()>0) {
                 s +=", ";
@@ -1133,6 +1146,12 @@ std::string formatOpConvergence(
             s += " @ ";
             s += (maxDeltaNode ? std::string(maxDeltaNode) : "(unknown)");
         }
+        if (!residualCheckValid && !deltaCheckValid) {
+            if (s.length()>0) {
+                s +=", ";
+            }
+            s += "no convergence data available";
+        }
     }
 
     return s;
@@ -1141,20 +1160,20 @@ std::string formatOpConvergence(
 std::string OpNRSolver::formatConvergence() const {
     return formatOpConvergence(
         preventedConvergence, iterationConverged,
-        settings.residualCheck, maxResidual, residualWithinTol,
-        maxResidualNode ? maxResidualNode->name() : Id(),
-        iteration, maxDelta, deltaWithinTol,
-        maxDeltaNode ? maxDeltaNode->name() : Id()
+        residualCheckValid, maxResidual, residualWithinTol,
+        (maxResidualNode && residualCheckValid) ? maxResidualNode->name() : Id(),
+        deltaCheckValid, maxDelta, deltaWithinTol,
+        (maxDeltaNode && deltaCheckValid) ? maxDeltaNode->name() : Id()
     );
 }
 
 void OpNRSolver::pushConvergenceReport(ErrorConsumer& errors) {
     errors.push(OpNrConvergenceReport{
         preventedConvergence, iterationConverged,
-        settings.residualCheck, maxResidual, residualWithinTol,
-        maxResidualNode ? maxResidualNode->name() : Id(),
-        iteration, maxDelta, deltaWithinTol,
-        maxDeltaNode ? maxDeltaNode->name() : Id()
+        residualCheckValid, maxResidual, residualWithinTol,
+        (maxResidualNode && residualCheckValid) ? maxResidualNode->name() : Id(),
+        deltaCheckValid, maxDelta, deltaWithinTol,
+        (maxDeltaNode && deltaCheckValid) ? maxDeltaNode->name() : Id()
     });
 }
 

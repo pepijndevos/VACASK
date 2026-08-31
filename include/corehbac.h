@@ -130,6 +130,26 @@ ERRORCLASS(HbAcSweepAborted)
 END_ERRORCLASS(HbAcSweepAborted);
 
 
+class HBACUnknownNameResolver : public NameResolver {
+public:
+    HBACUnknownNameResolver(Circuit& circuit, size_t nf=0) : circuit(circuit), nf(nf) {};
+
+    void setFreqCount(size_t n) { nf = n; };
+
+    virtual Id operator()(MatrixEntryIndex u) {
+        if (nf>0) {
+            return circuit.reprNode(u/nf+1)->name();
+        } else {
+            return Id();
+        }
+    };
+
+private:
+    Circuit& circuit;
+    size_t nf;
+};
+
+
 class HBACCore : public AnalysisCore {
 public:
     typedef HBACParameters Parameters;
@@ -217,6 +237,9 @@ protected:
     Spurs spurs_;
 
     double frequency;
+
+private:
+    HBACUnknownNameResolver hbacResolver_;
 };
 
 }

@@ -423,9 +423,9 @@ bool NRSolver::run(bool continuePrevious, ErrorConsumer& errors) {
     }
 
     if (!converged) {
-        // Ran out of iterations with no concrete failure recorded: the solver
-        // simply did not converge in time.
-        if (iteration >= itlim && errors.pushedCount() == errorMark) {
+        // No concrete failure was recorded by any hook along the way: the
+        // solver simply did not converge / left the loop unexplained.
+        if (errors.pushedCount() == errorMark) {
             pushConvergenceReport(errors);
             errors.push(NrConvergenceError{});
         }

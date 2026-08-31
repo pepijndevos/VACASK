@@ -12,6 +12,44 @@ SIMPLE_ERRORCLASS(HbNrForcesError, "Failed to apply forces.");
 
 SIMPLE_ERRORCLASS(HbNrLoadForces, "Failed to load forces.");
 
+// Build the HB convergence report. Every input it needs is passed in
+// explicitly, so the text can be produced without an HBNRSolver instance.
+std::string formatHbConvergence(
+    bool preventedConvergence, bool iterationConverged,
+    bool deltaCheckValid, double maxDelta, bool deltaWithinTol, Id maxDeltaNode,
+    size_t maxDeltaFreqIndex, double maxDeltaFreq
+);
+
+// Carries a full snapshot of the convergence state so the report can be
+// rendered later, off the error stack, via formatHbConvergence().
+ERRORCLASS(HbNrConvergenceReport)
+    bool preventedConvergence;
+    bool iterationConverged;
+    bool deltaCheckValid;
+    double maxDelta;
+    bool deltaWithinTol;
+    Id maxDeltaNode;
+    size_t maxDeltaFreqIndex;
+    double maxDeltaFreq;
+
+    HbNrConvergenceReport(
+        bool preventedConvergence, bool iterationConverged,
+        bool deltaCheckValid, double maxDelta, bool deltaWithinTol, Id maxDeltaNode,
+        size_t maxDeltaFreqIndex, double maxDeltaFreq
+    ) : preventedConvergence(preventedConvergence), iterationConverged(iterationConverged),
+        deltaCheckValid(deltaCheckValid), maxDelta(maxDelta), deltaWithinTol(deltaWithinTol),
+        maxDeltaNode(maxDeltaNode), maxDeltaFreqIndex(maxDeltaFreqIndex), maxDeltaFreq(maxDeltaFreq) {}
+
+    std::string format() const {
+        return formatHbConvergence(
+            preventedConvergence, iterationConverged,
+            deltaCheckValid, maxDelta, deltaWithinTol, maxDeltaNode,
+            maxDeltaFreqIndex, maxDeltaFreq
+        );
+    }
+END_ERRORCLASS(HbNrConvergenceReport);
+
+
 class HBNRSolver : public NRSolver {
 public:
     // No forces. 
@@ -35,6 +73,9 @@ public:
 
     // Format convergence
     virtual std::string formatConvergence() const override;
+
+    // Push a HbNrConvergenceReport snapshot onto the error stack
+    virtual void pushConvergenceReport(ErrorConsumer& errors) override;
 
     // Set forces based on an annotated solution
     bool setForces(Int ndx, const AnnotatedSolution& solution, bool abortOnError, ErrorConsumer& errors);
@@ -108,8 +149,9 @@ protected:
     Vector<double> reactiveResidual;
     
     // Convergence check auxiliary results
-    double maxDelta; 
-    double maxNormDelta; 
+    bool deltaCheckValid;
+    double maxDelta;
+    double maxNormDelta;
     Node* maxDeltaNode;
     size_t maxDeltaFreqIndex;
     bool deltaWithinTol;

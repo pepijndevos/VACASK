@@ -225,6 +225,9 @@ protected:
     DelayMatrixBindings<Complex*>& delayBindings_;
 
     double frequency;
+
+private:
+    UnknownNameResolver resolver_;
 };
 
 }

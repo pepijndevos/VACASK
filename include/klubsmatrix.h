@@ -151,14 +151,12 @@ public:
     void dumpBlockSparsity(std::ostream& os);
 
 protected:
-    using Error = KluMatrixCore<IndexType, ValueType>::Error;
     using KluMatrixCore<IndexType, ValueType>::smap;
     using KluMatrixCore<IndexType, ValueType>::nnz_;
     using KluMatrixCore<IndexType, ValueType>::AN;
     using KluMatrixCore<IndexType, ValueType>::AP;
     using KluMatrixCore<IndexType, ValueType>::AI;
     using KluMatrixCore<IndexType, ValueType>::Ax;
-    using KluMatrixCore<IndexType, ValueType>::lastError;
     using KluMatrixCore<IndexType, ValueType>::common;
     using KluMatrixCore<IndexType, ValueType>::symbolic;
     using KluMatrixCore<IndexType, ValueType>::bucket_;

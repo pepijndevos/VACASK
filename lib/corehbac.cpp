@@ -43,19 +43,6 @@ template<> int Introspection<HBACParameters>::setup() {
 }
 instantiateIntrospection(HBACParameters);
 
-class HBACUnknownNameResolver : public NameResolver {
-public:
-    HBACUnknownNameResolver(Circuit& circuit, size_t nf) : circuit(circuit), nf(nf) {};
-
-    virtual Id operator()(MatrixEntryIndex u) {
-        return circuit.reprNode(u/nf+1)->name();
-    };
-
-private:
-    Circuit& circuit;
-    size_t nf;
-};
-
 HBACCore::HBACCore(
     OutputDescriptorResolver& parentResolver, HBACParameters& params, HBCore& hbCore,
     Circuit& circuit, CommonData& commons,
@@ -74,7 +61,8 @@ HBACCore::HBACCore(
     params(params),
     delayLines_(delayLines),
     hbacDelayBindings_(hbacDelayBindings),
-    frequency(0.0) {
+    frequency(0.0),
+    hbacResolver_(circuit) {
 }
 
 HBACCore::~HBACCore() {
@@ -365,6 +353,9 @@ bool HBACCore::rebuild(ErrorConsumer& errors) {
     }
     auto& stencil = spurs_.mixingStencil();
     auto nf = stencil.nRows();
+
+    hbacResolver_.setFreqCount(nf);
+    acMatrix.setResolver(&hbacResolver_);
 
     // Collect output spurs
     std::vector<int> newSpurIndices;

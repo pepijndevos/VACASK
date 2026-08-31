@@ -25,7 +25,8 @@ HBNRSolver::HBNRSolver(
 ) : circuit(circuit), commons(commons), jacColoc(jacColoc), bsjac(bsjac), solutionFD(solutionFD), 
     timepoints(timepoints), spurs_(spurs), 
     Gamma(Gamma), GammaInv(GammaInv), OmegaGamma(OmegaGamma), GammaInvColumnMajor(GammaInvColumnMajor), 
-    delayLines_(delayLines), delayBindings_(delayBindings), 
+    delayLines_(delayLines), delayBindings_(delayBindings),
+    deltaCheckValid(false),
     NRSolver(circuit.tables().accounting(), bsjac, solution, settings, 0) {
     // Bucket size is one HB block (nt = timepoints.size()) wide so a circuit
     // unknown u (1-based, ground = 0) addresses the solution/delta/residual
@@ -316,7 +317,10 @@ bool HBNRSolver::initialize(bool continuePrevious, ErrorConsumer& errors) {
 
     // Set up tolerance reference value for solution
     auto& options = circuit.simulatorOptions().core();
-    
+
+    // No delta check performed yet this run
+    deltaCheckValid = false;
+
     return true;
 }
 
@@ -712,11 +716,15 @@ std::tuple<bool, bool> HBNRSolver::checkDelta() {
     maxNormDelta = 0.0;
     maxDeltaNode = nullptr;
     maxDeltaFreqIndex = 0;
-    
-    // Check convergence (see if delta is small enough), 
+
+    // From here on maxDelta/maxDeltaNode/maxDeltaFreqIndex hold well-defined
+    // values, so the convergence report can safely include them.
+    deltaCheckValid = true;
+
+    // Check convergence (see if delta is small enough),
     // but only if this is iteration 2 or later
     // In iteration 1 assume we did not converge
-    
+
     // Assume we converged
     deltaWithinTol = true;
     
@@ -781,32 +789,61 @@ std::tuple<bool, bool> HBNRSolver::checkDelta() {
     return std::make_tuple(true, deltaWithinTol);
 }
 
-std::string HBNRSolver::formatConvergence() const {
+std::string formatHbConvergence(
+    bool preventedConvergence, bool iterationConverged,
+    bool deltaCheckValid, double maxDelta, bool deltaWithinTol, Id maxDeltaNode,
+    size_t maxDeltaFreqIndex, double maxDeltaFreq
+) {
     std::stringstream ss;
     ss << std::scientific << std::setprecision(2);
     std::string s = (preventedConvergence ? "convergence not allowed" : "");
     if (!preventedConvergence) {
         s += (iterationConverged ? "converged" : "");
-        if (iteration>1) {
+        if (deltaCheckValid) {
             ss.str(""); ss << maxDelta;
             if (s.length()>0) {
                 s +=", ";
             }
             s += "worst delta=";
-            s += ss.str(); 
+            s += ss.str();
             if (!deltaWithinTol) {
                 s += " >TOL";
             }
             s += " @ ";
-            s += (maxDeltaNode ? std::string(maxDeltaNode->name()) : "(unknown)");
+            s += (maxDeltaNode ? std::string(maxDeltaNode) : "(unknown)");
             s += "~f";
             s += std::to_string(maxDeltaFreqIndex);
             s += "=";
-            s += std::to_string(spurs_.spectrum()[maxDeltaFreqIndex]);
+            s += std::to_string(maxDeltaFreq);
+        } else {
+            if (s.length()>0) {
+                s +=", ";
+            }
+            s += "no convergence data available";
         }
     }
 
     return s;
+}
+
+std::string HBNRSolver::formatConvergence() const {
+    return formatHbConvergence(
+        preventedConvergence, iterationConverged,
+        deltaCheckValid, maxDelta, deltaWithinTol,
+        (maxDeltaNode && deltaCheckValid) ? maxDeltaNode->name() : Id(),
+        maxDeltaFreqIndex, 
+        deltaCheckValid ? spurs_.spectrum()[maxDeltaFreqIndex] : 0.0
+    );
+}
+
+void HBNRSolver::pushConvergenceReport(ErrorConsumer& errors) {
+    errors.push(HbNrConvergenceReport{
+        preventedConvergence, iterationConverged,
+        deltaCheckValid, maxDelta, deltaWithinTol,
+        (maxDeltaNode && deltaCheckValid) ? maxDeltaNode->name() : Id(),
+        maxDeltaFreqIndex, 
+        deltaCheckValid ? spurs_.spectrum()[maxDeltaFreqIndex] : 0.0
+    });
 }
 
 void HBNRSolver::dumpSolution(std::ostream& os, double* solution, const char* prefix) {

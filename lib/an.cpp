@@ -361,6 +361,9 @@ AnalysisCoroutine Analysis::coroutine(Status& s) {
                 co_yield AnalysisState::Aborted;
             }
 
+            // Clear core errors before run
+            coreErrors.clear();
+
             // Create coroutine, continue mode on if state has been restored
             auto cc = coreCoroutine(restoredState, coreErrors);
             while (cc) {
@@ -514,6 +517,9 @@ AnalysisCoroutine Analysis::coroutine(Status& s) {
             
         // Run core simulation, dump results
         if (outputInitialized && preAnalysisOk) {
+            // Clear core errors before run
+            coreErrors.clear();
+            
             // Create coroutine, continue mode off
             auto cc = coreCoroutine(false, coreErrors);
             while (cc) {
@@ -613,7 +619,7 @@ bool Analysis::finish(Status& s) {
     if (preSweepValuesStored) {
         Status tmps;
         auto sptr = ptAnalysis.sweeps().size()>0 ? &sweeper : nullptr;
-        auto [ok, hierarchyChanged, needsCoreRebuild] = circuit.elaborateChanges(
+        auto [okElaborate, hierarchyChanged, needsCoreRebuild] = circuit.elaborateChanges(
             commons, 
             sptr, ParameterSweeper::WriteValues::StoredState, 
             this, &originalSimOptions, 
@@ -621,7 +627,7 @@ bool Analysis::finish(Status& s) {
             nullptr, 
             tmps
         );
-        if (!ok) {
+        if (!okElaborate) {
             s.extend(tmps.message());
             s.extend("Failed to restore initial circuit state.");
             ok = false;

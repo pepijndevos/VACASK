@@ -47,13 +47,16 @@ NoiseCore::NoiseCore(
     acMatrix(acMatrix), acSolution(acSolution),
     contributionOffset(contributionOffset),
     results(results), powerGain(powerGain), outputNoise(outputNoise),
-    delayLines_(delayLines), delayBindings_(delayBindings) {
-    
+    delayLines_(delayLines), delayBindings_(delayBindings),
+    resolver_(circuit) {
+
     // Set analysis type for the initial operating point analysis
     auto& elsSystem = opCore_.solver().evalSetup();
     elsSystem.staticAnalysis = true;
     elsSystem.dcAnalysis = false;
     elsSystem.noiseAnalysis = true;
+
+    acMatrix.setResolver(&resolver_);
 }
 
 NoiseCore::~NoiseCore() {

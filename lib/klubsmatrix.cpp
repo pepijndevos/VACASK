@@ -66,8 +66,6 @@ Complex* KluBlockSparseMatrixCore<IndexType, ValueType>::cxValuePtr(
 
 template<typename IndexType, typename ValueType> 
 bool KluBlockSparseMatrixCore<IndexType, ValueType>::rebuild(SparsityMap& m, EquationIndex n, EquationIndex nbRow, UnknownIndex nbCol, ErrorConsumer& ec, bool storageOnly) {
-    KluMatrixCore<IndexType, ValueType>::clearError();
-    
     KluMatrixCore<IndexType, ValueType>::deleteKluObjects();
 
     n_ = n;
