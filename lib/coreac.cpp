@@ -221,8 +221,8 @@ CoreCoroutine ACCore::coroutine(bool continuePrevious, ErrorConsumer& errors) {
 
     // Copy OP Jacobian to real part of acMatrix, zero out imaginary part
     auto nnz = dcJacobian.nnz();
-    auto Jr = dcJacobian.data();
-    auto M = acMatrix.data();
+    auto Jr = dcJacobian.axData();
+    auto M = acMatrix.axData();
     for(decltype(nnz) i=0; i<nnz; i++) {
         M[i] = Jr[i];
     }

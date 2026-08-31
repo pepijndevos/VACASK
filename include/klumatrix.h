@@ -326,6 +326,9 @@ public:
     // Turn off accounting
     void noAccounting() { acct = nullptr; };
 
+    // Accounting structure in use, nullptr if off
+    Accounting* accounting() const { return acct; };
+
     // Install the name resolver used when building errors. The matrix does NOT
     // take ownership: the resolver is owned by the analysis core that installs
     // it and must outlive the matrix's use of it. A null resolver (the default)
@@ -373,8 +376,20 @@ public:
         }
     };
 
-    // Returns internal data array or a real matrix
-    ValueType* data() { return reinterpret_cast<ValueType*>(Ax.data()); };
+    // Returns raw KLU vectors used by external solvers.
+    ValueType* axData() { return reinterpret_cast<ValueType*>(Ax.data()); };
+    const ValueType* axData() const { return reinterpret_cast<const ValueType*>(Ax.data()); };
+    IndexType* apData() { return AP.data(); };
+    const IndexType* apData() const { return AP.data(); };
+    IndexType* aiData() { return AI.data(); };
+    const IndexType* aiData() const { return AI.data(); };
+    
+    const Vector<ValueType>& ax() const { return Ax; };
+    Vector<ValueType>& ax() { return Ax; };
+    const Vector<IndexType>& ap() const { return AP; };
+    Vector<IndexType>& ap() { return AP; };
+    const Vector<IndexType>& ai() const { return AI; };
+    Vector<IndexType>& ai() { return AI; };
 
     // Return number of unknowns
     IndexType nRow() const { return AN; };

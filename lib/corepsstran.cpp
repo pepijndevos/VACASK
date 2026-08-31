@@ -173,7 +173,7 @@ bool PssTranCore::clearTrajectory(ErrorConsumer& errors) {
     // Snapshot C_0 directly into cHistData_'s future slot, then promote -
     // no separate temporary (plain std::copy, not an accumulating load
     // target, so no zeroing needed first).
-    std::copy(jacobian.data(), jacobian.data() + jacobian.nnz(), cHistData_.futureData());
+    std::copy(jacobian.axData(), jacobian.axData() + jacobian.nnz(), cHistData_.futureData());
     cHistData_.advance();
     // Seed G_0 with zeros — G_0 unavailable at t=0 (no NR solve yet).
     // Already zeroed by the full-buffer reset above; just promote it.
@@ -208,7 +208,7 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order, ErrorC
     }
 
     // Get Alr = G_k + alpha_k * C_k from the factored NR jacobian
-    std::copy(jacobian.data(), jacobian.data() + nnz, lastAlr_.data());
+    std::copy(jacobian.axData(), jacobian.axData() + nnz, lastAlr_.axData());
     bool forceFullFactorization = false;
     if (lastAlr_.isFactored()) {
         // Refactor (if possible). A refactor failure is not fatal here.
@@ -259,7 +259,7 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order, ErrorC
     }
     // Snapshot current C_k directly into cHistData_'s future slot - no
     // separate temporary (plain std::copy, not an accumulating load target).
-    std::copy(jacobian.data(), jacobian.data() + nnz, cHistData_.futureData());
+    std::copy(jacobian.axData(), jacobian.axData() + nnz, cHistData_.futureData());
     const Vector<double>& cSnap = cHistData_.futureVector();
 
     double alpha = integCoeffs.leadingCoeff();
@@ -270,7 +270,7 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order, ErrorC
     // refactor), written directly into gHistData_'s future slot.
     Vector<double>& gSnap = gHistData_.futureVector();
     for (Int j = 0; j < nnz; j++)
-        gSnap[j] = lastAlr_.data()[j] - alpha * cSnap[j];
+        gSnap[j] = lastAlr_.axData()[j] - alpha * cSnap[j];
 
     // gammaC_[p] = alpha * a[p]    — coefficient for the C term
     // gammaG_[p] = -(b[p] / b1)   — coefficient for the G term (zero for BDF)
@@ -302,7 +302,7 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order, ErrorC
         DenseMatrix<double>& Phi_kmi = phiHist_.at(p);
 
         // C_{k-p} * Phi_{k-p} contribution
-        std::copy(cHistData_.at(p).begin(), cHistData_.at(p).end(), scratchC_.data());
+        std::copy(cHistData_.at(p).begin(), cHistData_.at(p).end(), scratchC_.axData());
         for (decltype(n) j = 0; j < n; j++) {
             auto rhs_col = phiFuture.column(j);
             if (!scratchC_.product(Phi_kmi.column(j), rhs_colbuf, errors)) {
@@ -314,7 +314,7 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order, ErrorC
 
         // G_{k-p} * Phi_{k-p} contribution (AM methods only; gammaG_[p]==0 for BDF)
         if (gammaG_[p] != 0.0) {
-            std::copy(gHistData_.at(p).begin(), gHistData_.at(p).end(), scratchC_.data());
+            std::copy(gHistData_.at(p).begin(), gHistData_.at(p).end(), scratchC_.axData());
             for (decltype(n) j = 0; j < n; j++) {
                 auto rhs_col = phiFuture.column(j);
                 if (!scratchC_.product(Phi_kmi.column(j), rhs_colbuf, errors)) {
@@ -352,7 +352,7 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order, ErrorC
     // copy regardless, since those slots get reused later in the shoot.
     if (captureTrajectory_) {
         StepRecord rec;
-        rec.aData  = Vector<double>(lastAlr_.data(), lastAlr_.data() + nnz);
+        rec.aData  = Vector<double>(lastAlr_.axData(), lastAlr_.axData() + nnz);
         rec.cData  = cSnap;
         rec.gData  = gSnap;
         rec.gammaC = gammaC_;
@@ -430,7 +430,7 @@ bool PssTranCore::integrateAdjointMonodromy(DenseMatrix<double>& Omega, ErrorCon
         const StepRecord& acRec = trajectory_[acIdx];
 
         // Load A_k into scratchA and refactor for tsolve
-        std::copy(acRec.aData.begin(), acRec.aData.end(), scratchA.data());
+        std::copy(acRec.aData.begin(), acRec.aData.end(), scratchA.axData());
         bool forceFullFactorization = false;
         if (scratchA.isFactored()) {
             // Refactor (if possible). A refactor failure is not fatal here.
@@ -471,9 +471,9 @@ bool PssTranCore::integrateAdjointMonodromy(DenseMatrix<double>& Omega, ErrorCon
             DenseMatrix<double>& Om = omegaHist[i];
 
             if (gC != 0.0)
-                std::copy(futureRec.cData.begin(), futureRec.cData.end(), scratchC.data());
+                std::copy(futureRec.cData.begin(), futureRec.cData.end(), scratchC.axData());
             if (gG != 0.0)
-                std::copy(futureRec.gData.begin(), futureRec.gData.end(), scratchG.data());
+                std::copy(futureRec.gData.begin(), futureRec.gData.end(), scratchG.axData());
 
             for (decltype(n) j = 0; j < n; j++) {
                 for (decltype(n) row = 0; row < n; row++) om_col[row] = Om.at(row, j);

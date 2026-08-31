@@ -18,14 +18,14 @@ double* KluBlockSparseMatrixCore<IndexType, ValueType>::valueArray() {
     if constexpr(std::is_same<ValueType, Complex>::value) {
         return nullptr;
     } else {
-        return KluMatrixCore<IndexType, ValueType>::data();
+        return KluMatrixCore<IndexType, ValueType>::axData();
     }
 } 
 
 template<typename IndexType, typename ValueType> 
 Complex* KluBlockSparseMatrixCore<IndexType, ValueType>::cxValueArray() {
     if constexpr(std::is_same<ValueType, Complex>::value) {
-        return KluMatrixCore<IndexType, ValueType>::data();
+        return KluMatrixCore<IndexType, ValueType>::axData();
     } else {
         return nullptr;
     }

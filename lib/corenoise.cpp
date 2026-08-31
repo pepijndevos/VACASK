@@ -312,8 +312,8 @@ CoreCoroutine NoiseCore::coroutine(bool continuePrevious, ErrorConsumer& errors)
     // Because the real part is taken from OP Jacobian it includes
     // the shunt resistors. 
     auto nnz = dcJacobian.nnz();
-    auto Jr = dcJacobian.data();
-    auto M = acMatrix.data();
+    auto Jr = dcJacobian.axData();
+    auto M = acMatrix.axData();
     for(decltype(nnz) i=0; i<nnz; i++) {
         M[i] = Jr[i];
     }
