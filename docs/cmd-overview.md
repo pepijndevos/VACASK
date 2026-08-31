@@ -37,7 +37,8 @@ If the circuit has not been elaborated when an `analysis`, `print`, `alter`, or 
 | `print ...` | Print circuit information to the console. |
 | `postprocess(prog, args...)` | Run an external program after an analysis. |
 | `clear [var\|saves\|options]` | Clear accumulated state. |
-| `abort ...` | Configure error handling behaviour. |
+| `mc name samples=n ... endmc` | Repeat the enclosed statements as a Monte Carlo loop. See [Monte Carlo Analysis](cmd-analysis-mc.md). |
+| `abort ...` | Configure error handling behavior. |
 
 ## Example
 

@@ -4,7 +4,7 @@ The DC incremental small-signal analysis (dcinc) computes the incremental linear
 response of a circuit around its operating point. It solves the linearized
 resistive Jacobian for small perturbations of independent sources.
 
-This is useful for studying the incremental behaviour of circuits with
+This is useful for studying the incremental behavior of circuits with
 nonlinear devices without performing a full AC frequency sweep.
 
 ## Syntax

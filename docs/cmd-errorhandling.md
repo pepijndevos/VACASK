@@ -11,7 +11,7 @@ abort on cmd1 [cmd2 ...]
 abort except cmd1 [cmd2 ...]
 ```
 
-The valid command names are: `analysis`, `alter`, `clear`, `elaborate`, `options`, `postprocess`, `print`, `save`, `sweep`, `var`.
+The valid command names are: `analysis`, `alter`, `clear`, `elaborate`, `mc`, `options`, `postprocess`, `print`, `save`, `var`. A `sweep` statement is part of the analysis it precedes, so a failure while setting up or advancing a sweep is treated as an `analysis` failure.
 
 ## Default behavior
 
