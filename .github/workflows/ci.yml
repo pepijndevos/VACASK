@@ -105,7 +105,10 @@ jobs:
           name: vacask-${{ matrix.os }}
           path: |
             build/simulator/
-            build/lib/vacask/
+            !build/simulator/CMakeFiles/
+            !build/simulator/cmake_install.cmake
+            !build/simulator/CTestTestfile.cmake
+            build/lib/
           if-no-files-found: warn
 
   release:
