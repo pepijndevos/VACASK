@@ -3,7 +3,7 @@
 
 #include "circuit.h"
 #include "core.h"
-#include "klumatrix.h"
+#include "cscmatrix.h"
 #include "output.h"
 #include "outrawfile.h"
 #include "flags.h"

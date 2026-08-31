@@ -7,7 +7,7 @@
 #include <optional>
 #include "status.h"
 #include "densematrix.h"
-#include "klumatrix.h"
+#include "cscmatrix.h"
 #include "identifier.h"
 #include "flags.h"
 #include "hash.h"

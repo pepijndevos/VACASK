@@ -2,7 +2,7 @@
 #define __COREHBNR_DEFINED
 
 #include "nrsolver.h"
-#include "klubsmatrix.h"
+#include "cscblkmatrix.h"
 #include "common.h"
 
 

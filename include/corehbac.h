@@ -4,7 +4,7 @@
 #include "circuit.h"
 #include "core.h"
 #include "corehb.h"
-#include "klubsmatrix.h"
+#include "cscblkmatrix.h"
 #include "output.h"
 #include "flags.h"
 #include "outrawfile.h"

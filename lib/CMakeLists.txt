@@ -63,8 +63,9 @@ add_library(simlib STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/circuit.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/coredelay.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/openvafcomp.h 
-    ${CMAKE_CURRENT_SOURCE_DIR}/../include/klumatrix.h 
-    ${CMAKE_CURRENT_SOURCE_DIR}/../include/klubsmatrix.h 
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include/cscmatrix.h 
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include/cscblkmatrix.h 
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include/cscblkmatrix.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/simulator.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/output.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/outrawfile.h 
@@ -159,8 +160,8 @@ add_library(simlib STATIC
     ciroptions.cpp 
     cirvariables.cpp 
     cirparams.cpp
-    klumatrix.cpp
-    klubsmatrix.cpp
+    cscmatrix.cpp
+    cscblkmatrix.cpp
     simulator.cpp
     output.cpp
     outrawfile.cpp

@@ -2,7 +2,7 @@
 #define __COREHB_DEFINED
 
 #include "densematrix.h"
-#include "klubsmatrix.h"
+#include "cscblkmatrix.h"
 #include "spurs.h"
 #include "core.h"
 #include "corehbnr.h"

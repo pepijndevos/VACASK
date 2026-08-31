@@ -4,7 +4,7 @@
 #include <stdexcept>
 #include "ansupport.h"
 #include "options.h"
-#include "klumatrix.h"
+#include "cscmatrix.h"
 #include "ansolution.h"
 #include "status.h"
 #include "acct.h"

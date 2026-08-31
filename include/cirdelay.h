@@ -10,10 +10,8 @@
 
 namespace NAMESPACE {
 
-SIMPLE_ERRORCLASS(DelayMatrixEntryNotFound, "Matrix entry not found for delay element.");
-
 // Per-slot (pointer to (out,in) element, pointer to (out,out) element) pair,
-// filled in by bindToMatrix() below. Can also hold DenseMatrixViews.
+// filled in by bindToMatrix() below. Can also hold DenseMatrixViews. 
 template<typename T> using DelayMatrixBindings = Vector<std::tuple<T, T>>;
 
 class DelayLines {
@@ -44,7 +42,7 @@ public:
         }
     };
 
-    bool bindToUnknowns(GlobalStorageIndex slot, UnknownIndex inputUnknown, UnknownIndex outputUnknown, ErrorConsumer& ec) {
+    bool bindToUnknowns(GlobalStorageIndex slot, UnknownIndex inputUnknown, UnknownIndex outputUnknown, Status& s=Status::ignore) {
         inputUnknown_[slot] = inputUnknown;
         outputUnknown_[slot] = outputUnknown;
         return true;
@@ -52,22 +50,22 @@ public:
 
     // Matrix type (KluRealMatrix for T=double*, KluComplexMatrix for T=Complex*)
     // follows from the bindings type, so T alone is enough to select an
-    // overload - e.g. bindToMatrix<double*>(matResist, mep, bindings, ec).
+    // overload - e.g. bindToMatrix<double*>(matResist, mep, bindings, s).
     template<typename T> bool bindToMatrix(
         std::conditional_t<std::is_same_v<T, Complex*>, KluComplexMatrix, KluRealMatrix>& mat,
         const std::optional<MatrixEntryPosition>& mep,
         DelayMatrixBindings<T>& bindings,
-        ErrorConsumer& ec
+        Status& s=Status::ignore
     );
 
     // Matrix type (KluBlockSparseRealMatrix for T=DenseMatrixView<double>,
     // KluBlockSparseComplexMatrix for T=DenseMatrixView<Complex>) follows
     // from the bindings type, same as bindToMatrix() above - e.g.
-    // bindToMatrixBlock<DenseMatrixView<double>>(matResist, bindings, ec).
+    // bindToMatrixBlock<DenseMatrixView<double>>(matResist, bindings, s).
     template<typename T> bool bindToBlockMatrix(
         std::conditional_t<std::is_same_v<T, DenseMatrixView<Complex>>, KluBlockSparseComplexMatrix, KluBlockSparseRealMatrix>& mat,
         DelayMatrixBindings<T>& bindings,
-        ErrorConsumer& ec
+        Status& s=Status::ignore
     );
 
     // When locked, any change in delay results in an error. 

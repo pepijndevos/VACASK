@@ -9,7 +9,7 @@
 #include "ansupport.h"
 #include "parameterized.h"
 #include "output.h"
-#include "klumatrix.h"
+#include "cscmatrix.h"
 #include "parseroutput.h"
 #include "options.h"
 #include "comdata.h"

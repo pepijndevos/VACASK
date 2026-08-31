@@ -13,7 +13,7 @@
 #include "options.h"
 #include "comdata.h"
 #include "parameterized.h"
-#include "klumatrix.h"
+#include "cscmatrix.h"
 #include "hierdevice.h"
 #include "coresweep.h"
 #include "node.h"
