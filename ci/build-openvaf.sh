@@ -54,12 +54,17 @@ case "$OS" in
     ;;
   MINGW*|MSYS*)
     LLVM_VERSION=$(llvm-config --version | cut -d. -f1)
-    echo "Detected LLVM version: $LLVM_VERSION"
+    # Cap at 21 (highest supported by openvaf-r); llvm-sys is lenient without strict-versioning
+    if [ "$LLVM_VERSION" -gt 21 ]; then LLVM_VERSION=21; fi
+    echo "Using LLVM feature: llvm${LLVM_VERSION}"
     cargo build --release --features "llvm${LLVM_VERSION}" --bin openvaf-r
     ;;
   *)
     ./configure
-    ./build.sh --release
+    # Build only the openvaf-r binary (as the Windows path does): VACASK does
+    # not need the verilogae_py Python extension, which fails to compile against
+    # the newest python that happens to be first on PATH in the manylinux image.
+    ./build.sh --release -- --bin openvaf-r
     ;;
 esac
 

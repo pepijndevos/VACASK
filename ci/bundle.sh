@@ -28,18 +28,28 @@ if [ "$(id -u)" -eq 0 ]; then SUDO=""; else SUDO="sudo"; fi
 case "$OS" in
   Linux)
     echo "==> Bundling shared libraries (Linux)"
-    $SUDO apt-get install -y patchelf
+    if command -v dnf >/dev/null 2>&1; then
+      $SUDO dnf install -y epel-release
+      $SUDO dnf install -y patchelf
+    else
+      $SUDO apt-get install -y patchelf
+    fi
     LIBDIR="$BINDIR/lib"
     mkdir -p "$LIBDIR"
 
     bundle_linux() {
       local bin="$1"
       ldd "$bin" | awk '/=> \// {print $3}' | while read -r lib; do
+        # Skip the glibc components (tied to the host kernel/loader); we build
+        # against glibc 2.34 so they are satisfied on the target. Everything
+        # else — including libstdc++/libgcc and libLLVM — is bundled so the
+        # binaries are self-contained.
         case "$(basename "$lib")" in
           libc.so*|libm.so*|libdl.so*|libpthread.so*|librt.so*) continue ;;
-          libstdc++.so*|libgcc_s.so*|ld-linux*) continue ;;
+          ld-linux*) continue ;;
         esac
         cp -Ln "$lib" "$LIBDIR/" 2>/dev/null || true
+        patchelf --set-rpath '$ORIGIN' "$LIBDIR/$(basename "$lib")"
       done
       patchelf --set-rpath '$ORIGIN/lib' "$bin"
     }

@@ -14,7 +14,11 @@ jobs:
       matrix:
         include:
           - os: ubuntu-24.04
-            name: Ubuntu 24.04
+            container: quay.io/pypa/manylinux_2_34_x86_64
+            name: Linux x86_64
+          - os: ubuntu-24.04-arm
+            container: quay.io/pypa/manylinux_2_34_aarch64
+            name: Linux aarch64
           - os: macos-14
             name: macOS
           - os: windows-latest
@@ -22,6 +26,9 @@ jobs:
 
     name: Build (${{ matrix.name }})
     runs-on: ${{ matrix.os }}
+    # Linux builds run inside manylinux_2_34 (AlmaLinux 9, glibc 2.34) to produce
+    # portable binaries; macOS/Windows leave this empty and run on the host.
+    container: ${{ matrix.container }}
 
     steps:
       - name: Checkout
@@ -51,7 +58,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: openvaf-cache
-          key: openvaf-${{ matrix.os }}-${{ runner.arch }}-v5
+          key: openvaf-${{ matrix.os }}-${{ runner.arch }}-v6
 
       - name: Build OpenVAF-Reloaded (Unix)
         if: steps.cache-openvaf.outputs.cache-hit != 'true' && runner.os != 'Windows'
@@ -121,8 +128,9 @@ jobs:
 
           cd artifacts
 
-          # Linux tar.gz
+          # Linux tar.gz (manylinux_2_34, glibc 2.34)
           tar czf "../vacask_${VERSION}_linux-x86_64.tar.gz" -C vacask-ubuntu-24.04 .
+          tar czf "../vacask_${VERSION}_linux-aarch64.tar.gz" -C vacask-ubuntu-24.04-arm .
 
           # macOS tar.gz
           tar czf "../vacask_${VERSION}_darwin-arm64.tar.gz" -C vacask-macos-14 .
