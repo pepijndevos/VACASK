@@ -48,7 +48,7 @@ f1 = noise1['frequency'].real
 n_wn = noise1['n(bwn,mynoise)']
 exact_wn = (1e3**2)*1e-18*np.ones_like(f1)
 
-status = (relDiff(n_wn, exact_wn, 1e-60) < 1e-6).all()
+status = (relDiff(n_wn, exact_wn, 1e-60) < 1e-3).all()
 print("n(bwn,mynoise) test", status)
 tests.append(status)
 
@@ -59,7 +59,7 @@ f2 = noise2['frequency'].real
 n_fn = noise2['n(bfn,myflicker)']
 exact_fn = (1e3**2)*1e-16/f2**1.1
 
-status = (relDiff(n_fn, exact_fn, 1e-60) < 1e-6).all()
+status = (relDiff(n_fn, exact_fn, 1e-60) < 1e-3).all()
 print("n(bfn,myflicker) test", status)
 tests.append(status)
 

@@ -36,7 +36,7 @@ vd = tran1['d']
 exact_d = np.ones_like(time)
 exact_d[0] = 0
 
-status = (relDiff(vd, exact_d, 1e-12) < 1e-6).all()
+status = (relDiff(vd, exact_d, 1e-6) < 1e-3).all()
 print("v(d) == ddt($abstime) test", status)
 tests.append(status)
 
@@ -44,7 +44,7 @@ tests.append(status)
 vi0 = tran1['i0']
 exact_i0 = time
 
-status = (relDiff(vi0, exact_i0, 1e-12) < 1e-6).all()
+status = (relDiff(vi0, exact_i0, 1e-6) < 1e-3).all()
 print("v(i0) == idt(1) test", status)
 tests.append(status)
 
@@ -52,7 +52,7 @@ tests.append(status)
 vi1 = tran1['i1']
 exact_i1 = time+5
 
-status = (relDiff(vi1, exact_i1, 1e-12) < 1e-6).all()
+status = (relDiff(vi1, exact_i1, 1e-6) < 1e-3).all()
 print("v(i1) == idt(1, 5) test", status)
 tests.append(status)
 

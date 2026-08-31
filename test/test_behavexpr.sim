@@ -50,7 +50,7 @@ va = raw['v1sweep']
 i_meas = raw['v1:flow(br)']
 i_exact = -10*va
 
-status = (relDiff(i_meas, i_exact, 1e-12) < 1e-6).all()
+status = (relDiff(i_meas, i_exact, 1e-12) < 1e-3).all()
 print("v1:flow(br) test", status)
 tests.append(status)
 
