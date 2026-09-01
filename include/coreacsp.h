@@ -178,8 +178,8 @@ public:
     ACSPCore(
         OutputDescriptorResolver& parentResolver, ACSPParameters& params, OperatingPointCore& opCore, Circuit& circuit,
         CommonData& commons,
-        KluRealMatrix& dcJacobian, VectorRepository<double>& dcSolution, VectorRepository<double>& dcStates,
-        KluComplexMatrix& acMatrix, Vector<Complex>& acSolution,
+        CSCRealMatrix& dcJacobian, VectorRepository<double>& dcSolution, VectorRepository<double>& dcStates,
+        CSCComplexMatrix& acMatrix, Vector<Complex>& acSolution,
         DenseMatrix<Complex>& stMatrix,
         DelayLines& delayLines, DelayMatrixBindings<Complex*>& delayBindings
     );
@@ -214,8 +214,8 @@ protected:
 
     VectorRepository<double>& dcSolution;
     VectorRepository<double>& dcStates;
-    KluRealMatrix& dcJacobian;
-    KluComplexMatrix& acMatrix;
+    CSCRealMatrix& dcJacobian;
+    CSCComplexMatrix& acMatrix;
     Vector<Complex>& acSolution;
     ACSPParameters& params;
     DenseMatrix<Complex>& stMatrix;

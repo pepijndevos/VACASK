@@ -71,12 +71,12 @@ protected:
     // (hbCore: jacColoc/jac/solution; hbacCore: jacSpec/hbSolution/acMatrix/acSolution)
     // refer to fully-constructed members. hbCore precedes hbacCore because hbacCore
     // binds a reference to hbCore.
-    KluBlockSparseRealMatrix jacColoc;
-    KluBlockSparseRealMatrix jac;
+    CSCBlockSparseRealMatrix jacColoc;
+    CSCBlockSparseRealMatrix jac;
     VectorRepository<double> solution;
-    KluBlockSparseComplexMatrix jacSpec;
+    CSCBlockSparseComplexMatrix jacSpec;
     VectorRepository<Complex> hbSolution;
-    KluBlockSparseComplexMatrix acMatrix;
+    CSCBlockSparseComplexMatrix acMatrix;
     Vector<Complex> acSolution;
 
     DelayLines delayLines_;

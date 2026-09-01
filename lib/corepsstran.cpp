@@ -21,7 +21,7 @@ PssTranCore::PssTranCore(
     OperatingPointCore& opCore,
     Circuit& circuit,
     CommonData& commons,
-    KluRealMatrix& jacobian,
+    CSCRealMatrix& jacobian,
     VectorRepository<double>& opSolution,
     VectorRepository<double>& solution,
     VectorRepository<double>& states, 
@@ -404,9 +404,9 @@ bool PssTranCore::integrateAdjointMonodromy(DenseMatrix<double>& Omega, ErrorCon
     omegaHist.push_front(Omega);  // seed with Omega_N = I
 
     // Scratch KLU matrix for A_k (for tsolve) and C_k (for tproduct)
-    KluRealMatrix scratchA;
-    KluRealMatrix scratchC;
-    KluRealMatrix scratchG;
+    CSCRealMatrix scratchA;
+    CSCRealMatrix scratchC;
+    CSCRealMatrix scratchG;
     if (!scratchA.rebuild(circuit.sparsityMap(), n, errors)) {
         errors.push(PssTranOmegaScratchRebuild{});
         return false;

@@ -101,7 +101,7 @@ protected:
     // (jac, solution, states) refer to fully-constructed members. opCore precedes
     // smsigCore because smsigCore binds a reference to opCore. The DataMixin base
     // members (acMatrix, acSolution, ...) are constructed before these and are safe.
-    KluRealMatrix jac; // Resistive Jacobian
+    CSCRealMatrix jac; // Resistive Jacobian
     std::unique_ptr<RealSparseSolver> linearSolver_;
     std::unique_ptr<ComplexSparseSolver> linearCxSolver_;
     VectorRepository<double> solution; // Solution history

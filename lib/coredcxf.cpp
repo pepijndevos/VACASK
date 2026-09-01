@@ -28,7 +28,7 @@ instantiateIntrospection(DCXFParameters);
 DCXFCore::DCXFCore(
     OutputDescriptorResolver& parentResolver, DCXFParameters& params, OperatingPointCore& opCore, 
     std::unordered_map<Id,size_t>& sourceIndex, Circuit& circuit, CommonData& commons, 
-    KluRealMatrix& jacobian, Vector<double>& incrementalSolution, 
+    CSCRealMatrix& jacobian, Vector<double>& incrementalSolution, 
     std::vector<Instance*>& sources, Vector<double>& tf, 
     Vector<double>& yin, Vector<double>& zin
 ) : AnalysisCore(parentResolver, circuit, commons), params(params), outfile(nullptr), opCore_(opCore), sourceIndex(sourceIndex), 

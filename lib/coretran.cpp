@@ -254,7 +254,7 @@ instantiateIntrospection(TranParameters);
 TranCore::TranCore(
     OutputDescriptorResolver& parentResolver, TranParameters& params, OperatingPointCore& opCore, 
     Circuit& circuit, CommonData& commons, 
-    KluRealMatrix& jacobian, VectorRepository<double>& opSolution, VectorRepository<double>& solution, 
+    CSCRealMatrix& jacobian, VectorRepository<double>& opSolution, VectorRepository<double>& solution, 
     VectorRepository<double>& states, 
     DelayLines& delayLines, DelayMatrixBindings<double*>& delayBindings
 ) : AnalysisCore(parentResolver, circuit, commons), params(params), outfile(nullptr), opCore_(opCore),

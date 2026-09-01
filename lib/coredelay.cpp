@@ -4,7 +4,7 @@
 namespace NAMESPACE {
 
 template<typename T> bool DelayLines::bindToMatrix(
-    std::conditional_t<std::is_same_v<T, Complex*>, KluComplexMatrix, KluRealMatrix>& mat,
+    std::conditional_t<std::is_same_v<T, Complex*>, CSCComplexMatrix, CSCRealMatrix>& mat,
     const std::optional<MatrixEntryPosition>& mep,
     DelayMatrixBindings<T>& bindings,
     ErrorConsumer& ec
@@ -40,13 +40,13 @@ template<typename T> bool DelayLines::bindToMatrix(
 
 // Explicit instantiation: T selects both the pointer type stored in
 // bindings and (via the conditional_t in the declaration) the matrix type
-// - double*/KluRealMatrix for a real matrix, Complex*/KluComplexMatrix for
+// - double*/CSCRealMatrix for a real matrix, Complex*/CSCComplexMatrix for
 // a complex one.
-template bool DelayLines::bindToMatrix<double*>(KluRealMatrix&, const std::optional<MatrixEntryPosition>&, DelayMatrixBindings<double*>&, ErrorConsumer&);
-template bool DelayLines::bindToMatrix<Complex*>(KluComplexMatrix&, const std::optional<MatrixEntryPosition>&, DelayMatrixBindings<Complex*>&, ErrorConsumer&);
+template bool DelayLines::bindToMatrix<double*>(CSCRealMatrix&, const std::optional<MatrixEntryPosition>&, DelayMatrixBindings<double*>&, ErrorConsumer&);
+template bool DelayLines::bindToMatrix<Complex*>(CSCComplexMatrix&, const std::optional<MatrixEntryPosition>&, DelayMatrixBindings<Complex*>&, ErrorConsumer&);
 
 template<typename T> bool DelayLines::bindToBlockMatrix(
-    std::conditional_t<std::is_same_v<T, DenseMatrixView<Complex>>, KluBlockSparseComplexMatrix, KluBlockSparseRealMatrix>& mat,
+    std::conditional_t<std::is_same_v<T, DenseMatrixView<Complex>>, CSCBlockSparseComplexMatrix, CSCBlockSparseRealMatrix>& mat,
     DelayMatrixBindings<T>& bindings,
     ErrorConsumer& ec
 ) {
@@ -80,9 +80,9 @@ template<typename T> bool DelayLines::bindToBlockMatrix(
 
 // Explicit instantiation: T selects both the DenseMatrixView value type
 // stored in bindings and (via the conditional_t in the declaration) the
-// matrix type - DenseMatrixView<double>/KluBlockSparseRealMatrix for a real
-// matrix, DenseMatrixView<Complex>/KluBlockSparseComplexMatrix for a complex one.
-template bool DelayLines::bindToBlockMatrix<DenseMatrixView<double>>(KluBlockSparseRealMatrix&, DelayMatrixBindings<DenseMatrixView<double>>&, ErrorConsumer&);
-template bool DelayLines::bindToBlockMatrix<DenseMatrixView<Complex>>(KluBlockSparseComplexMatrix&, DelayMatrixBindings<DenseMatrixView<Complex>>&, ErrorConsumer&);
+// matrix type - DenseMatrixView<double>/CSCBlockSparseRealMatrix for a real
+// matrix, DenseMatrixView<Complex>/CSCBlockSparseComplexMatrix for a complex one.
+template bool DelayLines::bindToBlockMatrix<DenseMatrixView<double>>(CSCBlockSparseRealMatrix&, DelayMatrixBindings<DenseMatrixView<double>>&, ErrorConsumer&);
+template bool DelayLines::bindToBlockMatrix<DenseMatrixView<Complex>>(CSCBlockSparseComplexMatrix&, DelayMatrixBindings<DenseMatrixView<Complex>>&, ErrorConsumer&);
 
 }

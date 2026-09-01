@@ -148,7 +148,7 @@ std::tuple<bool, bool> PreprocessedUserForces::set(Circuit& circuit, ValueVector
 
     
 OpNRSolver::OpNRSolver(
-    Circuit& circuit, CommonData& commons, KluRealMatrix& jac,
+    Circuit& circuit, CommonData& commons, CSCRealMatrix& jac,
     VectorRepository<double>& states, VectorRepository<double>& solution,
     DelayLines* delayLines, DelayMatrixBindings<double*>* delayBindings,
     NRSettings& settings, Int forcesSize

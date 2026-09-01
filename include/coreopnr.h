@@ -157,7 +157,7 @@ public:
     // They need to be set before rebuild() is called. 
     // By default we have 2 slots. Transient analysis requests 3 slots. 
     OpNRSolver(
-        Circuit& circuit, CommonData& commons, KluRealMatrix& jac,
+        Circuit& circuit, CommonData& commons, CSCRealMatrix& jac,
         VectorRepository<double>& states, VectorRepository<double>& solution,
         DelayLines* delayLines, DelayMatrixBindings<double*>* delayBindings,
         NRSettings& settings, Int forcesSize=2

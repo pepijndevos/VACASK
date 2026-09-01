@@ -16,7 +16,7 @@ public:
     static inline const Id analysisId = Id::createStatic("acstb");
 
 protected:
-    KluComplexMatrix acMatrix;
+    CSCComplexMatrix acMatrix;
     Vector<Complex> acSolution;
 
     Vector<Complex> resultsVector;

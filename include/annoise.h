@@ -16,7 +16,7 @@ public:
     static inline const Id analysisId = Id::createStatic("noise");
 
 protected:
-    KluComplexMatrix acMatrix;
+    CSCComplexMatrix acMatrix;
     Vector<Complex> acSolution;
 
     std::unordered_map<std::pair<Id, Id>, size_t> contributionOffset; 

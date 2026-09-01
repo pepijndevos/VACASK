@@ -62,7 +62,7 @@ protected:
 private:
     IStruct<PssParameters> params;
 
-    KluRealMatrix            jac_;
+    CSCRealMatrix            jac_;
     VectorRepository<double> opSolution_;
     VectorRepository<double> solution_;
     VectorRepository<double> states_;

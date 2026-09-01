@@ -4,14 +4,58 @@
 #include <type_traits>
 #include <stdexcept>
 #include <tuple>
+#include <suitesparse/klu.h>
 
 #include "solver.h"
 
 namespace NAMESPACE {
 
+SIMPLE_ERRORCLASS(KluDefaultsError, "Cannot set up KLU defaults.");
+
+SIMPLE_ERRORCLASS(KluAnalysisError, "KLU matrix analysis failed. Probably the matrix is singular.");
+
+SIMPLE_ERRORCLASS(KluCondEstimateError, "Failed to compute reciprocal condition number estimate.");
+
+SIMPLE_ERRORCLASS(KluSolveError, "Failed to solve factorized system.");
+
+ERRORCLASS(KluFactorizationError)
+    MatrixEntryIndex size;
+    MatrixEntryIndex rank;
+    MatrixEntryIndex column;
+    Id node;
+    KluFactorizationError(MatrixEntryIndex size, MatrixEntryIndex rank, MatrixEntryIndex column, Id node)
+        : size(size), rank(rank), column(column), node(node) {}
+    std::string format() const {
+        std::string txt = "Factorization failed, size=" + std::to_string(size);
+        if (rank >= 0) {
+            txt += ", rank=" + std::to_string(rank);
+        }
+        if (node) {
+            txt += ", zero pivot @ node '" + std::string(node) + "'";
+        } else {
+            txt += ", zero pivot @ column " + std::to_string(column + 1);
+        }
+        return txt + ".";
+    }
+END_ERRORCLASS(KluFactorizationError);
+
+ERRORCLASS(KluRefactorizationError)
+    MatrixEntryIndex size;
+    MatrixEntryIndex rank;
+    KluRefactorizationError(MatrixEntryIndex size, MatrixEntryIndex rank)
+        : size(size), rank(rank) {}
+    std::string format() const {
+        std::string txt = "Refactorization failed, size=" + std::to_string(size);
+        if (rank >= 0) {
+            txt += ", rank=" + std::to_string(rank);
+        }
+        return txt + ".";
+    }
+END_ERRORCLASS(KluRefactorizationError);
+
 // KLU-backed sparse direct solver.
 //
-// Reads the raw CSC arrays from the bound KluMatrixCore and owns its own
+// Reads the raw CSC arrays from the bound CSCMatrixCore and owns its own
 // klu_common / klu_symbolic / klu_numeric objects.
 template<typename IndexType, typename ValueType>
 class KluLinearSparseSolver : public LinearSparseSolver<IndexType, ValueType> {

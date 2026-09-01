@@ -70,7 +70,7 @@ typedef int32_t RpnJumpOffset;
 typedef uint32_t RefCountIndex;
 
 
-// Change these to uint64_t/int64_t to use 64-bit indexing in KLU
+// Change these to uint64_t/int64_t to use 64-bit indexing in sparse matrices
 // Equation index
 typedef uint32_t EquationIndex;
 
@@ -80,7 +80,7 @@ typedef uint32_t UnknownIndex;
 // Node index (unknown index)
 typedef UnknownIndex NodeIndex;
 
-// Matrix entry index - should be a signed 32- or 64-bit number for KLU
+// Matrix entry index - should be a signed 32- or 64-bit number for sparse matrices
 typedef int32_t MatrixEntryIndex;
 
 // Complex numbers used in numerical solvers

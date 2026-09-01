@@ -476,8 +476,8 @@ public:
     bool preAnalysis(Status& s=Status::ignore);
     bool nodeOrdering(Status& s=Status::ignore);
     bool bind(
-        KluMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
-        KluMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
+        CSCMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
+        CSCMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
         DelayLines* delayLines, 
         ErrorConsumer& ec
     );

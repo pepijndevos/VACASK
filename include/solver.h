@@ -24,7 +24,7 @@ END_ERRORCLASS(SolverNotFound);
 template<typename IndexType, typename ValueType>
 class LinearSparseSolver {
 public:
-    using Matrix = KluMatrixCore<IndexType, ValueType>;
+    using Matrix = CSCMatrixCore<IndexType, ValueType>;
 
     // Factory function: builds a concrete solver bound to the given matrix.
     typedef LinearSparseSolver* (*CreateFn)(Matrix& matrix);

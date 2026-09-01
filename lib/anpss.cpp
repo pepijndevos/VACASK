@@ -2,7 +2,7 @@
 //
 // Pss analysis — wires PssCore into the simulator's analysis dispatch layer.
 //
-// Follows the same structure as antran.cpp. Pss owns the shared KluRealMatrix,
+// Follows the same structure as antran.cpp. Pss owns the shared CSCRealMatrix,
 // solution, and states repositories and passes them by reference to PssCore.
 // All output descriptor management routes through PssCore's proxy methods,
 // which forward to the internal PssTranCore that actually writes the output.

@@ -1,5 +1,5 @@
-#ifndef __KLUBSMATRIX_DEFINED
-#define __KLUBSMATRIX_DEFINED
+#ifndef __CSCBLKMATRIX_DEFINED
+#define __CSCBLKMATRIX_DEFINED
 
 #include <unordered_map>
 #include <complex>
@@ -22,7 +22,7 @@ namespace NAMESPACE {
 // blockMep     .. element coordinates within the block
 // block origin .. element with blockMep=(0,0)
 template<typename IndexType, typename ValueType> 
-class KluBlockSparseMatrixCore : public KluMatrixCore<IndexType, ValueType>, public MatrixAccess<IndexType> {
+class CSCBlockSparseMatrixCore : public CSCMatrixCore<IndexType, ValueType>, public MatrixAccess<IndexType> {
 public: 
     // largeBucket controls the scratch block returned for a missing position
     // (the "bucket", see the contract on MatrixAccess):
@@ -33,21 +33,21 @@ public:
     //           matrix is never offset-loaded and block() views of a missing
     //           block are never dereferenced past element 0.
     // All current users pass true.
-    // Resolver is installed via setResolver() (see KluMatrixCore); errors per-call.
-    KluBlockSparseMatrixCore(bool largeBucket = true);
-    ~KluBlockSparseMatrixCore();
+    // Resolver is installed via setResolver() (see CSCMatrixCore); errors per-call.
+    CSCBlockSparseMatrixCore(bool largeBucket = true);
+    ~CSCBlockSparseMatrixCore();
 
-    KluBlockSparseMatrixCore           (const KluBlockSparseMatrixCore&)  = delete;
-    KluBlockSparseMatrixCore           (      KluBlockSparseMatrixCore&&) = delete;
-    KluBlockSparseMatrixCore& operator=(const KluBlockSparseMatrixCore&)  = delete;
-    KluBlockSparseMatrixCore& operator=(      KluBlockSparseMatrixCore&&) = delete;
+    CSCBlockSparseMatrixCore           (const CSCBlockSparseMatrixCore&)  = delete;
+    CSCBlockSparseMatrixCore           (      CSCBlockSparseMatrixCore&&) = delete;
+    CSCBlockSparseMatrixCore& operator=(const CSCBlockSparseMatrixCore&)  = delete;
+    CSCBlockSparseMatrixCore& operator=(      CSCBlockSparseMatrixCore&&) = delete;
 
     // No need to override elementPtr() since the returns value of valueIndex()
     // is the index into flat sparse matrix. 
     
     // BlockSparseMatrixCore specific interface
     // Returns a dense matrix view of a block. 
-    // Storage is column major due to KLU. 
+    // Storage is column major. 
     // A block column occupies a consecutive block of memory. 
     // Consecutive columns of the same bloc do not generally occupy a continuous block of memory. 
     // Column stride depends on the number of dense blocks in a column of dense blocks. 
@@ -66,7 +66,7 @@ public:
             }
             return std::make_tuple(DenseMatrixView<ValueType>(blockBucket_, nbRow_, nbCol_, 0, 0), false);
         }
-        // KLU organizes elements in column major order
+        // CSC organizes elements in column major order
         // row stride is 1, column stride depends on the column of dense blocks
         // Get 0-based block position
         auto [row, col] = mep;
@@ -151,15 +151,13 @@ public:
     void dumpBlockSparsity(std::ostream& os);
 
 protected:
-    using KluMatrixCore<IndexType, ValueType>::smap;
-    using KluMatrixCore<IndexType, ValueType>::nnz_;
-    using KluMatrixCore<IndexType, ValueType>::AN;
-    using KluMatrixCore<IndexType, ValueType>::AP;
-    using KluMatrixCore<IndexType, ValueType>::AI;
-    using KluMatrixCore<IndexType, ValueType>::Ax;
-    using KluMatrixCore<IndexType, ValueType>::common;
-    using KluMatrixCore<IndexType, ValueType>::symbolic;
-    using KluMatrixCore<IndexType, ValueType>::bucket_;
+    using CSCMatrixCore<IndexType, ValueType>::smap;
+    using CSCMatrixCore<IndexType, ValueType>::nnz_;
+    using CSCMatrixCore<IndexType, ValueType>::AN;
+    using CSCMatrixCore<IndexType, ValueType>::AP;
+    using CSCMatrixCore<IndexType, ValueType>::AI;
+    using CSCMatrixCore<IndexType, ValueType>::Ax;
+    using CSCMatrixCore<IndexType, ValueType>::bucket_;
 
     // Number of blocks in row/column
     // Blocks structure is square
@@ -221,9 +219,9 @@ public:
     virtual Complex* cxValuePtr(const MatrixEntryPosition& mep, const std::optional<MatrixEntryPosition>& blockMep=std::nullopt);
 };
 
-// Default KLU matrix flavor
-typedef KluBlockSparseMatrixCore<MatrixEntryIndex, double> KluBlockSparseRealMatrix;
-typedef KluBlockSparseMatrixCore<MatrixEntryIndex, Complex> KluBlockSparseComplexMatrix;
+// Default CSC matrix flavor
+typedef CSCBlockSparseMatrixCore<MatrixEntryIndex, double> CSCBlockSparseRealMatrix;
+typedef CSCBlockSparseMatrixCore<MatrixEntryIndex, Complex> CSCBlockSparseComplexMatrix;
 
 }
 

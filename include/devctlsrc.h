@@ -143,8 +143,8 @@ template<> bool BuiltinVccsInstance::setStaticTolerancesCore(Circuit& circuit, C
 template<> bool BuiltinVccsInstance::populateStructuresCore(Circuit& circuit, Status& s);
 template<> bool BuiltinVccsInstance::bindCore(
     Circuit& circuit, 
-    KluMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
-    KluMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
+    CSCMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
+    CSCMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
     DelayLines* delayLines, 
     ErrorConsumer& ec
 );
@@ -162,8 +162,8 @@ template<> bool BuiltinVcvsInstance::setStaticTolerancesCore(Circuit& circuit, C
 template<> bool BuiltinVcvsInstance::populateStructuresCore(Circuit& circuit, Status& s);
 template<> bool BuiltinVcvsInstance::bindCore(
     Circuit& circuit, 
-    KluMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
-    KluMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
+    CSCMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
+    CSCMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
     DelayLines* delayLines, 
     ErrorConsumer& ec
 );
@@ -181,8 +181,8 @@ template<> bool BuiltinCccsInstance::setStaticTolerancesCore(Circuit& circuit, C
 template<> bool BuiltinCccsInstance::populateStructuresCore(Circuit& circuit, Status& s);
 template<> bool BuiltinCccsInstance::bindCore(
     Circuit& circuit, 
-    KluMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
-    KluMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
+    CSCMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
+    CSCMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
     DelayLines* delayLines, 
     ErrorConsumer& ec
 );
@@ -200,8 +200,8 @@ template<> bool BuiltinCcvsInstance::setStaticTolerancesCore(Circuit& circuit, C
 template<> bool BuiltinCcvsInstance::populateStructuresCore(Circuit& circuit, Status& s);
 template<> bool BuiltinCcvsInstance::bindCore(
     Circuit& circuit, 
-    KluMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
-    KluMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
+    CSCMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
+    CSCMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
     DelayLines* delayLines, 
     ErrorConsumer& ec
 );
@@ -252,8 +252,8 @@ template<> bool BuiltinMutualInstance::preAnalysisCore(Circuit& circuit, Status&
 template<> bool BuiltinMutualInstance::populateStructuresCore(Circuit& circuit, Status& s);
 template<> bool BuiltinMutualInstance::bindCore(
     Circuit& circuit, 
-    KluMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
-    KluMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
+    CSCMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
+    CSCMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
     DelayLines* delayLines, 
     ErrorConsumer& ec
 );

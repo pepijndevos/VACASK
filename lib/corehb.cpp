@@ -45,7 +45,7 @@ instantiateIntrospection(HBParameters);
 
 HBCore::HBCore(
     OutputDescriptorResolver& parentResolver, HBParameters& params, Circuit& circuit, CommonData& commons,
-    KluBlockSparseRealMatrix& jacColoc, KluBlockSparseRealMatrix& jacobian, VectorRepository<double>& solution, 
+    CSCBlockSparseRealMatrix& jacColoc, CSCBlockSparseRealMatrix& jacobian, VectorRepository<double>& solution, 
     DelayLines& delayLines, DelayMatrixBindings<DenseMatrixView<double>>& delayBindings
 ) : AnalysisCore(parentResolver, circuit, commons),
     homotopySteps(0),
@@ -325,7 +325,7 @@ bool HBCore::evaluateAtNodeset(ErrorConsumer& errors) {
     return true;
 }
 
-bool HBCore::getFrequencyDomainJacobians(KluBlockSparseComplexMatrix& jacSpec, const Spurs& prunedSpurs) {
+bool HBCore::getFrequencyDomainJacobians(CSCBlockSparseComplexMatrix& jacSpec, const Spurs& prunedSpurs) {
     // Assumes evaluation was performed, writes frequency domin jacobians to jacSpec
     auto nt = timepoints.size();
     auto nf = spurs_.smsigFreq().size();
@@ -911,8 +911,8 @@ bool HBCore::test() {
     // Dummy strutures
     OutputDescriptorResolver dummyResolver;
     CommonData dummyCommons;
-    KluBlockSparseRealMatrix jacColoc;
-    KluBlockSparseRealMatrix bsjac;
+    CSCBlockSparseRealMatrix jacColoc;
+    CSCBlockSparseRealMatrix bsjac;
     VectorRepository<double> sol;
     ParserTables tab;
     Circuit dummyCircuit(tab);

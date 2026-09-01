@@ -1182,8 +1182,8 @@ template<> bool BuiltinISourceInstance::populateStructuresCore(Circuit& circuit,
 
 template<> bool BuiltinVSourceInstance::bindCore(
     Circuit& circuit, 
-    KluMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
-    KluMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
+    CSCMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
+    CSCMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
     DelayLines* delayLines, 
     ErrorConsumer& ec
 ) {
@@ -1209,8 +1209,8 @@ template<> bool BuiltinVSourceInstance::bindCore(
 
 template<> bool BuiltinISourceInstance::bindCore(
     Circuit& circuit, 
-    KluMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
-    KluMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
+    CSCMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
+    CSCMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
     DelayLines* delayLines, 
     ErrorConsumer& ec
 ) {

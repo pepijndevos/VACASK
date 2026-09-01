@@ -56,8 +56,8 @@ public:
     virtual bool preAnalysis(Circuit& circuit, Status& s=Status::ignore);
     virtual bool bind(
         Circuit& circuit, 
-        KluMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
-        KluMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
+        CSCMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
+        CSCMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
         DelayLines* delayLines, 
         ErrorConsumer& ec
     );
@@ -222,8 +222,8 @@ public:
     bool populateStructuresCore(Circuit& circuit, Status& s=Status::ignore);
     bool bindCore(
         Circuit& circuit, 
-        KluMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
-        KluMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
+        CSCMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
+        CSCMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
         DelayLines* delayLines, 
         ErrorConsumer& ec
     );
@@ -232,7 +232,7 @@ public:
         
 protected:
     // Get Jacobian entry pointer
-    void jacEntryPtr(double*& destination, EquationIndex e, UnknownIndex u, KluMatrixAccess* mat, Component comp, const std::optional<MatrixEntryPosition>& mep);
+    void jacEntryPtr(double*& destination, EquationIndex e, UnknownIndex u, CSCMatrixAccess* mat, Component comp, const std::optional<MatrixEntryPosition>& mep);
 
     // Create internal nodes for unconnected terminals
     bool createNodesForUnconnectedTerminals(Circuit& circuit, Status& s=Status::ignore);
@@ -355,8 +355,8 @@ bool BuiltinDevice<ModelParams, InstanceParams, InstanceData>::populateStructure
 template<typename ModelParams, typename InstanceParams, typename InstanceData> 
 bool BuiltinDevice<ModelParams, InstanceParams, InstanceData>::bind(
     Circuit& circuit, 
-    KluMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
-    KluMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
+    CSCMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
+    CSCMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
     DelayLines* delayLines, 
     ErrorConsumer& ec
 ) {
@@ -657,7 +657,7 @@ std::tuple<bool, bool, bool> BuiltinInstance<ModelParams, InstanceParams, Instan
 }
 
 template<typename ModelParams, typename InstanceParams, typename InstanceData> 
-void BuiltinInstance<ModelParams, InstanceParams, InstanceData>::jacEntryPtr(double*& destination, EquationIndex e, UnknownIndex u, KluMatrixAccess* mat, Component comp, const std::optional<MatrixEntryPosition>& mep) {
+void BuiltinInstance<ModelParams, InstanceParams, InstanceData>::jacEntryPtr(double*& destination, EquationIndex e, UnknownIndex u, CSCMatrixAccess* mat, Component comp, const std::optional<MatrixEntryPosition>& mep) {
     destination = mat->valuePtr(MatrixEntryPosition(e, u), comp, mep);
 }
 

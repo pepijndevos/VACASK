@@ -56,8 +56,8 @@ public:
     HBNRSolver(
         Circuit& circuit,
         CommonData& commons,
-        KluBlockSparseRealMatrix& jacColoc,
-        KluBlockSparseRealMatrix& bsjac, 
+        CSCBlockSparseRealMatrix& jacColoc,
+        CSCBlockSparseRealMatrix& bsjac, 
         VectorRepository<double>& solution, 
         Vector<Complex>& solutionFD,
         const Vector<double>& timepoints,  
@@ -112,10 +112,10 @@ protected:
     LoadSetup loadSetup_;
 
     // Jacobian entries at colocation points
-    KluBlockSparseRealMatrix& jacColoc;
+    CSCBlockSparseRealMatrix& jacColoc;
 
     // HB Jacobian
-    KluBlockSparseRealMatrix& bsjac;
+    CSCBlockSparseRealMatrix& bsjac;
     
     // References without a bucket
     const Vector<double>& timepoints;

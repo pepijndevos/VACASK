@@ -6,47 +6,47 @@
 
 namespace NAMESPACE {
 
-template<typename IndexType, typename ValueType> KluBlockSparseMatrixCore<IndexType, ValueType>::KluBlockSparseMatrixCore(bool largeBucket)
+template<typename IndexType, typename ValueType> CSCBlockSparseMatrixCore<IndexType, ValueType>::CSCBlockSparseMatrixCore(bool largeBucket)
     : blockBucket_(nullptr), largeBucket_(largeBucket) {
 }
 
-template<typename IndexType, typename ValueType> KluBlockSparseMatrixCore<IndexType, ValueType>::~KluBlockSparseMatrixCore() {
+template<typename IndexType, typename ValueType> CSCBlockSparseMatrixCore<IndexType, ValueType>::~CSCBlockSparseMatrixCore() {
 }
 
 template<typename IndexType, typename ValueType> 
-double* KluBlockSparseMatrixCore<IndexType, ValueType>::valueArray() {
+double* CSCBlockSparseMatrixCore<IndexType, ValueType>::valueArray() {
     if constexpr(std::is_same<ValueType, Complex>::value) {
         return nullptr;
     } else {
-        return KluMatrixCore<IndexType, ValueType>::axData();
+        return CSCMatrixCore<IndexType, ValueType>::axData();
     }
 } 
 
 template<typename IndexType, typename ValueType> 
-Complex* KluBlockSparseMatrixCore<IndexType, ValueType>::cxValueArray() {
+Complex* CSCBlockSparseMatrixCore<IndexType, ValueType>::cxValueArray() {
     if constexpr(std::is_same<ValueType, Complex>::value) {
-        return KluMatrixCore<IndexType, ValueType>::axData();
+        return CSCMatrixCore<IndexType, ValueType>::axData();
     } else {
         return nullptr;
     }
 } 
 
 template<typename IndexType, typename ValueType> 
-std::tuple<IndexType, bool> KluBlockSparseMatrixCore<IndexType, ValueType>::valueIndex(
+std::tuple<IndexType, bool> CSCBlockSparseMatrixCore<IndexType, ValueType>::valueIndex(
     const MatrixEntryPosition& mep, const std::optional<MatrixEntryPosition>& blockMep
 ) const {
     return elementIndex(mep, blockMep);
 }
 
 template<typename IndexType, typename ValueType> 
-double* KluBlockSparseMatrixCore<IndexType, ValueType>::valuePtr(
+double* CSCBlockSparseMatrixCore<IndexType, ValueType>::valuePtr(
     const MatrixEntryPosition& mep, Component comp, const std::optional<MatrixEntryPosition>& blockMep
 ) {
     return elementPtr(mep, comp, blockMep);
 }
 
 template<typename IndexType, typename ValueType> 
-Complex* KluBlockSparseMatrixCore<IndexType, ValueType>::cxValuePtr(
+Complex* CSCBlockSparseMatrixCore<IndexType, ValueType>::cxValuePtr(
     const MatrixEntryPosition& mep, const std::optional<MatrixEntryPosition>& blockMep
 ) {
     if constexpr(std::is_same<ValueType, Complex>::value) {
@@ -65,9 +65,7 @@ Complex* KluBlockSparseMatrixCore<IndexType, ValueType>::cxValuePtr(
 }
 
 template<typename IndexType, typename ValueType> 
-bool KluBlockSparseMatrixCore<IndexType, ValueType>::rebuild(SparsityMap& m, EquationIndex n, EquationIndex nbRow, UnknownIndex nbCol, ErrorConsumer& ec, bool storageOnly) {
-    KluMatrixCore<IndexType, ValueType>::deleteKluObjects();
-
+bool CSCBlockSparseMatrixCore<IndexType, ValueType>::rebuild(SparsityMap& m, EquationIndex n, EquationIndex nbRow, UnknownIndex nbCol, ErrorConsumer& ec, bool storageOnly) {
     n_ = n;
     nbRow_ = nbRow;
     nbCol_ = nbCol;
@@ -211,43 +209,13 @@ bool KluBlockSparseMatrixCore<IndexType, ValueType>::rebuild(SparsityMap& m, Equ
     }
 
     // Zero array (Ax only - not the bucket)
-    KluMatrixCore<IndexType, ValueType>::zero();
-    
-    // Set up KLU structures
-    int st;
-    if constexpr(std::is_same<int32_t, IndexType>::value) {
-        st = klu_defaults(&common);
-    } else {
-        st = klu_l_defaults(&common);
-    }
-    if (!st) {
-        ec.push(KluDefaultsError{});
-        // Set smap to nullptr indicating failed rebuild()
-        smap = nullptr;
-        return false;
-    }
+    CSCMatrixCore<IndexType, ValueType>::zero();
 
-    if (!storageOnly) {
-        if constexpr(std::is_same<int32_t, IndexType>::value) {
-            symbolic = klu_analyze(AN, AP.data(), AI.data(), &common);
-        } else {
-            symbolic = klu_l_analyze(AN, AP.data(), AI.data(), &common);
-        }
-        if (!symbolic) {
-            ec.push(KluAnalysisError{});
-            // Set smap to nullptr indicating failed rebuild()
-            smap = nullptr;
-            return false;
-        }
-    } else {
-        symbolic = nullptr;
-    }
-    
     return true;
 }
 
 template<typename IndexType, typename ValueType>
-void KluBlockSparseMatrixCore<IndexType, ValueType>::dumpBlockSparsity(std::ostream& os) {
+void CSCBlockSparseMatrixCore<IndexType, ValueType>::dumpBlockSparsity(std::ostream& os) {
    for(IndexType row=0; row<n_; row++) {
         for(IndexType col=0; col<n_; col++) {
             auto [_, found] = block(MatrixEntryPosition(row+1, col+1));
@@ -263,9 +231,9 @@ void KluBlockSparseMatrixCore<IndexType, ValueType>::dumpBlockSparsity(std::ostr
 
 
 // Instantiate template class for int32 and int64 indices, double and Complex values
-template class KluBlockSparseMatrixCore<int32_t, double>;
-template class KluBlockSparseMatrixCore<int32_t, Complex>;
-template class KluBlockSparseMatrixCore<int64_t, double>;
-template class KluBlockSparseMatrixCore<int64_t, Complex>;
+template class CSCBlockSparseMatrixCore<int32_t, double>;
+template class CSCBlockSparseMatrixCore<int32_t, Complex>;
+template class CSCBlockSparseMatrixCore<int64_t, double>;
+template class CSCBlockSparseMatrixCore<int64_t, Complex>;
 
 }

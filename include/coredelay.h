@@ -50,22 +50,22 @@ public:
         return true;
     };
 
-    // Matrix type (KluRealMatrix for T=double*, KluComplexMatrix for T=Complex*)
+    // Matrix type (CSCRealMatrix for T=double*, CSCComplexMatrix for T=Complex*)
     // follows from the bindings type, so T alone is enough to select an
     // overload - e.g. bindToMatrix<double*>(matResist, mep, bindings, ec).
     template<typename T> bool bindToMatrix(
-        std::conditional_t<std::is_same_v<T, Complex*>, KluComplexMatrix, KluRealMatrix>& mat,
+        std::conditional_t<std::is_same_v<T, Complex*>, CSCComplexMatrix, CSCRealMatrix>& mat,
         const std::optional<MatrixEntryPosition>& mep,
         DelayMatrixBindings<T>& bindings,
         ErrorConsumer& ec
     );
 
-    // Matrix type (KluBlockSparseRealMatrix for T=DenseMatrixView<double>,
-    // KluBlockSparseComplexMatrix for T=DenseMatrixView<Complex>) follows
+    // Matrix type (CSCBlockSparseRealMatrix for T=DenseMatrixView<double>,
+    // CSCBlockSparseComplexMatrix for T=DenseMatrixView<Complex>) follows
     // from the bindings type, same as bindToMatrix() above - e.g.
     // bindToMatrixBlock<DenseMatrixView<double>>(matResist, bindings, ec).
     template<typename T> bool bindToBlockMatrix(
-        std::conditional_t<std::is_same_v<T, DenseMatrixView<Complex>>, KluBlockSparseComplexMatrix, KluBlockSparseRealMatrix>& mat,
+        std::conditional_t<std::is_same_v<T, DenseMatrixView<Complex>>, CSCBlockSparseComplexMatrix, CSCBlockSparseRealMatrix>& mat,
         DelayMatrixBindings<T>& bindings,
         ErrorConsumer& ec
     );

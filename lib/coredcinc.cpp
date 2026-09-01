@@ -27,7 +27,7 @@ instantiateIntrospection(DCIncrementalParameters);
 
 DCIncrementalCore::DCIncrementalCore(
     OutputDescriptorResolver& parentResolver, DCIncrementalParameters& params, OperatingPointCore& opCore, Circuit& circuit, 
-    CommonData& commons, KluRealMatrix& jacobian, Vector<double>& incrementalSolution
+    CommonData& commons, CSCRealMatrix& jacobian, Vector<double>& incrementalSolution
 ) : AnalysisCore(parentResolver, circuit, commons), params(params), outfile(nullptr), opCore_(opCore), 
     jacobian(jacobian), incrementalSolution(incrementalSolution) {
 

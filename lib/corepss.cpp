@@ -35,7 +35,7 @@ PssCore::PssCore(
     PssParameters& params,
     Circuit& circuit,
     CommonData& commons,
-    KluRealMatrix& jacobian,
+    CSCRealMatrix& jacobian,
     VectorRepository<double>& solution,
     VectorRepository<double>& states,
     OperatingPointCore& opCore,

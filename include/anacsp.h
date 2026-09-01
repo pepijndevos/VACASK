@@ -20,7 +20,7 @@ public:
     static inline const Id analysisId = Id::createStatic("acsp");
 
 protected:
-    KluComplexMatrix acMatrix;
+    CSCComplexMatrix acMatrix;
     Vector<Complex> acSolution;
 
     DenseMatrix<Complex> stMatrix;

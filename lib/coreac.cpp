@@ -38,8 +38,8 @@ instantiateIntrospection(ACParameters);
 ACCore::ACCore(
     OutputDescriptorResolver& parentResolver, ACParameters& params, OperatingPointCore& opCore, Circuit& circuit, 
     CommonData& commons, 
-    KluRealMatrix& dcJacobian, VectorRepository<double>& dcSolution, VectorRepository<double>& dcStates, 
-    KluComplexMatrix& acMatrix, Vector<Complex>& acSolution, 
+    CSCRealMatrix& dcJacobian, VectorRepository<double>& dcSolution, VectorRepository<double>& dcStates, 
+    CSCComplexMatrix& acMatrix, Vector<Complex>& acSolution, 
     DelayLines& delayLines, DelayMatrixBindings<Complex*>& delayBindings
 ) : AnalysisCore(parentResolver, circuit, commons), params(params), outfile(nullptr), opCore_(opCore),
     dcSolution(dcSolution), dcStates(dcStates), dcJacobian(dcJacobian),

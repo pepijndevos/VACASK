@@ -615,8 +615,8 @@ bool OsdiInstance::populateStructuresCore(Circuit& circuit, Status& s) {
 
 bool OsdiInstance::bindCore(
     Circuit& circuit, 
-    KluMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
-    KluMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
+    CSCMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
+    CSCMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
     DelayLines* delayLines, 
     ErrorConsumer& ec
 ) {

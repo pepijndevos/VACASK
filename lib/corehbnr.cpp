@@ -9,8 +9,8 @@ namespace NAMESPACE {
 HBNRSolver::HBNRSolver(
         Circuit& circuit,
         CommonData& commons,
-        KluBlockSparseRealMatrix& jacColoc,
-        KluBlockSparseRealMatrix& bsjac, 
+        CSCBlockSparseRealMatrix& jacColoc,
+        CSCBlockSparseRealMatrix& bsjac, 
         VectorRepository<double>& solution, 
         Vector<Complex>& solutionFD, 
         const Vector<double>& timepoints, 

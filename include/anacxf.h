@@ -16,7 +16,7 @@ public:
     static inline const Id analysisId = Id::createStatic("acxf");
 
 protected:
-    KluComplexMatrix acMatrix;
+    CSCComplexMatrix acMatrix;
     Vector<Complex> acSolution;
 
     std::unordered_map<Id,size_t> sourceIndex;

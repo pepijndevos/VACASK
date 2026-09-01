@@ -31,7 +31,7 @@ END_ERRORCLASS(TranNrFlickerExponentChanged);
 class TranNRSolver : public OpNRSolver {
 public:
     TranNRSolver(
-        Circuit& circuit, CommonData& commons, KluRealMatrix& jac,
+        Circuit& circuit, CommonData& commons, CSCRealMatrix& jac,
         VectorRepository<double>& states, VectorRepository<double>& solution,
         DelayLines* delayLines, DelayMatrixBindings<double*>* delayBindings,
         const CircularBuffer<double>& timepointHistory_,

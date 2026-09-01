@@ -29,7 +29,7 @@ instantiateIntrospection(OperatingPointParameters);
 OperatingPointCore::OperatingPointCore(
     OutputDescriptorResolver& parentResolver, OperatingPointParameters& params, Circuit& circuit, 
     CommonData& commons, 
-    KluRealMatrix& jacobian, VectorRepository<double>& solution, VectorRepository<double>& states, 
+    CSCRealMatrix& jacobian, VectorRepository<double>& solution, VectorRepository<double>& states, 
     DelayLines& delayLines, DelayMatrixBindings<double*>& delayBindings
 ) : AnalysisCore(parentResolver, circuit, commons), params(params), outfile(nullptr),
       jac(jacobian), solution(solution), states(states), delayLines_(delayLines), delayBindings_(delayBindings),

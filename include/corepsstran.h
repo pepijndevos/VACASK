@@ -41,14 +41,14 @@
 //
 //   2. C_k: evaluated with a single evalAndLoad pass (needed for the RHS).
 //
-//   3. Alr_k is refactored from the copied Ax values (klu_refactor reuses
+//   3. Alr_k is refactored from the copied Ax values (refactor reuses
 //      the symbolic factorisation stored in lastAlr_ from its rebuild()).
 //
 //   4. RHS[:,j] = C_k * phiSum[:,j]  for j = 0..n-1, where
 //      phiSum = sum_{si} asc[si] * phiHist[si].
 //
-//   5. Single block solve: lastAlr_ * PhiT_new = RHS  (klu_solve, nrhs=n).
-//      RHS is column-major so KLU can solve all n columns in one call.
+//   5. Single block solve: lastAlr_ * PhiT_new = RHS  (solve, nrhs=n).
+//      RHS is column-major so solver can solve all n columns in one call.
 //
 //   6. advance() phiHist (ring buffer, capacity maxOrder+2): the just-solved
 //      future slot becomes the new current one, at(0).
@@ -175,7 +175,7 @@ public:
         OperatingPointCore& opCore,
         Circuit& circuit,
         CommonData& commons,
-        KluRealMatrix& jacobian,
+        CSCRealMatrix& jacobian,
         VectorRepository<double>& opSolution,
         VectorRepository<double>& solution,
         VectorRepository<double>& states, 
@@ -296,16 +296,16 @@ private:
     // Factored Alr = G + alpha*C from the most-recent accepted step.
     // Rebuilt in onTimestepAccepted(), reused in computePsiT() as J_N.
     // Same sparsity as jacobian.
-    KluRealMatrix lastAlr_;
+    CSCRealMatrix lastAlr_;
     std::unique_ptr<RealSparseSolver> lastAlrSolver_;
 
     // Scratch matrix for the unscaled reactive Jacobian C_k.
     // Filled by a single evalAndLoad pass in onTimestepAccepted().
     // Used to form the Phi RHS columns.  Same sparsity as jacobian.
-    KluRealMatrix scratchC_;
+    CSCRealMatrix scratchC_;
 
     // Ring buffers of past reactive Jacobians C_k and resistive Jacobians
-    // G_k = A_k - alpha_k * C_k (nnz-length raw KLU data arrays). Same
+    // G_k = A_k - alpha_k * C_k (nnz-length raw CSC data arrays). Same
     // fixed-capacity/future-slot-then-advance() pattern as qHist_/qDotHist_
     // below: onTimestepAccepted() copies C_k straight from jacobian.data()
     // into cHistData_'s future slot (plain std::copy, not an accumulating

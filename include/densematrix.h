@@ -849,8 +849,8 @@ private:
                 // extra-diagonal/diagonal value is symmetric so this is safe
                 // either way. Using the real m/n/lda (rather than requiring
                 // full packing) also fast-paths a genuine strided sub-block
-                // view, e.g. a KLUBS block with colStride_ > nRow_ (see
-                // docs/internals/klubsmatrix.md).
+                // view, e.g. a CSC block with colStride_ > nRow_ (see
+                // docs/internals/cscblkmatrix.md).
                 char uplo = 'A';
                 int m = static_cast<int>(rowStride_==1 ? nRow_ : nCol_);
                 int n = static_cast<int>(rowStride_==1 ? nCol_ : nRow_);

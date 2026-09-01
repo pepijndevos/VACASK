@@ -146,7 +146,7 @@ public:
         PssParameters& params,
         Circuit& circuit,
         CommonData& commons,
-        KluRealMatrix& jacobian,
+        CSCRealMatrix& jacobian,
         VectorRepository<double>& solution,
         VectorRepository<double>& states,
         OperatingPointCore& opCore,
@@ -197,7 +197,7 @@ protected:
     // by prepareStabilisation() and runShoot().
     void clampStepToMaxacfreq(TranParameters& tp, double period) const;
 
-    KluRealMatrix& jacobian;            // Resistive Jacobian
+    CSCRealMatrix& jacobian;            // Resistive Jacobian
     VectorRepository<double>& solution; // Solution history
     VectorRepository<double>& states;   // Circuit states
 

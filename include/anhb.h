@@ -70,8 +70,8 @@ private:
 
     // Declared before core so the references core binds in its init list
     // (jacColoc, jac, solution) refer to fully-constructed members.
-    KluBlockSparseRealMatrix jacColoc; // Jacobian entries at colocation points
-    KluBlockSparseRealMatrix jac; // HB Jacobian
+    CSCBlockSparseRealMatrix jacColoc; // Jacobian entries at colocation points
+    CSCBlockSparseRealMatrix jac; // HB Jacobian
     VectorRepository<double> solution; // Solution history
 
     DelayLines delayLines_;

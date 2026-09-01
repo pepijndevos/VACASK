@@ -70,7 +70,7 @@ private:
 
     // Declared before core so the references core binds in its init list
     // (jac, solution, states) refer to fully-constructed members.
-    KluRealMatrix jac; // Resistive Jacobian
+    CSCRealMatrix jac; // Resistive Jacobian
     VectorRepository<double> solution; // Solution history
     VectorRepository<double> states; // Circuit states
 

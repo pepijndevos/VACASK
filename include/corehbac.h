@@ -167,9 +167,9 @@ public:
     HBACCore(
         OutputDescriptorResolver& parentResolver, HBACParameters& params, HBCore& opCore, 
         Circuit& circuit, CommonData& commons, 
-        KluBlockSparseComplexMatrix& jacSpec, 
+        CSCBlockSparseComplexMatrix& jacSpec, 
         VectorRepository<Complex>& hbSolution, 
-        KluBlockSparseComplexMatrix& acMatrix, Vector<Complex>& acSolution,
+        CSCBlockSparseComplexMatrix& acMatrix, Vector<Complex>& acSolution,
         DelayLines& delayLines, DelayMatrixBindings<DenseMatrixView<Complex>>& hbacDelayBindings
     );
     ~HBACCore();
@@ -219,8 +219,8 @@ protected:
     void fillMatrix();
 
     VectorRepository<Complex>& hbSolution;
-    KluBlockSparseComplexMatrix& jacSpec;
-    KluBlockSparseComplexMatrix& acMatrix;
+    CSCBlockSparseComplexMatrix& jacSpec;
+    CSCBlockSparseComplexMatrix& acMatrix;
     Vector<Complex>& acSolution;
 
     // Previous HB parameters to check if we need to rebuild()

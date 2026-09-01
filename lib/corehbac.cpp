@@ -48,9 +48,9 @@ instantiateIntrospection(HBACParameters);
 HBACCore::HBACCore(
     OutputDescriptorResolver& parentResolver, HBACParameters& params, HBCore& hbCore,
     Circuit& circuit, CommonData& commons,
-    KluBlockSparseComplexMatrix& jacSpec,
+    CSCBlockSparseComplexMatrix& jacSpec,
     VectorRepository<Complex>& hbSolution,
-    KluBlockSparseComplexMatrix& acMatrix, Vector<Complex>& acSolution,
+    CSCBlockSparseComplexMatrix& acMatrix, Vector<Complex>& acSolution,
     DelayLines& delayLines, DelayMatrixBindings<DenseMatrixView<Complex>>& hbacDelayBindings
 ) : AnalysisCore(parentResolver, circuit, commons),
     hbCore_(hbCore),

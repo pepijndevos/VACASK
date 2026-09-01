@@ -127,7 +127,7 @@ class NRSolver : public FlagBase<NRSolverFlags> {
 public:
     NRSolver(
         Accounting& acct,
-        KluRealMatrixCore& jac, VectorRepository<double>& solution,
+        CSCRealMatrixCore& jac, VectorRepository<double>& solution,
         NRSettings& settings,
         size_t bucketSize=0
     );
@@ -242,7 +242,7 @@ protected:
     bool highPrecision;
 
     // Passed from outside
-    KluRealMatrixCore& jac;
+    CSCRealMatrixCore& jac;
     VectorRepository<double>& solution;
     NRSettings& settings;
     Accounting& acct;

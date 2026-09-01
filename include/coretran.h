@@ -129,7 +129,7 @@ public:
     TranCore(
         OutputDescriptorResolver& parentResolver, TranParameters& params, OperatingPointCore& opCore, 
         Circuit& circuit, CommonData& commons, 
-        KluRealMatrix& jacobian, VectorRepository<double>& opSolution, VectorRepository<double>& solution, 
+        CSCRealMatrix& jacobian, VectorRepository<double>& opSolution, VectorRepository<double>& solution, 
         VectorRepository<double>& states, 
         DelayLines& delayLines, DelayMatrixBindings<double*>& delayBindings 
     ); 
@@ -180,7 +180,7 @@ public:
 
 protected:
     VectorRepository<double>& opSolution; // Solution history
-    KluRealMatrix& jacobian; // Resistive Jacobian
+    CSCRealMatrix& jacobian; // Resistive Jacobian
     VectorRepository<double>& solution; // Solution history
     VectorRepository<double>& states; // Circuit states
 

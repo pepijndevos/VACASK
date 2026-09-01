@@ -40,8 +40,8 @@ NoiseCore::NoiseCore(
     OutputDescriptorResolver& parentResolver, NoiseParameters& params, OperatingPointCore& opCore,
     std::unordered_map<std::pair<Id, Id>, size_t>& contributionOffset,
     Circuit& circuit, CommonData& commons,
-    KluRealMatrix& dcJacobian, VectorRepository<double>& dcSolution, VectorRepository<double>& dcStates,
-    KluComplexMatrix& acMatrix, Vector<Complex>& acSolution,
+    CSCRealMatrix& dcJacobian, VectorRepository<double>& dcSolution, VectorRepository<double>& dcStates,
+    CSCComplexMatrix& acMatrix, Vector<Complex>& acSolution,
     Vector<double>& results, double& powerGain, double& outputNoise,
     DelayLines& delayLines, DelayMatrixBindings<Complex*>& delayBindings
 ) : AnalysisCore(parentResolver, circuit, commons), params(params), outfile(nullptr), opCore_(opCore),

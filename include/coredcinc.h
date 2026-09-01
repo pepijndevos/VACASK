@@ -61,7 +61,7 @@ public:
 
     DCIncrementalCore(
         OutputDescriptorResolver& parentResolver, DCIncrementalParameters& params, OperatingPointCore& opCore, Circuit& circuit, 
-        CommonData& commons, KluRealMatrix& jacobian, Vector<double>& incrementalSolution
+        CommonData& commons, CSCRealMatrix& jacobian, Vector<double>& incrementalSolution
     ); 
     ~DCIncrementalCore();
     
@@ -89,7 +89,7 @@ protected:
     static constexpr size_t bucketSize = 1;
     
 
-    KluRealMatrix& jacobian;
+    CSCRealMatrix& jacobian;
     Vector<double>& incrementalSolution;
     DCIncrementalParameters& params;
 };

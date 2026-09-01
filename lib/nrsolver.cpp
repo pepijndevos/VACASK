@@ -39,7 +39,7 @@ namespace NAMESPACE {
 // Analysis::setAnalysisOptions() before rebuild() is called. 
 // Slots can be activated/deactivated,. 
 NRSolver::NRSolver(
-    Accounting& acct, KluRealMatrixCore& jac,
+    Accounting& acct, CSCRealMatrixCore& jac,
     VectorRepository<double>& solution,
     NRSettings& settings, size_t bucketSize
 ) : acct(acct), jac(jac), solution(solution), settings(settings),

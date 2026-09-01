@@ -1,7 +1,6 @@
-#ifndef __KLUMATRIX_DEFINED
-#define __KLUMATRIX_DEFINED
+#ifndef __CSCMATRIX_DEFINED
+#define __CSCMATRIX_DEFINED
 
-#include <suitesparse/klu.h>
 #include <unordered_map>
 #include <complex>
 #include <type_traits>
@@ -21,7 +20,7 @@
 namespace NAMESPACE {
 
 // TODO: make multiple matrices share the same sparsity pattern without allocating a new copy
-//       of KLU sparsity pattern
+//       of the sparsity pattern
 
 // Abstract class that resolves a row/column index into a name
 // Should be defined by the user of the sparse matrix
@@ -161,7 +160,7 @@ DEFINE_FLAG_OPERATORS(Component);
 //     data. Code that needs a real value must check the found flag from
 //     valueIndex()/elementIndex() first.
 // The bucket is sized so that offset-based loading (adding a bounded element
-// offset to a resolved base pointer, see KluBlockSparseMatrixCore) stays in
+// offset to a resolved base pointer, see CSCBlockSparseMatrixCore) stays in
 // bounds even when the base resolved to the bucket.
 template<typename IndexType> class MatrixAccess {
 public:
@@ -199,73 +198,15 @@ public:
     virtual Complex* cxValuePtr(const MatrixEntryPosition& mep, const std::optional<MatrixEntryPosition>& blockMep=std::nullopt) = 0;
 };
 
-//
-// KLU matrix errors
-//
-// Row/column indices that identify an offending node are resolved to an Id
-// (via a NameResolver) at the moment the error is created and stored in the
-// error. format() prints the node name when the Id is valid, and falls back to
-// the raw 1-based index when it is a bad Id (no resolver was available).
-//
+SIMPLE_ERRORCLASS(CSCMulVecSizeMismatch, "Matrix-vector multiplication vector size mismatch.");
 
-// -- data-free --
-
-SIMPLE_ERRORCLASS(KluDefaultsError, "Cannot set up KLU defaults.");
-
-SIMPLE_ERRORCLASS(KluAnalysisError, "KLU matrix analysis failed. Probably the matrix is singular.");
-
-SIMPLE_ERRORCLASS(KluPivotGrowthError, "Failed to compute reciprocal pivot growth.");
-
-SIMPLE_ERRORCLASS(KluCondEstimateError, "Failed to compute reciprocal condition number estimate.");
-
-SIMPLE_ERRORCLASS(KluSolveError, "Failed to solve factorized system.");
-
-SIMPLE_ERRORCLASS(KluMulVecSizeMismatch, "Matrix-vector multiplication vector size mismatch.");
-
-// -- data-carrying --
-
-ERRORCLASS(KluFactorizationError)
-    MatrixEntryIndex size;      // matrix order
-    MatrixEntryIndex rank;      // computed rank, < 0 if not available
-    MatrixEntryIndex column;    // 0-based zero-pivot column
-    Id node;                    // zero-pivot node, bad Id if unresolved
-    KluFactorizationError(MatrixEntryIndex size, MatrixEntryIndex rank, MatrixEntryIndex column, Id node)
-        : size(size), rank(rank), column(column), node(node) {}
-    std::string format() const {
-        std::string txt = "Factorization failed, size=" + std::to_string(size);
-        if (rank >= 0) {
-            txt += ", rank=" + std::to_string(rank);
-        }
-        if (node) {
-            txt += ", zero pivot @ node '" + std::string(node) + "'";
-        } else {
-            txt += ", zero pivot @ column " + std::to_string(column + 1);
-        }
-        return txt + ".";
-    }
-END_ERRORCLASS(KluFactorizationError);
-
-ERRORCLASS(KluRefactorizationError)
-    MatrixEntryIndex size;      // matrix order
-    MatrixEntryIndex rank;      // computed rank, < 0 if not available
-    KluRefactorizationError(MatrixEntryIndex size, MatrixEntryIndex rank)
-        : size(size), rank(rank) {}
-    std::string format() const {
-        std::string txt = "Refactorization failed, size=" + std::to_string(size);
-        if (rank >= 0) {
-            txt += ", rank=" + std::to_string(rank);
-        }
-        return txt + ".";
-    }
-END_ERRORCLASS(KluRefactorizationError);
-
-ERRORCLASS(KluMatrixInfNan)
+ERRORCLASS(CSCMatrixInfNan)
     bool nan;                   // true: NaN, false: Inf
     MatrixEntryIndex row;       // 0-based
     MatrixEntryIndex col;       // 0-based
     Id rowNode;                 // bad Id if unresolved
     Id colNode;                 // bad Id if unresolved
-    KluMatrixInfNan(bool nan, MatrixEntryIndex row, MatrixEntryIndex col, Id rowNode, Id colNode)
+    CSCMatrixInfNan(bool nan, MatrixEntryIndex row, MatrixEntryIndex col, Id rowNode, Id colNode)
         : nan(nan), row(row), col(col), rowNode(rowNode), colNode(colNode) {}
     std::string format() const {
         std::string txt = nan ? "NaN found in matrix" : "Inf found in matrix";
@@ -276,13 +217,13 @@ ERRORCLASS(KluMatrixInfNan)
         }
         return txt + ".";
     }
-END_ERRORCLASS(KluMatrixInfNan);
+END_ERRORCLASS(CSCMatrixInfNan);
 
-ERRORCLASS(KluVectorInfNan)
+ERRORCLASS(CSCVectorInfNan)
     bool nan;                   // true: NaN, false: Inf
     MatrixEntryIndex row;       // 0-based
     Id rowNode;                 // bad Id if unresolved
-    KluVectorInfNan(bool nan, MatrixEntryIndex row, Id rowNode)
+    CSCVectorInfNan(bool nan, MatrixEntryIndex row, Id rowNode)
         : nan(nan), row(row), rowNode(rowNode) {}
     std::string format() const {
         std::string txt = nan ? "NaN found in vector" : "Inf found in vector";
@@ -293,32 +234,26 @@ ERRORCLASS(KluVectorInfNan)
         }
         return txt + ".";
     }
-END_ERRORCLASS(KluVectorInfNan);
+END_ERRORCLASS(CSCVectorInfNan);
 
 
-template<typename IndexType, typename ValueType> class KluMatrixCore {
-public: 
-    using Common = typename std::conditional<std::is_same<int32_t,IndexType>::value, klu_common, klu_l_common>::type;
-    using Symbolic = typename std::conditional<std::is_same<int32_t,IndexType>::value, klu_symbolic, klu_l_symbolic>::type;
-    using Numeric = typename std::conditional<std::is_same<int32_t,IndexType>::value, klu_numeric, klu_l_numeric>::type;
-
+template<typename IndexType, typename ValueType> class CSCMatrixCore {
+public:
     // Every method that can fail takes an ErrorConsumer& to report through
     // (a default-constructed one is a silent sink). A NameResolver, used to turn
     // an offending row/column index into a node name when an error is built, can
     // be installed with setResolver(); until then errors fall back to raw indices.
     // The matrix does not own the resolver (see setResolver()).
-    KluMatrixCore();
+    CSCMatrixCore();
 
-    KluMatrixCore           (const KluMatrixCore&)  = delete;
-    KluMatrixCore           (      KluMatrixCore&&) = delete;
-    KluMatrixCore& operator=(const KluMatrixCore&)  = delete;
-    KluMatrixCore& operator=(      KluMatrixCore&&) = delete;
+    CSCMatrixCore           (const CSCMatrixCore&)  = delete;
+    CSCMatrixCore           (      CSCMatrixCore&&) = delete;
+    CSCMatrixCore& operator=(const CSCMatrixCore&)  = delete;
+    CSCMatrixCore& operator=(      CSCMatrixCore&&) = delete;
 
-    virtual ~KluMatrixCore();
+    virtual ~CSCMatrixCore();
 
     bool isBuilt() const { return smap!=nullptr; };
-
-    void deleteKluObjects();
 
     // Set accounting structure
     void setAccounting(Accounting& accounting) { acct = &accounting; }; 
@@ -352,9 +287,6 @@ public:
     // Rebuild it based on the given sparsity map, set to zero, clear error
     bool rebuild(SparsityMap& m, EquationIndex n, ErrorConsumer& ec);
 
-    // Checks if matrix is valid (rebuild completed successfully)
-    bool valid() const { return symbolic; };
-
     // Returns a pointer to element (component). If the element is not found
     // returns a pointer to bucket_ (see the bucket contract on MatrixAccess:
     // writes through it are discarded, reads from it are meaningless - check the
@@ -376,7 +308,7 @@ public:
         }
     };
 
-    // Returns raw KLU vectors used by external solvers.
+    // Returns raw CSC matrix arrays used by external solvers.
     ValueType* axData() { return reinterpret_cast<ValueType*>(Ax.data()); };
     const ValueType* axData() const { return reinterpret_cast<const ValueType*>(Ax.data()); };
     IndexType* apData() { return AP.data(); };
@@ -384,6 +316,7 @@ public:
     IndexType* aiData() { return AI.data(); };
     const IndexType* aiData() const { return AI.data(); };
     
+    // Returns raw CSC matrix vectors used by external solvers.
     const Vector<ValueType>& ax() const { return Ax; };
     Vector<ValueType>& ax() { return Ax; };
     const Vector<IndexType>& ap() const { return AP; };
@@ -401,17 +334,6 @@ public:
     // Set entries to 0, clear error
     void zero(Component what=Component::Real|Component::Imaginary);
 
-    // Factorization
-    bool factor(ErrorConsumer& ec);
-    bool refactor(ErrorConsumer& ec);
-    bool isFactored() const { return numeric; };
-
-    // Reciprocal pivot growth
-    bool rgrowth(double& rgrowth, ErrorConsumer& ec);
-
-    // Cheap reciprocal condition number estimation
-    bool rcond(double& rcond, ErrorConsumer& ec);
-
     // Check matrix for inf/nan
     bool isFinite(bool infCheck, bool nanCheck, ErrorConsumer& ec);
 
@@ -420,22 +342,6 @@ public:
 
     // Maximal element in row
     bool rowMaxNorm(double* maxNorm);
-
-    // Solve after factorization, result is stored in rhs
-    bool solve(ValueType* b, ErrorConsumer& ec);
-
-    // Block solve: solve for nrhs right-hand sides simultaneously.
-    // B is stored column-major with leading dimension AN (ldim = AN).
-    // On return B contains the solution columns, overwriting the RHS.
-    bool solveBlock(ValueType* B, IndexType nrhs, ErrorConsumer& ec);
-
-    // Transpose solve after factorization, result is stored in b
-    bool tsolve(ValueType* b, ErrorConsumer& ec);
-
-    // Block transpose solve: solve A^T X = B for nrhs right-hand sides simultaneously.
-    // B is stored column-major with leading dimension AN (ldim = AN).
-    // On return B contains the solution columns, overwriting the RHS.
-    bool tsolveBlock(ValueType* B, IndexType nrhs, ErrorConsumer& ec);
 
     // Matrix-vector product, result is stored in res
     bool product(ValueType* vec, ValueType* res);
@@ -453,15 +359,6 @@ public:
 
     // Residual (Ax-b), stored in res
     bool residual(ValueType* x, ValueType* b, ValueType* res);
-    
-    // Structural rank
-    IndexType structuralRank() const { return common.structural_rank; };
-
-    // Numerical rank
-    IndexType numericalRank() const { return common.numerical_rank; };
-
-    // Singular column
-    IndexType singularColumn() const { return common.singular_col; };
 
     // Computes offset of a nonzero element
     std::tuple<IndexType, bool> nonzeroOffset(EquationIndex row, UnknownIndex col);
@@ -491,9 +388,6 @@ protected:
     Vector<IndexType> AP;
     Vector<IndexType> AI;
     Vector<ValueType> Ax;
-    Symbolic* symbolic;
-    Numeric* numeric;
-    Common common;
     SparsityMap* smap;
 
     // Scratch sink returned by elementPtr()/valuePtr()/cxValuePtr() for a
@@ -503,12 +397,12 @@ protected:
     ValueType bucket_;
 };
 
-// KluMatrixCore does not include a MatrixAcces interface
+// CSCMatrixCore does not include a MatrixAcces interface
 // It can be used to derive more advanced classes (e.g. block-sparse matrix). 
-// KluAtomicMatrix includes a MatrixAcces interface. 
+// CSCAtomicMatrix includes a MatrixAcces interface. 
 // It should not be used as the base class for new matrix classes. 
 template<typename IndexType, typename ValueType> 
-class KluAtomicMatrix : public KluMatrixCore<IndexType, ValueType>, public MatrixAccess<IndexType> {
+class CSCAtomicMatrix : public CSCMatrixCore<IndexType, ValueType>, public MatrixAccess<IndexType> {
 public:
     // Matrix binding interface
     // Block element position is ignored
@@ -519,16 +413,16 @@ public:
     virtual Complex* cxValuePtr(const MatrixEntryPosition& mep, const std::optional<MatrixEntryPosition>& blockMep=std::nullopt);
 };
 
-// KLU matrix classes (used as base for more advanced classes)
-typedef KluMatrixCore<MatrixEntryIndex, double> KluRealMatrixCore;
-typedef KluMatrixCore<MatrixEntryIndex, Complex> KluComplexMatrixCore;
+// CSC matrix classes (used as base for more advanced classes)
+typedef CSCMatrixCore<MatrixEntryIndex, double> CSCRealMatrixCore;
+typedef CSCMatrixCore<MatrixEntryIndex, Complex> CSCComplexMatrixCore;
 
-// KLU matrix classes with a MatrixAcces interface
-typedef KluAtomicMatrix<MatrixEntryIndex, double> KluRealMatrix;
-typedef KluAtomicMatrix<MatrixEntryIndex, Complex> KluComplexMatrix;
+// CSC matrix classes with a MatrixAcces interface
+typedef CSCAtomicMatrix<MatrixEntryIndex, double> CSCRealMatrix;
+typedef CSCAtomicMatrix<MatrixEntryIndex, Complex> CSCComplexMatrix;
 
 // MatrixAccess interface class
-typedef MatrixAccess<MatrixEntryIndex> KluMatrixAccess;
+typedef MatrixAccess<MatrixEntryIndex> CSCMatrixAccess;
 }
 
 #endif

@@ -113,8 +113,8 @@ public:
     ACCore(
         OutputDescriptorResolver& parentResolver, ACParameters& params, OperatingPointCore& opCore, Circuit& circuit, 
         CommonData& commons, 
-        KluRealMatrix& dcJacobian, VectorRepository<double>& dcSolution, VectorRepository<double>& dcStates, 
-        KluComplexMatrix& acMatrix, Vector<Complex>& acSolution, 
+        CSCRealMatrix& dcJacobian, VectorRepository<double>& dcSolution, VectorRepository<double>& dcStates, 
+        CSCComplexMatrix& acMatrix, Vector<Complex>& acSolution, 
         DelayLines& delayLines, DelayMatrixBindings<Complex*>& delayBindings
     ); 
     ~ACCore();
@@ -147,8 +147,8 @@ protected:
 
     VectorRepository<double>& dcSolution;
     VectorRepository<double>& dcStates;
-    KluRealMatrix& dcJacobian;
-    KluComplexMatrix& acMatrix;
+    CSCRealMatrix& dcJacobian;
+    CSCComplexMatrix& acMatrix;
     Vector<Complex>& acSolution;
     ACParameters& params;
 

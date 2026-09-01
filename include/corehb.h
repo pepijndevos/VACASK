@@ -127,7 +127,7 @@ public:
 
     HBCore(
         OutputDescriptorResolver& parentResolver, HBParameters& params, Circuit& circuit, CommonData& commons, 
-        KluBlockSparseRealMatrix& jacColoc, KluBlockSparseRealMatrix& jacobian, VectorRepository<double>& solution, 
+        CSCBlockSparseRealMatrix& jacColoc, CSCBlockSparseRealMatrix& jacobian, VectorRepository<double>& solution, 
         DelayLines& delayLines, DelayMatrixBindings<DenseMatrixView<double>>& delayBindings
     );
     ~HBCore();
@@ -164,7 +164,7 @@ public:
     // Set stored solutiuon for evaluation, does not set up Jacobian to save memory
     // Bind circuit to jacColoc and evaluate at current solution
     bool evaluateAtNodeset(ErrorConsumer& errors);
-    bool getFrequencyDomainJacobians(KluBlockSparseComplexMatrix& jacSpec, const Spurs& prunedSpurs);
+    bool getFrequencyDomainJacobians(CSCBlockSparseComplexMatrix& jacSpec, const Spurs& prunedSpurs);
 
     void dump(std::ostream& os) const;
 
@@ -188,10 +188,10 @@ protected:
 
     // Block-sparse matrix with rectangular blocks for 
     // storing Jacobian values at colocation timepoints
-    KluBlockSparseRealMatrix& jacColoc;
+    CSCBlockSparseRealMatrix& jacColoc;
 
     // HB Jacobian
-    KluBlockSparseRealMatrix& bsjac; 
+    CSCBlockSparseRealMatrix& bsjac; 
     VectorRepository<Real>& solution; // Solution history
 
     DelayLines& delayLines_;

@@ -119,8 +119,8 @@ public:
     // Uses virtual methods to correctly handle real and complex matrices. 
     virtual bool bind(
         Circuit& cir, 
-        KluMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
-        KluMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
+        CSCMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
+        CSCMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
         DelayLines* delayLines, 
         ErrorConsumer& ec
     ) { return true; };
