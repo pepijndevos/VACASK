@@ -1,6 +1,7 @@
 #ifndef __ANHB_DEFINED
 #define __ANHB_DEFINED
 
+#include <memory>
 #include "parameterized.h"
 #include "status.h"
 #include "circuit.h"
@@ -75,6 +76,8 @@ private:
 
     DelayLines delayLines_;
     DelayMatrixBindings<DenseMatrixView<double>> delayBindings_;
+
+    std::unique_ptr<RealSparseSolver> linearSolver_;
 
     HBCore core;
 };

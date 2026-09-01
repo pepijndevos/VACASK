@@ -37,7 +37,8 @@ template<> int Introspection<HBParameters>::setup() {
     registerMember(write);
     registerMember(nodeset);
     registerMember(store);
-    
+    registerMember(solver);
+
     return 0;
 }
 instantiateIntrospection(HBParameters);
@@ -304,7 +305,7 @@ bool HBCore::evaluateAtNodeset(ErrorConsumer& errors) {
     nrSolver.enableForces(1, false);
     
     // Rebuild NR solver structures
-    if (!nrSolver.rebuild(n*nt)) {
+    if (!nrSolver.rebuild(n*nt, errors)) {
         errors.push(HbSolverBuildFailed{});
         return false;
     }
@@ -609,7 +610,7 @@ bool HBCore::rebuild(ErrorConsumer& errors) {
 
     // Rebuild NR solver structures
     auto n = circuit.unknownCount();
-    if (!nrSolver.rebuild(n*nt)) {
+    if (!nrSolver.rebuild(n*nt, errors)) {
         errors.push(HbSolverBuildFailed{});
         return false;
     }

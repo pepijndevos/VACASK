@@ -73,10 +73,12 @@
 //   per-step (re)allocation. phiHist_ alone is O(maxOrder * n^2) doubles.
 //   lastAlr_, scratchC_: two sparse matrices matching jacobian's sparsity.
 
+#include <memory>
 #include "ansupport.h"
 #include "coretran.h"
 #include "densematrix.h"
 #include "cscmatrix.h"
+#include "solver.h"
 #include "common.h"
 
 namespace NAMESPACE {
@@ -295,6 +297,7 @@ private:
     // Rebuilt in onTimestepAccepted(), reused in computePsiT() as J_N.
     // Same sparsity as jacobian.
     KluRealMatrix lastAlr_;
+    std::unique_ptr<RealSparseSolver> lastAlrSolver_;
 
     // Scratch matrix for the unscaled reactive Jacobian C_k.
     // Filled by a single evalAndLoad pass in onTimestepAccepted().

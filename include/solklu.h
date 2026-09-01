@@ -49,42 +49,6 @@ public:
     bool isBuilt() const override { return symbolic_ != nullptr; }
     bool isFactored() const override { return numeric_ != nullptr; }
 
-    // Structural rank is computed by the symbolic analysis . Available once
-    // the solver is built; -1 (reported as invalid) if BTF was not run.
-    std::tuple<bool, IndexType> structuralRank() const override {
-        if (symbolic_) {
-            auto r = common_.structural_rank;
-            if (r>=0) {
-                return { true, r };
-            }
-        }
-        return { false, 0 };
-    }
-
-    // Numerical rank is computed during factorization; -1 (reported as invalid)
-    // if it was not computed.
-    std::tuple<bool, IndexType> numericalRank() const override {
-        if (numeric_) {
-            auto r = common_.numerical_rank;
-            if (r>=0) {
-                return { true, r };
-            }
-        }
-        return { false, 0 };
-    }
-
-    // Zero-pivot column, meaningful only when the last factorization was
-    // singular (otherwise KLU reports the matrix order).
-    std::tuple<bool, IndexType> singularColumn() const override {
-        if (numeric_) {
-            auto c = common_.singular_col;
-            if (c>=0 && c < this->matrix().nRow()) {
-                return { true, c };
-            }
-        }
-        return { false, 0 };
-    }
-
     void clear() override {
         freeNumeric();
         freeSymbolic();
@@ -156,20 +120,6 @@ public:
         }
 
         return factOk;
-    }
-
-    // Reciprocal pivot growth. Returns {false, 0} without posting an error when
-    // there is no factorization yet; posts KluPivotGrowthError only on a genuine
-    // KLU failure.
-    std::tuple<bool, double> rgrowth(ErrorConsumer& ec) override {
-        if (!numeric_) {
-            return { false, 0.0 };
-        }
-        if (!kluRgrowth()) {
-            ec.push(KluPivotGrowthError{});
-            return { false, 0.0 };
-        }
-        return { true, common_.rgrowth };
     }
 
     // Reciprocal condition number estimate. Same failure convention as rgrowth().
@@ -273,6 +223,42 @@ protected:
     //
     // KLU entry points, dispatched on IndexType / ValueType.
     //
+
+    // Structural rank is computed by the symbolic analysis . Available once
+    // the solver is built; -1 (reported as invalid) if BTF was not run.
+    std::tuple<bool, IndexType> structuralRank() const {
+        if (symbolic_) {
+            auto r = common_.structural_rank;
+            if (r>=0) {
+                return { true, r };
+            }
+        }
+        return { false, 0 };
+    }
+
+    // Numerical rank is computed during factorization; -1 (reported as invalid)
+    // if it was not computed.
+    std::tuple<bool, IndexType> numericalRank() const {
+        if (numeric_) {
+            auto r = common_.numerical_rank;
+            if (r>=0) {
+                return { true, r };
+            }
+        }
+        return { false, 0 };
+    }
+
+    // Zero-pivot column, meaningful only when the last factorization was
+    // singular (otherwise KLU reports the matrix order).
+    std::tuple<bool, IndexType> singularColumn() const {
+        if (numeric_) {
+            auto c = common_.singular_col;
+            if (c>=0 && c < this->matrix().nRow()) {
+                return { true, c };
+            }
+        }
+        return { false, 0 };
+    }
 
     static int kluDefaults(Common* c) {
         if constexpr (int32Index) {

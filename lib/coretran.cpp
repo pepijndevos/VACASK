@@ -241,6 +241,7 @@ template<> int Introspection<TranParameters>::setup() {
     registerMember(noisemode);
     registerMember(oversample);
     registerNamedMember(opParams.nodeset, "nodeset");
+    registerNamedMember(opParams.solver, "opsolver");
     registerMember(ic);
     registerMember(store);
     registerMember(write);
@@ -492,7 +493,7 @@ bool TranCore::rebuild(ErrorConsumer& errors) {
     }
 
     // Rebuild transient NR solver structures
-    if (!nrSolver.rebuild(circuit.unknownCount())) {
+    if (!nrSolver.rebuild(circuit.unknownCount(), errors)) {
         errors.push(TranNrRebuildFailed{});
         return false;
     }

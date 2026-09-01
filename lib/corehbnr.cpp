@@ -222,13 +222,13 @@ bool HBNRSolver::setForces(Int ndx, const AnnotatedSolution& storedSolution, boo
     return true; 
 }
 
-bool HBNRSolver::rebuild(size_t nSolComp) {
+bool HBNRSolver::rebuild(size_t nSolComp, ErrorConsumer& errors) {
     // Bucket is one HB block wide. timepoints is populated by
     // HBCore::rebuild() (buildColocation / nodeset copy) before this runs.
     bucketSize_ = timepoints.size();
 
     // Call parent's rebuild (sizes delta/rowNorm as nSolComp + bucketSize_)
-    if (!NRSolver::rebuild(nSolComp)) {
+    if (!NRSolver::rebuild(nSolComp, errors)) {
         // Assume parent has set the error flag
         return false;
     }

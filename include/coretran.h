@@ -158,6 +158,9 @@ public:
     void dump(std::ostream& os) const;
 
     TranNRSolver& solver() { return nrSolver; }
+
+    void setLinearSolver(RealSparseSolver* solver) { nrSolver.setLinearSolver(solver); };
+
     // Slot number used for ic forces, by default 2 
     // Analysies like PSS, use slot 3 in continue mode
     // TranCore writes only slot 2

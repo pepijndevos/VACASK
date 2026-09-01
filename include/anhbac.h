@@ -1,11 +1,13 @@
 #ifndef __ANHBAC_DEFINED
 #define __ANHBAC_DEFINED
 
+#include <memory>
 #include "an.h"
 #include "corehb.h"
 #include "corehbac.h"
 #include "parameterized.h"
 #include "cscblkmatrix.h"
+#include "solver.h"
 #include "common.h"
 
 
@@ -80,6 +82,9 @@ protected:
     DelayLines delayLines_;
     DelayMatrixBindings<DenseMatrixView<double>> hbDelayBindings_;
     DelayMatrixBindings<DenseMatrixView<Complex>> hbacDelayBindings_;
+
+    std::unique_ptr<RealSparseSolver> linearSolver_;
+    std::unique_ptr<ComplexSparseSolver> linearCxSolver_;
 
     HBCore hbCore;
     HBACCore hbacCore;

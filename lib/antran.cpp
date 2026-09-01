@@ -1,4 +1,5 @@
 #include "antran.h"
+#include "simulator.h"
 #include "common.h"
 
 
@@ -138,6 +139,18 @@ bool Tran::rebuildCores(ErrorConsumer& errors) {
     if (!jac.rebuild(circuit.sparsityMap(), circuit.unknownCount(), errors)) {
         return false;
     }
+
+    // Create and rebuild the linear solver shared by both NR solvers
+    auto& options = circuit.simulatorOptions().core();
+    auto solverId = params.core().opParams.solver;
+    solverId = solverId?solverId:options.tdsolver;
+    solverId = solverId?solverId:Simulator::defaultSolverId;
+    linearSolver_ = std::unique_ptr<RealSparseSolver>(RealSparseSolver::createSolver(solverId, jac, errors));
+    if (!linearSolver_ || !linearSolver_->rebuild(errors)) {
+        return false;
+    }
+    opCore.setLinearSolver(linearSolver_.get());
+    tranCore.setLinearSolver(linearSolver_.get());
 
     // std::cout << "Sparsity pattern" << std::endl;
     // jac->dumpSparsityTables(std::cout);

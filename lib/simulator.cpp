@@ -54,6 +54,8 @@ bool Simulator::setup(Status& s) {
     return setup("", "", s);
 }
 
+Id Simulator::defaultSolverId = Id();
+
 bool Simulator::setup(
     const std::string& moduleFilePathString, 
     const std::string& includeFilePathString, 
@@ -87,6 +89,9 @@ bool Simulator::setup(
     // Register real and complex klu solver here
     ok &= RealSparseSolver::registerSolver<KluRealSparseSolver>();
     ok &= ComplexSparseSolver::registerSolver<KluComplexSparseSolver>();
+
+    // Default solver when no solver is specified
+    Simulator::defaultSolverId = KluRealSparseSolver::solverId;
 
     return ok;
 }

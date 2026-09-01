@@ -24,9 +24,11 @@ template<> int Introspection<ACXFParameters>::setup() {
     registerMember(points);
     registerMember(values);
     registerMember(write);
+    registerMember(solver);
     registerNamedMember(opParams.write, "writeop");
     registerNamedMember(opParams.nodeset, "nodeset");
     registerNamedMember(opParams.store, "store");
+    registerNamedMember(opParams.solver, "opsolver");
 
     return 0;
 }
@@ -210,7 +212,7 @@ bool ACXFCore::rebuild(ErrorConsumer& errors) {
         errors.push(AcxfBindFailed{});
         return false;
     }
-    
+
     return true;
 }
 
@@ -402,16 +404,16 @@ CoreCoroutine ACXFCore::coroutine(bool continuePrevious, ErrorConsumer& errors) 
 
         // Factor
         bool forceFullFactorization = false;        
-        if (acMatrix.isFactored()) {
+        if (cxSolver_->isFactored()) {
             // Refactor (if possible). A refactor failure is not fatal here.
-            if (!acMatrix.refactor(errors)) {
+            if (!cxSolver_->refactor(errors)) {
                 // Failed, try again by fully factoring
                 forceFullFactorization = true;
-            } 
+            }
         }
-        if (forceFullFactorization || !acMatrix.isFactored()) {
+        if (forceFullFactorization || !cxSolver_->isFactored()) {
             // Full factorization
-            if (!acMatrix.factor(errors)) {
+            if (!cxSolver_->factor(errors)) {
                 // Failed, give up
                 errors.push(AcxfMatrixError{});
                 if (debug>0) {
@@ -426,9 +428,9 @@ CoreCoroutine ACXFCore::coroutine(bool continuePrevious, ErrorConsumer& errors) 
             }
         }
         // Check if matrix is singular
-        if (options.rcondcheck>0) { 
-            double rcond;
-            if (!acMatrix.rcond(rcond, errors)) {
+        if (options.rcondcheck>0) {
+            auto [rcondOk, rcond] = cxSolver_->rcond(errors);
+            if (!rcondOk) {
                 errors.push(AcxfMatrixError{});
                 if (debug>0) {
                     Simulator::dbg() << "Condition number estimation failed.\n";
@@ -481,7 +483,7 @@ CoreCoroutine ACXFCore::coroutine(bool continuePrevious, ErrorConsumer& errors) 
             }
 
             // Solve, set bucket to 0.0
-            if (!acMatrix.solve(dataWithoutBucket(acSolution, bucketSize), errors)) {
+            if (!cxSolver_->solve(dataWithoutBucket(acSolution, bucketSize), errors)) {
                 errors.push(AcxfMatrixError{});
                 if (debug>2) {
                     Simulator::dbg() << "Failed to solve factored system.\n";

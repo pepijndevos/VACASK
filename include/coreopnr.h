@@ -177,7 +177,7 @@ public:
     
     virtual void rebuildCheckResidualFlags();
     
-    virtual bool rebuild(size_t nSolComp) override;
+    virtual bool rebuild(size_t nSolComp, ErrorConsumer& errors) override;
     virtual bool initialize(bool continuePrevious, ErrorConsumer& errors) override;
     virtual bool preIteration(bool continuePrevious) override;
     virtual bool postSolve(bool continuePrevious) override;

@@ -4,13 +4,13 @@
 
 namespace NAMESPACE {
 
-template<> SmallSignal<DCIncrementalCore, DCIncrementalData>::SmallSignal(const std::string& name, Circuit& circuit, PTAnalysis& ptAnalysis) 
+template<> SmallSignal<DCIncrementalCore, DCIncrementalData, false>::SmallSignal(const std::string& name, Circuit& circuit, PTAnalysis& ptAnalysis) 
     : Analysis(name, circuit, ptAnalysis),
       opCore(*this, params.core().opParams, circuit, commons, jac, solution, states, delayLines_, opDelayBindings_),
       smsigCore(*this, params.core(), opCore, circuit, commons, jac, incrementalSolution) {
 }
 
-template<> bool SmallSignal<DCIncrementalCore, DCIncrementalData>::resolveSave(const PTSave& save, bool verify, ErrorConsumer& errors) {
+template<> bool SmallSignal<DCIncrementalCore, DCIncrementalData, false>::resolveSave(const PTSave& save, bool verify, ErrorConsumer& errors) {
     // DC incremental saves
     static const auto idDefault = Id("default");
     static const auto idFull = Id("full");
@@ -58,7 +58,7 @@ template<> bool SmallSignal<DCIncrementalCore, DCIncrementalData>::resolveSave(c
     return true;
 }
 
-template<> void SmallSignal<DCIncrementalCore, DCIncrementalData>::dump(std::ostream& os) const {
+template<> void SmallSignal<DCIncrementalCore, DCIncrementalData, false>::dump(std::ostream& os) const {
     Analysis::dump(os);
     os << "Analysis type: DC incremental"<< std::endl;
     os << "OP analysis core:" << std::endl;

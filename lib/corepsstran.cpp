@@ -7,6 +7,7 @@
 #include "ansupport.h"
 #include "coretrancoef.h"
 #include "densematrix.h"
+#include "solklu.h"
 #include "simulator.h"
 #include "common.h"
 #include <deque>
@@ -41,6 +42,17 @@ bool PssTranCore::rebuild(ErrorConsumer& errors) {
     if (!TranCore::rebuild(errors)) return false;
     auto n = circuit.unknownCount();
     if (!lastAlr_.rebuild(circuit.sparsityMap(), n, errors)) {
+        errors.push(PssTranAlrScratchRebuild{});
+        return false;
+    }
+
+    // Linear solver for the LMS-weighted Jacobian Alr
+    auto& options = circuit.simulatorOptions().core();
+    auto solverId = params.opParams.solver;
+    solverId = solverId?solverId:options.tdsolver;
+    solverId = solverId?solverId:Simulator::defaultSolverId;
+    lastAlrSolver_ = std::unique_ptr<RealSparseSolver>(RealSparseSolver::createSolver(solverId, lastAlr_, errors));
+    if (!lastAlrSolver_ || !lastAlrSolver_->rebuild(errors)) {
         errors.push(PssTranAlrScratchRebuild{});
         return false;
     }
@@ -210,17 +222,17 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order, ErrorC
     // Get Alr = G_k + alpha_k * C_k from the factored NR jacobian
     std::copy(jacobian.axData(), jacobian.axData() + nnz, lastAlr_.axData());
     bool forceFullFactorization = false;
-    if (lastAlr_.isFactored()) {
+    if (lastAlrSolver_->isFactored()) {
         // Refactor (if possible). A refactor failure is not fatal here.
-        if (!lastAlr_.refactor(errors)) {
+        if (!lastAlrSolver_->refactor(errors)) {
             // Failed, try again by fully factoring
             forceFullFactorization = true;
         }
     }
-    if (forceFullFactorization || !lastAlr_.isFactored()) {
+    if (forceFullFactorization || !lastAlrSolver_->isFactored()) {
         // Full factorization
-        if (!lastAlr_.factor(errors)) {
-            // Failed, give up. lastAlr_.factor() has pushed the error.
+        if (!lastAlrSolver_->factor(errors)) {
+            // Failed, give up. lastAlrSolver_->factor() has pushed the error.
             errors.push(PssTranAlrFactorizationFailed{tSolve});
             return false;
         }
@@ -328,7 +340,7 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order, ErrorC
 
     // Solve for Phi_k
     // Alr * Phi_k = sum_{i=1}^order (gamma_i * C_k-i * Phi_k-i)
-    if (!lastAlr_.solveBlock(phiFuture.data().data(), static_cast<Int>(n), errors)) {
+    if (!lastAlrSolver_->solve(phiFuture.data().data(), static_cast<MatrixEntryIndex>(n), errors)) {
         errors.push(PssTranBlockAlrSolveFailed{tSolve});
         return false;
     }
@@ -399,6 +411,11 @@ bool PssTranCore::integrateAdjointMonodromy(DenseMatrix<double>& Omega, ErrorCon
         errors.push(PssTranOmegaScratchRebuild{});
         return false;
     }
+    KluRealSparseSolver scratchASolver(scratchA);
+    if (!scratchASolver.rebuild(errors)) {
+        errors.push(PssTranOmegaScratchRebuild{});
+        return false;
+    }
     if (!scratchC.rebuild(circuit.sparsityMap(), n, errors)) {
         errors.push(PssTranOmegaScratchRebuild{});
         return false;
@@ -432,17 +449,17 @@ bool PssTranCore::integrateAdjointMonodromy(DenseMatrix<double>& Omega, ErrorCon
         // Load A_k into scratchA and refactor for tsolve
         std::copy(acRec.aData.begin(), acRec.aData.end(), scratchA.axData());
         bool forceFullFactorization = false;
-        if (scratchA.isFactored()) {
+        if (scratchASolver.isFactored()) {
             // Refactor (if possible). A refactor failure is not fatal here.
-            if (!scratchA.refactor(errors)) {
+            if (!scratchASolver.refactor(errors)) {
                 // Failed, try again by fully factoring
                 forceFullFactorization = true;
             }
         }
-        if (forceFullFactorization || !scratchA.isFactored()) {
+        if (forceFullFactorization || !scratchASolver.isFactored()) {
             // Full factorization
-            if (!scratchA.factor(errors)) {
-                // Failed, give up. scratchA.factor() has pushed the error.
+            if (!scratchASolver.factor(errors)) {
+                // Failed, give up. scratchASolver.factor() has pushed the error.
                 errors.push(PssTranScratchRefactorFailed{k});
                 return false;
             }
@@ -495,7 +512,7 @@ bool PssTranCore::integrateAdjointMonodromy(DenseMatrix<double>& Omega, ErrorCon
         }
 
         // Solve A_k^T * Omega_k = rhs (overwrites rhs with solution)
-        if (!scratchA.tsolveBlock(rhs.data().data(), static_cast<Int>(n), errors)) {
+        if (!scratchASolver.tsolve(rhs.data().data(), static_cast<MatrixEntryIndex>(n), errors)) {
             errors.push(PssTranTSolveBlockFailed{k});
             return false;
         }
@@ -569,7 +586,7 @@ bool PssTranCore::computePsiT(ErrorConsumer& errors) {
 
     // Psi_T = -J_N^{-1} * d(qdot_N)/d(h_{N-1})   (J_N = lastAlr_, already
     // factored from the last accepted step's Newton solve)
-    if (!lastAlr_.solve(psiTrhs_.data(), errors)) {
+    if (!lastAlrSolver_->solve(psiTrhs_.data(), errors)) {
         errors.push(PssTranPsiSolveFailed{});
         return false;
     }

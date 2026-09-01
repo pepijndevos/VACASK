@@ -8,6 +8,7 @@
 // which forward to the internal PssTranCore that actually writes the output.
 
 #include "anpss.h"
+#include "simulator.h"
 #include "common.h"
 
 
@@ -156,6 +157,19 @@ bool Pss::rebuildCores(ErrorConsumer& errors) {
     if (!jac_.rebuild(circuit.sparsityMap(), circuit.unknownCount(), errors)) {
         return false;
     }
+
+    // Create and rebuild the linear solver shared by the NR solvers
+    auto& options = circuit.simulatorOptions().core();
+    auto solverId = params.core().opParams.solver;
+    solverId = solverId?solverId:options.tdsolver;
+    solverId = solverId?solverId:Simulator::defaultSolverId;
+    linearSolver_ = std::unique_ptr<RealSparseSolver>(RealSparseSolver::createSolver(solverId, jac_, errors));
+    if (!linearSolver_ || !linearSolver_->rebuild(errors)) {
+        return false;
+    }
+    opCore_.setLinearSolver(linearSolver_.get());
+    stabilTran_.setLinearSolver(linearSolver_.get());
+    pssTran_.setLinearSolver(linearSolver_.get());
 
     // First rebuild the pssTran core because otherwise it will clear ic forces in
     // opCore_. pssTran has not ic parameter!

@@ -80,7 +80,7 @@ public:
     // Set forces based on an annotated solution
     bool setForces(Int ndx, const AnnotatedSolution& solution, bool abortOnError, ErrorConsumer& errors);
     
-    virtual bool rebuild(size_t nSolComp);
+    virtual bool rebuild(size_t nSolComp, ErrorConsumer& errors);
     virtual bool initialize(bool continuePrevious, ErrorConsumer& errors);
     virtual bool preIteration(bool continuePrevious);
     virtual bool postSolve(bool continuePrevious);

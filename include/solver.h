@@ -29,9 +29,6 @@ public:
     // Factory function: builds a concrete solver bound to the given matrix.
     typedef LinearSparseSolver* (*CreateFn)(Matrix& matrix);
 
-    // Name of the default (KLU) solver.
-    static inline const Id solverDefaultId = Id::createStatic("klu");
-
     // Registry of solver factories, keyed by solver name. Real and complex
     // solvers have separate registries (one per ValueType specialization).
     static std::unordered_map<Id, CreateFn>& getRegistry() {
@@ -49,9 +46,6 @@ public:
     // Look up a registered solver creator and build a solver bound to the given
     // matrix. Returns nullptr and pushes SolverNotFound if the name is unknown.
     static LinearSparseSolver* createSolver(Id name, Matrix& matrix, ErrorConsumer& ec) {
-        if (!name) {
-            name = solverDefaultId;
-        }
         auto& registry = getRegistry();
         auto it = registry.find(name);
         if (it==registry.end()) {
@@ -89,15 +83,6 @@ public:
 
     virtual bool isBuilt() const = 0;
     virtual bool isFactored() const = 0;
-
-    // Diagnostics (valid after a successful factor()/refactor())
-    // Rank
-    virtual std::tuple<bool, IndexType> structuralRank() const = 0;
-    virtual std::tuple<bool, IndexType> numericalRank() const = 0;
-    virtual std::tuple<bool, IndexType> singularColumn() const = 0;
-
-    // Reciprocal pivot growth.
-    virtual std::tuple<bool, double> rgrowth(ErrorConsumer& ec) = 0;
 
     // Reciprocal condition number estimate.
     virtual std::tuple<bool, double> rcond(ErrorConsumer& ec) = 0;

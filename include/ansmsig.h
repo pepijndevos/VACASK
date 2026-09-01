@@ -5,11 +5,12 @@
 #include "coreop.h"
 #include "parameterized.h"
 #include "output.h"
+#include "simulator.h"
 #include "common.h"
 
 namespace NAMESPACE {
 
-template<typename CoreClass, typename DataMixin> class SmallSignal : public Analysis, public DataMixin {
+template<typename CoreClass, typename DataMixin, bool complexSmsig = true> class SmallSignal : public Analysis, public DataMixin {
 public:
     typedef CoreClass::Parameters Parameters;
 
@@ -26,7 +27,7 @@ public:
 
     // Factory function for operating point analysis
     static Analysis* create(PTAnalysis& ptAnalysis, Circuit& circuit, Status& s=Status::ignore) {
-        auto* an = new SmallSignal<CoreClass, DataMixin>(ptAnalysis.name(), circuit, ptAnalysis);
+        auto* an = new SmallSignal<CoreClass, DataMixin, complexSmsig>(ptAnalysis.name(), circuit, ptAnalysis);
         return an;
     }; 
 
@@ -101,6 +102,8 @@ protected:
     // smsigCore because smsigCore binds a reference to opCore. The DataMixin base
     // members (acMatrix, acSolution, ...) are constructed before these and are safe.
     KluRealMatrix jac; // Resistive Jacobian
+    std::unique_ptr<RealSparseSolver> linearSolver_;
+    std::unique_ptr<ComplexSparseSolver> linearCxSolver_;
     VectorRepository<double> solution; // Solution history
     VectorRepository<double> states; // Circuit states
     DelayLines delayLines_;
@@ -111,16 +114,16 @@ protected:
     CoreClass smsigCore;
 };
 
-template<typename CoreClass, typename DataMixin> 
-bool SmallSignal<CoreClass, DataMixin>::addCommonOutputDescriptor(const OutputDescriptor& desc) {  
+template<typename CoreClass, typename DataMixin, bool complexSmsig>
+bool SmallSignal<CoreClass, DataMixin, complexSmsig>::addCommonOutputDescriptor(const OutputDescriptor& desc) {  
     // False is returned if the descriptor is already there
     bool s1 = opCore.addOutputDescriptor(desc);
     bool s2 = smsigCore.addOutputDescriptor(desc);
     return  s1 && s2;
 }
 
-template<typename CoreClass, typename DataMixin> 
-bool SmallSignal<CoreClass, DataMixin>::addCoreOutputDescriptors(ErrorConsumer& errors) {
+template<typename CoreClass, typename DataMixin, bool complexSmsig>
+bool SmallSignal<CoreClass, DataMixin, complexSmsig>::addCoreOutputDescriptors(ErrorConsumer& errors) {
     // False is returned if the descriptor is already there
     if (!opCore.addCoreOutputDescriptors(errors)) {
         return false;
@@ -131,16 +134,16 @@ bool SmallSignal<CoreClass, DataMixin>::addCoreOutputDescriptors(ErrorConsumer& 
     return true;
 }
 
-template<typename CoreClass, typename DataMixin>
-bool SmallSignal<CoreClass, DataMixin>::addDefaultOutputDescriptors(ErrorConsumer& errors) {
+template<typename CoreClass, typename DataMixin, bool complexSmsig>
+bool SmallSignal<CoreClass, DataMixin, complexSmsig>::addDefaultOutputDescriptors(ErrorConsumer& errors) {
     // Must be invoked on all cores regardless of return value
     auto s1 = opCore.addDefaultOutputDescriptors(errors);
     auto s2 = smsigCore.addDefaultOutputDescriptors(errors);
     return s1 && s2;
 }
 
-template<typename CoreClass, typename DataMixin> 
-void SmallSignal<CoreClass, DataMixin>::clearOutputDescriptors() {
+template<typename CoreClass, typename DataMixin, bool complexSmsig>
+void SmallSignal<CoreClass, DataMixin, complexSmsig>::clearOutputDescriptors() {
     // Must be invoked on all cores regardless of return value
     opCore.clearOutputDescriptors();
     smsigCore.clearOutputDescriptors();
@@ -148,8 +151,8 @@ void SmallSignal<CoreClass, DataMixin>::clearOutputDescriptors() {
 
 
 // Resolve output descriptors to output sources across all cores
-template<typename CoreClass, typename DataMixin> 
-bool SmallSignal<CoreClass, DataMixin>::resolveOutputDescriptors(bool strict, ErrorConsumer& errors) {
+template<typename CoreClass, typename DataMixin, bool complexSmsig>
+bool SmallSignal<CoreClass, DataMixin, complexSmsig>::resolveOutputDescriptors(bool strict, ErrorConsumer& errors) {
     // Any error causes immediate exit if strict is true
     // Before exit an error message is formatted and status is set
     if (!opCore.resolveOutputDescriptors(strict, errors)) {
@@ -165,8 +168,8 @@ bool SmallSignal<CoreClass, DataMixin>::resolveOutputDescriptors(bool strict, Er
     return true;
 }
 
-template<typename CoreClass, typename DataMixin>
-std::tuple<bool, bool> SmallSignal<CoreClass, DataMixin>::resolveOpSave(const PTSave& save, bool verify, ErrorConsumer& errors) {
+template<typename CoreClass, typename DataMixin, bool complexSmsig>
+std::tuple<bool, bool> SmallSignal<CoreClass, DataMixin, complexSmsig>::resolveOpSave(const PTSave& save, bool verify, ErrorConsumer& errors) {
     // OP saves
     static const auto idOpDefault = Id("opdefault");
     static const auto idOpFull = Id("opfull");
@@ -206,8 +209,8 @@ std::tuple<bool, bool> SmallSignal<CoreClass, DataMixin>::resolveOpSave(const PT
     return std::make_tuple(st, true);
 }
 
-template<typename CoreClass, typename DataMixin>
-std::tuple<bool, bool> SmallSignal<CoreClass, DataMixin>::preMapping(ErrorConsumer& errors) {
+template<typename CoreClass, typename DataMixin, bool complexSmsig>
+std::tuple<bool, bool> SmallSignal<CoreClass, DataMixin, complexSmsig>::preMapping(ErrorConsumer& errors) {
     auto [ok, needsMapping] = opCore.preMapping(errors);
     if (!ok) {
         return std::make_tuple(false, needsMapping);
@@ -216,8 +219,8 @@ std::tuple<bool, bool> SmallSignal<CoreClass, DataMixin>::preMapping(ErrorConsum
     return std::make_tuple(ok&&ok1, needsMapping||map1);
 }
 
-template<typename CoreClass, typename DataMixin>
-bool SmallSignal<CoreClass, DataMixin>::populateStructures(ErrorConsumer& errors) {
+template<typename CoreClass, typename DataMixin, bool complexSmsig>
+bool SmallSignal<CoreClass, DataMixin, complexSmsig>::populateStructures(ErrorConsumer& errors) {
     auto ok = opCore.populateStructures(errors);
     if (!ok) {
         return false;
@@ -225,12 +228,23 @@ bool SmallSignal<CoreClass, DataMixin>::populateStructures(ErrorConsumer& errors
     return smsigCore.populateStructures(errors);
 }
 
-template<typename CoreClass, typename DataMixin>
-bool SmallSignal<CoreClass, DataMixin>::rebuildCores(ErrorConsumer& errors) {
+template<typename CoreClass, typename DataMixin, bool complexSmsig>
+bool SmallSignal<CoreClass, DataMixin, complexSmsig>::rebuildCores(ErrorConsumer& errors) {
     // Create Jacobian - it is common to both cores, so we need to rebuild it here
     if (!jac.rebuild(circuit.sparsityMap(), circuit.unknownCount(), errors)) {
         return false;
     }
+
+    // Create and rebuild operating point linear solver
+    auto& options = circuit.simulatorOptions().core();
+    auto solverId = params.core().opParams.solver;
+    solverId = solverId?solverId:options.tdsolver;
+    solverId = solverId?solverId:Simulator::defaultSolverId;
+    linearSolver_ = std::unique_ptr<RealSparseSolver>(RealSparseSolver::createSolver(solverId, jac, errors));
+    if (!linearSolver_ || !linearSolver_->rebuild(errors)) {
+        return false;
+    }
+    opCore.setLinearSolver(linearSolver_.get());
 
     // Any error aborts immediately
     if (!opCore.rebuild(errors)) {
@@ -240,11 +254,25 @@ bool SmallSignal<CoreClass, DataMixin>::rebuildCores(ErrorConsumer& errors) {
         return false;
     }
 
+    // Create and rebuild the complex linear solver for the smsig matrix
+    // (smsigCore.rebuild() has built the smsig matrix sparsity pattern)
+    if constexpr (complexSmsig) {
+        auto cxSolverId = params.core().solver;
+        cxSolverId = cxSolverId?cxSolverId:options.smsigsolver;
+        cxSolverId = cxSolverId?cxSolverId:Simulator::defaultSolverId;
+        linearCxSolver_ = std::unique_ptr<ComplexSparseSolver>(
+            ComplexSparseSolver::createSolver(cxSolverId, this->acMatrix, errors));
+        if (!linearCxSolver_ || !linearCxSolver_->rebuild(errors)) {
+            return false;
+        }
+        smsigCore.setLinearSolver(linearCxSolver_.get());
+    }
+
     return true;
 }
 
-template<typename CoreClass, typename DataMixin>
-bool SmallSignal<CoreClass, DataMixin>::initializeOutputs(ErrorConsumer& errors) {
+template<typename CoreClass, typename DataMixin, bool complexSmsig>
+bool SmallSignal<CoreClass, DataMixin, complexSmsig>::initializeOutputs(ErrorConsumer& errors) {
     // Any error exits immediately
     if (!opCore.initializeOutputs(prefixedName_+".op", errors)) {
         return false;
@@ -255,59 +283,59 @@ bool SmallSignal<CoreClass, DataMixin>::initializeOutputs(ErrorConsumer& errors)
     return true;
 }
 
-template<typename CoreClass, typename DataMixin>
-bool SmallSignal<CoreClass, DataMixin>::finalizeOutputs(ErrorConsumer& errors) {
+template<typename CoreClass, typename DataMixin, bool complexSmsig>
+bool SmallSignal<CoreClass, DataMixin, complexSmsig>::finalizeOutputs(ErrorConsumer& errors) {
     // Finalization has to be performed on all cores, regardless of errors
     auto ok1 = opCore.finalizeOutputs(errors);
     auto ok2 = smsigCore.finalizeOutputs(errors);
     return ok1 && ok2;
 }
 
-template<typename CoreClass, typename DataMixin>
-bool SmallSignal<CoreClass, DataMixin>::deleteOutputs(ErrorConsumer& errors) {
+template<typename CoreClass, typename DataMixin, bool complexSmsig>
+bool SmallSignal<CoreClass, DataMixin, complexSmsig>::deleteOutputs(ErrorConsumer& errors) {
     // Output needs to be deleted for all cores
     auto ok1 = opCore.deleteOutputs(prefixedName_+".op", errors);
     auto ok2 = smsigCore.deleteOutputs(prefixedName_, errors);
     return ok1 && ok2;
 }
 
-template<typename CoreClass, typename DataMixin> 
-size_t SmallSignal<CoreClass, DataMixin>::analysisStateStorageSize() const { 
+template<typename CoreClass, typename DataMixin, bool complexSmsig>
+size_t SmallSignal<CoreClass, DataMixin, complexSmsig>::analysisStateStorageSize() const { 
     // Only op core has storage
     return opCore.stateStorageSize();
 }
 
-template<typename CoreClass, typename DataMixin> 
-size_t SmallSignal<CoreClass, DataMixin>::allocateAnalysisStateStorage(size_t n) { 
+template<typename CoreClass, typename DataMixin, bool complexSmsig>
+size_t SmallSignal<CoreClass, DataMixin, complexSmsig>::allocateAnalysisStateStorage(size_t n) { 
     // Only op core has storage
     return opCore.allocateStateStorage(n);
 }
 
-template<typename CoreClass, typename DataMixin> 
-void SmallSignal<CoreClass, DataMixin>::deallocateAnalysisStateStorage(size_t n) { 
+template<typename CoreClass, typename DataMixin, bool complexSmsig>
+void SmallSignal<CoreClass, DataMixin, complexSmsig>::deallocateAnalysisStateStorage(size_t n) { 
     // Only op core has storage
     opCore.deallocateStateStorage(n);
 }
 
-template<typename CoreClass, typename DataMixin> 
-bool SmallSignal<CoreClass, DataMixin>::storeState(size_t ndx, bool storeDetails) {
+template<typename CoreClass, typename DataMixin, bool complexSmsig>
+bool SmallSignal<CoreClass, DataMixin, complexSmsig>::storeState(size_t ndx, bool storeDetails) {
     // Only op core has storage
     return opCore.storeState(ndx, storeDetails);
 }
 
-template<typename CoreClass, typename DataMixin> 
-bool SmallSignal<CoreClass, DataMixin>::restoreState(size_t ndx) {
+template<typename CoreClass, typename DataMixin, bool complexSmsig>
+bool SmallSignal<CoreClass, DataMixin, complexSmsig>::restoreState(size_t ndx) {
     // Only op core has storage
     return opCore.restoreState(ndx);
 }
 
-template<typename CoreClass, typename DataMixin> 
-void SmallSignal<CoreClass, DataMixin>::makeStateIncoherent(size_t ndx) {
+template<typename CoreClass, typename DataMixin, bool complexSmsig>
+void SmallSignal<CoreClass, DataMixin, complexSmsig>::makeStateIncoherent(size_t ndx) {
     opCore.makeStateIncoherent(ndx);
 }
 
-template<typename CoreClass, typename DataMixin> 
-void SmallSignal<CoreClass, DataMixin>::dump(std::ostream& os) const {
+template<typename CoreClass, typename DataMixin, bool complexSmsig>
+void SmallSignal<CoreClass, DataMixin, complexSmsig>::dump(std::ostream& os) const {
 }
 
 }

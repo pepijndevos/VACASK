@@ -62,7 +62,12 @@ SimulatorOptions::SimulatorOptions() {
     relrefres = relrefRelref; // reference value for residual reltol
     relreflte = relrefRelref; // reference value for lte reltol
     relref = relrefAlllocal;
-    
+
+    tdsolver = "klu";       // default solver for dc/tran
+    smsigsolver = "klu";    // default solver for ac small-signal family
+    hbsolver = "klu";       // default solver for harmonic balance
+    qpsmsigsolver = "klu";  // default solver for (quasi)periodic small-signal family
+
     matrixcheck = 0; // check matrix for inf and nan
     rhscheck = 1; // check rhs vector for inf and nan
     solutioncheck = 1; // check solution vector for inf and nan
@@ -243,6 +248,11 @@ template<> int Introspection<SimulatorOptions>::setup() {
     registerMember(relreflte);
     registerMember(relref);
     
+    registerMember(tdsolver);
+    registerMember(smsigsolver);
+    registerMember(hbsolver);
+    registerMember(qpsmsigsolver);
+
     registerMember(matrixcheck);
     registerMember(rhscheck);
     registerMember(solutioncheck);

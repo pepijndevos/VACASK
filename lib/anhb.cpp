@@ -97,7 +97,24 @@ bool HB::deleteOutputs(ErrorConsumer& errors) {
 
 bool HB::rebuildCores(ErrorConsumer& errors) {
     // Jacobian will be built by the core
-    return core.rebuild(errors);
+    if (!core.rebuild(errors)) {
+        return false;
+    }
+
+    // The HB Jacobian is built by core.rebuild(); create the linear solver on it
+    if (params.core().solve) {
+        auto& options = circuit.simulatorOptions().core();
+        auto solverId = params.core().solver;
+        solverId = solverId?solverId:options.hbsolver;
+        solverId = solverId?solverId:Simulator::defaultSolverId;
+        linearSolver_ = std::unique_ptr<RealSparseSolver>(RealSparseSolver::createSolver(solverId, jac, errors));
+        if (!linearSolver_ || !linearSolver_->rebuild(errors)) {
+            return false;
+        }
+        core.setLinearSolver(linearSolver_.get());
+    }
+
+    return true;
 }
 
 size_t HB::analysisStateStorageSize() const { 

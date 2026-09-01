@@ -5,6 +5,7 @@
 #include "ansupport.h"
 #include "options.h"
 #include "cscmatrix.h"
+#include "solver.h"
 #include "ansolution.h"
 #include "status.h"
 #include "acct.h"
@@ -141,7 +142,7 @@ public:
     virtual std::tuple<bool, bool> checkDelta() = 0;
 
     // Rebuild internal structures that depend on topology
-    virtual bool rebuild(size_t n);
+    virtual bool rebuild(size_t n, ErrorConsumer& errors);
 
     // Initialize run (upsize internal structures)
     // Called once at the beginning of NRSolver::run()
@@ -170,6 +171,12 @@ public:
 
     // Post run tasks, called before exit
     virtual bool postRun(bool continuePrevious) { return true; }; 
+
+    // Set the linear solver to use
+    void setLinearSolver(RealSparseSolver* solver) { solver_ = solver; };
+
+    // Linear solver holding the current factorization, null before rebuild()
+    RealSparseSolver* linearSolver() const { return solver_; };
 
     // Resize forces repository
     void resizeForces(Int n);
@@ -239,6 +246,7 @@ protected:
     VectorRepository<double>& solution;
     NRSettings& settings;
     Accounting& acct;
+    RealSparseSolver* solver_;
 
     std::vector<Forces> forcesList;
     std::vector<bool> forcesEnabled;

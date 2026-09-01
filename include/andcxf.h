@@ -25,16 +25,16 @@ protected:
 };
 
 // Constructor specialization
-template<> SmallSignal<DCXFCore, DCXFData>::SmallSignal(const std::string& name, Circuit& circuit, PTAnalysis& ptAnalysis);
+template<> SmallSignal<DCXFCore, DCXFData, false>::SmallSignal(const std::string& name, Circuit& circuit, PTAnalysis& ptAnalysis);
 
 // Resolve save specialization
-template<> bool SmallSignal<DCXFCore, DCXFData>::resolveSave(const PTSave& save, bool verify, ErrorConsumer& errors);
+template<> bool SmallSignal<DCXFCore, DCXFData, false>::resolveSave(const PTSave& save, bool verify, ErrorConsumer& errors);
 
 // Dump specialization
-template<> void SmallSignal<DCXFCore, DCXFData>::dump(std::ostream& os) const;
+template<> void SmallSignal<DCXFCore, DCXFData, false>::dump(std::ostream& os) const;
 
 // Typedef AC
-typedef SmallSignal<DCXFCore, DCXFData> DCXF;
+typedef SmallSignal<DCXFCore, DCXFData, false> DCXF;
 
 }
 

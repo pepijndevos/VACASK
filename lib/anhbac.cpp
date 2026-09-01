@@ -1,4 +1,5 @@
 #include "anhbac.h"
+#include "simulator.h"
 #include "common.h"
 
 
@@ -142,9 +143,36 @@ bool HBAC::rebuildCores(ErrorConsumer& errors) {
     if (!hbCore.rebuild(errors)) {
         return false;
     }
+
+    auto& options = circuit.simulatorOptions().core();
+
+    // Large-signal HB linear solver, built on jac by hbCore.rebuild()
+    if (params.core().hbParams.solve) {
+        auto solverId = params.core().hbParams.solver;
+        solverId = solverId?solverId:options.hbsolver;
+        solverId = solverId?solverId:Simulator::defaultSolverId;
+        linearSolver_ = std::unique_ptr<RealSparseSolver>(RealSparseSolver::createSolver(solverId, jac, errors));
+        if (!linearSolver_ || !linearSolver_->rebuild(errors)) {
+            return false;
+        }
+        hbCore.setLinearSolver(linearSolver_.get());
+    }
+
     if (!hbacCore.rebuild(errors)) {
         return false;
     }
+
+    // Small-signal conversion-matrix solver (acMatrix pattern built by hbacCore.rebuild())
+    auto cxSolverId = params.core().solver;
+    cxSolverId = cxSolverId?cxSolverId:options.qpsmsigsolver;
+    cxSolverId = cxSolverId?cxSolverId:Simulator::defaultSolverId;
+    linearCxSolver_ = std::unique_ptr<ComplexSparseSolver>(
+        ComplexSparseSolver::createSolver(cxSolverId, acMatrix, errors));
+    if (!linearCxSolver_ || !linearCxSolver_->rebuild(errors)) {
+        return false;
+    }
+    hbacCore.setLinearSolver(linearCxSolver_.get());
+
     return true;
 }
 

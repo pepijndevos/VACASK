@@ -1,6 +1,7 @@
 #ifndef __ANTRAN_DEFINED
 #define __ANTRAN_DEFINED
 
+#include <memory>
 #include "an.h"
 #include "coreop.h"
 #include "coretran.h"
@@ -71,6 +72,8 @@ private:
 
     DelayLines delayLines_;
     DelayMatrixBindings<double*> delayBindings_;
+
+    std::unique_ptr<RealSparseSolver> linearSolver_;
 
     OperatingPointCore opCore;
     TranCore tranCore;

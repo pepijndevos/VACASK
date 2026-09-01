@@ -20,16 +20,16 @@ protected:
 };
 
 // Constructor specialization
-template<> SmallSignal<DCIncrementalCore, DCIncrementalData>::SmallSignal(const std::string& name, Circuit& circuit, PTAnalysis& ptAnalysis);
+template<> SmallSignal<DCIncrementalCore, DCIncrementalData, false>::SmallSignal(const std::string& name, Circuit& circuit, PTAnalysis& ptAnalysis);
 
 // Resolve save specialization
-template<> bool SmallSignal<DCIncrementalCore, DCIncrementalData>::resolveSave(const PTSave& save, bool verify, ErrorConsumer& errors);
+template<> bool SmallSignal<DCIncrementalCore, DCIncrementalData, false>::resolveSave(const PTSave& save, bool verify, ErrorConsumer& errors);
 
 // Dump specialization
-template<> void SmallSignal<DCIncrementalCore, DCIncrementalData>::dump(std::ostream& os) const;
+template<> void SmallSignal<DCIncrementalCore, DCIncrementalData, false>::dump(std::ostream& os) const;
 
 // Typedef DCIncremental
-typedef SmallSignal<DCIncrementalCore, DCIncrementalData> DCIncremental;
+typedef SmallSignal<DCIncrementalCore, DCIncrementalData, false> DCIncremental;
 
 }
 

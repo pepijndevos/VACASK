@@ -20,6 +20,7 @@ template<> int Introspection<OperatingPointParameters>::setup() {
     registerMember(nodeset);
     registerMember(store); 
     registerMember(write); 
+    registerMember(solver); 
     return 0;
 }
 instantiateIntrospection(OperatingPointParameters);
@@ -217,6 +218,8 @@ bool OperatingPointCore::populateStructures(ErrorConsumer& errors) {
 
 
 bool OperatingPointCore::rebuild(ErrorConsumer& errors) {
+    auto& options = circuit.simulatorOptions().core();
+
     // Size delay line information
     delayLines_.scale(circuit.delayHistoryCount());
 
@@ -232,7 +235,6 @@ bool OperatingPointCore::rebuild(ErrorConsumer& errors) {
     }
 
     // Prepare NR solver settings
-    auto& options = circuit.simulatorOptions().core();
     nrSettings = NRSettings {
         .debug = options.nr_debug, 
         .itlim = options.op_itl, 
@@ -292,7 +294,7 @@ bool OperatingPointCore::rebuild(ErrorConsumer& errors) {
     }
 
     // Rebuild NR solver structures
-    if (!nrSolver.rebuild(circuit.unknownCount())) {
+    if (!nrSolver.rebuild(circuit.unknownCount(), errors)) {
         errors.push(OpNrRebuildFailed{});
         return false;
     }

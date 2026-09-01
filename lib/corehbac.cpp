@@ -25,6 +25,7 @@ template<> int Introspection<HBACParameters>::setup() {
     registerMember(maxharm);
     registerMember(maxfreq);
     registerMember(write);
+    registerMember(solver);
     registerNamedMember(hbParams.write, "writehb");
     registerNamedMember(hbParams.freq, "freq");
     registerNamedMember(hbParams.nharm, "nharm");
@@ -38,7 +39,8 @@ template<> int Introspection<HBACParameters>::setup() {
     registerNamedMember(hbParams.nodeset, "nodeset");
     registerNamedMember(hbParams.store, "store");
     registerNamedMember(hbParams.solve, "hbsolve");
-    
+    registerNamedMember(hbParams.solver, "hbsolver");
+
     return 0;
 }
 instantiateIntrospection(HBACParameters);
@@ -62,7 +64,8 @@ HBACCore::HBACCore(
     delayLines_(delayLines),
     hbacDelayBindings_(hbacDelayBindings),
     frequency(0.0),
-    hbacResolver_(circuit) {
+    hbacResolver_(circuit),
+    cxSolver_(nullptr) {
 }
 
 HBACCore::~HBACCore() {
@@ -654,17 +657,17 @@ CoreCoroutine HBACCore::coroutine(bool continuePrevious, ErrorConsumer& errors) 
         }
 
         // Factor
-        bool forceFullFactorization = false;        
-        if (acMatrix.isFactored()) {
+        bool forceFullFactorization = false;
+        if (cxSolver_->isFactored()) {
             // Refactor (if possible). A refactor failure is not fatal here.
-            if (!acMatrix.refactor(errors)) {
+            if (!cxSolver_->refactor(errors)) {
                 // Failed, try again by fully factoring
                 forceFullFactorization = true;
-            } 
+            }
         }
-        if (forceFullFactorization || !acMatrix.isFactored()) {
+        if (forceFullFactorization || !cxSolver_->isFactored()) {
             // Full factorization
-            if (!acMatrix.factor(errors)) {
+            if (!cxSolver_->factor(errors)) {
                 // Failed, give up
                 errors.push(HbAcMatrixError{});
                 if (debug>0) {
@@ -679,9 +682,9 @@ CoreCoroutine HBACCore::coroutine(bool continuePrevious, ErrorConsumer& errors) 
             }
         }
         // Check if matrix is singular
-        if (options.rcondcheck>0) { 
-            double rcond;
-            if (!acMatrix.rcond(rcond, errors)) {
+        if (options.rcondcheck>0) {
+            auto [rcondOk, rcond] = cxSolver_->rcond(errors);
+            if (!rcondOk) {
                 errors.push(HbAcMatrixError{});
                 if (debug>0) {
                     Simulator::dbg() << "Condition number estimation failed.\n";
@@ -700,7 +703,7 @@ CoreCoroutine HBACCore::coroutine(bool continuePrevious, ErrorConsumer& errors) 
         }
 
         // Solve
-        if (!acMatrix.solve(dataWithoutBucket(acSolution, nf), errors)) {
+        if (!cxSolver_->solve(dataWithoutBucket(acSolution, nf), errors)) {
             errors.push(HbAcMatrixError{});
             if (debug>2) {
                 Simulator::dbg() << "Failed to solve factored system.\n";

@@ -1,6 +1,7 @@
 #ifndef __ANCOREOP_DEFINED
 #define __ANCOREOP_DEFINED
 
+#include <memory>
 #include "circuit.h"
 #include "core.h"
 #include "cscmatrix.h"
@@ -38,6 +39,7 @@ typedef struct OperatingPointParameters {
                                // list specifying nodesets
     String store {""};         // Name of stored solution slot to write
     Int write {1};             // Write the results to a file
+    Id solver {};              // Linear solver to use, overrides tdsolver option
 
     OperatingPointParameters();
 } OperatingPointParameters;
@@ -119,6 +121,12 @@ public:
 
     // Get solver
     OpNRSolver& solver() { return nrSolver; }; 
+
+    // Set linear solver
+    void setLinearSolver(RealSparseSolver* solver) { nrSolver.setLinearSolver(solver); };
+
+    // Get linear solver
+    RealSparseSolver* linearSolver() { return nrSolver.linearSolver(); };
 
     void enableNodesets(bool enable) { nodesetsMasterSwitch = enable; };
     

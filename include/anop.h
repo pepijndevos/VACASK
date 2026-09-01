@@ -1,11 +1,13 @@
 #ifndef __ANOP_DEFINED
 #define __ANOP_DEFINED
 
+#include <memory>
 #include "parameterized.h"
 #include "status.h"
 #include "circuit.h"
 #include "an.h"
 #include "cscmatrix.h"
+#include "solver.h"
 #include "output.h"
 #include "outrawfile.h"
 #include "flags.h"
@@ -63,7 +65,6 @@ protected:
     virtual bool restoreState(size_t ndx);
     virtual void makeStateIncoherent(size_t ndx);
 
-    
 private:
     IStruct<OperatingPointParameters> params;
 
@@ -75,6 +76,8 @@ private:
 
     DelayLines delayLines_;
     DelayMatrixBindings<double*> delayBindings_;
+
+    std::unique_ptr<RealSparseSolver> linearSolver_;
 
     OperatingPointCore core;
 };

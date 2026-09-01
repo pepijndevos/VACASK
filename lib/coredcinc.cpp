@@ -18,6 +18,7 @@ template<> int Introspection<DCIncrementalParameters>::setup() {
     registerNamedMember(opParams.write, "writeop");
     registerNamedMember(opParams.nodeset, "nodeset");
     registerNamedMember(opParams.store, "store");
+    registerNamedMember(opParams.solver, "solver");
 
     return 0;
 }
@@ -176,8 +177,8 @@ CoreCoroutine DCIncrementalCore::coroutine(bool continuePrevious, ErrorConsumer&
 
     // We don't need max residual contribution because we do not check residual
 
-    // Solve 
-    if (!jacobian.solve(dataWithoutBucket(incrementalSolution, bucketSize), errors)) {
+    // Solve (reuses the factorization built by the op core)
+    if (!opCore_.solver().linearSolver()->solve(dataWithoutBucket(incrementalSolution, bucketSize), errors)) {
         errors.push(DcIncMatrixError{});
         co_yield CoreState::Aborted;
     }

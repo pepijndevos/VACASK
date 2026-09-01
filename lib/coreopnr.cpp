@@ -393,10 +393,10 @@ void OpNRSolver::rebuildCheckResidualFlags() {
     }
 }
 
-bool OpNRSolver::rebuild(size_t nSolComp) {
+bool OpNRSolver::rebuild(size_t nSolComp, ErrorConsumer& errors) {
     // Call parent's rebuild
     auto n = nSolComp;
-    if (!NRSolver::rebuild(n)) {
+    if (!NRSolver::rebuild(n, errors)) {
         // Assume parent has set the error flag
         return false;
     }

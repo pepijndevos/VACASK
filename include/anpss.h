@@ -1,6 +1,7 @@
 #ifndef __ANPSS_DEFINED
 #define __ANPSS_DEFINED
 
+#include <memory>
 #include "an.h"
 #include "corepss.h"
 #include "parameterized.h"
@@ -67,8 +68,10 @@ private:
     VectorRepository<double> states_;
 
     // Dummies to make opCore happy
-    DelayLines delayLines_; 
+    DelayLines delayLines_;
     DelayMatrixBindings<double*> delayBindings_;
+
+    std::unique_ptr<RealSparseSolver> linearSolver_;
 
     OperatingPointCore opCore_;
     TranCore           stabilTran_;

@@ -18,6 +18,7 @@ template<> int Introspection<DCXFParameters>::setup() {
     registerNamedMember(opParams.write, "writeop");
     registerNamedMember(opParams.nodeset, "nodeset");
     registerNamedMember(opParams.store, "store");
+    registerNamedMember(opParams.solver, "solver");
     
     return 0;
 }
@@ -235,8 +236,8 @@ CoreCoroutine DCXFCore::coroutine(bool continuePrevious, ErrorConsumer& errors) 
             Simulator::dbg() << "\n";
         }
 
-        // Solve
-        if (!jacobian.solve(dataWithoutBucket(incrementalSolution, bucketSize), errors)) {
+        // Solve (reuses the factorization built by the op core)
+        if (!opCore_.solver().linearSolver()->solve(dataWithoutBucket(incrementalSolution, bucketSize), errors)) {
             errors.push(DcxfMatrixError{});
             error = true;
             break;

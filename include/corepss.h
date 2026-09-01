@@ -92,6 +92,7 @@ typedef struct PssParameters {
     Int  write      {1};    // Write output datasets
                             // nodeset is mapped to opParams
                             // ic is mapped to stabilParams
+                            // solver is mapped to opParams
 
     // Parameters forwarded to subsidiary cores
     OperatingPointParameters opParams;

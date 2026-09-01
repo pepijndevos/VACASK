@@ -46,7 +46,7 @@ NRSolver::NRSolver(
     bucketSize_(bucketSize), iteration(0) {
 }
 
-bool NRSolver::rebuild(size_t nSolComp) {
+bool NRSolver::rebuild(size_t nSolComp, ErrorConsumer& errors) {
     // Allocate space in vectors
     delta.resize(nSolComp+bucketSize_);
     rowNorm.resize(nSolComp+bucketSize_);
@@ -245,17 +245,17 @@ bool NRSolver::run(bool continuePrevious, ErrorConsumer& errors) {
 
         // Factorization
         bool forceFullFactorization = false;
-        if (jac.isFactored()) {
-            // Refactor (if possible). A refactor failure is not fatal here. 
-            if (!jac.refactor(errors)) {
+        if (solver_->isFactored()) {
+            // Refactor (if possible). A refactor failure is not fatal here.
+            if (!solver_->refactor(errors)) {
                 // Failed, try again by fully factoring
                 forceFullFactorization = true;
             }
         }
-        if (forceFullFactorization || !jac.isFactored()) {
+        if (forceFullFactorization || !solver_->isFactored()) {
             // Full factorization
-            if (!jac.factor(errors)) {
-                // Failed, give up. jac.factor() has pushed the error.
+            if (!solver_->factor(errors)) {
+                // Failed, give up. solver_->factor() has pushed the error.
                 if (settings.debug) {
                     Simulator::dbg() << "LU factorization failed.\n";
                 }
@@ -268,8 +268,8 @@ bool NRSolver::run(bool continuePrevious, ErrorConsumer& errors) {
         }
 
         // Solve, use vector without ground component
-        if (!jac.solve(dataWithoutBucket(delta, bucketSize_), errors)) {
-            // jac.solve() has pushed the error
+        if (!solver_->solve(dataWithoutBucket(delta, bucketSize_), errors)) {
+            // solver_->solve() has pushed the error
             if (settings.debug) {
                 Simulator::dbg() << "Failed to solve factored system.\n";
             }

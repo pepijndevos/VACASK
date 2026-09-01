@@ -36,8 +36,9 @@ typedef struct HBParameters {
     String store {""};     // Name of stored solution slot to write
     String nodeset {""};   // String specifying stored solution slot to read
     Int solve {1};         // If true, solves the HB problem, if false evaluates at given stored solution
-                           // Not exposed to user. 
-    
+                           // Not exposed to user.
+    Id solver {};          // Linear solver to use, overrides hbsolver option
+
     Int write {1};         // Write the results to a file
                              
     HBParameters();
@@ -139,6 +140,8 @@ public:
     bool addCoreOutputDescriptors(ErrorConsumer& errors);
     bool addDefaultOutputDescriptors(ErrorConsumer& errors);
     bool resolveOutputDescriptors(bool strict, ErrorConsumer& errors);
+
+    void setLinearSolver(RealSparseSolver* solver) { nrSolver.setLinearSolver(solver); };
 
     bool rebuild(ErrorConsumer& errors);
     bool initializeOutputs(const std::string& name, ErrorConsumer& errors);

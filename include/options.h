@@ -27,6 +27,12 @@ typedef struct SimulatorOptions  {
     Id relrefres;
     Id relreflte;
     Id relref;
+    
+    Id tdsolver;
+    Id smsigsolver;
+    Id hbsolver;
+    Id qpsmsigsolver;
+    
     Int matrixcheck;
     Int rhscheck;
     Int solutioncheck;

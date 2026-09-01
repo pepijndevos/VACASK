@@ -361,7 +361,7 @@ std::tuple<bool, bool> TranNRSolver::buildSystem(bool continuePrevious, ErrorCon
 
 bool TranNRSolver::computeNoiseSolutionContribution(ErrorConsumer& errors) {
     // Solve with last factored Jacobian
-    if (!jac.solve(dataWithoutBucket(noiseResidual, bucketSize_), errors)) {
+    if (!solver_->solve(dataWithoutBucket(noiseResidual, bucketSize_), errors)) {
         if (settings.debug) {
             Simulator::dbg() << "Failed to solve for noise contribution.\n";
         }

@@ -5,6 +5,7 @@
 #include "core.h"
 #include "corehb.h"
 #include "cscblkmatrix.h"
+#include "solver.h"
 #include "output.h"
 #include "flags.h"
 #include "outrawfile.h"
@@ -48,8 +49,10 @@ typedef struct HBACParameters {
                         // <0 keeps all tones. 
     Int write {1};      // Write the results to a file
                         // writehb is the write parameter of hb core
-                        // nodeset and store parameters of the hb core are also exposed. 
+                        // nodeset and store parameters of the hb core are also exposed.
                         // solve parameter of hb core is exposed as hbsolve
+                        // solver parameter of hb core is exposed as hbsolver
+    Id solver {};       // Linear solver to use, overrides qpsmsigsolver option
 
     HBACParameters();
 } HBACParameters;
@@ -180,6 +183,8 @@ public:
     bool addDefaultOutputDescriptors(ErrorConsumer& errors);
     bool resolveOutputDescriptors(bool strict, ErrorConsumer& errors);
 
+    void setLinearSolver(ComplexSparseSolver* solver) { cxSolver_ = solver; };
+
     bool rebuild(ErrorConsumer& errors);
     bool initializeOutputs(Id name, ErrorConsumer& errors);
     bool run(bool continuePrevious, ErrorConsumer& errors);
@@ -240,6 +245,8 @@ protected:
 
 private:
     HBACUnknownNameResolver hbacResolver_;
+
+    ComplexSparseSolver* cxSolver_;
 };
 
 }

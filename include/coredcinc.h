@@ -40,6 +40,7 @@ typedef struct DCIncrementalParameters {
     Int write {1};    // Write the results to a file
                       // writeop is the write parameter of op core
                       // nodeset and store parameters of the op core are also exposed. 
+                      // solver is the solver parameter of the op core
 
     DCIncrementalParameters();
 } DCIncrementalParameters;

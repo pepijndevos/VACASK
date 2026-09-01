@@ -1,10 +1,12 @@
 #ifndef __ANCOREAC_DEFINED
 #define __ANCOREAC_DEFINED
 
+#include <memory>
 #include "circuit.h"
 #include "core.h"
 #include "coreop.h"
 #include "cscmatrix.h"
+#include "solver.h"
 #include "output.h"
 #include "flags.h"
 #include "outrawfile.h"
@@ -65,6 +67,8 @@ typedef struct ACParameters {
     Int write {1};    // Write the results to a file
                       // writeop is the write parameter of op core
                       // nodeset and store parameters of the op core are also exposed. 
+                      // opsolver is the solver parameter of the op core
+    Id solver {};     // Linear solver to use, overrides smsigsolver option
 
     ACParameters();
 } ACParameters;
@@ -124,6 +128,8 @@ public:
     bool addDefaultOutputDescriptors(ErrorConsumer& errors);
     bool resolveOutputDescriptors(bool strict, ErrorConsumer& errors);
 
+    void setLinearSolver(ComplexSparseSolver* solver) { cxSolver_ = solver; };
+
     bool rebuild(ErrorConsumer& errors);
     bool initializeOutputs(const std::string& name, ErrorConsumer& errors);
     bool run(bool continuePrevious, ErrorConsumer& errors);
@@ -153,6 +159,8 @@ protected:
 
 private:
     UnknownNameResolver resolver_;
+
+    ComplexSparseSolver* cxSolver_;
 };
 
 }

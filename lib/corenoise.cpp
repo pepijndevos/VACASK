@@ -25,9 +25,11 @@ template<> int Introspection<NoiseParameters>::setup() {
     registerMember(points);
     registerMember(values);
     registerMember(write);
+    registerMember(solver);
     registerNamedMember(opParams.write, "writeop");
     registerNamedMember(opParams.nodeset, "nodeset");
     registerNamedMember(opParams.store, "store");
+    registerNamedMember(opParams.solver, "opsolver");
 
     return 0;
 }
@@ -245,7 +247,7 @@ bool NoiseCore::rebuild(ErrorConsumer& errors) {
         errors.push(NoiseBindFailed{});
         return false;
     }
-    
+
     return true;
 }
 
@@ -439,16 +441,16 @@ CoreCoroutine NoiseCore::coroutine(bool continuePrevious, ErrorConsumer& errors)
 
         // Factor
         bool forceFullFactorization = false;        
-        if (acMatrix.isFactored()) {
+        if (cxSolver_->isFactored()) {
             // Refactor (if possible). A refactor failure is not fatal here.
-            if (!acMatrix.refactor(errors)) {
+            if (!cxSolver_->refactor(errors)) {
                 // Failed, try again by fully factoring
                 forceFullFactorization = true;
-            } 
+            }
         }
-        if (forceFullFactorization || !acMatrix.isFactored()) {
+        if (forceFullFactorization || !cxSolver_->isFactored()) {
             // Full factorization
-            if (!acMatrix.factor(errors)) {
+            if (!cxSolver_->factor(errors)) {
                 // Failed, give up
                 errors.push(NoiseMatrixError{});
                 if (debug>0) {
@@ -463,9 +465,9 @@ CoreCoroutine NoiseCore::coroutine(bool continuePrevious, ErrorConsumer& errors)
             }
         }
         // Check if matrix is singular
-        if (options.rcondcheck>0) { 
-            double rcond;
-            if (!acMatrix.rcond(rcond, errors)) {
+        if (options.rcondcheck>0) {
+            auto [rcondOk, rcond] = cxSolver_->rcond(errors);
+            if (!rcondOk) {
                 errors.push(NoiseMatrixError{});
                 if (debug>0) {
                     Simulator::dbg() << "Condition number estimation failed.\n";
@@ -496,7 +498,7 @@ CoreCoroutine NoiseCore::coroutine(bool continuePrevious, ErrorConsumer& errors)
         }
 
         // Solve, set bucket to 0.0
-        if (!acMatrix.solve(dataWithoutBucket(acSolution, bucketSize), errors)) {
+        if (!cxSolver_->solve(dataWithoutBucket(acSolution, bucketSize), errors)) {
             errors.push(NoiseMatrixError{});
             if (debug>2) {
                 Simulator::dbg() << "Failed to solve factored system.\n";
@@ -602,7 +604,7 @@ CoreCoroutine NoiseCore::coroutine(bool continuePrevious, ErrorConsumer& errors)
                         }
 
                         // Solve, set bucket to 0.0
-                        if (!acMatrix.solve(dataWithoutBucket(acSolution, bucketSize), errors)) {
+                        if (!cxSolver_->solve(dataWithoutBucket(acSolution, bucketSize), errors)) {
                             errors.push(NoiseMatrixError{});
                             if (debug>2) {
                                 Simulator::dbg() << "Failed to solve factored system.\n";
