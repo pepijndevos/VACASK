@@ -12,6 +12,9 @@ namespace NAMESPACE {
 
 // ACStb analysis data
 class ACStbData {
+public:
+    static inline const Id analysisId = Id::createStatic("acstb");
+
 protected:
     KluComplexMatrix acMatrix;
     Vector<Complex> acSolution;

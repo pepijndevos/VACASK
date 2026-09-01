@@ -16,6 +16,9 @@ SIMPLE_ERRORCLASS(SpPortsVectorOdd, "Ports vector must define an even number of 
 
 // ACSP analysis data
 class ACSPData {
+public:
+    static inline const Id analysisId = Id::createStatic("acsp");
+
 protected:
     KluComplexMatrix acMatrix;
     Vector<Complex> acSolution;

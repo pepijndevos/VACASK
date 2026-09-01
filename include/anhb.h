@@ -18,7 +18,9 @@ namespace NAMESPACE {
 class HB : public Analysis {
 public:
     typedef HBParameters Parameters;
-    
+
+    static inline const Id analysisId = Id::createStatic("hb");
+
     HB(Id name, Circuit& circuit, PTAnalysis& ptAnalysis);
     
     HB           (const HB&)  = delete;

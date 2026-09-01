@@ -12,6 +12,9 @@ namespace NAMESPACE {
 
 // Noise analysis data
 class NoiseData {
+public:
+    static inline const Id analysisId = Id::createStatic("noise");
+
 protected:
     KluComplexMatrix acMatrix;
     Vector<Complex> acSolution;

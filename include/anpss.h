@@ -13,6 +13,8 @@ class Pss : public Analysis {
 public:
     typedef PssParameters Parameters;
 
+    static inline const Id analysisId = Id::createStatic("pss");
+
     Pss(Id name, Circuit& circuit, PTAnalysis& ptAnalysis);
 
     Pss           (const Pss&)  = delete;

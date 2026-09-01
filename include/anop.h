@@ -18,7 +18,9 @@ namespace NAMESPACE {
 class OperatingPoint : public Analysis {
 public:
     typedef OperatingPointParameters Parameters;
-    
+
+    static inline const Id analysisId = Id::createStatic("op");
+
     OperatingPoint(Id name, Circuit& circuit, PTAnalysis& ptAnalysis);
     
     OperatingPoint           (const OperatingPoint&)  = delete;

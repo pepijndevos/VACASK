@@ -48,7 +48,7 @@ public:
     static void setNoOutput(bool val) { noOutput_ = val; };
 
 private:
-    template<typename T> static bool registerAnalysis(Id anType, Status& s=Status::ignore);
+    template<typename T> static bool registerAnalysis(Status& s=Status::ignore);
     static std::ostream* out_;
     static std::ostream* err_;
     static std::ostream* dbg_;

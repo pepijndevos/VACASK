@@ -16,6 +16,8 @@ class HBAC : public Analysis {
 public:
     typedef HBACParameters Parameters;
 
+    static inline const Id analysisId = Id::createStatic("hbac");
+
     HBAC(Id name, Circuit& circuit, PTAnalysis& ptAnalysis);
 
     HBAC           (const HBAC&)  = delete;

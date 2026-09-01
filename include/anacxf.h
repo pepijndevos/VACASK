@@ -12,6 +12,9 @@ namespace NAMESPACE {
 
 // ACXF analysis data
 class ACXFData {
+public:
+    static inline const Id analysisId = Id::createStatic("acxf");
+
 protected:
     KluComplexMatrix acMatrix;
     Vector<Complex> acSolution;

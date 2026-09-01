@@ -14,6 +14,8 @@ class Tran : public Analysis {
 public:
     typedef TranParameters Parameters;
 
+    static inline const Id analysisId = Id::createStatic("tran");
+
     Tran(Id name, Circuit& circuit, PTAnalysis& ptAnalysis);
     
     Tran           (const Tran&)  = delete;

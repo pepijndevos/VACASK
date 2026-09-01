@@ -19,8 +19,8 @@
 
 namespace NAMESPACE { 
 
-template<typename T> bool Simulator::registerAnalysis(Id anType, Status& s) {
-    Analysis::registerFactory(anType, T::create);
+template<typename T> bool Simulator::registerAnalysis(Status& s) {
+    Analysis::registerFactory(T::analysisId, T::create);
     return true;
 }
 
@@ -71,18 +71,18 @@ bool Simulator::setup(
     startupPath_ = std::filesystem::current_path().string();
 
     bool ok = true;
-    ok &= registerAnalysis<OperatingPoint>("op", s);
-    ok &= registerAnalysis<DCIncremental>("dcinc", s);
-    ok &= registerAnalysis<DCXF>("dcxf", s);
-    ok &= registerAnalysis<AC>("ac", s);
-    ok &= registerAnalysis<ACXF>("acxf", s);
-    ok &= registerAnalysis<ACStb>("acstb", s);
-    ok &= registerAnalysis<ACSP>("acsp", s);
-    ok &= registerAnalysis<Noise>("noise", s);
-    ok &= registerAnalysis<Tran>("tran", s);
-    ok &= registerAnalysis<HB>("hb", s);
-    ok &= registerAnalysis<HBAC>("hbac", s);
-    ok &= registerAnalysis<Pss>("pss", s);
+    ok &= registerAnalysis<OperatingPoint>(s);
+    ok &= registerAnalysis<DCIncremental>(s);
+    ok &= registerAnalysis<DCXF>(s);
+    ok &= registerAnalysis<AC>(s);
+    ok &= registerAnalysis<ACXF>(s);
+    ok &= registerAnalysis<ACStb>(s);
+    ok &= registerAnalysis<ACSP>(s);
+    ok &= registerAnalysis<Noise>(s);
+    ok &= registerAnalysis<Tran>(s);
+    ok &= registerAnalysis<HB>(s);
+    ok &= registerAnalysis<HBAC>(s);
+    ok &= registerAnalysis<Pss>(s);
 
     // Register real and complex klu solver here
     ok &= RealSparseSolver::registerSolver<KluRealSparseSolver>();

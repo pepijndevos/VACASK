@@ -12,6 +12,9 @@ namespace NAMESPACE {
 
 // DcIncr analysis data
 class DCIncrementalData {
+public:
+    static inline const Id analysisId = Id::createStatic("dcinc");
+
 protected:
     Vector<double> incrementalSolution; // Incremental solution
 };

@@ -12,6 +12,9 @@ namespace NAMESPACE {
 
 // AC analysis data
 class DCXFData {
+public:
+    static inline const Id analysisId = Id::createStatic("dcxf");
+
 protected:
     std::unordered_map<Id,size_t> sourceIndex;
     std::vector<Instance*> sources; 
