@@ -85,8 +85,8 @@ bool Simulator::setup(
     ok &= registerAnalysis<Pss>("pss", s);
 
     // Register real and complex klu solver here
-    ok &= RealSparseSolver::registerSolver<KluRealSparseSolver>("klu");
-    ok &= ComplexSparseSolver::registerSolver<KluComplexSparseSolver>("klu");
+    ok &= RealSparseSolver::registerSolver<KluRealSparseSolver>();
+    ok &= ComplexSparseSolver::registerSolver<KluComplexSparseSolver>();
 
     return ok;
 }

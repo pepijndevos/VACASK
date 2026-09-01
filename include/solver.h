@@ -29,6 +29,9 @@ public:
     // Factory function: builds a concrete solver bound to the given matrix.
     typedef LinearSparseSolver* (*CreateFn)(Matrix& matrix);
 
+    // Name of the default (KLU) solver.
+    static inline const Id solverDefaultId = Id::createStatic("klu");
+
     // Registry of solver factories, keyed by solver name. Real and complex
     // solvers have separate registries (one per ValueType specialization).
     static std::unordered_map<Id, CreateFn>& getRegistry() {
@@ -39,13 +42,16 @@ public:
     // Register solver type SolverType under the given name. 
     // Returns false if the name is already taken.
     template<typename SolverType>
-    static bool registerSolver(Id name) {
-        return getRegistry().insert({name, &SolverType::create}).second;
+    static bool registerSolver() {
+        return getRegistry().insert({SolverType::solverId, &SolverType::create}).second;
     };
 
     // Look up a registered solver creator and build a solver bound to the given
     // matrix. Returns nullptr and pushes SolverNotFound if the name is unknown.
     static LinearSparseSolver* createSolver(Id name, Matrix& matrix, ErrorConsumer& ec) {
+        if (!name) {
+            name = solverDefaultId;
+        }
         auto& registry = getRegistry();
         auto it = registry.find(name);
         if (it==registry.end()) {

@@ -34,6 +34,9 @@ public:
         "KluLinearSparseSolver value type is neither double nor std::complex<double>."
     );
 
+    // Name this solver is registered under.
+    static inline const Id solverId = Id::createStatic("klu");
+
     explicit KluLinearSparseSolver(Matrix& matrix)
         : Base(matrix), common_{}, symbolic_(nullptr), numeric_(nullptr) {}
 
