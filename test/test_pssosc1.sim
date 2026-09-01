@@ -54,11 +54,11 @@ model vdposc vdposc
 osc1 (1 0) vdposc
 
 control
-  abort never
+  abort always
 
   options rawfile="binary" strictsave=1
   options pss_debug=2
-  options pss_tolscale=1e-2
+  options pss_tolscale=1e-3
 
   save default
 
@@ -114,7 +114,7 @@ try:
 
     match = np.abs(v1[-1]-v1[0])/np.abs(v1).max()
     ok = match<1e-6
-    print("Endpoint relative delta:", match, "PASS" if ok else "")
+    print("Endpoint relative delta:", match, "PASS" if ok else "FAIL")
     tests.append(ok)
 
 except FileNotFoundError:

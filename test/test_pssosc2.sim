@@ -47,7 +47,7 @@ control
 
     options rawfile="binary" strictsave=1
     options pss_debug=1
-    options pss_tolscale=1e-2
+    options pss_tolscale=1e-3
 
     save default
 
@@ -92,7 +92,7 @@ print(f"PSS:  converged T0={T0:.4e} s  f0={f0/1e6:.1f} MHz  Vpp={vpp*1e3:.0f} mV
 
 match = np.abs(vp[-1]-vp[0])/np.abs(vp).max()
 ok    = match<1e-9
-print("Endpoint relative delta:", match, "PASS" if ok else "")
+print("Endpoint relative delta:", match, "PASS" if ok else "FAIL")
 tests.append(ok)
 
 if isTest():

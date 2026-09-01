@@ -23,7 +23,7 @@ control
   abort always
   options pss_debug=1
   options pss_itl=50
-  options pss_tolscale=0.5
+  options pss_tolscale=1e-3
   analysis pss1 pss driven=1 tper=2m tstab=20m writestab=1 maxacfreq=1.975M
   
   postprocess(PYTHON, "runme.py")
@@ -92,7 +92,7 @@ if pss_ok:
 
     match = np.abs(vp[-1]-vp[0])/np.abs(vp).max()
     ok    = match<1e-6
-    print("Endpoint relative delta:", match, "PASS" if ok else "")
+    print("Endpoint relative delta:", match, "PASS" if ok else "FAIL")
     tests.append(ok)
 
 if isTest():

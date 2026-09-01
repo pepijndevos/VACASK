@@ -134,12 +134,12 @@ if pss_ok:
     exact = exactmag*(np.cos(exactph*np.pi/180)+1j*np.sin(exactph*np.pi/180))
     delta = np.abs(fft_ip_uni-exact).max()
     ok = delta<1e-4
-    print("Spectrum delta:", delta, "PASS" if ok else "")
+    print("Spectrum delta:", delta, "PASS" if ok else "FAIL")
     tests.append(delta<1e-4)
 
     match = np.abs(vp[-1]-vp[0])/np.abs(vp).max()
     ok    = match<1e-9
-    print("Endpoint relative delta:", match, "PASS" if ok else "")
+    print("Endpoint relative delta:", match, "PASS" if ok else "FAIL")
     tests.append(ok)
 
     
