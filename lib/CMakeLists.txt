@@ -66,6 +66,8 @@ add_library(simlib STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/cscmatrix.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/cscblkmatrix.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/cscblkmatrix.h 
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include/solver.h 
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include/solklu.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/simulator.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/output.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/outrawfile.h 

@@ -12,6 +12,7 @@
 #include "anhb.h"
 #include "anhbac.h" 
 #include "anpss.h"
+#include "solklu.h"
 #include "libplatform.h"
 #include "common.h"
 
@@ -82,7 +83,11 @@ bool Simulator::setup(
     ok &= registerAnalysis<HB>("hb", s);
     ok &= registerAnalysis<HBAC>("hbac", s);
     ok &= registerAnalysis<Pss>("pss", s);
-    
+
+    // Register real and complex klu solver here
+    ok &= RealSparseSolver::registerSolver<KluRealSparseSolver>("klu");
+    ok &= ComplexSparseSolver::registerSolver<KluComplexSparseSolver>("klu");
+
     return ok;
 }
 
