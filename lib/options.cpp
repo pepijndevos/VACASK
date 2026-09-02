@@ -63,10 +63,10 @@ SimulatorOptions::SimulatorOptions() {
     relreflte = relrefRelref; // reference value for lte reltol
     relref = relrefAlllocal;
 
-    tdsolver = "klu";       // default solver for dc/tran
-    smsigsolver = "klu";    // default solver for ac small-signal family
-    hbsolver = "klu";       // default solver for harmonic balance
-    qpsmsigsolver = "klu";  // default solver for (quasi)periodic small-signal family
+    tdsolver = Id();       // default solver for dc/tran
+    smsigsolver = Id();    // default solver for ac small-signal family
+    hbsolver = Id();       // default solver for harmonic balance
+    qpsmsigsolver = Id();  // default solver for (quasi)periodic small-signal family
 
     matrixcheck = 0; // check matrix for inf and nan
     rhscheck = 1; // check rhs vector for inf and nan

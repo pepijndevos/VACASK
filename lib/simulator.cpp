@@ -121,8 +121,6 @@ bool Simulator::setup(
     Simulator::defaultTdSolverId      = KluRealSparseSolver::solverId;
     Simulator::defaultSmsigSolverId   = KluRealSparseSolver::solverId;
     
-    
-
     setupDone_ = true;
     setupOk_ = ok;
     return ok;
