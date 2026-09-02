@@ -6,6 +6,13 @@
 #include <cstdlib>
 #include <chrono>
 
+// OpenMP / OpenBLAS thread-count control. This is the only TU built with
+// -fopenmp (plus the SuperLU_MT backend); keep these includes out of the header.
+#ifdef OPENMP_ENABLED
+#include <omp.h>
+#endif
+#include <cblas.h>
+
 #ifdef SIMMACOS
 #include <format>
 #include <ctime>
@@ -141,5 +148,26 @@ std::string formattedTimestamp() {
 }
 #endif
 
+int cpuCount() {
+#ifdef OPENMP_ENABLED
+    return omp_get_max_threads();
+#else
+    return 1;
+#endif
+}
+
+void setCpuCount(int n) {
+#ifdef OPENMP_ENABLED
+    omp_set_num_threads(n);
+#endif
+}
+
+void setBlasCpuCount(int n) {
+    openblas_set_num_threads(n);
+}
+
+int blasCpuCount() {
+    return openblas_get_num_threads();
+}
 
 }

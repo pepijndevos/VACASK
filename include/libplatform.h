@@ -53,6 +53,14 @@ const char* defaultOpenVafBinaryName();
 
 std::string formattedTimestamp();
 
+int cpuCount();
+
+void setCpuCount(int n);
+
+void setBlasCpuCount(int n);
+
+int blasCpuCount();
+
 }
 
 #endif

@@ -228,3 +228,32 @@ target_include_directories(simlib PUBLIC
     ${FLEX_INCLUDE_DIRS}
 )
 # target_compile_definitions(dlib PRIVATE BUILDING_SIM_DLL)
+
+# OpenMP is scoped to just these TUs (see the top-level CMakeLists.txt); the rest
+# of simlib is built without -fopenmp. libplatform.cpp needs it for
+# omp_get_max_threads() / omp_set_num_threads() (guarded by OPENMP_ENABLED).
+if (OpenMP_CXX_FOUND)
+    set_source_files_properties(libplatform.cpp PROPERTIES
+        COMPILE_OPTIONS "${OpenMP_CXX_FLAGS}"
+        COMPILE_DEFINITIONS "OPENMP_ENABLED"
+    )
+endif()
+
+# SuperLU_MT backend: added only when CMakeLists.txt found it (SIM_HAVE_SUPERLU).
+# Its headers clash with blaslapack.h, so the SuperLU include dir, the -fopenmp
+# flag and -D__OPENMP (the library's threading structs depend on it) are scoped
+# to these two TUs and must not reach any other.
+if (SIM_HAVE_SUPERLU)
+    target_sources(simlib PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/../include/solsuperlu.h
+        solsuperlu_common.h
+        solsuperlu.cpp 
+        solsuperlu_real.cpp
+        solsuperlu_complex.cpp
+    )
+    set_source_files_properties(solsuperlu_real.cpp solsuperlu_complex.cpp PROPERTIES
+        INCLUDE_DIRECTORIES "${SIM_SUPERLU_INCLUDE}"
+        COMPILE_OPTIONS "${OpenMP_CXX_FLAGS}"
+        COMPILE_DEFINITIONS "__OPENMP"
+    )
+endif()

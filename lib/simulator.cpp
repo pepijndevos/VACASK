@@ -50,14 +50,16 @@ bool Simulator::noOutput_ = false;
 bool Simulator::setupDone_ = false;
 bool Simulator::setupOk_ = false;
 
+int Simulator::ncpu_ = 1;
+
 void Simulator::setStreams(std::ostream& output, std::ostream& error, std::ostream& debug) {
     Simulator::out_ = &output;
     Simulator::err_ = &error;
     Simulator::dbg_ = &debug;
 }
 
-bool Simulator::setup(Status& s) {
-    return setup("", "", s);
+bool Simulator::setup(int ncpu, int nBlasCpu, Status& s) {
+    return setup("", "", ncpu, nBlasCpu, s);
 }
 
 Id Simulator::defaultTdSolverId = Id();
@@ -68,6 +70,8 @@ Id Simulator::defaultQpsmsigSolverId = Id();
 bool Simulator::setup(
     const std::string& moduleFilePathString, 
     const std::string& includeFilePathString, 
+    int ncpu, 
+    int nBlasCpu, 
     Status& s
 ) {
     std::vector<std::string> modPathVec;
@@ -81,6 +85,20 @@ bool Simulator::setup(
 
     startupPath_ = std::filesystem::current_path().string();
 
+    // CPU count (OpenMP)
+    if (ncpu<=0) {
+        // Autodetect CPU count
+        ncpu_ = cpuCount();
+    } else {
+        // Set manually, do not limit OpenMP to this number
+        ncpu_ = ncpu;
+    }
+
+    // CPU count (OpenBLAS)
+    if (nBlasCpu>0) {
+        setBlasCpuCount(nBlasCpu);
+    }
+    
     // Registration runs once; later calls only refresh the paths above and
     // report the first call's result.
     if (setupDone_) {

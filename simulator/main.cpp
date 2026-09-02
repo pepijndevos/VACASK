@@ -32,6 +32,11 @@ char helpText[] =
     "  -qp, --quiet-progress\n"
     "                      turn off progress messages\n"
     "  --no-output         suppress output of result files\n"
+    "  -n, --ncpu          number of CPUs to use (autodetect)\n"
+    "                      <=0 .. autodetect, take OMP_NUM_THREADS into account\n"
+    "                      or use all available CPUs (default)\n"
+    "  -b, --blas-ncpu     number of CPUs to assign to OpenBLAS (default=1)\n"
+    "                      <=0 .. use OpenBLAS autodetect\n"
     ; 
 
 int main(int argc, char**argv) {
@@ -44,6 +49,12 @@ int main(int argc, char**argv) {
     bool noOutput = false;
     std::string extraTomlFile;
     std::string tomlFile;
+
+    // <=0 means autodetect by OpenMP
+    int ncpu = 0;
+
+    // <=0 means autodetect
+    int blasNcpu = 1;
 
     // Simulator information
     Simulator::out() << 
@@ -112,12 +123,26 @@ int main(int argc, char**argv) {
             }
             i++;
             tomlFile = argv[i];
+        } else if (arg=="-n" || arg=="--ncpu") {
+            if (i+1>=argc) {
+                Simulator::err() << "Missing number of CPUs.\n";
+                return 1;
+            }
+            i++;
+            ncpu = std::stoi(argv[i]);
+        } else if (arg=="-b" || arg=="--bncpu") {
+            if (i+1>=argc) {
+                Simulator::err() << "Missing number of OpenBLAS CPUs.\n";
+                return 1;
+            }
+            i++;
+            blasNcpu = std::stoi(argv[i]);
         } else {
             Simulator::err() << "Unrecognized argument '"+arg+"'.\n";
             return 1;
         }
     }
-    
+
     // FileDebug and noOutput simulator flags
     Simulator::setFileDebug(fileDebug); 
     Simulator::setNoOutput(noOutput); 
@@ -149,7 +174,7 @@ int main(int argc, char**argv) {
     auto incStr = incCstring ? std::string(incCstring) : defaultIncludeDirectory;
 
     // Setup simulator
-    if (!Simulator::setup(modStr, incStr, status)) {
+    if (!Simulator::setup(modStr, incStr, ncpu, blasNcpu, status)) {
         Simulator::err() << status.message() << "\n";
         return 1;
     }
@@ -218,10 +243,16 @@ int main(int argc, char**argv) {
         }
     }
 
+    // CPU info
+    Simulator::dbg() << "Available CPUs:     " << cpuCount() << "\n";
+    Simulator::dbg() << "CPUs used:          " << Simulator::nCpu() << "\n";
+    Simulator::dbg() << "OpenBLAS CPUs:      " << blasCpuCount() << "\n";
+    Simulator::dbg() << "\n";
+
     // Dump paths
     if (dumpPaths) {
-        Simulator::dbg() << "Simulator binary: " << simulatorBinary << "\n";
-        Simulator::dbg() << "Startup directory: " << Simulator::startupPath() << "\n";
+        Simulator::dbg() << "Simulator binary:   " << simulatorBinary << "\n";
+        Simulator::dbg() << "Startup directory:  " << Simulator::startupPath() << "\n";
         Simulator::dbg() << "Module path:\n";
         for(auto& d : Simulator::modulePath()) {
             Simulator::dbg() << "  " << d << "\n";

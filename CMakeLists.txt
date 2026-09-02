@@ -105,6 +105,22 @@ else()
 	add_compile_options("-fno-signaling-nans" "-fno-trapping-math" "-fcoroutines")
 endif()
 
+# OpenMP: probed once, optional. It is deliberately NOT enabled project-wide -
+# the -fopenmp compile flag (and OPENMP_ENABLED) is scoped to just the TUs that
+# need it: lib/libplatform.cpp and the SuperLU_MT backend TUs
+# lib/solsuperlu_{real,complex}.cpp (see the set_source_files_properties() calls
+# in lib/CMakeLists.txt). Building the rest of the project with -fopenmp only
+# slowed it down. The OpenMP runtime is added to every executable link further
+# down via $<LINK_ONLY:OpenMP::OpenMP_CXX> (link requirement, no compile flag).
+# (The SuperLU_MT backend additionally needs -D__OPENMP on its own TUs - see
+# below - and requires OpenMP to be present.)
+find_package(OpenMP COMPONENTS CXX)
+if (OpenMP_CXX_FOUND)
+    message(STATUS "OpenMP: found (${OpenMP_CXX_FLAGS}), scoped to libplatform + SuperLU TUs")
+else()
+    message(STATUS "OpenMP: not found, building without it")
+endif()
+
 set(STAGED_LIBRARY_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${PROGRAM_LIB_DIR}")
 message(STATUS "Staged library directory: ${STAGED_LIBRARY_DIRECTORY}")
 
@@ -194,6 +210,48 @@ if (${SIM_PLATFORM} STREQUAL "Windows")
 	set(FL_LIBRARY "${tmp}/../lib/libfl.a" CACHE STRING "Flex library" FORCE)
 endif()
 
+#
+# Optional SuperLU_MT sparse solver backend (lib/solsuperlu_{real,complex}.cpp,
+# lib/solsuperlu_common.h, include/solsuperlu.h).
+#
+# Enabled with -DSuperluMT_DIR=<path> pointing at a built SuperLU_MT 4.x tree:
+# headers in <dir>/SRC, the static library in <dir>/lib
+# (libsuperlu_mt_OPENMP.a or _PTHREAD.a). This build expects the OpenMP variant
+# linked against OpenBLAS. When the headers, the library and OpenMP are all
+# found, SIM_HAVE_SUPERLU is defined project-wide; that macro gates both the
+# backend TUs and the registration of the "superlu" solver in lib/simulator.cpp.
+# Without -DSuperluMT_DIR the build proceeds without it.
+#
+set(SIM_HAVE_SUPERLU FALSE)
+
+if (DEFINED SuperluMT_DIR)
+    find_path(SIM_SUPERLU_INCLUDE slu_mt_ddefs.h
+        HINTS "${SuperluMT_DIR}/SRC" "${SuperluMT_DIR}/include" "${SuperluMT_DIR}"
+        NO_DEFAULT_PATH)
+    find_library(SIM_SUPERLU_LIBRARY
+        NAMES superlu_mt_OPENMP superlu_mt_PTHREAD superlu_mt
+        HINTS "${SuperluMT_DIR}/lib"
+        NO_DEFAULT_PATH)
+    # SuperLU_MT here was built against OpenBLAS; its static library carries
+    # unresolved BLAS symbols that this resolves at the final link.
+    find_library(SIM_SUPERLU_BLAS NAMES openblas)
+
+    # OpenMP is probed unconditionally further up; the _OPENMP variant of the
+    # SuperLU_MT library needs it.
+    if (SIM_SUPERLU_INCLUDE AND SIM_SUPERLU_LIBRARY AND OpenMP_CXX_FOUND)
+        set(SIM_HAVE_SUPERLU TRUE)
+        message(STATUS "SuperLU_MT backend: enabled")
+        message(STATUS "  headers:  ${SIM_SUPERLU_INCLUDE}")
+        message(STATUS "  library:  ${SIM_SUPERLU_LIBRARY}")
+        message(STATUS "  OpenBLAS: ${SIM_SUPERLU_BLAS}")
+    else()
+        message(WARNING "SuperLU_MT backend: -DSuperluMT_DIR set but incomplete, "
+            "building without it (headers=${SIM_SUPERLU_INCLUDE} "
+            "library=${SIM_SUPERLU_LIBRARY} openmp=${OpenMP_CXX_FOUND})")
+    endif()
+else()
+    message(STATUS "SuperLU_MT backend: disabled (set -DSuperluMT_DIR to enable)")
+endif()
 
 #
 # Custom build types
@@ -325,6 +383,33 @@ else()
         FORCE
     )
     # -Wl,-Bstatic
+endif()
+
+# Wire the SuperLU_MT backend in once SIM_EXE_LIBRARIES exists. Its headers clash
+# with blaslapack.h, so the include dir, the -fopenmp flag and its -D__OPENMP are
+# all scoped to just the backend TUs lib/solsuperlu_{real,complex}.cpp (in
+# lib/CMakeLists.txt). Here we only define the gate macro and add the SuperLU
+# libraries.
+if (SIM_HAVE_SUPERLU)
+    add_compile_definitions(SIM_HAVE_SUPERLU)
+    set(SIM_EXE_LIBRARIES ${SIM_EXE_LIBRARIES}
+            ${SIM_SUPERLU_LIBRARY}
+            $<$<BOOL:${SIM_SUPERLU_BLAS}>:${SIM_SUPERLU_BLAS}>
+        CACHE STRING "External libraries for creating an executable."
+        FORCE
+    )
+endif()
+
+# OpenMP runtime: linked into every executable (lib/libplatform.cpp and, when
+# built, the SuperLU_MT TUs pull in libgomp) WITHOUT the -fopenmp compile flag -
+# that stays scoped to those TUs (lib/CMakeLists.txt). $<LINK_ONLY:...> drops the
+# imported target's INTERFACE_COMPILE_OPTIONS so nothing else gets -fopenmp.
+if (OpenMP_CXX_FOUND)
+    set(SIM_EXE_LIBRARIES ${SIM_EXE_LIBRARIES}
+            $<LINK_ONLY:OpenMP::OpenMP_CXX>
+        CACHE STRING "External libraries for creating an executable."
+        FORCE
+    )
 endif()
 
 

@@ -17,16 +17,20 @@ namespace NAMESPACE {
 class Simulator {
 public:
     static void setStreams(std::ostream& output, std::ostream& error, std::ostream& debug);
-    static bool setup(Status& s=Status::ignore);
+    static bool setup(int ncpu=0, int nBlasCpu=1, Status& s=Status::ignore);
     static bool setup(        
         const std::string& moduleFilePath, 
         const std::string& includeFilePath, 
+        int ncpu=0, 
+        int nBlasCpu=1, 
         Status& s=Status::ignore
     );
     
     static const std::string& startupPath() { return startupPath_; };
     static const std::vector<std::string>& modulePath() { return modulePath_; };
     static const std::vector<std::string>& includePath() { return includePath_; };
+
+    static int nCpu() { return ncpu_; };
 
     static void prependModulePath(std::vector<std::string>&& strVec);
     static void appendModulePath(std::vector<std::string>&& strVec);
@@ -70,6 +74,8 @@ private:
     // setup() runs its body once; later calls return the first call's result
     static bool setupDone_;
     static bool setupOk_;
+
+    static int ncpu_;
 };
 
 }
