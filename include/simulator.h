@@ -47,7 +47,10 @@ public:
     static bool noOutput() { return noOutput_; }; 
     static void setNoOutput(bool val) { noOutput_ = val; };
 
-    static Id defaultSolverId;
+    static Id defaultTdSolverId;
+    static Id defaultSmsigSolverId;
+    static Id defaultHbSolverId;
+    static Id defaultQpsmsigSolverId;
 
 private:
     template<typename T> static bool registerAnalysis(Status& s=Status::ignore);

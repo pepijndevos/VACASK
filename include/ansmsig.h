@@ -239,7 +239,7 @@ bool SmallSignal<CoreClass, DataMixin, complexSmsig>::rebuildCores(ErrorConsumer
     auto& options = circuit.simulatorOptions().core();
     auto solverId = params.core().opParams.solver;
     solverId = solverId?solverId:options.tdsolver;
-    solverId = solverId?solverId:Simulator::defaultSolverId;
+    solverId = solverId?solverId:Simulator::defaultTdSolverId;
     linearSolver_ = std::unique_ptr<RealSparseSolver>(RealSparseSolver::createSolver(solverId, jac, errors));
     if (!linearSolver_ || !linearSolver_->rebuild(errors)) {
         return false;
@@ -259,7 +259,7 @@ bool SmallSignal<CoreClass, DataMixin, complexSmsig>::rebuildCores(ErrorConsumer
     if constexpr (complexSmsig) {
         auto cxSolverId = params.core().solver;
         cxSolverId = cxSolverId?cxSolverId:options.smsigsolver;
-        cxSolverId = cxSolverId?cxSolverId:Simulator::defaultSolverId;
+        cxSolverId = cxSolverId?cxSolverId:Simulator::defaultSmsigSolverId;
         linearCxSolver_ = std::unique_ptr<ComplexSparseSolver>(
             ComplexSparseSolver::createSolver(cxSolverId, this->acMatrix, errors));
         if (!linearCxSolver_ || !linearCxSolver_->rebuild(errors)) {

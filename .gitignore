@@ -8,6 +8,7 @@ benchmark/rundir
 *.osdi
 build/
 docs/internals/
+docs/noise/
 build
 .cache
 *.raw

@@ -50,7 +50,7 @@ bool PssTranCore::rebuild(ErrorConsumer& errors) {
     auto& options = circuit.simulatorOptions().core();
     auto solverId = params.opParams.solver;
     solverId = solverId?solverId:options.tdsolver;
-    solverId = solverId?solverId:Simulator::defaultSolverId;
+    solverId = solverId?solverId:Simulator::defaultTdSolverId;
     lastAlrSolver_ = std::unique_ptr<RealSparseSolver>(RealSparseSolver::createSolver(solverId, lastAlr_, errors));
     if (!lastAlrSolver_ || !lastAlrSolver_->rebuild(errors)) {
         errors.push(PssTranAlrScratchRebuild{});

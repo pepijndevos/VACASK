@@ -150,7 +150,7 @@ bool HBAC::rebuildCores(ErrorConsumer& errors) {
     if (params.core().hbParams.solve) {
         auto solverId = params.core().hbParams.solver;
         solverId = solverId?solverId:options.hbsolver;
-        solverId = solverId?solverId:Simulator::defaultSolverId;
+        solverId = solverId?solverId:Simulator::defaultHbSolverId;
         linearSolver_ = std::unique_ptr<RealSparseSolver>(RealSparseSolver::createSolver(solverId, jac, errors));
         if (!linearSolver_ || !linearSolver_->rebuild(errors)) {
             return false;
@@ -165,7 +165,7 @@ bool HBAC::rebuildCores(ErrorConsumer& errors) {
     // Small-signal conversion-matrix solver (acMatrix pattern built by hbacCore.rebuild())
     auto cxSolverId = params.core().solver;
     cxSolverId = cxSolverId?cxSolverId:options.qpsmsigsolver;
-    cxSolverId = cxSolverId?cxSolverId:Simulator::defaultSolverId;
+    cxSolverId = cxSolverId?cxSolverId:Simulator::defaultQpsmsigSolverId;
     linearCxSolver_ = std::unique_ptr<ComplexSparseSolver>(
         ComplexSparseSolver::createSolver(cxSolverId, acMatrix, errors));
     if (!linearCxSolver_ || !linearCxSolver_->rebuild(errors)) {

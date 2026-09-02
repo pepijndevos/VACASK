@@ -106,7 +106,7 @@ bool HB::rebuildCores(ErrorConsumer& errors) {
         auto& options = circuit.simulatorOptions().core();
         auto solverId = params.core().solver;
         solverId = solverId?solverId:options.hbsolver;
-        solverId = solverId?solverId:Simulator::defaultSolverId;
+        solverId = solverId?solverId:Simulator::defaultHbSolverId;
         linearSolver_ = std::unique_ptr<RealSparseSolver>(RealSparseSolver::createSolver(solverId, jac, errors));
         if (!linearSolver_ || !linearSolver_->rebuild(errors)) {
             return false;

@@ -13,6 +13,9 @@
 #include "anhbac.h" 
 #include "anpss.h"
 #include "solklu.h"
+#ifdef SIM_HAVE_SUPERLU
+#include "solsuperlu.h"
+#endif
 #include "libplatform.h"
 #include "common.h"
 
@@ -54,7 +57,10 @@ bool Simulator::setup(Status& s) {
     return setup("", "", s);
 }
 
-Id Simulator::defaultSolverId = Id();
+Id Simulator::defaultTdSolverId = Id();
+Id Simulator::defaultSmsigSolverId = Id();
+Id Simulator::defaultHbSolverId = Id();
+Id Simulator::defaultQpsmsigSolverId = Id();
 
 bool Simulator::setup(
     const std::string& moduleFilePathString, 
@@ -90,8 +96,17 @@ bool Simulator::setup(
     ok &= RealSparseSolver::registerSolver<KluRealSparseSolver>();
     ok &= ComplexSparseSolver::registerSolver<KluComplexSparseSolver>();
 
+#ifdef SIM_HAVE_SUPERLU
+    // Register real and complex SuperLU_DIST solver (build-time optional)
+    ok &= RealSparseSolver::registerSolver<SuperLURealSparseSolver>();
+    ok &= ComplexSparseSolver::registerSolver<SuperLUComplexSparseSolver>();
+#endif
+
     // Default solver when no solver is specified
-    Simulator::defaultSolverId = KluRealSparseSolver::solverId;
+    Simulator::defaultTdSolverId = KluRealSparseSolver::solverId;
+    Simulator::defaultSmsigSolverId = KluRealSparseSolver::solverId;
+    Simulator::defaultHbSolverId = KluRealSparseSolver::solverId;
+    Simulator::defaultQpsmsigSolverId = KluRealSparseSolver::solverId;
 
     return ok;
 }

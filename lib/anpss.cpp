@@ -162,7 +162,7 @@ bool Pss::rebuildCores(ErrorConsumer& errors) {
     auto& options = circuit.simulatorOptions().core();
     auto solverId = params.core().opParams.solver;
     solverId = solverId?solverId:options.tdsolver;
-    solverId = solverId?solverId:Simulator::defaultSolverId;
+    solverId = solverId?solverId:Simulator::defaultTdSolverId;
     linearSolver_ = std::unique_ptr<RealSparseSolver>(RealSparseSolver::createSolver(solverId, jac_, errors));
     if (!linearSolver_ || !linearSolver_->rebuild(errors)) {
         return false;
