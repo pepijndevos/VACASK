@@ -12,6 +12,7 @@
     "cmake.configureSettings": { 
         "OPENVAF_DIR": "/home/arpadb/OpenVAF/OpenVAF/target/release", 
         "Boost_ROOT": "/home/arpadb/sim/boost_1_88_0/stage", 
+        "SuperluMT_DIR": "/home/arpadb/superlu/superlu_mt-4.0.0", 
         // "OPENVAF_OPTIONS": "--target_cpu generic", 
         // "CMAKE_C_FLAGS": "-march=x86-64-v2"
     }, 
