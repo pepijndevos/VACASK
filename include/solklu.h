@@ -166,7 +166,7 @@ public:
         return factOk;
     }
 
-    // Reciprocal condition number estimate. Same failure convention as rgrowth().
+    // Reciprocal condition number estimate. {false, 0} on failure.
     std::tuple<bool, double> rcond(ErrorConsumer& ec) override {
         if (!numeric_) {
             return { false, 0.0 };
@@ -268,42 +268,6 @@ protected:
     // KLU entry points, dispatched on IndexType / ValueType.
     //
 
-    // Structural rank is computed by the symbolic analysis . Available once
-    // the solver is built; -1 (reported as invalid) if BTF was not run.
-    std::tuple<bool, IndexType> structuralRank() const {
-        if (symbolic_) {
-            auto r = common_.structural_rank;
-            if (r>=0) {
-                return { true, r };
-            }
-        }
-        return { false, 0 };
-    }
-
-    // Numerical rank is computed during factorization; -1 (reported as invalid)
-    // if it was not computed.
-    std::tuple<bool, IndexType> numericalRank() const {
-        if (numeric_) {
-            auto r = common_.numerical_rank;
-            if (r>=0) {
-                return { true, r };
-            }
-        }
-        return { false, 0 };
-    }
-
-    // Zero-pivot column, meaningful only when the last factorization was
-    // singular (otherwise KLU reports the matrix order).
-    std::tuple<bool, IndexType> singularColumn() const {
-        if (numeric_) {
-            auto c = common_.singular_col;
-            if (c>=0 && c < this->matrix().nRow()) {
-                return { true, c };
-            }
-        }
-        return { false, 0 };
-    }
-
     static int kluDefaults(Common* c) {
         if constexpr (int32Index) {
             return klu_defaults(c);
@@ -358,27 +322,6 @@ protected:
                 return klu_refactor(Ap, Ai, Ax, symbolic_, numeric_, &common_);
             } else {
                 return klu_l_refactor(Ap, Ai, Ax, symbolic_, numeric_, &common_);
-            }
-        }
-    }
-
-    int kluRgrowth() {
-        auto& m = this->matrix();
-        auto* Ap = m.apData();
-        auto* Ai = m.aiData();
-        if constexpr (complexValue) {
-            auto* Ax = reinterpret_cast<double*>(m.axData());
-            if constexpr (int32Index) {
-                return klu_z_rgrowth(Ap, Ai, Ax, symbolic_, numeric_, &common_);
-            } else {
-                return klu_zl_rgrowth(Ap, Ai, Ax, symbolic_, numeric_, &common_);
-            }
-        } else {
-            auto* Ax = m.axData();
-            if constexpr (int32Index) {
-                return klu_rgrowth(Ap, Ai, Ax, symbolic_, numeric_, &common_);
-            } else {
-                return klu_l_rgrowth(Ap, Ai, Ax, symbolic_, numeric_, &common_);
             }
         }
     }

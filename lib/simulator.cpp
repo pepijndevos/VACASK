@@ -47,6 +47,9 @@ std::vector<std::string> Simulator::includePath_;
 bool Simulator::fileDebug_ = false;
 bool Simulator::noOutput_ = false;
 
+bool Simulator::setupDone_ = false;
+bool Simulator::setupOk_ = false;
+
 void Simulator::setStreams(std::ostream& output, std::ostream& error, std::ostream& debug) {
     Simulator::out_ = &output;
     Simulator::err_ = &error;
@@ -78,6 +81,12 @@ bool Simulator::setup(
 
     startupPath_ = std::filesystem::current_path().string();
 
+    // Registration runs once; later calls only refresh the paths above and
+    // report the first call's result.
+    if (setupDone_) {
+        return setupOk_;
+    }
+
     bool ok = true;
     ok &= registerAnalysis<OperatingPoint>(s);
     ok &= registerAnalysis<DCIncremental>(s);
@@ -108,6 +117,8 @@ bool Simulator::setup(
     Simulator::defaultHbSolverId = KluRealSparseSolver::solverId;
     Simulator::defaultQpsmsigSolverId = KluRealSparseSolver::solverId;
 
+    setupDone_ = true;
+    setupOk_ = ok;
     return ok;
 }
 

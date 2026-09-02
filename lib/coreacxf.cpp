@@ -45,7 +45,7 @@ ACXFCore::ACXFCore(
 ) : AnalysisCore(parentResolver, circuit, commons), params(params), outfile(nullptr), opCore_(opCore), sourceIndex(sourceIndex), 
     dcSolution(dcSolution), dcStates(dcStates), dcJacobian(dcJacobian), 
     acMatrix(acMatrix), acSolution(acSolution), sources(sources), tf(tf), yin(yin), zin(zin),
-    delayLines_(delayLines), delayBindings_(delayBindings), resolver_(circuit) {
+    delayLines_(delayLines), delayBindings_(delayBindings), resolver_(circuit), cxSolver_(nullptr) {
 
     // Set analysis type for the initial operating point analysis
     auto& elsSystem = opCore_.solver().evalSetup();

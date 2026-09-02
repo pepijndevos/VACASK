@@ -44,7 +44,7 @@ ACCore::ACCore(
 ) : AnalysisCore(parentResolver, circuit, commons), params(params), outfile(nullptr), opCore_(opCore),
     dcSolution(dcSolution), dcStates(dcStates), dcJacobian(dcJacobian),
     acMatrix(acMatrix), acSolution(acSolution), delayLines_(delayLines), delayBindings_(delayBindings),
-    resolver_(circuit) {
+    resolver_(circuit), cxSolver_(nullptr) {
 
     // Set analysis type for the initial operating point analysis
     auto& elsSystem = opCore_.solver().evalSetup();
@@ -151,8 +151,6 @@ bool ACCore::deleteOutputs(Id name, ErrorConsumer& errors) {
 }
     
 bool ACCore::rebuild(ErrorConsumer& errors) {
-    auto& options = circuit.simulatorOptions().core();
-
     // AC analysis matrix
     if (!acMatrix.rebuild(circuit.sparsityMap(), circuit.unknownCount(), errors)) {
         return false;

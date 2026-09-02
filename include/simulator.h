@@ -66,6 +66,10 @@ private:
     static std::string startupPath_;
     static bool fileDebug_;
     static bool noOutput_;
+
+    // setup() runs its body once; later calls return the first call's result
+    static bool setupDone_;
+    static bool setupOk_;
 };
 
 }

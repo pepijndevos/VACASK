@@ -50,7 +50,7 @@ NoiseCore::NoiseCore(
     contributionOffset(contributionOffset),
     results(results), powerGain(powerGain), outputNoise(outputNoise),
     delayLines_(delayLines), delayBindings_(delayBindings),
-    resolver_(circuit) {
+    resolver_(circuit), cxSolver_(nullptr) {
 
     // Set analysis type for the initial operating point analysis
     auto& elsSystem = opCore_.solver().evalSetup();

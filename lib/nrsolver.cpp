@@ -43,7 +43,7 @@ NRSolver::NRSolver(
     VectorRepository<double>& solution,
     NRSettings& settings, size_t bucketSize
 ) : acct(acct), jac(jac), solution(solution), settings(settings),
-    bucketSize_(bucketSize), iteration(0) {
+    solver_(nullptr), bucketSize_(bucketSize), iteration(0) {
 }
 
 bool NRSolver::rebuild(size_t nSolComp, ErrorConsumer& errors) {

@@ -28,7 +28,7 @@ Simulator::setup();
 Simulator::prependModulePath({modulePath});
 ```
 
-`findPythonExecutable()` (`libplatform.h`) locates a Python interpreter on the system path. `Simulator::setup()` initializes the simulator's global state (registers builtin devices and analysis types) and must be called once before anything else. `Simulator::prependModulePath()`/`appendModulePath()` extend the search path `load` directives use to resolve device files (see [Loading Devices](cir-loading.md)); `prependIncludePath()`/`appendIncludePath()` do the same for `include` directives.
+`findPythonExecutable()` (`libplatform.h`) locates a Python interpreter on the system path. `Simulator::setup()` initializes the simulator's global state (registers builtin devices, analysis types, and sparse solvers) and must be called once before anything else. Its optional first two arguments are `pathSeparator()`-separated module and include search path strings. Registration runs only on the first call; a later call still refreshes the search paths and the startup directory, and returns the result of that first call (so calling it again is harmless). `Simulator::prependModulePath()`/`appendModulePath()` extend the search path `load` directives use to resolve device files (see [Loading Devices](cir-loading.md)); `prependIncludePath()`/`appendIncludePath()` do the same for `include` directives.
 
 ## Workflow overview
 

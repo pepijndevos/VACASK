@@ -45,7 +45,8 @@ ACSPCore::ACSPCore(
 ) : AnalysisCore(parentResolver, circuit, commons), params(params), outfile(nullptr), opCore_(opCore),
     dcSolution(dcSolution), dcStates(dcStates), dcJacobian(dcJacobian),
     acMatrix(acMatrix), acSolution(acSolution),
-    stMatrix(stMatrix), delayLines_(delayLines), delayBindings_(delayBindings), resolver_(circuit) {
+    stMatrix(stMatrix), delayLines_(delayLines), delayBindings_(delayBindings), resolver_(circuit),
+    cxSolver_(nullptr) {
 
     // Set analysis type for the initial operating point analysis
     auto& elsSystem = opCore_.solver().evalSetup();
