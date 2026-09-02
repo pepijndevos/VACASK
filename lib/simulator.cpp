@@ -109,13 +109,19 @@ bool Simulator::setup(
     // Register real and complex SuperLU_DIST solver (build-time optional)
     ok &= RealSparseSolver::registerSolver<SuperLURealSparseSolver>();
     ok &= ComplexSparseSolver::registerSolver<SuperLUComplexSparseSolver>();
+
+    Simulator::defaultHbSolverId      = SuperLURealSparseSolver::solverId;
+    Simulator::defaultQpsmsigSolverId = SuperLURealSparseSolver::solverId;
+#else 
+    Simulator::defaultHbSolverId      = KluRealSparseSolver::solverId;
+    Simulator::defaultQpsmsigSolverId = KluRealSparseSolver::solverId;
 #endif
 
     // Default solver when no solver is specified
-    Simulator::defaultTdSolverId = KluRealSparseSolver::solverId;
-    Simulator::defaultSmsigSolverId = KluRealSparseSolver::solverId;
-    Simulator::defaultHbSolverId = KluRealSparseSolver::solverId;
-    Simulator::defaultQpsmsigSolverId = KluRealSparseSolver::solverId;
+    Simulator::defaultTdSolverId      = KluRealSparseSolver::solverId;
+    Simulator::defaultSmsigSolverId   = KluRealSparseSolver::solverId;
+    
+    
 
     setupDone_ = true;
     setupOk_ = ok;
