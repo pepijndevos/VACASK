@@ -36,8 +36,18 @@ IdentifierIndex Id::nextOrdinary = 1;
 IdentifierIndex Id::nextStatic = Id::maxValidIdentifierIndex; 
 
 void Id::constructorHelper(const char *s, size_t n, bool makeStatic) {
+    // An empty name is the bad (none) identifier. This keeps Id("") == Id() and
+    // makes an empty string round-trip (bad id reads back as "", see c_str()).
+    if (n == 0) {
+        id_ = bad;
+#ifdef SIMDEBUG
+        str = indexToName()[bad];
+#endif
+        return;
+    }
+
     // Look it up
-    auto it = nameToIndex().find(s); 
+    auto it = nameToIndex().find(s);
     if (it!=nameToIndex().end()) {
         // Exists
         id_ = it->second;
