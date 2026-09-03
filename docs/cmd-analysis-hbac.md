@@ -63,6 +63,8 @@ The following parameters are specific to `hbac`:
 | `maxfreq` | real | `-1` | Truncate the conversion matrix to spurs whose absolute frequency does not exceed `maxfreq` (Hz). Negative: no truncation. |
 | `write` | boolean | `1` | Write the small-signal results to a file. |
 | `writehb` | boolean | `0` | Also write the HB operating point results to `<analysis>.hb.*`. |
+| `solver` | string | `""` | Linear solver for the complex conversion-matrix solve, overriding the `qpsmsigsolver` option. See [Linear Solver Selection](cmd-options-solver.md). |
+| `hbsolver` | string | `""` | Linear solver for the large-signal HB solve, overriding the `hbsolver` option. |
 
 ## Save directives
 
@@ -142,4 +144,5 @@ analysis hbac1 hbac freq=[1k] nharm=8 outspur={} from=1 to=100k mode="dec" point
 
 - [Harmonic Balance Options](cmd-options-hb.md)
 - [Newton-Raphson Solver](cmd-options-nr.md)
+- [Linear Solver Selection](cmd-options-solver.md)
 - [Homotopy Algorithms](cmd-options-homotopy.md)

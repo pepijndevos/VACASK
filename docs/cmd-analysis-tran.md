@@ -38,6 +38,7 @@ Initial conditions use the same format as nodesets: a list alternating node name
 | `nodeset` | string or list | `""` | Nodeset for the internal operating point solve (`icmode="op"` only). See [Operating Point Analysis](cmd-analysis-op.md). |
 | `store` | string | `""` | Save the final transient solution under the given name for use as an initial condition in subsequent analyses. |
 | `write` | boolean | `1` | Write the transient results to a file. |
+| `opsolver` | string | `""` | Linear solver for the time-domain solve (operating point and timesteps), overriding the `tdsolver` option. See [Linear Solver Selection](cmd-options-solver.md). |
 
 The integration method is selected via the simulator option `tran_method`. Available methods: `"trap"` (trapezoidal, i.e. Adams-Moulton of order 2), `"euler"` (Adams-Moultin/Gear of order 1), `"bdf"`/`"gear"` (BDF of arbitrary order), `"bdf2"`/`"gear2"` (BDF order 2), `"am"` (Adams-Moulton of arbitrary order). The maximum order of the integration algorithm is set by the `tran_maxord` simulator option. 
 
@@ -129,4 +130,5 @@ plt.show()
 
 - [Transient Analysis Options](cmd-options-tran.md)
 - [Newton-Raphson Solver](cmd-options-nr.md)
+- [Linear Solver Selection](cmd-options-solver.md)
 - [Homotopy Algorithms](cmd-options-homotopy.md)

@@ -24,6 +24,7 @@ The analysis computes:
 | `nodeset` | string or list | `""` | Initial guess for the solution. Can be a stored solution name (string) or explicit node voltage list. |
 | `store` | string | `""` | Name under which to store the computed solution for later use as nodesets/initial conditions in other analyses. |
 | `write` | boolean | `1` | Whether to write the results to the output file. Set to 0 to suppress output. |
+| `solver` | string | `""` | Linear solver for this analysis, overriding the `tdsolver` option. See [Linear Solver Selection](cmd-options-solver.md). |
 
 Nodesets are hnints to the solver specifying what the expected solution should be 
 (approximately). You can think of them as starting points for the Newton-Raphson algorithm. 
@@ -98,4 +99,5 @@ VACASK uses advanced convergence techniques:
 
 - [Operating Point Options](cmd-options-op.md)
 - [Newton-Raphson Solver](cmd-options-nr.md)
+- [Linear Solver Selection](cmd-options-solver.md)
 - [Homotopy Algorithms](cmd-options-homotopy.md)

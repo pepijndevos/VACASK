@@ -58,6 +58,7 @@ Here $T = \text{nper}/f_\text{min}$ is the time range and $N_\mathrm{sam} = \lce
 | `nodeset` | string | `""` | Name of saved solution used as initial guess. |
 | `store` | string | `""` | Save the computed solution under the given name. |
 | `write` | boolean | `1` | Write the results to a file. |
+| `solver` | string | `""` | Linear solver for the harmonic balance solve, overriding the `hbsolver` option. See [Linear Solver Selection](cmd-options-solver.md). |
 
 ## Save directives
 
@@ -157,4 +158,5 @@ plt.show()
 
 - [Harmonic Balance Options](cmd-options-hb.md)
 - [Newton-Raphson Solver](cmd-options-nr.md)
+- [Linear Solver Selection](cmd-options-solver.md)
 - [Homotopy Algorithms](cmd-options-homotopy.md)

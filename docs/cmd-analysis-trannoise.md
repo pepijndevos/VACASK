@@ -128,3 +128,4 @@ The resistor contributes thermal noise across the frequency band `[fmin, fmax]`.
 
 - [Transient Analysis Options](cmd-options-tran.md)
 - [Newton-Raphson Solver](cmd-options-nr.md)
+- [Linear Solver Selection](cmd-options-solver.md)

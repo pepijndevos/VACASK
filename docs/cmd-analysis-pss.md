@@ -73,6 +73,7 @@ The shooting transient uses an initial and maximum timestep of `T`/`pss_minpts`,
 | `store` | string | `""` | Save the converged PSS solution and period under the given name. The stored entry can be passed back as `ic` to a subsequent PSS analysis to warm-start from the previous result, supplying both the initial state vector and the converged period. |
 | `writestab` | boolean | `0` | Write the stabilization transient results to a separate file. |
 | `write` | boolean | `1` | Write the steady-state waveform (one period) to a file. |
+| `solver` | string | `""` | Linear solver for the operating point, stabilization transient, and shooting iterations, overriding the `tdsolver` option. See [Linear Solver Selection](cmd-options-solver.md). |
 
 ## Save directives
 
@@ -184,4 +185,5 @@ plt.show()
 - [Periodic Steady-State Options](cmd-options-pss.md)
 - [Transient Analysis Options](cmd-options-tran.md)
 - [Newton-Raphson Solver](cmd-options-nr.md)
+- [Linear Solver Selection](cmd-options-solver.md)
 - [Homotopy Algorithms](cmd-options-homotopy.md)

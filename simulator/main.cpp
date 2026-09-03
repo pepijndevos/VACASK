@@ -32,11 +32,13 @@ char helpText[] =
     "  -qp, --quiet-progress\n"
     "                      turn off progress messages\n"
     "  --no-output         suppress output of result files\n"
+#ifdef OPENMP_ENABLED
     "  -n, --ncpu          number of CPUs to use (autodetect)\n"
     "                      <=0 .. autodetect, take OMP_NUM_THREADS into account\n"
     "                      or use all available CPUs (default)\n"
     "  -b, --blas-ncpu     number of CPUs to assign to OpenBLAS (default=1)\n"
     "                      <=0 .. use OpenBLAS autodetect\n"
+#endif
     ; 
 
 int main(int argc, char**argv) {
@@ -61,6 +63,12 @@ int main(int argc, char**argv) {
         "This is "+Platform::programName+" "+Platform::programVersion+".\n"+Platform::programCopyright+"\n";
     Simulator::out() << 
         Platform::programHomepage+"\n";
+    #ifdef OPENMP_ENABLED
+    Simulator::out() << "OpenMP parallel processing\n";
+    #endif
+    #ifdef SIM_HAVE_SUPERLU
+    Simulator::out() << "SuperLU_MT parallel linear solver\n";
+    #endif
     #ifdef SIMDEBUG
     Simulator::out() << "\n" << "Warning! This is a debug build. Simulator will be slow.\n";
     #endif

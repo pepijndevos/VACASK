@@ -229,13 +229,13 @@ target_include_directories(simlib PUBLIC
 )
 # target_compile_definitions(dlib PRIVATE BUILDING_SIM_DLL)
 
-# OpenMP is scoped to just these TUs (see the top-level CMakeLists.txt); the rest
-# of simlib is built without -fopenmp. libplatform.cpp needs it for
-# omp_get_max_threads() / omp_set_num_threads() (guarded by OPENMP_ENABLED).
+# OPENMP_ENABLED is defined project-wide (top-level CMakeLists.txt). The -fopenmp
+# compile flag is not - it is scoped to just the TUs that need it, and the rest
+# of simlib is built without it. libplatform.cpp needs the flag for
+# omp_get_max_threads() / omp_set_num_threads().
 if (OpenMP_CXX_FOUND)
     set_source_files_properties(libplatform.cpp PROPERTIES
         COMPILE_OPTIONS "${OpenMP_CXX_FLAGS}"
-        COMPILE_DEFINITIONS "OPENMP_ENABLED"
     )
 endif()
 
@@ -247,7 +247,7 @@ if (SIM_HAVE_SUPERLU)
     target_sources(simlib PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/../include/solsuperlu.h
         solsuperlu_common.h
-        solsuperlu.cpp 
+        solsuperlu.cpp
         solsuperlu_real.cpp
         solsuperlu_complex.cpp
     )

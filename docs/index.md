@@ -4,7 +4,7 @@ VACASK (Verilog-A Circuit Analysis Kernel) is an analog circuit simulator built 
 
 VACASK is not a SPICE clone. Its netlist language has a Spectre-like syntax with a richer expression system, fully parameterized hierarchical circuit descriptions, and conditional netlist blocks. The control block - the part of the netlist that drives simulation - is a small scripting language that sequences analyses, sweeps, circuit modifications, and postprocessing steps in a single run. Almost any circuit or simulator parameter can be swept or modified between analyses without reloading the netlist. Furthermore, the circuit's topology can also be changed without reloading the circuit. 
 
-Beside all classic SPICE analyses the simulator also supports transfer function, stability, S-parameter, transient noise, and harmonic balance analyses. The nonlinear solver uses residual-based convergence testing and several homotopy strategies for difficult operating-point problems. Numerical linear algebra is handled by the KLU sparse matrix library. Results are written in SPICE raw file format and can be postprocessed by external scripts, with built-in Python integration for launching postprocessors directly from the netlist.
+Beside all classic SPICE analyses the simulator also supports transfer function, stability, S-parameter, transient noise, and harmonic balance analyses. The nonlinear solver uses residual-based convergence testing and several homotopy strategies for difficult operating-point problems. Numerical linear algebra is handled by the KLU sparse matrix library, with an optional multithreaded SuperLU backend that becomes the default solver for harmonic balance. Results are written in SPICE raw file format and can be postprocessed by external scripts, with built-in Python integration for launching postprocessors directly from the netlist.
 
 VACASK is developed at the EDA Laboratory, University of Ljubljana, and is released under the GNU Affero General Public License 3.0.
 
@@ -54,13 +54,14 @@ VACASK is developed at the EDA Laboratory, University of Ljubljana, and is relea
       4. [Tolerances](cmd-options-tol.md)
       5. [Relative Tolerance Reference](cmd-options-relref.md)
       6. [Newton-Raphson Solver](cmd-options-nr.md)
-      7. [Homotopy Algorithms](cmd-options-homotopy.md)
-      8. [Operating Point Options](cmd-options-op.md)
-      9. [Small-Signal Analysis Options](cmd-options-smsig.md)
-      10. [Transient (Noise) Analysis Options](cmd-options-tran.md)
-      11. [Periodic Steady-State Options](cmd-options-pss.md)
-      12. [Harmonic Balance Options](cmd-options-hb.md)
-      13. [Output and Sweep Options](cmd-options-output.md)
+      7. [Linear Solver Selection](cmd-options-solver.md)
+      8. [Homotopy Algorithms](cmd-options-homotopy.md)
+      9. [Operating Point Options](cmd-options-op.md)
+      10. [Small-Signal Analysis Options](cmd-options-smsig.md)
+      11. [Transient (Noise) Analysis Options](cmd-options-tran.md)
+      12. [Periodic Steady-State Options](cmd-options-pss.md)
+      13. [Harmonic Balance Options](cmd-options-hb.md)
+      14. [Output and Sweep Options](cmd-options-output.md)
    5. [Modifying Circuit Variables](cmd-var.md)
    6. [Modifying Parameters](cmd-alter.md)
    7. [Circuit Elaboration](cmd-elaboration.md)

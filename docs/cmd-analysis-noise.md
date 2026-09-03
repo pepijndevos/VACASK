@@ -47,6 +47,8 @@ analysis name noise [parameters]
 | `values` | real vector | - | Explicit vector of frequencies (Hz). Overrides `from`/`to`/`step`/`mode`/`points`. |
 | `write` | boolean | `1` | Write the analysis results to a file. |
 | `writeop` | boolean | `0` | Also write the operating point results to `<analysis>.op.*`. |
+| `solver` | string | `""` | Linear solver for the complex small-signal solve, overriding the `smsigsolver` option. See [Linear Solver Selection](cmd-options-solver.md). |
+| `opsolver` | string | `""` | Linear solver for the operating-point solve that precedes the small-signal solve, overriding the `tdsolver` option. |
 
 See [AC Small-Signal Analysis](cmd-analysis-ac.md) for a description of sweep modes.
 
@@ -152,4 +154,5 @@ plt.show()
 
 - [Small-Signal Analysis Options](cmd-options-smsig.md)
 - [Newton-Raphson Solver](cmd-options-nr.md)
+- [Linear Solver Selection](cmd-options-solver.md)
 - [Homotopy Algorithms](cmd-options-homotopy.md)

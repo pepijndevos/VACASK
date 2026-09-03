@@ -37,6 +37,7 @@ of its own.
 | `store` | string | `""` | Save the computed operating point under the given name. |
 | `write` | boolean | `1` | Whether to write the incremental analysis results to a file. |
 | `writeop` | boolean | `0` | Additionally write the operating point results to `<analysis>.op.*` output file. |
+| `solver` | string | `""` | Linear solver for this analysis, overriding the `tdsolver` option. See [Linear Solver Selection](cmd-options-solver.md). |
 
 ## Save directives
 
@@ -94,4 +95,5 @@ analysis dc2 dcinc
 
 - [Small-Signal Analysis Options](cmd-options-smsig.md)
 - [Newton-Raphson Solver](cmd-options-nr.md)
+- [Linear Solver Selection](cmd-options-solver.md)
 - [Homotopy Algorithms](cmd-options-homotopy.md)

@@ -12,6 +12,7 @@ Options are organized into the following groups. Each is documented in its own s
 | [**Tolerances**](cmd-options-tol.md) | `tolmode`, `tolscale`, `reltol`, `abstol`, `vntol`, `chgtol`, `fluxtol` |
 | [**Relative tolerance reference**](cmd-options-relref.md) | `relref`, `relrefsol`, `relrefres`, `relreflte` |
 | [**Newton-Raphson solver**](cmd-options-nr.md) | `nr_*` options, `matrixcheck`, `rhscheck`, `solutioncheck`, `rcondcheck`, `strictforce` |
+| [**Linear solver selection**](cmd-options-solver.md) | `tdsolver`, `smsigsolver`, `hbsolver`, `qpsmsigsolver` |
 | [**Homotopy algorithms**](cmd-options-homotopy.md) | `homotopy_*` options |
 | [**Operating point**](cmd-options-op.md) | `op_*` options |
 | [**Small-signal analyses**](cmd-options-smsig.md) | `smsig_*` options |

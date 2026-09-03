@@ -105,18 +105,20 @@ else()
 	add_compile_options("-fno-signaling-nans" "-fno-trapping-math" "-fcoroutines")
 endif()
 
-# OpenMP: probed once, optional. It is deliberately NOT enabled project-wide -
-# the -fopenmp compile flag (and OPENMP_ENABLED) is scoped to just the TUs that
-# need it: lib/libplatform.cpp and the SuperLU_MT backend TUs
-# lib/solsuperlu_{real,complex}.cpp (see the set_source_files_properties() calls
-# in lib/CMakeLists.txt). Building the rest of the project with -fopenmp only
-# slowed it down. The OpenMP runtime is added to every executable link further
-# down via $<LINK_ONLY:OpenMP::OpenMP_CXX> (link requirement, no compile flag).
+# OpenMP: probed once, optional. OPENMP_ENABLED is defined project-wide so any
+# TU can test whether OpenMP is present, but the -fopenmp compile flag is NOT
+# applied project-wide - building the whole project with it only slowed it down.
+# The flag is scoped to just the TUs that need it: lib/libplatform.cpp and the
+# SuperLU_MT backend TUs lib/solsuperlu_{real,complex}.cpp (see the
+# set_source_files_properties() calls in lib/CMakeLists.txt). The OpenMP runtime
+# is added to every executable link further down via
+# $<LINK_ONLY:OpenMP::OpenMP_CXX> (link requirement, no compile flag).
 # (The SuperLU_MT backend additionally needs -D__OPENMP on its own TUs - see
 # below - and requires OpenMP to be present.)
 find_package(OpenMP COMPONENTS CXX)
 if (OpenMP_CXX_FOUND)
-    message(STATUS "OpenMP: found (${OpenMP_CXX_FLAGS}), scoped to libplatform + SuperLU TUs")
+    message(STATUS "OpenMP: found (${OpenMP_CXX_FLAGS}); OPENMP_ENABLED project-wide, -fopenmp scoped to libplatform + SuperLU TUs")
+    add_compile_definitions(OPENMP_ENABLED)
 else()
     message(STATUS "OpenMP: not found, building without it")
 endif()
@@ -218,9 +220,10 @@ endif()
 # headers in <dir>/SRC, the static library in <dir>/lib
 # (libsuperlu_mt_OPENMP.a or _PTHREAD.a). This build expects the OpenMP variant
 # linked against OpenBLAS. When the headers, the library and OpenMP are all
-# found, SIM_HAVE_SUPERLU is defined project-wide; that macro gates both the
-# backend TUs and the registration of the "superlu" solver in lib/simulator.cpp.
-# Without -DSuperluMT_DIR the build proceeds without it.
+# found, SIM_HAVE_SUPERLU is defined project-wide (alongside the SUPERLU_ENABLED
+# alias); that macro gates both the backend TUs and the registration of the
+# "superlu" solver in lib/simulator.cpp. Without -DSuperluMT_DIR the build
+# proceeds without it.
 #
 set(SIM_HAVE_SUPERLU FALSE)
 
@@ -391,7 +394,7 @@ endif()
 # lib/CMakeLists.txt). Here we only define the gate macro and add the SuperLU
 # libraries.
 if (SIM_HAVE_SUPERLU)
-    add_compile_definitions(SIM_HAVE_SUPERLU)
+    add_compile_definitions(SIM_HAVE_SUPERLU SUPERLU_ENABLED)
     set(SIM_EXE_LIBRARIES ${SIM_EXE_LIBRARIES}
             ${SIM_SUPERLU_LIBRARY}
             $<$<BOOL:${SIM_SUPERLU_BLAS}>:${SIM_SUPERLU_BLAS}>

@@ -35,6 +35,7 @@ its own parameters:
 | `out` | string/vector | `""` | Output node or node pair used for transfer function evaluation. Specify as a single node name or two node names in a list. |
 | `write` | boolean | `1` | Write analysis results to a file. |
 | `writeop` | boolean | `0` | Also write the underlying operating point results to `<analysis>.op.*`. |
+| `solver` | string | `""` | Linear solver for this analysis, overriding the `tdsolver` option. See [Linear Solver Selection](cmd-options-solver.md). |
 
 ## Save directives
 
@@ -87,4 +88,5 @@ analysis xf1 dcxf out=["outp", "outn"]
 
 - [Small-Signal Analysis Options](cmd-options-smsig.md)
 - [Newton-Raphson Solver](cmd-options-nr.md)
+- [Linear Solver Selection](cmd-options-solver.md)
 - [Homotopy Algorithms](cmd-options-homotopy.md)
