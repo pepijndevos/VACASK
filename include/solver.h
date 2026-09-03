@@ -66,6 +66,9 @@ public:
     // The matrix this solver was bound to at construction.
     Matrix& matrix() const { return matrix_; }
 
+    // Set a block size hint (for block-sparse aware matrix solvers), set before rebuild
+    virtual void setBlockSize(UnknownIndex blockSize) {};
+
     // Matrix order (number of unknowns).
     IndexType order() const { return matrix_.nRow(); }
 

@@ -20,8 +20,8 @@
 #include <cstdint>
 #include <cstddef>
 #include <cstdlib>
-
-#include "common.h"   // MatrixEntryIndex, Complex, NAMESPACE - no blaslapack.h
+#include "solsuperluitf.h"
+#include "common.h"
 
 namespace NAMESPACE {
 namespace superlu_wrapper {
@@ -34,20 +34,6 @@ static_assert(sizeof(int_t) == sizeof(MatrixEntryIndex),
 
 // Primary template left undefined; each backend TU provides one specialization
 template<typename SLUValue> struct SuperluBackend;
-
-// Number of threads pxgstrf spawns. Circuit Jacobians are usually small enough
-// that 1 is fastest; override with VACASK_SUPERLU_NPROCS.
-// inline int_t threadCount() {
-//     if (const char* s = std::getenv("VACASK_SUPERLU_NPROCS")) {
-//         int v = std::atoi(s);
-//         if (v >= 1) return static_cast<int_t>(v);
-//     }
-//     return 1;
-// }
-
-// Number of threads pdgstrf spawns. Circuit Jacobians are usually small enough
-// that 1 is fastest; override with VACASK_SUPERLU_NPROCS.
-int32_t threadCount();
 
 template<typename SLUValue>
 class SolverImpl {
@@ -222,7 +208,6 @@ public:
         return info;
     }
 };
-
 
 // Opaque-handle boundary. Declared (without definitions) in include/solsuperlu.h
 // so the rest of VACASK can call these; defined here and explicitly instantiated

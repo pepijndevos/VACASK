@@ -246,6 +246,7 @@ endif()
 if (SIM_HAVE_SUPERLU)
     target_sources(simlib PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/../include/solsuperlu.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/../include/solsuperluitf.h
         solsuperlu_common.h
         solsuperlu.cpp
         solsuperlu_real.cpp

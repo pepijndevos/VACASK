@@ -8,6 +8,9 @@
 
 #include "simulator.h"
 #include "solver.h"
+#include "solsuperluitf.h"
+#include "common.h"
+
 
 // SuperLU_MT's headers (slu_mt_ddefs.h / slu_mt_zdefs.h) redeclare the raw
 // Fortran BLAS symbols (dgemm_, dtrsv_, ...) with signatures that conflict with
@@ -143,10 +146,13 @@ public:
     // Name this solver is registered under.
     static inline const Id solverId = Id::createStatic("superlu");
 
+    // No SuperLU state is created here; impl_ is allocated lazily in rebuild().
     explicit SuperLUMTLinearSparseSolver(Matrix& matrix)
-        : Base(matrix), impl_(superlu_wrapper::create<ValueType>()) {}
+        : Base(matrix) {}
 
     ~SuperLUMTLinearSparseSolver() override {
+        superlu_wrapper::IEnvData::activeData = &iEnv;
+
         if (impl_) {
             superlu_wrapper::destroy(impl_);
         }
@@ -160,6 +166,8 @@ public:
     bool isFactored() const override { return factored_; }
 
     void clear() override {
+        superlu_wrapper::IEnvData::activeData = &iEnv;
+
         if (impl_) {
             superlu_wrapper::clear(impl_);
         }
@@ -168,7 +176,14 @@ public:
         factExecuted_ = false;
     }
 
+    virtual void setBlockSize(UnknownIndex blockSize) override { iEnv.setBlockSize(blockSize); };
+
     bool rebuild(ErrorConsumer& ec) override {
+        superlu_wrapper::IEnvData::activeData = &iEnv;
+
+        if (!impl_) {
+            impl_ = superlu_wrapper::create<ValueType>();
+        }
         if (!impl_) {
             ec.push(SuperLUEnvError{});
             return false;
@@ -186,6 +201,8 @@ public:
     }
 
     bool factor(ErrorConsumer& ec) override {
+        superlu_wrapper::IEnvData::activeData = &iEnv;
+
         if (!built_ && !rebuild(ec)) {
             return false;
         }
@@ -208,6 +225,8 @@ public:
     }
 
     bool refactor(ErrorConsumer& ec) override {
+        superlu_wrapper::IEnvData::activeData = &iEnv;
+
         if (!factored_) {
             return factor(ec);
         }
@@ -231,6 +250,8 @@ public:
 
     // LAPACK-style 1-norm reciprocal condition estimate over the current factors.
     std::tuple<bool, double> rcond(ErrorConsumer& ec) override {
+        superlu_wrapper::IEnvData::activeData = &iEnv;
+
         if (!factored_) {
             return { false, 0.0 };
         }
@@ -296,6 +317,8 @@ protected:
 
     template<bool Transpose>
     bool runSolve(ValueType* B, IndexType nrhs, ErrorConsumer& ec) {
+        superlu_wrapper::IEnvData::activeData = &iEnv;
+
         if (!factored_) {
             throw std::logic_error(
                 std::string("SuperLUMTLinearSparseSolver::") + (Transpose ? "tsolve" : "solve") +
@@ -323,6 +346,9 @@ protected:
         }
         return true;
     }
+
+private:
+    superlu_wrapper::IEnvData iEnv;
 };
 
 
