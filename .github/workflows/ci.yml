@@ -58,7 +58,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: openvaf-cache
-          key: openvaf-${{ matrix.os }}-${{ runner.arch }}-v6
+          key: openvaf-${{ matrix.os }}-${{ runner.arch }}-osdi-0.5-v1
 
       - name: Build OpenVAF-Reloaded (Unix)
         if: steps.cache-openvaf.outputs.cache-hit != 'true' && runner.os != 'Windows'

@@ -40,8 +40,11 @@ case "$OS" in
     ;;
   Darwin)
     BREW_PREFIX="$(brew --prefix)"
+    OPENBLAS_PREFIX="$(brew --prefix openblas)"
     CMAKE_ARGS+=("-DFLEX_INCLUDE_DIR=$BREW_PREFIX/opt/flex/include")
     CMAKE_ARGS+=("-DBoost_USE_STATIC_LIBS=ON")
+    CMAKE_ARGS+=("-DBLA_VENDOR=OpenBLAS")
+    CMAKE_ARGS+=("-DCMAKE_PREFIX_PATH=$OPENBLAS_PREFIX")
     ;;
   MINGW*|MSYS*)
     CMAKE_ARGS+=(
@@ -70,7 +73,7 @@ cmake --build "$BUILD_DIR" -j"$NPROC"
 if [ "$RUN_TESTS" = true ]; then
   echo "==> Running tests"
   cd "$BUILD_DIR"
-  ctest --output-on-failure --timeout 60
+  ctest --output-on-failure --timeout 60 --label-exclude requires_ihp_pdk
 fi
 
 echo "==> Build complete"

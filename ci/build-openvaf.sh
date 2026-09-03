@@ -41,7 +41,8 @@ fi
 
 OPENVAF_SRC="/tmp/openvaf-src"
 rm -rf "$OPENVAF_SRC"
-git clone https://github.com/arpadbuermen/OpenVAF.git "$OPENVAF_SRC"
+git clone --branch mb-experimental --single-branch \
+  https://github.com/arpadbuermen/OpenVAF.git "$OPENVAF_SRC"
 cd "$OPENVAF_SRC"
 
 case "$OS" in

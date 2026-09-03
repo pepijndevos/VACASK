@@ -15,7 +15,7 @@ build-linux:
       - build/lib/vacask/
     expire_in: 1 week
   cache:
-    key: openvaf-linux-${CI_RUNNER_EXECUTABLE_ARCH}-v5
+    key: openvaf-linux-${CI_RUNNER_EXECUTABLE_ARCH}-osdi-0.5-v1
     paths:
       - openvaf-cache/
 
@@ -35,7 +35,7 @@ build-macos:
       - build/lib/vacask/
     expire_in: 1 week
   cache:
-    key: openvaf-macos-arm64-v5
+    key: openvaf-macos-arm64-osdi-0.5-v1
     paths:
       - openvaf-cache/
 
@@ -55,6 +55,6 @@ build-windows:
       - build/lib/vacask/
     expire_in: 1 week
   cache:
-    key: openvaf-windows-amd64-v5
+    key: openvaf-windows-amd64-osdi-0.5-v1
     paths:
       - openvaf-cache/
