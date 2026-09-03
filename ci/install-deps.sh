@@ -77,7 +77,7 @@ case "$OS" in
     brew install \
       llvm@18 cmake ninja \
       bison flex \
-      suite-sparse boost tomlplusplus \
+      suite-sparse openblas boost tomlplusplus \
       numpy scipy
     ;;
 
