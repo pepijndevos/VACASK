@@ -336,10 +336,12 @@ add_compile_definitions("$<$<CONFIG:AsanDebug>:SIMDEBUG>")
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/include")
 
 # BLAS/LAPACK for VectorView/DenseMatrix (Fortran routines called directly, no C wrapper)
-# Linux currently uses whatever the system update-alternatives points libblas.so.3/
-# liblapack.so.3 at (reference Netlib by default). To be switched to OpenBLAS (OpenMP
-# build) later; Windows already gets both via the bundled libopenblas.a below.
-# macOS gets Homebrew BLAS/LAPACK the same way it already gets Homebrew SuiteSparse.
+# and for lib/libplatform.cpp, which calls openblas_set_num_threads() / includes
+# <cblas.h> - so OpenBLAS must be what find_package() resolves to here, not the
+# reference Netlib BLAS/LAPACK. On Linux that means the libblas.so.3 /
+# liblapack.so.3 alternatives must point at the OpenBLAS (OpenMP) build.
+# Windows gets it via the bundled libopenblas.a below; macOS gets Homebrew
+# OpenBLAS the same way it already gets Homebrew SuiteSparse.
 if (${SIM_PLATFORM} STREQUAL "Linux" OR ${SIM_PLATFORM} STREQUAL "Darwin")
     find_package(BLAS REQUIRED)
     find_package(LAPACK REQUIRED)

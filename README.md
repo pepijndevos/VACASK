@@ -85,7 +85,7 @@ Yes we do. It is bundled with the binary packages. [The user's manual](docs/inde
 - setting initial conditions (Spectre style and legacy SPICE3 style)
 - backward Euler, trapezoidal, and Gear integration algorithms
 - predictor-corrector local truncation error control in transient analysis
-- numerical solvers based on the KLU sparse matrix library
+- KLU and SuperLU_MT as sparse linear solvers
 - SPICE ASCII/binary raw file output
 - embedded files in the netlist
 - postprocessing of results with external tools (see [Python helpers](docs/python-overview.md) and [demos](demo))
@@ -229,11 +229,15 @@ VACASK can also be configured with a TOML configuration file. Take a look at [co
 # Building VACASK
 As VACASK grows the list of dependencies is getting longer. Currently VACASK depends on
 - C++20 compiler and the standard C++ library
+- Bison (version 3.3 or newer) and Flex (version 2.6.4 or newer)
 - Boost (version 1.88)
 - toml++ (version 3.4)
 - KLU (SuiteSparse)
-- BLAS
-- LAPACK
+- SuperLU_MT (optional, needs OpenMP)
+- OpenBLAS (the OpenMP version) - VACASK links it for both BLAS and LAPACK and
+  calls its `openblas_set_num_threads()` directly, so OpenBLAS (not reference
+  Netlib BLAS/LAPACK) must be the provider the build finds
+- OpenMP support in compiler (optional; libgomp1 under Linux)
  
 All these components come as pre-built packages for [Debian](https://www.debian.org) (and other Linux distributions). You will also need a working Python3 installation (for the system tests and demos) with the following libraries
 - NumPy 2
@@ -248,7 +252,19 @@ macOS users must build OpenVAF-Reloaded from sources. Make sure you [install all
 ## Linux
 
 ### Prerequisites
-Install gcc, toml++, and KLU. You will also need CMake and GNU make or Ninja for building. 
+Install gcc, bison, flex, CMake, and GNU make or Ninja for building. Install the
+libraries toml++, KLU (SuiteSparse), and the OpenMP build of OpenBLAS. On Debian
+and derivatives these are `bison flex cmake ninja-build libtomlplusplus-dev
+libsuitesparse-dev libopenblas-openmp-dev`.
+
+VACASK uses OpenBLAS for both BLAS and LAPACK. Make sure it is the active
+alternative so CMake's `find_package(BLAS)` / `find_package(LAPACK)` pick it up
+and not the reference `libblas3` / `liblapack3`:
+```
+sudo update-alternatives --config libblas.so.3-x86_64-linux-gnu
+sudo update-alternatives --config liblapack.so.3-x86_64-linux-gnu
+```
+Installing `libopenblas-openmp-dev` normally makes it the default already.
 
 Unfortunately you will have to build your own Boost. We had problems with system-installed Boost 1.88 under Debian 13 (process library is not built). In Debian 14 this issue seems to be fixed. Download the linux version of Boost 1.88 sources from [https://www.boost.org/users/download/](https://www.boost.org/users/download/). Unpack it. Enter the directory created by unpacking (`boost_1_88_0`) and type
 ```
@@ -259,11 +275,22 @@ tools/build/b2 --with-filesystem --with-process --with-asio link=static toolset=
 ```
 Now Boost libraries are installed under `boost_1_88_0/stage` while the include files are in `boost_1_88_0`. 
 
+You will also have to build SuperLU_MT from the sources. Do not use SuperLU_dist, it won't work well. You can download the original package from [https://portal.nersc.gov/project/sparse/superlu/](https://portal.nersc.gov/project/sparse/superlu/), but you will have to edit the `Makefile` and create the `lib` directory manually. Make sure you build the OpenMP version. To save you the trouble, we prepared a version of the soudces where everything is ready for compiling [https://fides.fe.uni-lj.si/vacask/superlu_mt-4.0.0.tar.gz](https://fides.fe.uni-lj.si/vacask/superlu_mt-4.0.0.tar.gz). 
+Unpack the sources and run
+```
+make
+```
+
 ### Building the simulator
 Create a `build` directory and create the build system
 ```
-cmake -G Ninja  -S <sources directory> -B <build directory> -DCMAKE_BUILD_TYPE=Release -DOPENVAF_DIR=<path to the OpenVAF-Reloaded compiler> -DBoost_ROOT=<directory_where_you_unpacked_boost_sources>/stage
+cmake -G Ninja -S <sources directory> -B <build directory> -DCMAKE_BUILD_TYPE=Release \
+    -DOPENVAF_DIR=<path to the OpenVAF-Reloaded compiler> \
+    -DBoost_ROOT=<directory_where_you_unpacked_boost_sources>/stage \
+    -DSuperluMT_DIR=<directory_where_you_unpacked_superlu_sources>
 ```
+
+If you do not specify `-DSuperluMT_DIR` SuperLU support will not be compiled into the binary. 
 
 To build with GNU make, replace `-G Ninja` with `-G "Unix Makefiles"`. The build process is started by typing
 ```
@@ -320,6 +347,7 @@ cmake -G Ninja -S <sources directory> -B <build directory> -DCMAKE_BUILD_TYPE=Re
     -DBoost_USE_STATIC_LIBS=ON \
     -DBLA_VENDOR=OpenBLAS \
     -DCMAKE_PREFIX_PATH=$(brew --prefix openblas)
+    -DSuperluMT_DIR=<directory_where_you_unpacked_superlu_sources> \
 ```
 
 Build the simulator:
