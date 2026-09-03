@@ -26,6 +26,7 @@ class OutputMixin:
         deck = self.data["deck"]
         out = []
         first = True
+        in_sec = None
         in_sub = None
         target_depth = self.cfg.get("output_depth", None)
         for history, line, depth, in_control_block in traverse(deck, depth=target_depth):
@@ -60,7 +61,7 @@ class OutputMixin:
                     self.cfg.get("all_models", False) or 
                     len(self.data["model_usage"].get((annot["name"], in_sub), set()))>0
                 ):
-                    out.append(self.process_model(lws, l, eolc, annot, in_sub))
+                    out.append(self.process_model(lws, l, eolc, annot, in_sec, in_sub))
             elif pat_cidotinclude.match(l):
                 # Include
                 if target_depth is None or depth<target_depth:
@@ -75,6 +76,7 @@ class OutputMixin:
                 name, section, subdeck = eolc
                 if name is None:
                     # Section start marker
+                    in_sec = section
                     out.append(lws+"section "+section)
                 else:
                     # Library section include
@@ -87,6 +89,7 @@ class OutputMixin:
                         out.append(lws+"include \""+name+"\" section="+section)
             elif pat_cidotendl.match(l):
                 # End of section marker
+                in_sec = None
                 out.append(lws+"endsection")
             elif pat_cidotsubckt.match(l):
                 # Subcircuit start
@@ -151,7 +154,7 @@ class OutputMixin:
                     if method is None:
                         raise ConverterError("Dont' know how to process instances of type '"+l[0]+"'.", history, lnum)
                     try:
-                        txt = method(lws, l, eolc, annot, in_sub)
+                        txt = method(lws, l, eolc, annot, in_sec, in_sub)
                     except ConverterError as e:
                         raise ConverterError(str(e), history, lnum)
                     out.append(txt)

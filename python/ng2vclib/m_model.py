@@ -1,20 +1,31 @@
 
 class ModelMixin:
-    def process_model(self, lws, line, eol, annot, in_sub):
+    def process_model(self, lws, line, eol, annot, in_sec, in_sub):
         """
         Process a model line. 
         """
         # Model
-        name = line.split(" ")[1]
+        model_name = line.split(" ")[1]
         if self.cfg.get("original_case_model", False):
             output_name = annot["origline"].split(" ")[1]
         else:
-            output_name = name
+            output_name = model_name
         
         if in_sub is None and self.debug>0:
             print((" "*self.dbgindent)+"toplevel model: ", output_name)
         
-        builtin, mtype, family, level, version, params = self.data["models"][in_sub][name]
+        if "." in model_name:
+            # Binned model
+            model_name = model_name.split(".")
+            bin_number = model_name[1]
+            model_name = model_name[0]
+            # This assumes the bin numbers appear in order
+            builtin, mtype, family, level, version, params = self.data["bins"][(in_sec, in_sub)][model_name][int(bin_number)]
+            output_name = model_name + "__" + bin_number
+        else:
+            # Simple model
+            builtin, mtype, family, level, version, params = self.data["models"][(in_sec, in_sub)][model_name]
+                
 
         paren = False
         if mtype in self.cfg["type_map"]:

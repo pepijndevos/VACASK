@@ -51,7 +51,7 @@ class FileLoaderMixin:
         # Replace pairs of single quotes with curly braces
         l = pat_singlequotes.sub(r'{\1}', l)
         # Remove spaces from strings in curly braces, remove curly braces
-        l = pat_cbracepair.sub(lambda m: '{' + m.group(1).replace(' ', '') + '}', l)
+        l = pat_cbracepair.sub(lambda m: m.group(1).replace(' ', ''), l)
 
         # For .model lines, remove parentheses around parameters
         # .model name type (...)

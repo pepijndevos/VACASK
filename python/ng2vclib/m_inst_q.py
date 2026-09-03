@@ -1,7 +1,7 @@
 from .exc import ConverterError
 
 class InstanceQMixin:
-    def process_instance_q(self, lws, line, eol, annot, in_sub):
+    def process_instance_q(self, lws, line, eol, annot, in_sec, in_sub):
         """
         Process Q instance (bjt). 
 

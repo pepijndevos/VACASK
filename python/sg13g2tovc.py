@@ -294,11 +294,22 @@ if __name__=="__main__":
         
         # OSDI files based on defined and used models
         for mname, in_sub in cvt.data["model_usage"]:
-            builtin, mtype, family, level, version, _ = cvt.data["models"][in_sub][mname]
-            k = family, level, version
-            if k in cvt.cfg["family_map"]:
-                osdi_file, _, _ = cvt.cfg["family_map"][k]
-                osdi_files.add(osdi_file)
+            if (None, in_sub) in cvt.data["models"]:
+                # simple models
+                if mname in cvt.data["models"][(None, in_sub)]:
+                    builtin, mtype, family, level, version, _ = cvt.data["models"][(None, in_sub)][mname]
+                    k = family, level, version
+                    if k in cvt.cfg["family_map"]:
+                        osdi_file, _, _ = cvt.cfg["family_map"][k]
+                        osdi_files.add(osdi_file)
+            else:
+                # binned models
+                if mname in cvt.data["bins"][(None, in_sub)]:
+                    builtin, mtype, family, level, version, _ = cvt.data["bins"][(None, in_sub)][mname][0]
+                    k = family, level, version
+                    if k in cvt.cfg["family_map"]:
+                        osdi_file, _, _ = cvt.cfg["family_map"][k]
+                        osdi_files.add(osdi_file)
 
         # OSDI files based on builtin models
         for mt in cvt.data["default_models_needed"]:

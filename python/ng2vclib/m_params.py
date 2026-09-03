@@ -146,6 +146,7 @@ class ParamsMixin:
         """
         txt = ""
         first = True
+        params = self.process_expressions(params)
         for name, value in params:
             value = si_replace(value)
             if not first:
@@ -301,8 +302,31 @@ class ParamsMixin:
 
         return psplit
     
+    
     def process_terminals(self, terminals):
         """
         Processes terminals. For now replaces ! with _. 
         """
         return [ t.replace("!", "_") for t in terminals]
+        
+        
+    def get_bin_boundaries(self, params):
+        """
+        Returns tuple with parameters (lmin, lmax, wmin, wmax) of a binned model.
+        """
+        lmin = None
+        lmax = None
+        wmin = None
+        wmax = None
+        for p in params:
+            if p[0] == "lmin":
+                lmin = p[1]
+            if p[0] == "lmax":
+                lmax = p[1]
+            if p[0] == "wmin":
+                wmin = p[1]
+            if p[0] == "wmax":
+                wmax = p[1]
+        if lmin is None or lmax is None or wmin is None or wmax is None:
+            raise ConverterError("\nWrong boundaries.")
+        return (lmin, lmax, wmin, wmax)

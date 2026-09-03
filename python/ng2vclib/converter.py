@@ -6,6 +6,7 @@ from .m_inst_passive import InstancePassiveMixin
 from .m_inst_d import InstanceDMixin
 from .m_inst_n import InstanceNMixin
 from .m_inst_q import InstanceQMixin
+from .m_inst_m import InstanceMMixin
 from .m_inst_x import InstanceXMixin
 from .m_devices import DevicesMixin
 from .m_params import ParamsMixin
@@ -23,6 +24,7 @@ class Converter(
     InstanceDMixin, 
     InstanceNMixin, 
     InstanceQMixin, 
+    InstanceMMixin, 
     InstanceXMixin, 
     DevicesMixin, 
     ParamsMixin
@@ -116,8 +118,8 @@ class Converter(
         self.dbgindent = indent
         self.debug = debug
     
-    def convert(self, fromFile, toFile=None):
-      _, deck, absolute_file_path = self.read_file(fromFile)
+    def convert(self, fromFile, toFile=None, section=None):
+      _, deck, absolute_file_path = self.read_file(fromFile, section=section)
       self.data["deck"] = deck
       self.data["absolute_input_path"] = absolute_file_path
       

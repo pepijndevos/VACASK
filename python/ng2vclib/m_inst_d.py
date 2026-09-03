@@ -1,7 +1,7 @@
 from .exc import ConverterError
 
 class InstanceDMixin:
-    def process_instance_d(self, lws, line, eol, annot, in_sub):
+    def process_instance_d(self, lws, line, eol, annot, in_sec, in_sub):
         """
         Process D instance (diode). 
 

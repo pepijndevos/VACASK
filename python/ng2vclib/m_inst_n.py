@@ -1,7 +1,7 @@
 from .exc import ConverterError
 
 class InstanceNMixin:
-    def process_instance_n(self, lws, line, eol, annot, in_sub):
+    def process_instance_n(self, lws, line, eol, annot, in_sec, in_sub):
         """
         Process N instance (OSDI device).
         """

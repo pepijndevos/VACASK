@@ -7,7 +7,7 @@ from .patterns import *
 class MastersMixin:
     pat_paramassign = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*=')
 
-    def split_instance(self, line, orig_line, in_sub=None):
+    def split_instance(self, line, orig_line, in_sec=None, in_sub=None):
         """
         Splits an instance into fragments, extract model position. 
 
@@ -43,19 +43,23 @@ class MastersMixin:
                     break
             else:
                 # Device instance
-                # Local models
+                # Check local models first
                 if in_sub is not None:
-                    if in_sub in self.data["models"] and part in self.data["models"][in_sub]:
-                        # Found model
+                    local_model_found = (in_sec, in_sub) in self.data["models"] and part in self.data["models"][(in_sec, in_sub)]
+                    local_binned_model_found = (in_sec, in_sub) in self.data["bins"] and part in self.data["bins"][(in_sec, in_sub)]
+                    if local_model_found or local_binned_model_found:
+                        # Found local model
                         mod_index = ndx
                         key = (part, in_sub)
                         if key not in self.data["model_usage"]:
                             self.data["model_usage"][key] = set()
                         self.data["model_usage"][key].add(in_sub)
                         break
-                # Global models
-                if None in self.data["models"] and part in self.data["models"][None]:
-                    # Found model
+                # Check global models
+                global_model_found = (in_sec, None) in self.data["models"] and part in self.data["models"][(in_sec, None)]
+                global_binned_model_found = (in_sec, None) in self.data["bins"] and part in self.data["bins"][(in_sec, None)]
+                if global_model_found or global_binned_model_found:
+                    # Found global model
                     mod_index = ndx
                     key = (part, None)
                     if key not in self.data["model_usage"]:
@@ -70,7 +74,7 @@ class MastersMixin:
 
         return parts, orig_parts, mod_index
     
-    def preprocess_instance(self, lnum, lws, line, eol, annot, in_sub):
+    def preprocess_instance(self, lnum, lws, line, eol, annot, in_sec, in_sub):
         """
         First stage of instance procesing. 
         
@@ -79,7 +83,7 @@ class MastersMixin:
         
         Track used models. 
         """
-        parts, orig_parts, mod_index = self.split_instance(line, annot["origline"], in_sub)
+        parts, orig_parts, mod_index = self.split_instance(line, annot["origline"], in_sec, in_sub)
 
         # Extract name and original name
         name = parts[0]
@@ -122,8 +126,10 @@ class MastersMixin:
         Colects defined subcircuits and models from deck.  
         """
         deck = self.data["deck"]
+        self.data["bins"] = {}  
 
         in_sub = None
+        in_sec = None
 
         # Pass 1 - collect models
         # Pass 2 - preprocess instances, construct model usage table
@@ -143,9 +149,18 @@ class MastersMixin:
 
                 lnum, lws, l, eolc, annot = line
 
-                if isinstance(eolc, tuple):
+                if pat_cidotlib.match(l):
+                    # Lib
+                    name, section, subdeck = eolc
+                    if name is None:
+                        # Section start marker
+                        in_sec = section
+                elif pat_cidotendl.match(l):
+                    # End of section marker
+                    in_sec = None
+                elif isinstance(eolc, tuple):
                     # If eolc is a tuple this is an .include/.lib line
-                    # We do not process those. 
+                    # We do not process .include 
                     continue
                 elif l.startswith("*"):
                     # Comment
@@ -154,6 +169,7 @@ class MastersMixin:
                     # Empty line
                     continue
                 elif pat_cidotsubckt.match(l):
+                    # Subcircuit
                     parts = l.split(" ")
                     in_sub = parts[1]
 
@@ -220,25 +236,53 @@ class MastersMixin:
                                         continue
                                 else:
                                     pnew.append((pname, pval))
-                            
                             params = pnew
 
-                        # Add to list of models
-                        if in_sub not in self.data["models"]:
-                            self.data["models"][in_sub] = {}
-                        self.data["models"][in_sub][name] = (
-                            builtin, mtype, family, level, version, params
-                        )
+                        # Add to list of bins in binned models dictionary
+                        if "." in name:
+                            name = name.split(".")
+                            bin_number = name[1]
+                            name = name[0]
+                            if (in_sec, in_sub) not in self.data["bins"]:
+                                self.data["bins"][(in_sec, in_sub)] = {}
+                            if name not in self.data["bins"][(in_sec, in_sub)]:
+                                self.data["bins"][(in_sec, in_sub)][name] = []
+                            self.data["bins"][(in_sec, in_sub)][name].append((
+                                builtin, mtype, family, level, version, params
+                            ))
+                            annot["name"] = name
+                        # Add to models dictionary
+                        else:
+                            if (in_sec, in_sub) not in self.data["models"]:
+                                self.data["models"][(in_sec, in_sub)] = {}
+                            self.data["models"][(in_sec, in_sub)][name] = (
+                                builtin, mtype, family, level, version, params
+                            )
                 elif not l.startswith("."):
                     if passno==2:
                         # Not a dot command, must be an instance
                         # Preprocess it
                         try:
-                            self.preprocess_instance(*line, in_sub)
+                            self.preprocess_instance(*line, in_sec, in_sub)
                         except ConverterError as e:
                             raise ConverterError(str(e), history, lnum)
 
-            
+        if self.debug>1:
+            print("\nModels:") 
+            for scope in self.data["models"]:
+                print(scope)
+                if isinstance(self.data["models"][scope], dict):
+                    for mod in self.data["models"][scope]:
+                        print("\t"+mod)
+            print("\nBinned models:") 
+            for scope in self.data["bins"]:
+                print(scope)
+                if isinstance(self.data["bins"][scope], dict):
+                    for mod in self.data["bins"][scope]:
+                        print("\t"+mod+" "+str(len(self.data["bins"][scope][mod])))
+            print("\nModels usage:") 
+            print(self.data["model_usage"])
+            print("\n") 
 
 
 
