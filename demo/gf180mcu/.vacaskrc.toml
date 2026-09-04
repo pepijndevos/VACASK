@@ -1,0 +1,8 @@
+# VACASK configuration file
+[Paths]
+include_path_prefix = [
+  "$(PDK_ROOT)/$(PDK)/libs.tech/vacask/models",
+  "$(PDK_ROOT)/$(PDK)/libs.ref/gf180mcu_fd_sc_mcu9t5v0/vacask", 
+  "$(PDK_ROOT)/$(PDK)/libs.ref/gf180mcu_fd_io/vacask" 
+]
+module_path_prefix = ["/opt/vacask/lib/vacask/mod"]

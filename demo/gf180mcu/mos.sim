@@ -1,0 +1,85 @@
+GF180MCUD MOSFET test
+
+include "gf180_vacask_common.lib"
+include "design.lib"
+include "mos_tt.lib"
+
+model v vsource
+vgs (g 0) v dc=0
+vds (d 0) v dc=0
+  
+
+subckt nmostest()
+	XM0 (d g 0 0) nfet_03v3_dss w=1u l=0.28u
+ends
+
+subckt pmostest()
+	XM0 (d g 0 0) pfet_03v3_dss w=1u l=0.28u
+ends
+
+
+control
+  print devices
+  print device("sp_bsim4v8")
+  print("")
+  
+  elaborate circuit("nmostest")
+  sweep vgs instance="vgs" parameter="dc" from=0.1 to=3.3 step=0.5
+  sweep vds instance="vds" parameter="dc" from=0.0 to=3.3000 step=0.0001
+    analysis opnmos op
+	
+  elaborate circuit("pmostest")
+  sweep vgs instance="vgs" parameter="dc" from=-0.1 to=-3.3 step=-0.5
+  sweep vds instance="vds" parameter="dc" from=0.0 to=-3.3000 step=-0.0001
+    analysis oppmos op
+	
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+import numpy as np
+import matplotlib.pyplot as plt
+
+fig1 = plt.figure(figsize=(12,6), dpi=100)
+fig1.suptitle('GF180mcuD MOSFET test')
+ax_dict = fig1.subplot_mosaic("""
+AB
+""")
+
+ax_dict["A"].set_title('NMOS 1u/0.28u')
+ax_dict["A"].set_ylabel('Id [uA]')
+ax_dict["A"].set_xlabel('Vds [V]')
+
+raw = rawread('opnmos.raw')
+plot = raw.get(sweeps=1)
+
+for ii in range(plot.sweepGroups):
+    sdata = plot.sweepData(ii)
+    # print(sdata)
+    traceName = 'vgs=%.2e' % sdata['vgs']
+    ax_dict["A"].plot(plot[ii, 'd'], -plot[ii, 'vds:flow(br)']*1e6, label=traceName)
+    
+ax_dict["A"].legend(loc='upper left')
+
+
+ax_dict["B"].set_title('PMOS 1u/0.28u')
+ax_dict["B"].set_ylabel('Id [uA]')
+ax_dict["B"].set_xlabel('Vds [V]')
+
+raw = rawread('oppmos.raw')
+plot = raw.get(sweeps=1)
+
+for ii in range(plot.sweepGroups):
+    sdata = plot.sweepData(ii)
+    # print(sdata)
+    traceName = 'vgs=%.2e' % sdata['vgs']
+    ax_dict["B"].plot(plot[ii, 'd'], -plot[ii, 'vds:flow(br)']*1e6, label=traceName)
+    
+ax_dict["B"].legend(loc='lower right')
+
+fig1.tight_layout()
+ 
+plt.show()
+>>>FILE
+
