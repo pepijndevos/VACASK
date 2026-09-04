@@ -152,7 +152,12 @@ bool HBAC::rebuildCores(ErrorConsumer& errors) {
         solverId = solverId?solverId:options.hbsolver;
         solverId = solverId?solverId:Simulator::defaultHbSolverId;
         linearSolver_ = std::unique_ptr<RealSparseSolver>(RealSparseSolver::createSolver(solverId, jac, errors));
-        if (!linearSolver_ || !linearSolver_->rebuild(errors)) {
+        if (!linearSolver_) {
+            return false;
+        }
+        // jac has nt x nt dense blocks; hint the solver before it builds
+        linearSolver_->setBlockSize(jac.nBlockElementCols());
+        if (!linearSolver_->rebuild(errors)) {
             return false;
         }
         hbCore.setLinearSolver(linearSolver_.get());
@@ -168,7 +173,12 @@ bool HBAC::rebuildCores(ErrorConsumer& errors) {
     cxSolverId = cxSolverId?cxSolverId:Simulator::defaultQpsmsigSolverId;
     linearCxSolver_ = std::unique_ptr<ComplexSparseSolver>(
         ComplexSparseSolver::createSolver(cxSolverId, acMatrix, errors));
-    if (!linearCxSolver_ || !linearCxSolver_->rebuild(errors)) {
+    if (!linearCxSolver_) {
+        return false;
+    }
+    // acMatrix has nf x nf dense blocks; hint the solver before it builds
+    linearCxSolver_->setBlockSize(acMatrix.nBlockElementCols());
+    if (!linearCxSolver_->rebuild(errors)) {
         return false;
     }
     hbacCore.setLinearSolver(linearCxSolver_.get());

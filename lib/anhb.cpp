@@ -108,7 +108,12 @@ bool HB::rebuildCores(ErrorConsumer& errors) {
         solverId = solverId?solverId:options.hbsolver;
         solverId = solverId?solverId:Simulator::defaultHbSolverId;
         linearSolver_ = std::unique_ptr<RealSparseSolver>(RealSparseSolver::createSolver(solverId, jac, errors));
-        if (!linearSolver_ || !linearSolver_->rebuild(errors)) {
+        if (!linearSolver_) {
+            return false;
+        }
+        // jac has nt x nt dense blocks; hint the solver before it builds
+        linearSolver_->setBlockSize(jac.nBlockElementCols());
+        if (!linearSolver_->rebuild(errors)) {
             return false;
         }
         core.setLinearSolver(linearSolver_.get());

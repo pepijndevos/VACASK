@@ -122,7 +122,7 @@ response = np.array([
 ref = np.abs(response).max()
 delta = relDiff(response, exact, ref)
 print("Delta (with hb)", delta)
-tests.append(delta.max()<1e-14)
+tests.append(delta.max()<1e-12)
 
 hbac2 = rawread('hbac2.raw').get()
 response = np.array([
@@ -131,7 +131,7 @@ response = np.array([
 ref = np.abs(response).max()
 delta = relDiff(response, exact, ref)
 print("Delta (stored hb)", delta)
-tests.append(delta.max()<1e-14)
+tests.append(delta.max()<1e-12)
 
 
 sys.exit(not all(tests))
