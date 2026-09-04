@@ -31,12 +31,13 @@ char helpText[] =
     // "                      turn off warning messages\n"
     "  -qp, --quiet-progress\n"
     "                      turn off progress messages\n"
-    "  --no-output         suppress output of result files\n"
+    "       --no-output    suppress output of result files\n"
 #ifdef OPENMP_ENABLED
-    "  -n, --ncpu          number of CPUs to use (autodetect)\n"
+    "  -n <n>, --ncpu <n>  number of CPUs to use (1)\n"
     "                      <=0 .. autodetect, take OMP_NUM_THREADS into account\n"
     "                      or use all available CPUs (default)\n"
-    "  -b, --blas-ncpu     number of CPUs to assign to OpenBLAS (default=1)\n"
+    "  -b <n>, --blas-ncpu <n>\n"
+    "                      number of CPUs to assign to OpenBLAS (1)\n"
     "                      <=0 .. use OpenBLAS autodetect\n"
 #endif
     ; 
@@ -53,7 +54,7 @@ int main(int argc, char**argv) {
     std::string tomlFile;
 
     // <=0 means autodetect by OpenMP
-    int ncpu = 0;
+    int ncpu = 1;
 
     // <=0 means autodetect
     int blasNcpu = 1;

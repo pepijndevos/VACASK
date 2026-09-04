@@ -85,6 +85,12 @@ bool Simulator::setup(
 
     startupPath_ = std::filesystem::current_path().string();
 
+    // Is this a serial run?
+    if ((ncpu==1) && (nBlasCpu==1)) {
+        // Force 1 OMP thread so no time is wasted by spinning unused threads
+        setCpuCount(1);
+    }
+
     // CPU count (OpenMP)
     if (ncpu<=0) {
         // Autodetect CPU count
@@ -98,7 +104,7 @@ bool Simulator::setup(
     if (nBlasCpu>0) {
         setBlasCpuCount(nBlasCpu);
     }
-    
+
     // Registration runs once; later calls only refresh the paths above and
     // report the first call's result.
     if (setupDone_) {
