@@ -281,44 +281,42 @@ The packages are created in the `<build directory>`.
 ### Prerequisites
 Install the required dependencies using [Homebrew](https://brew.sh/):
 ```
-brew install llvm@18 cmake ninja suitesparse tomlplusplus
+brew install llvm@18 cmake ninja bison flex suite-sparse openblas boost tomlplusplus
 ```
+Contrary to Linux you do not have to build Boost yourself because the Homebrew package includes the Process library. CMake locates the Homebrew installations of bison, flex, SuiteSparse, toml++, and Boost on its own, so you do not have to specify their paths.
 
-You will also need to build Boost 1.88 from source. Download the sources from [https://www.boost.org/users/download/](https://www.boost.org/users/download/). Unpack it and build with:
+The system tests and the demos need Python3 with the libraries listed above. NumPy and SciPy are available as Homebrew packages
 ```
-cd boost_1_88_0
-cd tools/build
-./bootstrap.sh
-cd ../..
-tools/build/b2 --with-filesystem --with-process --with-asio link=static toolset=clang
+brew install numpy scipy
 ```
-The Boost libraries will be in `boost_1_88_0/stage`.
+Matplotlib and scikit-rf are used by some demos only. Install them with `pip` if you need them.
 
 ### Building OpenVAF-Reloaded
-You need to build the OpenVAF-Reloaded compiler. First, install Rust:
+You need to build the OpenVAF-Reloaded compiler from sources. First, install Rust (1.85 or newer):
 ```
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 source ~/.cargo/env
 ```
 
-Clone and build OpenVAF-Reloaded:
+The compiler links against LLVM 18 so it must be told where the Homebrew LLVM 18 lives. Clone the sources and build them with
 ```
-git clone https://github.com/OpenVAF-Reloaded/OpenVAF.git
+export PATH="$(brew --prefix)/opt/llvm@18/bin:$PATH"
+export LLVM_SYS_180_PREFIX="$(brew --prefix)/opt/llvm@18"
+git clone --branch mb-experimental https://github.com/arpadbuermen/OpenVAF.git
 cd OpenVAF
 ./configure
 ./build.sh --release
 ```
-The compiler binary will be at `target/release/openvaf`.
+The compiler binary will be at `target/release/openvaf-r`. The `mb-experimental` branch exposes the OSDI 0.5 interface. Build the master branch of the [OpenVAF-Reloaded repository](https://github.com/OpenVAF-Reloaded/OpenVAF) the same way if you want the compiler that exposes the default OSDI 0.4 interface. 
 
 ### Building the simulator
-Create a build directory and configure with CMake. You need to specify the Homebrew prefix for finding dependencies:
+Create a build directory and configure with CMake. Most dependencies are found in the Homebrew prefix automatically. What remains is the path to the OpenVAF-Reloaded compiler and the BLAS/LAPACK selection. `BLA_VENDOR` makes CMake use OpenBLAS instead of Apple's Accelerate framework. Because the OpenBLAS package is keg-only its prefix must be added to `CMAKE_PREFIX_PATH`. `Boost_USE_STATIC_LIBS` links Boost statically so that the simulator does not depend on the Homebrew Boost dynamic libraries. 
 ```
-HOMEBREW_PREFIX=$(brew --prefix)
 cmake -G Ninja -S <sources directory> -B <build directory> -DCMAKE_BUILD_TYPE=Release \
-    -DOPENVAF_DIR=<path to OpenVAF-Reloaded directory>/target/release \
-    -DBoost_ROOT=<path to boost_1_88_0>/stage \
-    -DSuiteSparse_DIR=$HOMEBREW_PREFIX \
-    -DTOMLPP_DIR=$HOMEBREW_PREFIX
+    -DOPENVAF_DIR=<directory holding the openvaf-r binary> \
+    -DBoost_USE_STATIC_LIBS=ON \
+    -DBLA_VENDOR=OpenBLAS \
+    -DCMAKE_PREFIX_PATH=$(brew --prefix openblas)
 ```
 
 Build the simulator:
@@ -416,6 +414,17 @@ Replace the `e:\...` paths with your own, if needed. All paths must be absolute 
 cpack
 ```
 The created packages are located in the `<build directory>`. 
+
+## Running the tests
+The system tests are located in [`test`](test). They are run with CTest from the `<build directory>`
+```
+ctest --output-on-failure
+```
+Some tests need model libraries that are not part of the sources. Such tests carry a CTest label. Currently the only label in use is `requires_ihp_pdk`. It marks the tests that need a converted [IHP Open PDK](https://github.com/IHP-GmbH/IHP-Open-PDK) along with the `PDK_ROOT` and `PDK` environmental variables (see [demo/ihp-sg13g2](demo/ihp-sg13g2) for the conversion procedure). If you do not have the PDK, exclude these tests with
+```
+ctest --output-on-failure --label-exclude requires_ihp_pdk
+```
+This is what the CI scripts in [`ci`](ci) do when they build and test VACASK.
 
 # Visual Studio Code project for developers
 A [Visual Studio Code](https://code.visualstudio.com/) setup is available in the [`.vscode`](.vscode) subdirectory of the sources. Files [`settings-linux.json`](.vscode/settings-linux.json) and [`settings-windows.json`](.vscode/settings-windows.json) are the settings templates for Linux and Windows. Depending on your platform copy one of these two to `settings.json` and edit it to reflect your configuration. File `settings.json` is not tracked by git so editing it won't result in any changes that need committing. 
