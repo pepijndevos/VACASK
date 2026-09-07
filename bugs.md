@@ -3,7 +3,7 @@
 11 commits reviewed: SuperLU_MT solver backend, OpenMP/OpenBLAS thread-count
 plumbing, block-dense-aware solvers. Ordered most to least severe.
 
-- [ ] **1. `std::stoi` on `--ncpu` / `--bncpu` aborts the process on bad input**
+- [x] **1. `std::stoi` on `--ncpu` / `--bncpu` aborts the process on bad input**
   `simulator/main.cpp:141` (and `:148`).
   `ncpu = std::stoi(argv[i]);` with no try/catch anywhere in `main`.
   `vacask -n foo`, `vacask -n 99999999999`, or a trailing `-n` before a filename
@@ -11,13 +11,14 @@ plumbing, block-dense-aware solvers. Ordered most to least severe.
   Every other bad argument in this loop prints a message and `return 1`.
   Fix: wrap in try/catch or use `strtol` with validation.
 
-- [ ] **2. Help text advertises a flag the parser does not accept**
+- [x] **2. Help text advertises a flag the parser does not accept**
   `simulator/main.cpp:39` vs `simulator/main.cpp:142`.
-  Help says `-b <n>, --blas-ncpu <n>`; parser matches `-b` / `--bncpu`; docs
-  document `--bncpu`. Copying `--blas-ncpu` from `--help` → `Unrecognized
-  argument` + exit 1. Fix the help string to `--bncpu`.
+  Help said `-b <n>, --blas-ncpu <n>`; parser matched `-b` / `--bncpu`; docs
+  use `--blas-ncpu`. Copying `--blas-ncpu` from `--help` → `Unrecognized
+  argument` + exit 1.
+  Fixed: parser now accepts `-b` / `--blas-ncpu`, matching the help text and docs.
 
-- [ ] **3. Library API default (`ncpu=0`) contradicts CLI default (`1`) and docs**
+- [x] **3. Library API default (`ncpu=0`) contradicts CLI default (`1`) and docs**
   `include/simulator.h:20-27`, `lib/simulator.cpp:89-99`.
   `Simulator::setup(int ncpu=0, ...)`; `ncpu<=0` means "autodetect = all cores",
   and the serial-OpenMP cap only fires when `ncpu==1 && nBlasCpu==1`. Any
@@ -26,7 +27,7 @@ plumbing, block-dense-aware solvers. Ordered most to least severe.
   1`) and `docs/startup-options.md` state the default is serial.
   Fix: make the API default `1`.
 
-- [ ] **4. Unconditional `<cblas.h>` / `openblas_*_num_threads` breaks the build on non-OpenBLAS BLAS**
+- [x] **4. Unconditional `<cblas.h>` / `openblas_*_num_threads` breaks the build on non-OpenBLAS BLAS**
   `lib/libplatform.cpp:15`, `:164-170`.
   `libplatform.cpp` (previously no BLAS dependency) now unconditionally includes
   `<cblas.h>` and calls `openblas_set_num_threads` / `openblas_get_num_threads`.
@@ -37,7 +38,7 @@ plumbing, block-dense-aware solvers. Ordered most to least severe.
   required but nothing enforces it.
   Fix: enforce `BLA_VENDOR=OpenBLAS` / check for the symbol, or guard the calls.
 
-- [ ] **5. `setBlockSize` shrinks SuperLU's max supernode size ~7x below default**
+- [x] **5. `setBlockSize` shrinks SuperLU's max supernode size ~7x below default**
   `lib/solsuperlu.cpp:23`.
   `maxSize = 2*blockSize; // lxm, >=default=200` — no floor. For a typical HB run
   (`nharm=7` → block ~15 cols) `maxSize` becomes ~30 vs `sp_ienv(3)`'s default of
@@ -46,7 +47,10 @@ plumbing, block-dense-aware solvers. Ordered most to least severe.
   were loosened 1e-14 → 1e-12 in this same branch (`test/test_hbac1.sim`).
   Fix: `std::max(200, 2*blockSize)` etc.
 
-- [ ] **6. All SuperLU_MT instances of a value type share one global `IEnvData` (and SuperLU's static `GlobalLU_t`)**
+- [x] **6. All SuperLU_MT instances of a value type share one global `IEnvData` (and SuperLU's static `GlobalLU_t`)**
+  Deliberate limitation (one live factorization per value type, no concurrency).
+  Safeguarded: `SolverImpl::gluOwner` throws if a dispossessed instance attempts
+  a `refact=YES` factorization.
   `lib/solsuperlu.cpp:27-31`, `include/solsuperlu.h`.
   `IEnvData::activeData` is a single global pointer; SuperLU_MT's
   `pdgstrf_thread_init` keeps a `static GlobalLU_t Glu`. Two live

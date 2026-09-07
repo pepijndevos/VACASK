@@ -16,13 +16,16 @@ namespace NAMESPACE {
 
 class Simulator {
 public:
+    static const int defaultNcpu = 1;
+    static const int defaultBlasNcpu = 1;
+    
     static void setStreams(std::ostream& output, std::ostream& error, std::ostream& debug);
-    static bool setup(int ncpu=0, int nBlasCpu=1, Status& s=Status::ignore);
+    static bool setup(int ncpu=defaultNcpu, int blasNcpu=defaultBlasNcpu, Status& s=Status::ignore);
     static bool setup(        
         const std::string& moduleFilePath, 
         const std::string& includeFilePath, 
-        int ncpu=0, 
-        int nBlasCpu=1, 
+        int ncpu=defaultNcpu, 
+        int blasNcpu=defaultBlasNcpu, 
         Status& s=Status::ignore
     );
     

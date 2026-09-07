@@ -10,6 +10,7 @@
 #include "common.h"
 #include <filesystem>
 #include <unordered_set>
+#include <stdexcept>
 
 using namespace sim;
 
@@ -54,10 +55,10 @@ int main(int argc, char**argv) {
     std::string tomlFile;
 
     // <=0 means autodetect by OpenMP
-    int ncpu = 1;
+    int ncpu = Simulator::defaultNcpu;
 
     // <=0 means autodetect
-    int blasNcpu = 1;
+    int blasNcpu = Simulator::defaultBlasNcpu;
 
     // Simulator information
     Simulator::out() << 
@@ -84,6 +85,21 @@ int main(int argc, char**argv) {
         return 1;
     } 
         
+    // Parse an integer CLI argument; on failure print a message and return false.
+    auto parseIntArg = [](const char* s, const char* what, int& out) -> bool {
+        try {
+            std::string str(s);
+            size_t pos = 0;
+            int v = std::stoi(str, &pos);
+            if (pos != str.size()) throw std::invalid_argument("trailing chars");
+            out = v;
+            return true;
+        } catch (const std::exception&) {
+            Simulator::err() << "Invalid " << what << " '" << s << "'.\n";
+            return false;
+        }
+    };
+
     // Parse arguments
     char* fileArg = nullptr;
     for(int i=1; i<argc; i++) {
@@ -138,14 +154,18 @@ int main(int argc, char**argv) {
                 return 1;
             }
             i++;
-            ncpu = std::stoi(argv[i]);
-        } else if (arg=="-b" || arg=="--bncpu") {
+            if (!parseIntArg(argv[i], "number of CPUs", ncpu)) {
+                return 1;
+            }
+        } else if (arg=="-b" || arg=="--blas-ncpu") {
             if (i+1>=argc) {
                 Simulator::err() << "Missing number of OpenBLAS CPUs.\n";
                 return 1;
             }
             i++;
-            blasNcpu = std::stoi(argv[i]);
+            if (!parseIntArg(argv[i], "number of OpenBLAS CPUs", blasNcpu)) {
+                return 1;
+            }
         } else {
             Simulator::err() << "Unrecognized argument '"+arg+"'.\n";
             return 1;

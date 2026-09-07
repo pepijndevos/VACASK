@@ -18,9 +18,13 @@ int32_t threadCount() {
 }
 
 void IEnvData::setBlockSize(UnknownIndex blockSize) {
+    if (blockSize < 1) {
+        return; // keep defaults
+    }
     panelSize = blockSize;
-    relax = 1*blockSize; // kxm, k is small
-    maxSize = 2*blockSize; // lxm, >=default=200
+    relax = blockSize; // kxm, k is small
+    // smallest multiple of blockSize that is >= the sp_ienv default (200)
+    maxSize = ((200 + blockSize - 1) / blockSize) * blockSize;
 };
 
 static IEnvData defaultData;
@@ -32,9 +36,9 @@ IEnvData* IEnvData::activeData = &defaultData;
 }
 
 extern "C" {
-// Uses a single global IEnvData pointer. This means you cannot use multiple 
-// solvers each in its own thread. Just one solver at once. 
-// TODO: use thread-local storage to make this work properly. 
+// Single global IEnvData pointer; one live factorization per value type at a
+// time (SolverImpl::gluOwner enforces it). No concurrent factorizations.
+// TODO: TLS + per-instance GlobalLU_t to lift both limits.
 int sp_ienv(int ispec) {
     switch (ispec) {
         case 1: return NAMESPACE::superlu_wrapper::IEnvData::activeData->panelSize; /* SUPERLU_PANEL_SIZE */

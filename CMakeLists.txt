@@ -220,10 +220,9 @@ endif()
 # headers in <dir>/SRC, the static library in <dir>/lib
 # (libsuperlu_mt_OPENMP.a or _PTHREAD.a). This build expects the OpenMP variant
 # linked against OpenBLAS. When the headers, the library and OpenMP are all
-# found, SIM_HAVE_SUPERLU is defined project-wide (alongside the SUPERLU_ENABLED
-# alias); that macro gates both the backend TUs and the registration of the
-# "superlu" solver in lib/simulator.cpp. Without -DSuperluMT_DIR the build
-# proceeds without it.
+# found, SIM_HAVE_SUPERLU is defined project-wide; that macro gates both the
+# backend TUs and the registration of the "superlu" solver in lib/simulator.cpp.
+# Without -DSuperluMT_DIR the build proceeds without it.
 #
 set(SIM_HAVE_SUPERLU FALSE)
 
@@ -343,6 +342,8 @@ include_directories("${CMAKE_CURRENT_SOURCE_DIR}/include")
 # Windows gets it via the bundled libopenblas.a below; macOS gets Homebrew
 # OpenBLAS the same way it already gets Homebrew SuiteSparse.
 if (${SIM_PLATFORM} STREQUAL "Linux" OR ${SIM_PLATFORM} STREQUAL "Darwin")
+    # libplatform.cpp needs OpenBLAS (<cblas.h>, openblas_set_num_threads)
+    set(BLA_VENDOR OpenBLAS)
     find_package(BLAS REQUIRED)
     find_package(LAPACK REQUIRED)
 endif()
@@ -396,7 +397,7 @@ endif()
 # lib/CMakeLists.txt). Here we only define the gate macro and add the SuperLU
 # libraries.
 if (SIM_HAVE_SUPERLU)
-    add_compile_definitions(SIM_HAVE_SUPERLU SUPERLU_ENABLED)
+    add_compile_definitions(SIM_HAVE_SUPERLU)
     set(SIM_EXE_LIBRARIES ${SIM_EXE_LIBRARIES}
             ${SIM_SUPERLU_LIBRARY}
             $<$<BOOL:${SIM_SUPERLU_BLAS}>:${SIM_SUPERLU_BLAS}>

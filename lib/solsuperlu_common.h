@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <cstddef>
 #include <cstdlib>
+#include <stdexcept>
 #include "solsuperluitf.h"
 #include "common.h"
 
@@ -62,6 +63,12 @@ class SolverImpl {
     bool luAllocated  {false};   // L / U hold a (possibly singular) factorization
     bool factored     {false};   // the last factorization succeeded
 
+    // SuperLU_MT keeps factorization workspace in a per-value-type static
+    // GlobalLU_t (p?gstrf_thread_init). A reusing factorization (refact=YES)
+    // reads capacity fields left there by the last factorization of any
+    // instance, so it is only valid while this instance is still that last one.
+    static inline const SolverImpl* gluOwner {nullptr};
+
     void freeLU() {
         if (luAllocated) {
             Destroy_SuperNode_SCP(&L);
@@ -89,6 +96,9 @@ public:
     void clearAll() {
         freeLU();
         freeSymbolic();
+        if (gluOwner == this) {
+            gluOwner = nullptr;
+        }
         if (haveA) {
             StatFree(&stat);
             Destroy_SuperMatrix_Store(&A);   // frees the Store struct only; arrays are the caller's
@@ -145,6 +155,15 @@ public:
         // fact != 0 asks to reuse the column ordering / symbolic structure, but
         // only if a prior factorization built it.
         yes_no_t refact = (fact != 0 && haveSymbolic) ? YES : NO;
+
+        if (refact == YES && gluOwner != this) {
+            throw std::logic_error(
+                "SuperLU_MT: this solver's factorization workspace was taken "
+                "over by another solver instance of the same value type; "
+                "overlapping in-use solver lifetimes are not supported."
+            );
+        }
+
         if (refact == NO) {
             freeLU();
             freeSymbolic();     // gstrf_init(refact=NO) allocates it afresh
@@ -160,6 +179,7 @@ public:
             &A, &AC, &options, &stat
         );
         haveSymbolic = true;
+        gluOwner = this;        // this instance now owns the static GlobalLU_t
 
         int_t info = 0;
         B::gstrf(&options, &AC, permR.data(), &L, &U, &stat, &info);

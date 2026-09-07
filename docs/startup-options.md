@@ -12,7 +12,7 @@
 | `-qp` | `--quiet-progress` | Suppress progress messages. |
 | `--no-output` | | Suppress writing of result files. |
 | `-n <n>` | `--ncpu <n>` | Number of threads the multithreaded SuperLU solver spawns per factorization. Default `1`. `n <= 0` autodetects: it honors `OMP_NUM_THREADS` if set, otherwise uses all available CPUs. |
-| `-b <n>` | `--bncpu <n>` | Number of threads OpenBLAS may use for dense operations. Default `1`. `n <= 0` lets OpenBLAS autodetect. |
+| `-b <n>` | `--blas-ncpu <n>` | Number of threads OpenBLAS may use for dense operations. Default `1`. `n <= 0` lets OpenBLAS autodetect. |
 
 If no filename is given VACASK prints a hint and exits.
 
@@ -29,12 +29,12 @@ There are two independent thread counts:
 
 - `--ncpu` (`-n`): threads the SuperLU factorization (`pdgstrf`) spawns.
   Default `1`.
-- `--bncpu` (`-b`): threads OpenBLAS uses for dense operations, most of which
+- `--blas-ncpu` (`-b`): threads OpenBLAS uses for dense operations, most of which
   occur in the small-signal analyses. Default `1`.
 
 ### Serial runs
 
-When both `--ncpu` and `--bncpu` are `1` (the defaults), VACASK also pins the
+When both `--ncpu` and `--blas-ncpu` are `1` (the defaults), VACASK also pins the
 OpenMP pool to a single thread. SuperLU's factorization loop has no explicit
 thread-count clause, so without this cap it would still create a full-size team
 of worker threads that busy-wait through every factorization and burn CPU for
@@ -42,13 +42,13 @@ nothing. With the cap, a default run is genuinely serial.
 
 ### Sizing the thread pool
 
-As soon as either `--ncpu` or `--bncpu` exceeds `1`, VACASK stops managing the
+As soon as either `--ncpu` or `--blas-ncpu` exceeds `1`, VACASK stops managing the
 OpenMP pool; its size then comes entirely from `OMP_NUM_THREADS`. Set it to match
 the work requested.
 
 The solver and OpenBLAS thread counts multiply: a factorization on `--ncpu`
-threads, each of which may call into an `--bncpu`-threaded OpenBLAS, needs
-`ncpu * bncpu` threads in the pool. With `--ncpu 4 --bncpu 3` size it for
+threads, each of which may call into an `--blas-ncpu`-threaded OpenBLAS, needs
+`ncpu * blas_ncpu` threads in the pool. With `--ncpu 4 --blas-ncpu 3` size it for
 `4 * 3 = 12`:
 
 ```text
@@ -69,7 +69,7 @@ thread, and both options have no effect.
 When VACASK is launched it performs the following steps in order:
 
 1. Parse command line flags.
-2. Resolve the thread counts from `--ncpu` / `--bncpu` (and `OMP_NUM_THREADS`); cap the OpenMP pool to one thread when both are `1`.
+2. Resolve the thread counts from `--ncpu` / `--blas-ncpu` (and `OMP_NUM_THREADS`); cap the OpenMP pool to one thread when both are `1`.
 3. Apply `SIM_MODULE_PATH`, `SIM_INCLUDE_PATH`, and `SIM_OPENVAF` environment variables if set.
 4. Read [TOML configuration files](startup-paths.md#toml-configuration-files) in order. Later files override earlier ones.
 5. Parse the input file.

@@ -58,8 +58,8 @@ void Simulator::setStreams(std::ostream& output, std::ostream& error, std::ostre
     Simulator::dbg_ = &debug;
 }
 
-bool Simulator::setup(int ncpu, int nBlasCpu, Status& s) {
-    return setup("", "", ncpu, nBlasCpu, s);
+bool Simulator::setup(int ncpu, int blasNcpu, Status& s) {
+    return setup("", "", ncpu, blasNcpu, s);
 }
 
 Id Simulator::defaultTdSolverId = Id();
@@ -71,7 +71,7 @@ bool Simulator::setup(
     const std::string& moduleFilePathString, 
     const std::string& includeFilePathString, 
     int ncpu, 
-    int nBlasCpu, 
+    int blasNcpu, 
     Status& s
 ) {
     std::vector<std::string> modPathVec;
@@ -86,7 +86,7 @@ bool Simulator::setup(
     startupPath_ = std::filesystem::current_path().string();
 
     // Is this a serial run?
-    if ((ncpu==1) && (nBlasCpu==1)) {
+    if ((ncpu==1) && (blasNcpu==1)) {
         // Force 1 OMP thread so no time is wasted by spinning unused threads
         setCpuCount(1);
     }
@@ -101,8 +101,8 @@ bool Simulator::setup(
     }
 
     // CPU count (OpenBLAS)
-    if (nBlasCpu>0) {
-        setBlasCpuCount(nBlasCpu);
+    if (blasNcpu>0) {
+        setBlasCpuCount(blasNcpu);
     }
 
     // Registration runs once; later calls only refresh the paths above and
