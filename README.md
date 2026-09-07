@@ -100,8 +100,6 @@ Yes we do. It is bundled with the binary packages. [The user's manual](docs/inde
 - Monte Carlo analysis with Latin hypercube sampling (see [demo/mc](demo/mc)). 
 - Touchstone file to VACASK lumped model converter based on scikit-rf (see [demo/ts](demo/ts)). 
  
-Certain devices (independent voltage and current sources, linear controlled sources, and inductive coupling) are implemented as builtin devices because some features needed by these devices are not available in OpenVAF-Reloaded or even Verilog-A. 
-
 VACASK is being developed by Árpád Bűrmen at the EDA Laboratory, University of Ljubljana, Slovenia. Several people have contributed to VACASK. See [contributors.md](contributors.md) for details. 
 
 VACASK is written in C++20 and is free software released under the [GNU Affero General Public License 3.0](LICENSE). 
@@ -127,7 +125,7 @@ VACASK is written in C++20 and is free software released under the [GNU Affero G
 
 # What about device models? 
 
-The following device models are supplied with VACASK. 
+Certain devices (independent voltage and current sources, linear controlled sources, and inductive coupling) are implemented as builtin devices because some features needed by these devices are not available in OpenVAF-Reloaded or even Verilog-A. 
 
 |Builtin device                   |Name   |
 |---------------------------------|-------|
@@ -139,6 +137,10 @@ The following device models are supplied with VACASK.
 |Current-controlled current source|cccs   |
 |Inductive coupling               |mutual |
 |Behavioral voltage/current source|n/a    |
+
+All Verilog-A models supplied with VACASK are located in [devices](devices). You can find several models at [www.mos-ak.org](https://www.mos-ak.org/open_dir/). All recent models developed by the [BSIM group at UC Berkeley](https://bsim.berkeley.edu/) are released in Verilog-A. Also take a look at [The Designer's Guide community](https://designers-guide.org/index.html) where various models are available in the [Verilog AMS section](https://designers-guide.org/verilog-ams/index.html). The VBIC model was taken from [Dietmar Warning's repository](https://github.com/dwarning/VA-Models). This repository is an excellent collection of public Verilog-A models. Many of these models have bugfixes and extensions not found elsewhere. When compiling these models, define the `__NGSPICE__` macro (add `-D__NGSPICE__` to your OpenVAF-Reloaded command line). 
+
+We needed some devices for tests, demos, PDK translation, or we were just bored and created them to pass time. 
 
 |Verilog-A device          |File               |OSDI file        |Module      |
 |--------------------------|-------------------|-----------------|------------|
@@ -155,8 +157,6 @@ The following device models are supplied with VACASK.
 |BSIM4v8 MOSFET (Cogenda)  |bsim4v8.va         |bsim4v8.osdi     |bsim4       |
 |PSP103.4 MOSFET           |psp103v4/psp103.va |psp103.osdi      |psp103va    |
 |BSIMBULK MOSFET 106.2.0   |bsimbulk.va        |bsimbulk.osdi    |bsimbulk    |
-
-All Verilog-A models supplied with VACASK are located in [devices](devices). You can find several models at [www.mos-ak.org](https://www.mos-ak.org/open_dir/). All recent models developed by the [BSIM group at UC Berkeley](https://bsim.berkeley.edu/) are released in Verilog-A. Also take a look at [The Designer's Guide community](https://designers-guide.org/index.html) where various models are available in the [Verilog AMS section](https://designers-guide.org/verilog-ams/index.html). The VBIC model was taken from [Dietmar Warning's repository](https://github.com/dwarning/VA-Models). This repository is an excellent collection of public Verilog-A models. Many of these models have bugfixes and extensions not found elsewhere. When compiling these models, define the `__NGSPICE__` macro (add `-D__NGSPICE__` to your OpenVAF-Reloaded command line). 
 
 The ([Verilog-A Distiller](https://codeberg.org/arpadbuermen/VADistiller)) project's aim is to create a converter from SPICE3 C model format to Verilog-A. At this point the following converted models are available in VACASK (converted with Verilog-A Distiller). 
 
