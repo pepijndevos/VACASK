@@ -37,7 +37,8 @@ control
   save default p(m1,gm) p(m1,p)
   analysis op1 op
 
-  // Initial junction temperature is 27 deg C
+  // Initial junction temperature is 27 deg C. 
+  // By default is it 0. 
   analysis tran1 tran step=0.1m stop=0.2 maxstep=0.1m icmode="uic" ic={"tj", 27}
   
   postprocess(PYTHON, "runme.py")
