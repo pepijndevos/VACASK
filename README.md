@@ -95,13 +95,16 @@ Yes we do. It is bundled with the binary packages. [The user's manual](docs/inde
 - Ngspice netlist converter (under development, see [python/ng2vc.py](python/ng2vc.py))
 - [Xschem](https://xschem.sourceforge.io/stefan/index.html) schematic entry, analysis setup, and results display (use the latest development release). See [demo/xschem](demo/xschem) for more information. 
 - [IHP Open PDK](https://github.com/IHP-GmbH/IHP-Open-PDK) support for the sg13g2 and sg13cmos5l technologies. See [demo/ihp-sg13g2](demo/ihp-sg13g2) and [demo/ihp-sg13cmos5l](demo/ihp-sg13cmos5l) for more information. 
+- Global Foundries GF180 PDK support. See [demo/gf180mcu](demo/gf180mcu) for more information. 
 - Verilog-A natures and disciplines for setting absolute tolerances on unknowns and residuals (see [demo/natures](demo/natures)). 
 - Monte Carlo analysis with Latin hypercube sampling (see [demo/mc](demo/mc)). 
 - Touchstone file to VACASK lumped model converter based on scikit-rf (see [demo/ts](demo/ts)). 
  
 Certain devices (independent voltage and current sources, linear controlled sources, and inductive coupling) are implemented as builtin devices because some features needed by these devices are not available in OpenVAF-Reloaded or even Verilog-A. 
 
-VACASK is being developed by Árpád Bűrmen at the EDA Laboratory, University of Ljubljana, Slovenia. It is written in C++20 and is free software released under the [GNU Affero General Public License 3.0](LICENSE). 
+VACASK is being developed by Árpád Bűrmen at the EDA Laboratory, University of Ljubljana, Slovenia. Several people have contributed to VACASK. See [contributors.md](contributors.md) for details. 
+
+VACASK is written in C++20 and is free software released under the [GNU Affero General Public License 3.0](LICENSE). 
 
 
 # Supported analyses
