@@ -3,9 +3,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // 
 // SPICE flavour: ngspice
-// Version      : ngspice-44-549-ga4ff5a204
+// Version      : ngspice-47-131-g9cf762afb
 // Origin       : https://sourceforge.net/u/arpadbuermen/ngspice/ci/vadng-pre-48/tree/
-// Date         : 2026-08-18 12:21:40 UTC
+// Date         : 2026-09-07 06:16:40 UTC
 // Module name  : sp_diode
 // Model variant: full
 // 
@@ -180,6 +180,7 @@ module sp_diode(a, c);
   (* desc = "Recombination saturation current" *) parameter real isr = 1e-14;
   (* desc = "Recombination current emission coefficient" *) parameter real nr = 2;
   (* desc = "Soft reverse recovery parameter" *) parameter real vp = 0.0;
+  (* desc = "Scaling factor Diff Charge" *) parameter real qpscale = 1000000.0;
   (* desc = "maximum voltage in forward direction" *) parameter real fv_max = 1e+99;
   (* desc = "maximum voltage in reverse direction" *) parameter real bv_max = 1e+99;
   (* desc = "maximum current" *) parameter real id_max = 1e+99;
@@ -199,7 +200,8 @@ module sp_diode(a, c);
   (* desc = "Diode voltage" *) real vd;
   (* desc = "Diode current" *) real id;
   (* desc = "Diode conductance" *) real gd;
-  (* desc = "Diode capacitance" *) real cd;
+  (* desc = "Diode sidewall capacitance" *) real cd;
+  (* desc = "Diode capacitance" *) real cdsw;
   (* desc = "Diode capacitor charge" *) real charge;
   (* desc = "Diode capacitor current" *) real capcur;
   (* desc = "Diode power" *) real p;
@@ -211,7 +213,8 @@ module sp_diode(a, c);
   integer DIOtempNode = 0;
   real DIOcap = 0;
   real DIOcapSW = 0;
-  real DIOqpGain = 0;
+  real DIOqpGainScaled = 0;
+  real DIOcurFactor = 0;
   real i_DIOarea = 0;
   real i_DIOpj = 0;
   real DIOtemp = 0;
@@ -244,6 +247,7 @@ module sp_diode(a, c);
   real i_DIOjunctionSWCap = 0;
   real DIOtRecSatCur = 0;
   real DIOdIth_dVrssw = 0;
+  real DIOdIth_dVdioSw = 0;
   real DIOgcTt = 0;
   real DIOcmetal = 0;
   real DIOcpoly = 0;
@@ -258,6 +262,7 @@ module sp_diode(a, c);
   real DIObrkdEmissionCoeff = 0;
   real DIOactivationEnergy = 0;
   real DIOnomTemp = 0;
+  real DIOqpscale = 0;
   real DIOmetalOxideThick = 0;
   real DIOpolyOxideThick = 0;
   integer DIOnomTempGiven = 0;
@@ -271,11 +276,11 @@ module sp_diode(a, c);
   real DIOvoltage = 0;
   real DIOcurrent = 0;
   real DIOconduct = 0;
+  real DIOcapCharge = 0;
+  real DIOcapCurrent = 0;
   real DIOvoltageSW = 0;
   real DIOcurrentSW = 0;
   real DIOconductSW = 0;
-  real DIOcapCharge = 0;
-  real DIOcapCurrent = 0;
   real DIOcapChargeSW = 0;
   real DIOcapCurrentSW = 0;
   real DIOsrcapCharge = 0;
@@ -283,12 +288,17 @@ module sp_diode(a, c);
   real DIOqp = 0;
   real DIOresCurrent = 0;
   real DIOresConduct = 0;
-  real DIOcqcsr = 0;
   real DIOgqcsr = 0;
 
   // Model parameter access locals
 
   // Instance parameter access locals
+  real vr = 0;
+  real vi = 0;
+  real sr = 0;
+  real si = 0;
+  real vm = 0;
+  real itot = 0;
 
   // Device setup locals
   real scale = 0;
@@ -332,6 +342,7 @@ module sp_diode(a, c);
   real arg2 = 0;
   real lnTRatio = 0;
   real arg0 = 0;
+  real qps = 0;
 
   // Device load locals
   integer limited = 0;
@@ -341,7 +352,7 @@ module sp_diode(a, c);
   real capdsw = 0;
   real load_cd = 0;
   real cdb = 0;
-  real cdsw = 0;
+  real load_cdsw = 0;
   real cdeq = 0;
   real ceq = 0;
   real csat = 0;
@@ -387,9 +398,7 @@ module sp_diode(a, c);
   real deplcapSW = 0;
   real delTemp = 0;
   real Temp = 0;
-  real ceqqth = 0;
   real Ith = 0;
-  real gcTt = 0;
   real vrs = 0;
   real vrssw = 0;
   real dIth_dVdio = 0;
@@ -402,16 +411,24 @@ module sp_diode(a, c);
   real capsr = 0;
   real gqcsr = 0;
   real cqcsr = 0;
+  real cdswinj = 0;
+  real gdswinj = 0;
+  real dIth_dVqp = 0;
+  real ceqqth = 0;
+  real gcTt = 0;
   integer revrec = 0;
   real vds = 0;
   real ikf_area_m = 0;
+  real load1_ikf_area_m = 0;
   real ikr_area_m = 0;
+  real load1_ikr_area_m = 0;
   real ikp_peri_m = 0;
+  real load1_ikp_peri_m = 0;
   real vdx = 0;
   real cdeqsw = 0;
-  real fac = 0;
   real ceqrr = 0;
   real dcrrdvd = 0;
+  real dcrrdT = 0;
   real grr = 0;
   real ceqrrd = 0;
   real geqrrd = 0;
@@ -550,6 +567,9 @@ module sp_diode(a, c);
     if ($param_given(eg)) begin
       DIOactivationEnergy = eg;
     end
+    if ($param_given(qpscale)) begin
+      DIOqpscale = qpscale;
+    end
     if ($param_given(xom)) begin
       DIOmetalOxideThick = xom*1e-10;
       DIOmetalOxideThickGiven = 1;
@@ -594,6 +614,12 @@ module sp_diode(a, c);
       end else begin
         DIOactivationEnergy = 1.11;
       end
+    end
+    if (!$param_given(qpscale)) begin
+      DIOqpscale = 1e6;
+    end else if (!(DIOqpscale>0.0)) begin
+      $warning("qpscale must be positive, using default 1e6 instead");
+      DIOqpscale = 1e6;
     end
     if (DIOsatCur<epsmin) begin
       DIOsatCur = epsmin;
@@ -661,6 +687,10 @@ module sp_diode(a, c);
       DIOcmetal = 3.9*(1.0/(4.0*3.1415926535897932384626433832795*1E-7*299792458*299792458))/DIOmetalOxideThick*(setup_wm*scale+xm)*(setup_lm*scale+xm);
       DIOcpoly = 3.9*(1.0/(4.0*3.1415926535897932384626433832795*1E-7*299792458*299792458))/DIOpolyOxideThick*(setup_wp*scale+xp)*(setup_lp*scale+xp);
     end
+    if (!(i_DIOarea>0.0)) begin
+      $warning("area must be positive, using 1 instead");
+      i_DIOarea = 1.0;
+    end
     i_DIOforwardKneeCurrent = ikf*i_DIOarea;
     i_DIOreverseKneeCurrent = ikr*i_DIOarea;
     i_DIOforwardSWKneeCurrent = ikp*i_DIOpj;
@@ -672,7 +702,7 @@ module sp_diode(a, c);
     if (!$param_given(rsw)) begin
       V(sw_int, a_int) <+ 0;
     end
-    if (!($param_given(vp)&&vp!=0&&tt!=0)) begin
+    if (!($param_given(vp)&&vp!=0.0&&tt!=0.0)) begin
       V(qp_int) <+ 0;
       collapse_qp_int = 1;
     end
@@ -803,6 +833,9 @@ module sp_diode(a, c);
       DIOtBrkdwnV = xbv;
     end
     factor = 1.0+ttt1*dt+ttt2*dt*dt;
+    if (factor<1e-3) begin
+      factor = 1e-3;
+    end
     DIOtTransitTime = tt*factor;
     DIOtConductance = DIOconductance*i_DIOarea;
     if ($param_given(rs)&&rs!=0.0) begin
@@ -818,23 +851,33 @@ module sp_diode(a, c);
     DIOtF3 = 1-fc*(1+DIOtGradingCoeff);
     DIOtF2SW = exp((1+mjsw)*xfcs);
     DIOtF3SW = 1-fcs*(1+mjsw);
+    if (collapse_qp_int==0&&($param_given(vp)&&vp!=0.0&&tt!=0.0)) begin
+      qps = DIOqpscale/i_DIOarea;
+      DIOqpGainScaled = (1-vp)/(DIOtTransitTime*qps);
+      DIOcurFactor = DIOtTransitTime/vp*qps;
+    end else begin
+      DIOqpGainScaled = 0.0;
+      DIOcurFactor = 0.0;
+    end
     // end of inlined: DIOtempUpdate(model, here, here->DIOtemp, ckt)
 
     // Tag: load, function: DIOload
     capdsw = 0.0;
     delvdsw = 0.0;
     vdsw = 0.0;
-    ceqqth = 0.0;
     Ith = 0.0;
-    gcTt = 0.0;
     vrs = 0.0;
     vrssw = 0.0;
     dIth_dVdio = 0.0;
     dIth_dVrs = 0.0;
     dIth_dVdioSw = 0.0;
     dIth_dVrssw = 0.0;
-    revrec = collapse_qp_int==0&&vp!=0&&DIOtTransitTime!=0;
-    cdsw = 0.0;
+    capsr = 0.0;
+    dIth_dVqp = 0.0;
+    ceqqth = 0.0;
+    gcTt = 0.0;
+    revrec = collapse_qp_int==0&&($param_given(vp)&&vp!=0.0&&tt!=0.0);
+    load_cdsw = 0.0;
     gdsw = 0.0;
     delTemp = 0.0;
     load_vt = CONSTKoverQ*DIOtemp;
@@ -885,6 +928,10 @@ module sp_diode(a, c);
     csatsw = DIOtSatSWCur;
     gspr = DIOtConductance;
     gsprsw = DIOtConductanceSW;
+    cdres = 0.0;
+    gdres = 0.0;
+    cdswinj = 0.0;
+    gdswinj = 0.0;
     if ($param_given(jsw)) begin
       if ($param_given(rsw)) begin
         vds = vdsw;
@@ -894,16 +941,20 @@ module sp_diode(a, c);
       if ($param_given(ns)) begin
         if (vds>=-3*vtesw) begin
           evd = exp(vds/vtesw);
-          cdsw = csatsw*(evd-1);
+          load_cdsw = csatsw*(evd-1);
           gdsw = csatsw*evd/vtesw;
+          cdswinj = load_cdsw;
+          gdswinj = gdsw;
         end else if (!$param_given(bv)||vds>=-DIOtBrkdwnV) begin
           argsw = 3*vtesw/(vds*CONSTe);
           argsw = argsw*argsw*argsw;
-          cdsw = -csatsw*(1+argsw);
+          load_cdsw = -csatsw*(1+argsw);
           gdsw = csatsw*3*argsw/vds;
+          cdswinj = load_cdsw;
+          gdswinj = gdsw;
         end else if (!$param_given(rsw)) begin
           evrev = exp(-(DIOtBrkdwnV+vds)/vtebrk);
-          cdsw = -csatsw*evrev;
+          load_cdsw = -csatsw*evrev;
           gdsw = csatsw*evrev/vtebrk;
         end
       end
@@ -912,9 +963,13 @@ module sp_diode(a, c);
       evd = exp(load_vd/load_vte);
       cdb = csat*(evd-1);
       gdb = csat*evd/load_vte;
+      cdres = cdb;
+      gdres = gdb;
       if ($param_given(jsw)&&!$param_given(ns)) begin
-        cdsw = csatsw*(evd-1);
+        load_cdsw = csatsw*(evd-1);
         gdsw = csatsw*evd/load_vte;
+        cdswinj = load_cdsw;
+        gdswinj = gdsw;
       end
       if ($param_given(isr)) begin
         evd_rec = exp(load_vd/vterec);
@@ -941,9 +996,13 @@ module sp_diode(a, c);
         cdb = -csat*(1+load_arg);
       end
       gdb = csat*3*load_arg/load_vd;
+      cdres = -csat*(1+load_arg);
+      gdres = gdb;
       if ($param_given(jsw)&&!$param_given(ns)) begin
-        cdsw = -csatsw*(1+load_arg);
+        load_cdsw = -csatsw*(1+load_arg);
         gdsw = csatsw*3*load_arg/load_vd;
+        cdswinj = load_cdsw;
+        gdswinj = gdsw;
       end
     end else begin
       evrev = exp(-(DIOtBrkdwnV+load_vd)/vtebrk);
@@ -959,14 +1018,14 @@ module sp_diode(a, c);
       gdb = csat*evrev/vtebrk;
       if ($param_given(jsw)&&!$param_given(ns)&&!$param_given(rsw)) begin
         evrev = exp(-(DIOtBrkdwnV+vdsw)/vtebrk);
-        cdsw = -csatsw*evrev;
+        load_cdsw = -csatsw*evrev;
         gdsw = csatsw*evrev/vtebrk;
       end
     end
     if ($param_given(jtunsw)) begin
       vtetun = ntun*load_vt;
       evd = exp(-load_vd/vtetun);
-      cdsw = cdsw-DIOtTunSatSWCur*(evd-1);
+      load_cdsw = load_cdsw-DIOtTunSatSWCur*(evd-1);
       gdsw = gdsw+DIOtTunSatSWCur*evd/vtetun;
     end
     if ($param_given(jtun)) begin
@@ -982,29 +1041,51 @@ module sp_diode(a, c);
         gdb = ((1+sqrt_ikx)*gdb-cdb*gdb/(2*sqrt_ikx*ikf_area_m))/(1+2*sqrt_ikx+cdb/ikf_area_m);
         cdb = cdb/(1+sqrt_ikx);
       end
-    end else if (DIOreverseKneeCurrentGiven&&cdb<-1.0e-18) begin
-      ikr_area_m = i_DIOreverseKneeCurrent;
-      sqrt_ikx = sqrt(cdb/-ikr_area_m);
-      gdb = ((1+sqrt_ikx)*gdb+cdb*gdb/(2*sqrt_ikx*ikr_area_m))/(1+2*sqrt_ikx-cdb/ikr_area_m);
-      cdb = cdb/(1+sqrt_ikx);
+      if (DIOforwardKneeCurrentGiven&&cdres>1.0e-18) begin
+        load1_ikf_area_m = i_DIOforwardKneeCurrent;
+        sqrt_ikx = sqrt(cdres/load1_ikf_area_m);
+        gdres = ((1+sqrt_ikx)*gdres-cdres*gdres/(2*sqrt_ikx*load1_ikf_area_m))/(1+2*sqrt_ikx+cdres/load1_ikf_area_m);
+        cdres = cdres/(1+sqrt_ikx);
+      end
+    end else begin
+      if (DIOreverseKneeCurrentGiven&&cdb<-1.0e-18) begin
+        ikr_area_m = i_DIOreverseKneeCurrent;
+        sqrt_ikx = sqrt(cdb/-ikr_area_m);
+        gdb = ((1+sqrt_ikx)*gdb+cdb*gdb/(2*sqrt_ikx*ikr_area_m))/(1+2*sqrt_ikx-cdb/ikr_area_m);
+        cdb = cdb/(1+sqrt_ikx);
+      end
+      if (DIOreverseKneeCurrentGiven&&cdres<-1.0e-18) begin
+        load1_ikr_area_m = i_DIOreverseKneeCurrent;
+        sqrt_ikx = sqrt(cdres/-load1_ikr_area_m);
+        gdres = ((1+sqrt_ikx)*gdres+cdres*gdres/(2*sqrt_ikx*load1_ikr_area_m))/(1+2*sqrt_ikx-cdres/load1_ikr_area_m);
+        cdres = cdres/(1+sqrt_ikx);
+      end
     end
-    if (DIOforwardSWKneeCurrentGiven&&cdsw>1.0e-18) begin
+    if (DIOforwardSWKneeCurrentGiven&&load_cdsw>1.0e-18) begin
       ikp_peri_m = i_DIOforwardSWKneeCurrent;
-      sqrt_ikx = sqrt(cdsw/ikp_peri_m);
-      gdsw = ((1+sqrt_ikx)*gdsw-cdsw*gdsw/(2*sqrt_ikx*ikp_peri_m))/(1+2*sqrt_ikx+cdsw/ikp_peri_m);
-      cdsw = cdsw/(1+sqrt_ikx);
+      sqrt_ikx = sqrt(load_cdsw/ikp_peri_m);
+      gdsw = ((1+sqrt_ikx)*gdsw-load_cdsw*gdsw/(2*sqrt_ikx*ikp_peri_m))/(1+2*sqrt_ikx+load_cdsw/ikp_peri_m);
+      load_cdsw = load_cdsw/(1+sqrt_ikx);
+    end
+    if (DIOforwardSWKneeCurrentGiven&&cdswinj>1.0e-18) begin
+      load1_ikp_peri_m = i_DIOforwardSWKneeCurrent;
+      sqrt_ikx = sqrt(cdswinj/load1_ikp_peri_m);
+      gdswinj = ((1+sqrt_ikx)*gdswinj-cdswinj*gdswinj/(2*sqrt_ikx*load1_ikp_peri_m))/(1+2*sqrt_ikx+cdswinj/load1_ikp_peri_m);
+      cdswinj = cdswinj/(1+sqrt_ikx);
     end
     if (!$param_given(rsw)) begin
-      load_cd = cdb+cdsw+gmin*load_vd;
+      load_cd = cdb+load_cdsw+gmin*load_vd;
       load_gd = gdb+gdsw+gmin;
     end else begin
       load_cd = cdb+gmin*load_vd;
       load_gd = gdb+gmin;
-      cdsw = cdsw+gmin*vdsw;
+      load_cdsw = load_cdsw+gmin*vdsw;
       gdsw = gdsw+gmin;
     end
-    cdres = load_cd;
-    gdres = load_gd;
+    if (!$param_given(rsw)) begin
+      cdres = cdres + (cdswinj);
+      gdres = gdres + (gdswinj);
+    end
     cqcsr = 0;
     gqcsr = 0;
     czero = DIOtJctCap;
@@ -1069,7 +1150,7 @@ module sp_diode(a, c);
       DIOcapCurrentSW = ddt(DIOcapChargeSW);
       ceq = DIOcapCurrentSW;
       gdsw = gdsw+geq;
-      cdsw = cdsw+DIOcapCurrentSW;
+      load_cdsw = load_cdsw+DIOcapCurrentSW;
     end
     geq = 0;
     DIOsrcapCurrent = ddt(DIOsrcapCharge);
@@ -1083,26 +1164,25 @@ module sp_diode(a, c);
     DIOconduct = load_gd;
     if ($param_given(rsw)) begin
       DIOvoltageSW = vdsw;
-      DIOcurrentSW = cdsw;
+      DIOcurrentSW = load_cdsw;
       DIOconductSW = gdsw;
     end
     DIOqp = vqp;
     DIOresCurrent = cdres;
     DIOresConduct = gdres;
-    DIOcqcsr = cqcsr;
+    DIOsrcapCurrent = cqcsr;
     DIOgqcsr = gqcsr;
     cdeq = load_cd;
     if ($param_given(rsw)) begin
-      cdeqsw = cdsw;
+      cdeqsw = load_cdsw;
     end
     if (revrec) begin
-      fac = DIOtTransitTime/vp;
-      dcrrdvd = fac*gdres;
-      ceqrr = -fac*cdres+cqcsr;
+      dcrrdvd = DIOcurFactor*gdres;
+      dcrrdT = 0.0;
+      ceqrr = -DIOcurFactor*cdres+cqcsr+dcrrdT*delTemp;
       grr = 1/vp;
-      DIOqpGain = (1-vp)/DIOtTransitTime;
-      geqrrd = DIOqpGain*gqcsr;
-      ceqrrd = DIOqpGain*cqcsr;
+      geqrrd = DIOqpGainScaled*gqcsr;
+      ceqrrd = DIOqpGainScaled*cqcsr;
     end
     
     // Residuals
@@ -1130,20 +1210,25 @@ module sp_diode(a, c);
     // Instance output variable computation
     vd = DIOvoltage;
     id = DIOcurrent;
-    if (collapse_qp_int==0&&DIOtTransitTime!=0) begin
-      id = id + (DIOqpGain*DIOcqcsr);
+    if (collapse_qp_int==0&&($param_given(vp)&&vp!=0.0&&tt!=0.0)) begin
+      id = id + (DIOqpGainScaled*DIOsrcapCurrent);
     end
     gd = DIOconduct;
     cd = DIOcap;
-    if (collapse_qp_int==0&&DIOtTransitTime!=0) begin
-      cd = cd + (DIOtTransitTime*DIOconduct);
+    if (collapse_qp_int==0&&($param_given(vp)&&vp!=0.0&&tt!=0.0)) begin
+      cd = cd + ((1-vp)*DIOtTransitTime*DIOresConduct);
     end
+    cdsw = DIOcapSW;
     charge = DIOcapCharge;
-    if (collapse_qp_int==0&&DIOtTransitTime!=0) begin
-      charge = charge + (DIOqpGain*DIOsrcapCharge);
+    if (collapse_qp_int==0&&($param_given(vp)&&vp!=0.0&&tt!=0.0)) begin
+      charge = charge + (DIOqpGainScaled*DIOsrcapCharge);
     end
     capcur = DIOcapCurrent;
-    p = DIOcurrent*DIOvoltage+DIOcurrent*DIOcurrent/DIOtConductance;
+    itot = DIOcurrent;
+    if (collapse_qp_int==0&&($param_given(vp)&&vp!=0.0&&tt!=0.0)) begin
+      itot = itot + (DIOqpGainScaled*DIOsrcapCurrent);
+    end
+    p = itot*DIOvoltage+itot*itot/DIOtConductance;
 
     // Model output variable computation
 

@@ -3,9 +3,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // 
 // SPICE flavour: ngspice
-// Version      : ngspice-44-549-ga4ff5a204
+// Version      : ngspice-47-131-g9cf762afb
 // Origin       : https://sourceforge.net/u/arpadbuermen/ngspice/ci/vadng-pre-48/tree/
-// Date         : 2026-08-18 12:20:34 UTC
+// Date         : 2026-09-07 06:15:37 UTC
 // Module name  : sp_bjt
 // Model variant: sn
 // 
@@ -22,8 +22,9 @@
 //   Model parameter subs chooses whether the device is vertical 
 //   (1, default) or lateral (-1). 
 //   
-//   Output variable is and csub were renamed to isubs and csubs due to 
-//   conflicts with model parameters is and csub. 
+//   Output variables is, csub, vaf, var, ikf, and ikr were renamed to 
+//   isubs, csubs, vaf_i, var_i, ikf_i, and ikr_i due to conflicts with 
+//   model parameters is, csub, vaf, var, ikf, and ikr.  
 //   
 //   Input instance parameter ic was removed. Initial conditions should be 
 //   set via the simulator's initial conditions mechanism. 
@@ -129,7 +130,7 @@ module sp_bjt(c, b, e, sub);
   aliasparam pc = vjc;
   (* desc = "B-C junction grading coefficient" *) parameter real mjc = 0.33;
   aliasparam mc = mjc;
-  (* desc = "Fraction of B-C cap to internal base" *) parameter real xcjc = 1;
+  (* desc = "Fraction of B-C cap to internal base" *) parameter real xcjc = 1.0;
   (* desc = "Ideal reverse transit time" *) parameter real tr = 0;
   (* desc = "Zero bias Substrate capacitance" *) parameter real cjs = 0;
   aliasparam csub = cjs;
@@ -246,18 +247,19 @@ module sp_bjt(c, b, e, sub);
   (* desc = "Cap. due to charge storage in Subs. jct." *) real cqsub;
   (* desc = "Cap. due to charge storage in B-X jct." *) real cqbx;
   (* desc = "Total Capacitance in B-X junction" *) real cexbc;
+  (* desc = "Approximated transit frequency" *) real ft;
   (* desc = "Charge storage B-E junction" *) real qbe;
   (* desc = "Charge storage B-C junction" *) real qbc;
   (* desc = "Charge storage Subs. junction" *) real qsub;
   (* desc = "Charge storage B-X junction" *) real qbx;
+  (* desc = "Forward Early voltage at instance temperature" *) real vaf_i;
+  (* desc = "Reverse Early voltage at instance temperature" *) real var_i;
+  (* desc = "Collector conductance, scaled and at instance temperature" *) real collectorconduct;
+  (* desc = "Emitter conductance, scaled and at instance temperature" *) real emitterconduct;
+  (* desc = "Forward knee current, scaled and at instance temperature" *) real ikf_i;
+  (* desc = "Reverse knee current, scaled and at instance temperature" *) real ikr_i;
 
   // Model output variables
-  (* desc = "Inverse early voltage:forward" *) real invearlyvoltf;
-  (* desc = "Inverse early voltage:reverse" *) real invearlyvoltr;
-  (* desc = "Inverse roll off - forward" *) real invrollofff;
-  (* desc = "Inverse roll off - reverse" *) real invrolloffr;
-  (* desc = "Collector conductance" *) real collectorconduct;
-  (* desc = "Emitter conductance" *) real emitterconduct;
   (* desc = "Transit time VBC factor" *) real transtimevbcfact;
   (* desc = "Excess phase fact." *) real excessphasefactor;
 
@@ -328,24 +330,18 @@ module sp_bjt(c, b, e, sub);
   // Model fields
   integer BJTsubs = 0;
   real BJTtnom = 0;
+  real BJTsatCur = 0;
   real BJTleakBEcurrent = 0;
   real BJTleakBCcurrent = 0;
   real BJTminBaseResist = 0;
+  real BJTbaseFractionBCcap = 0;
   real BJTdepletionCapCoeff = 0;
   real BJTintCollResist = 0;
+  integer BJTtlev = 0;
+  integer BJTtlevc = 0;
   real BJTnkf = 0;
-  real BJTinvEarlyVoltF = 0;
-  real BJTinvEarlyVoltR = 0;
-  real BJTinvRollOffF = 0;
-  real BJTinvRollOffR = 0;
-  real BJTcollectorConduct = 0;
-  real BJTemitterConduct = 0;
   real BJTtransitTimeVBCFactor = 0;
   real BJTexcessPhaseFactor = 0;
-  real BJTf2 = 0;
-  real BJTf3 = 0;
-  real BJTf6 = 0;
-  real BJTf7 = 0;
   real BJTtempExpRCI = 0;
   real BJTtempExpVO = 0;
   integer BJTtype = 0;
@@ -356,6 +352,7 @@ module sp_bjt(c, b, e, sub);
   real BJTvbc = 0;
   real BJTvbcx = 0;
   real BJTvrci = 0;
+  real BJTvbx = 0;
   real BJTcc = 0;
   real BJTcb = 0;
   real BJTgpi = 0;
@@ -389,6 +386,12 @@ module sp_bjt(c, b, e, sub);
   // Model parameter access locals
 
   // Instance parameter access locals
+  real tmp = 0;
+  real vr = 0;
+  real vi = 0;
+  real sr = 0;
+  real si = 0;
+  real vm = 0;
 
   // Device setup locals
 
@@ -399,7 +402,6 @@ module sp_bjt(c, b, e, sub);
   real ratlog = 0;
   real ratio1 = 0;
   real factlog = 0;
-  real bfactor = 0;
   real factor = 0;
   real fact1 = 0;
   real fact2 = 0;
@@ -413,6 +415,7 @@ module sp_bjt(c, b, e, sub);
   real arg1 = 0;
   real pbfact1 = 0;
   real egfet1 = 0;
+  real bfactor = 0;
   real rT = 0;
   real xvar1 = 0;
   real xvar2 = 0;
@@ -427,8 +430,6 @@ module sp_bjt(c, b, e, sub);
   real argtf = 0;
   real capbc = 0;
   real capbe = 0;
-  real capbx = 0;
-  real capsub = 0;
   real cb = 0;
   real cbc = 0;
   real cbcn = 0;
@@ -507,6 +508,9 @@ module sp_bjt(c, b, e, sub);
   real evsub = 0;
   real load_gdsub = 0;
   real cdsub = 0;
+  integer ttype = 0;
+  real capbx = 0;
+  real capsub = 0;
   real vrci = 0;
   real Irci = 0;
   real Irci_Vrci = 0;
@@ -518,7 +522,6 @@ module sp_bjt(c, b, e, sub);
   real Qbcx_Vbcx = 0;
   real gbcx = 0;
   real cbcx = 0;
-  integer ttype = 0;
   real Kbci = 0;
   real Kbci_Vbci = 0;
   real Kbcx = 0;
@@ -539,9 +542,12 @@ module sp_bjt(c, b, e, sub);
   real quot = 0;
   real quot_Vrci = 0;
   real rhs_current = 0;
+  real ceqbcx = 0;
 
   // Device noise locals
   real noise_dtemp = 0;
+  real noise_vrci = 0;
+  real grci = 0;
 
   // Global constants
   real CONSTroot2 = sqrt(2.0);
@@ -657,6 +663,9 @@ module sp_bjt(c, b, e, sub);
       BJTtnom = tnom+273.15;
       BJTtnomGiven = 1;
     end
+    if ($param_given(is)) begin
+      BJTsatCur = is;
+    end
     if ($param_given(ise)) begin
       BJTleakBEcurrent = ise;
     end
@@ -666,11 +675,20 @@ module sp_bjt(c, b, e, sub);
     if ($param_given(rbm)) begin
       BJTminBaseResist = rbm;
     end
+    if ($param_given(xcjc)) begin
+      BJTbaseFractionBCcap = xcjc;
+    end
     if ($param_given(fc)) begin
       BJTdepletionCapCoeff = fc;
     end
     if ($param_given(rco)) begin
       BJTintCollResist = rco;
+    end
+    if ($param_given(tlev)) begin
+      BJTtlev = tlev;
+    end
+    if ($param_given(tlevc)) begin
+      BJTtlevc = tlevc;
     end
     if ($param_given(nkf)) begin
       BJTnkf = nkf;
@@ -696,18 +714,45 @@ module sp_bjt(c, b, e, sub);
         BJTsubs = -1;
       end
     end
+    if (!$param_given(is)) begin
+      BJTsatCur = 1e-16;
+    end else if (BJTsatCur<=0.0) begin
+      $warning("IS <= 0 - set to its default value: 1e-16");
+      BJTsatCur = 1e-16;
+    end
     if (!$param_given(ise)) begin
       BJTleakBEcurrent = 0;
     end else if (BJTleakBEcurrent>1e-04) begin
-      BJTleakBEcurrent = is*BJTleakBEcurrent;
+      BJTleakBEcurrent = BJTsatCur*BJTleakBEcurrent;
     end
     if (!$param_given(isc)) begin
       BJTleakBCcurrent = 0;
     end else if (BJTleakBCcurrent>1e-04) begin
-      BJTleakBCcurrent = is*BJTleakBCcurrent;
+      BJTleakBCcurrent = BJTsatCur*BJTleakBCcurrent;
+    end
+    if (!$param_given(xcjc)) begin
+      BJTbaseFractionBCcap = 1.0;
+    end else if (BJTbaseFractionBCcap<0.0) begin
+      $warning("XCJC = %g outside range 0...1 - set to 0", BJTbaseFractionBCcap);
+      BJTbaseFractionBCcap = 0.0;
+    end else if (BJTbaseFractionBCcap>1.0) begin
+      $warning("XCJC = %g outside range 0...1 - set to 1", BJTbaseFractionBCcap);
+      BJTbaseFractionBCcap = 1.0;
     end
     if (!$param_given(rco)||BJTintCollResist<0.01) begin
       BJTintCollResist = 0.01;
+    end
+    if (!$param_given(tlev)) begin
+      BJTtlev = 0;
+    end else if (BJTtlev!=0&&BJTtlev!=1&&BJTtlev!=3) begin
+      $warning("TLEV=%d not available - set to 0", BJTtlev);
+      BJTtlev = 0;
+    end
+    if (!$param_given(tlevc)) begin
+      BJTtlevc = 0;
+    end else if (BJTtlevc!=0&&BJTtlevc!=1) begin
+      $warning("TLEVC=%d not available - set to 0", BJTtlevc);
+      BJTtlevc = 0;
     end
     if (!$param_given(nkf)) begin
       BJTnkf = 0.5;
@@ -754,7 +799,6 @@ module sp_bjt(c, b, e, sub);
     end
 
     // Tag: temp, function: BJTtemp
-    bfactor = 1.0;
     if (!BJTtnomGiven) begin
       BJTtnom = VACONST_tnom;
     end
@@ -857,9 +901,9 @@ module sp_bjt(c, b, e, sub);
     ratlog = ln(BJTtemp/BJTtnom);
     ratio1 = BJTtemp/BJTtnom-1;
     factlog = ratio1*eg/vt+xti*ratlog;
-    if (tlev==0||tlev==1) begin
+    if (BJTtlev==0||BJTtlev==1) begin
       factor = exp(factlog);
-      BJTtSatCur = area*is*factor;
+      BJTtSatCur = area*BJTsatCur*factor;
       if ($param_given(ibe)&&$param_given(ibc)) begin
         factor = exp(factlog/nf);
         BJTBEtSatCur = area*ibe*factor;
@@ -870,13 +914,14 @@ module sp_bjt(c, b, e, sub);
         factor = exp(factlog/nr);
         BJTBCtSatCur = ibc*factor;
       end else begin
-        BJTBCtSatCur = BJTtSatCur;
+        BJTBCtSatCur = BJTtSatCur/area;
       end
+      factor = exp(factlog/ns);
       if ($param_given(iss)) begin
         BJTtSubSatCur = iss*factor;
       end
-    end else if (tlev==3) begin
-      BJTtSatCur = area*pow(is, 1+tis1*dt+tis2*dt*dt);
+    end else if (BJTtlev==3) begin
+      BJTtSatCur = area*pow(BJTsatCur, 1+tis1*dt+tis2*dt*dt);
       if ($param_given(ibe)&&$param_given(ibc)) begin
         BJTBEtSatCur = area*pow(ibe, 1+tis1*dt+tis2*dt*dt);
       end else begin
@@ -885,7 +930,7 @@ module sp_bjt(c, b, e, sub);
       if ($param_given(ibe)&&$param_given(ibc)) begin
         BJTBCtSatCur = pow(ibc, 1+tis1*dt+tis2*dt*dt);
       end else begin
-        BJTBCtSatCur = BJTtSatCur;
+        BJTBCtSatCur = BJTtSatCur/area;
       end
       if ($param_given(iss)) begin
         BJTtSubSatCur = pow(iss, 1+tiss1*dt+tiss2*dt*dt);
@@ -922,9 +967,10 @@ module sp_bjt(c, b, e, sub);
         BJTtepiDoping = gamma;
       end
     end
-    if (tlev==0) begin
+    bfactor = 1.0;
+    if (BJTtlev==0) begin
       bfactor = exp(ratlog*xtb);
-    end else if (tlev==1) begin
+    end else if (BJTtlev==1) begin
       bfactor = 1+xtb*dt;
     end
     if ($param_given(tbf1)||$param_given(tbf2)) begin
@@ -937,10 +983,10 @@ module sp_bjt(c, b, e, sub);
     end else begin
       BJTtBetaR = br*bfactor;
     end
-    if (tlev==0||tlev==1) begin
+    if (BJTtlev==0||BJTtlev==1) begin
       BJTtBEleakCur = area*BJTleakBEcurrent*exp(factlog/ne)/bfactor;
       BJTtBCleakCur = BJTleakBCcurrent*exp(factlog/nc)/bfactor;
-    end else if (tlev==3) begin
+    end else if (BJTtlev==3) begin
       BJTtBEleakCur = area*pow(BJTleakBEcurrent, 1+tise1*dt+tise2*dt*dt);
       BJTtBCleakCur = pow(BJTleakBCcurrent, 1+tisc1*dt+tisc2*dt*dt);
     end
@@ -949,26 +995,26 @@ module sp_bjt(c, b, e, sub);
     end else begin
       BJTtBCleakCur = BJTtBCleakCur * (BJTareac);
     end
-    if (tlevc==0) begin
+    if (BJTtlevc==0) begin
       pbo = (vje-pbfact1)/fact1;
       gmaold = (vje-pbo)/pbo;
       BJTtBEcap = cje/(1+BJTtjunctionExpBE*(4e-4*(BJTtnom-(27.0+273.15))-gmaold));
       BJTtBEpot = fact2*pbo+pbfact;
       gmanew = (BJTtBEpot-pbo)/pbo;
       BJTtBEcap = BJTtBEcap * (1+BJTtjunctionExpBE*(4e-4*(BJTtemp-(27.0+273.15))-gmanew));
-    end else if (tlevc==1) begin
+    end else if (BJTtlevc==1) begin
       BJTtBEcap = cje*(1+cte*dt);
       BJTtBEpot = vje-tvje*dt;
     end
     BJTtBEcap = BJTtBEcap * (area);
-    if (tlevc==0) begin
+    if (BJTtlevc==0) begin
       pbo = (vjc-pbfact1)/fact1;
       gmaold = (vjc-pbo)/pbo;
       BJTtBCcap = cjc/(1+BJTtjunctionExpBC*(4e-4*(BJTtnom-(27.0+273.15))-gmaold));
       BJTtBCpot = fact2*pbo+pbfact;
       gmanew = (BJTtBCpot-pbo)/pbo;
       BJTtBCcap = BJTtBCcap * (1+BJTtjunctionExpBC*(4e-4*(BJTtemp-(27.0+273.15))-gmanew));
-    end else if (tlevc==1) begin
+    end else if (BJTtlevc==1) begin
       BJTtBCcap = cjc*(1+ctc*dt);
       BJTtBCpot = vjc-tvjc*dt;
     end
@@ -977,14 +1023,14 @@ module sp_bjt(c, b, e, sub);
     end else begin
       BJTtBCcap = BJTtBCcap * (BJTareac);
     end
-    if (tlevc==0) begin
+    if (BJTtlevc==0) begin
       pbo = (vjs-pbfact1)/fact1;
       gmaold = (vjs-pbo)/pbo;
       BJTtSubcap = cjs/(1+BJTtjunctionExpSub*(4e-4*(BJTtnom-(27.0+273.15))-gmaold));
       BJTtSubpot = fact2*pbo+pbfact;
       gmanew = (BJTtSubpot-pbo)/pbo;
       BJTtSubcap = BJTtSubcap * (1+BJTtjunctionExpSub*(4e-4*(BJTtemp-(27.0+273.15))-gmanew));
-    end else if (tlevc==1) begin
+    end else if (BJTtlevc==1) begin
       BJTtSubcap = cjs*(1+cts*dt);
       BJTtSubpot = vjs-tvjs*dt;
     end
@@ -1014,10 +1060,15 @@ module sp_bjt(c, b, e, sub);
     end
 
     // Tag: load, function: BJTload
-    capbx = 0;
-    capsub = 0;
     vbx = 0.0;
     vsub = 0.0;
+    ttype = BJTtype*BJTsubs;
+    load_vt = BJTtemp*CONSTKoverQ;
+    gcsub = 0;
+    geqbx = 0;
+    geqcb = 0;
+    capbx = 0;
+    capsub = 0;
     vrci = 0.0;
     Irci = 0.0;
     Irci_Vrci = 0.0;
@@ -1025,14 +1076,10 @@ module sp_bjt(c, b, e, sub);
     Irci_Vbcx = 0.0;
     Qbci = 0.0;
     Qbci_Vbci = 0.0;
+    Qbcx = 0.0;
     Qbcx_Vbcx = 0.0;
-    ttype = BJTtype*BJTsubs;
-    load_vt = BJTtemp*CONSTKoverQ;
-    gcsub = 0;
-    geqbx = 0;
-    geqcb = 0;
-    gbcx = 0;
-    cbcx = 0;
+    gbcx = 0.0;
+    cbcx = 0.0;
     rbpi = BJTtbaseResist-BJTtminBaseResist;
     vte = BJTtleakBEemissionCoeff*load_vt;
     vtc = BJTtleakBCemissionCoeff*load_vt;
@@ -1051,7 +1098,7 @@ module sp_bjt(c, b, e, sub);
     if ($param_given(iss)) begin
       vsub = DEVpnjlim(vsub, BJTvsub, load_vt, BJTtSubVcrit, limited);
     end else begin
-      vsub = DEVpnjlim(vsub, BJTvsub, load_vt, 50, limited);
+      vsub = DEVpnjlim(vsub, BJTvsub, load_vt, 50.0, limited);
     end
     vrci = load_vbc-vbcx;
     if (initialize_limiting()) begin
@@ -1140,7 +1187,7 @@ module sp_bjt(c, b, e, sub);
         Kbcx = sqrt(1+BJTtepiDoping*exp(vbcx/load_vt));
         Kbcx_Vbcx = BJTtepiDoping*exp(vbcx/load_vt)/(2*load_vt*Kbcx);
         rKp1 = (1+Kbci)/(1+Kbcx);
-        rKp1_Vbci = Kbci_Vbci/(1+Kbci);
+        rKp1_Vbci = Kbci_Vbci/(1+Kbcx);
         rKp1_Vbcx = -(1+Kbci)*Kbcx_Vbcx/((Kbcx+1)*(Kbcx+1));
         load_xvar1 = ln(rKp1);
         xvar1_Vbci = rKp1_Vbci/rKp1;
@@ -1247,7 +1294,7 @@ module sp_bjt(c, b, e, sub);
     czbe = BJTtBEcap;
     load_pe = BJTtBEpot;
     xme = BJTtjunctionExpBE;
-    cdis = xcjc;
+    cdis = BJTbaseFractionBCcap;
     ctot = BJTtBCcap;
     czbc = ctot*cdis;
     czbx = ctot-czbc;
@@ -1363,6 +1410,7 @@ module sp_bjt(c, b, e, sub);
     BJTvbe = load_vbe;
     BJTvbc = load_vbc;
     BJTvbcx = vbcx;
+    BJTvbx = vbx;
     BJTvrci = vrci;
     BJTcc = cc;
     BJTcb = cb;
@@ -1373,6 +1421,7 @@ module sp_bjt(c, b, e, sub);
     BJTgx = load_gx;
     BJTgeqcb = geqcb;
     BJTgcsub = gcsub;
+    BJTgbcx = gbcx;
     BJTgeqbx = geqbx;
     BJTvsub = vsub;
     BJTgdsub = load_gdsub;
@@ -1388,6 +1437,7 @@ module sp_bjt(c, b, e, sub);
     ceqbc = BJTtype*-cc;
     if ($param_given(rco)) begin
       rhs_current = BJTtype*Irci;
+      ceqbcx = BJTtype*cbcx;
     end
     
     // Residuals
@@ -1395,9 +1445,9 @@ module sp_bjt(c, b, e, sub);
     I(b) <+ load_gx*V(b, b_int)+ceqbx;
     I(e) <+ BJTtemitterConduct*V(e, e_int);
     I(sub) <+ ceqsub;
-    I(cx_int) <+ BJTtcollectorConduct*V(cx_int, c)+gbcx*V(cx_int, b_int)+(rhs_current+-cbcx);
+    I(cx_int) <+ BJTtcollectorConduct*V(cx_int, c)+(rhs_current+-ceqbcx);
     I(c_int) <+ -(ceqbx+ceqbc)+-rhs_current;
-    I(b_int) <+ gbcx*V(b_int, cx_int)+load_gx*V(b_int, b)+(-(-ceqbe-ceqbc)+cbcx);
+    I(b_int) <+ load_gx*V(b_int, b)+(-(-ceqbe-ceqbc)+ceqbcx);
     I(e_int) <+ BJTtemitterConduct*V(e_int, e)+-ceqbe;
     I(sub_con) <+ -ceqsub;
 
@@ -1408,6 +1458,13 @@ module sp_bjt(c, b, e, sub);
       noise_dtemp = dtemp;
     end
     I(cx_int, c) <+ white_noise(4*(VACONSTboltz*(($temperature+noise_dtemp)*BJTtcollectorConduct)), "rc");
+    noise_vrci = BJTvrci;
+    if (noise_vrci!=0.0) begin
+      grci = BJTirci/noise_vrci;
+    end else begin
+      grci = BJTirci_Vrci;
+    end
+    I(cx_int, c_int) <+ white_noise(4*(VACONSTboltz*(($temperature+noise_dtemp)*((grci>0.0) ? (grci) : (0.0)))), "rci");
     I(b_int, b) <+ white_noise(4*(VACONSTboltz*(($temperature+noise_dtemp)*BJTgx)), "rb");
     I(e_int, e) <+ white_noise(4*(VACONSTboltz*(($temperature+noise_dtemp)*BJTtemitterConduct)), "re");
     I(c_int, e_int) <+ white_noise(2*(VACONSTcharge*BJTdcCollectorCurrent), "ic");
@@ -1432,10 +1489,38 @@ module sp_bjt(c, b, e, sub);
     cqsub = BJTcapsub;
     cqbx = BJTcapbx;
     cexbc = geqcb;
+    tmp = BJTcapbe+BJTcapbc;
+    if (tmp>0.0) begin
+      ft = BJTgm/(2*3.1415926535897932384626433832795*tmp);
+    end else begin
+      ft = 0.0;
+    end
     qbe = BJTqbe;
     qbc = BJTqbc;
     qsub = BJTqsub;
     qbx = BJTqbx;
+    if (BJTtinvEarlyVoltF!=0.0) begin
+      vaf_i = 1.0/BJTtinvEarlyVoltF;
+    end else begin
+      vaf_i = 0.0;
+    end
+    if (BJTtinvEarlyVoltR!=0.0) begin
+      var_i = 1.0/BJTtinvEarlyVoltR;
+    end else begin
+      var_i = 0.0;
+    end
+    collectorconduct = BJTtcollectorConduct;
+    emitterconduct = BJTtemitterConduct;
+    if (BJTtinvRollOffF!=0.0) begin
+      ikf_i = 1.0/BJTtinvRollOffF;
+    end else begin
+      ikf_i = 0.0;
+    end
+    if (BJTtinvRollOffR!=0.0) begin
+      ikr_i = 1.0/BJTtinvRollOffR;
+    end else begin
+      ikr_i = 0.0;
+    end
 
     // Model output variable computation
 
