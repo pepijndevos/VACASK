@@ -1,0 +1,40 @@
+SPICE pwr() translated to VACASK, with ngspice's two different meanings
+
+ground 0
+include "spice_pwr.cir" lang=ngspice
+
+control
+  abort always
+  options rawfile="binary"
+  analysis op1 op
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+from runtest import *
+import sys
+
+p = rawread("op1.raw").get()
+
+tests = []
+for node, expected, what in (
+    # .param context: pwr(x,y) = |x|**y
+    ("a",   8.0,               "pwr(-2,3) in .param discards the sign"),
+    ("b",   2.0,               "pwr(-4,0.5) in .param discards the sign"),
+    ("c",   2.0,               "nested pwr() in .param"),
+    ("d",   6.0,               "an identifier starting with pwr is not rewritten"),
+    # behavioral context: pwr(x,y) = sgn(x)*|x|**y
+    ("e1", -8.0,               "pwr(v(x),3) in a B-source keeps the sign"),
+    ("e2", -(2.0 ** 2.5),      "pwr(v(x),2.5) in a B-source keeps the sign"),
+    ("e3",  8.0,               "pwr(v(y),3) with a positive base"),
+    ("e4", -10.0,              "sgn() in a B-source"),
+    ("e5",  8.0,               "pwr() inside a behavioral resistance"),
+):
+    ok = bool((relDiff(p[node], expected, 1e-9) < 1e-6).all())
+    print(what, ok)
+    tests.append(ok)
+
+if isTest():
+    sys.exit(not all(tests))
+>>>FILE

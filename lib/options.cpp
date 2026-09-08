@@ -33,6 +33,11 @@ Id SimulatorOptions::relrefAlllocal = Id::createStatic("alllocal"); // relref va
 Id SimulatorOptions::relrefSigglobal = Id::createStatic("sigglobal"); // relref value sigglobal
 Id SimulatorOptions::relrefAllglobal = Id::createStatic("allglobal"); // relref value allglobal
 
+// Values for unknownparam
+Id SimulatorOptions::unknownparamError = Id::createStatic("error"); // abort on an undeclared model/instance parameter
+Id SimulatorOptions::unknownparamWarn = Id::createStatic("warn"); // report it and drop it
+Id SimulatorOptions::unknownparamIgnore = Id::createStatic("ignore"); // drop it silently
+
 // Values for rawfile
 Id SimulatorOptions::rawfileAscii = Id::createStatic("ascii");
 Id SimulatorOptions::rawfileBinary = Id::createStatic("binary");
@@ -209,6 +214,8 @@ SimulatorOptions::SimulatorOptions() {
     pss_itl      = 50;   // >0, max outer NR iterations for PSS shooting loop
     pss_debug    = 0;    // >0 = enables debugging
 
+    unknownparam = unknownparamError; // error, warn, or ignore
+                                      // how to handle a model/instance parameter the master does not declare
     rawfile = "binary"; // ascii or binary
     strictoutput = 2; // 0 = leave output files in place after error, 
                       // 1 = delete output files on error
@@ -329,6 +336,8 @@ template<> int Introspection<SimulatorOptions>::setup() {
     registerMember(pss_itl);
     registerMember(pss_debug);
     
+    registerMember(unknownparam);
+
     registerMember(rawfile);
     registerMember(strictoutput);
     registerMember(strictsave);
@@ -364,8 +373,8 @@ bool SimulatorOptions::staticInitialize() {
         mappingAffectingOptions.insert({it, static_cast<ParameterIndex>(ndx)});
     }
 
-    // Options that affect parameterized expressions 
-    // Currently only temp (mapped to $temp) 
+    // Options that affect parameterized expressions
+    // temp and scale are mapped to $temp and $scale
     for(auto it : std::initializer_list<Id>{
         Id::createStatic("temp"),
         Id::createStatic("tnom"),
@@ -400,6 +409,20 @@ bool SimulatorOptions::staticInitialize() {
 }
 
 static bool dummy = SimulatorOptions::staticInitialize();
+
+Parameterized::UnknownParam SimulatorOptions::unknownParameterPolicy() const {
+    // A relaxed policy is a compatibility fallback, not a correctness one: a
+    // dropped parameter that does matter yields wrong numbers instead of a stop.
+    // So anything that is not one of the two relaxed spellings stays strict,
+    // which also means a typo in the option value cannot quietly disable the check.
+    if (unknownparam==unknownparamIgnore) {
+        return Parameterized::UnknownParam::Ignore;
+    }
+    if (unknownparam==unknownparamWarn) {
+        return Parameterized::UnknownParam::Warn;
+    }
+    return Parameterized::UnknownParam::Error;
+}
 
 bool SimulatorOptions::optionsDiffer(std::unordered_map<Id, ParameterIndex>& optionsList, SimulatorOptions& opt) {
     for(auto& it : optionsList) {

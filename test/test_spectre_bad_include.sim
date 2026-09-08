@@ -1,0 +1,9 @@
+Spectre missing nested include must fail
+
+ground 0
+include "spectre_bad_include.scs" lang=spectre
+
+control
+  abort always
+  analysis op1 op
+endc

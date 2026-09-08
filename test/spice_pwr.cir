@@ -1,0 +1,41 @@
+* ngspice pwr(): |x|^y in .param/.model expressions (numparam, xpressn.c),
+* sgn(x)*|x|^y in behavioral source expressions (inpptree.c/ptfuncs.c PTpwr).
+* Every value below is checked analytically by test_spice_pwr.sim.
+
+* ---- .param context: pwr(x,y) = |x|^y, sign of x discarded ----
+.param pa=pwr(-2,3)
+.param pb=pwr(-4,0.5)
+.param pc=pwr(pwr(-2,2),0.5)
+* An identifier that merely starts with "pwr" is not a call and must survive.
+.param pwrx=3
+.param pd='pwrx*2'
+
+Va a 0 dc {pa}
+Ra a 0 1meg
+Vb b 0 dc {pb}
+Rb b 0 1meg
+Vc c 0 dc {pc}
+Rc c 0 1meg
+Vd d 0 dc {pd}
+Rd d 0 1meg
+
+* ---- behavioral context: pwr(x,y) = sgn(x)*|x|^y, sign of x kept ----
+Vx x 0 dc -2
+Vy y 0 dc 2
+
+B1 e1 0 v=pwr(v(x),3)
+Re1 e1 0 1meg
+B2 e2 0 v=pwr(v(x),2.5)
+Re2 e2 0 1meg
+B3 e3 0 v=pwr(v(y),3)
+Re3 e3 0 1meg
+
+* ngspice's own sgn(), which the behavioral translator needs for pwr().
+B4 e4 0 v=sgn(v(x))*10
+Re4 e4 0 1meg
+
+* pwr() inside a behavioral resistance: R = 1000*pwr(v(y),3) = 8k, at 1 mA.
+I5 0 e5 dc 1m
+R5 e5 0 r='1000*pwr(v(y),3)'
+
+.end

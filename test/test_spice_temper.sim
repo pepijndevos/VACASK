@@ -1,0 +1,43 @@
+SPICE 'temper' rewritten to $temp
+
+ground 0
+include "spice_temper.cir" lang=ngspice
+
+control
+  abort always
+  options rawfile="binary"
+  options temp=27
+  analysis op1 op
+  options temp=127
+  analysis op2 op
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+from runtest import *
+import sys
+
+lo = rawread("op1.raw").get()
+hi = rawread("op2.raw").get()
+
+tests = []
+for node, at27, at127, what in (
+    ("out1", 1.0, 1.1, "temper in a .param expression"),
+    ("out2", 2.0, 3.0, "temper in an instance parameter expression"),
+    ("out3", 3.0, 4.0, "TEMPER spelled in upper case"),
+    ("out4", 5.0, 5.0, "temperature/mytemper stay ordinary parameters"),
+    ("out5", 2.0, 2.2, "temper in a behavioral resistance"),
+    ("out6", 6.0, 7.0, "temper on a .model card parameter"),
+    ("out7", 7.0, 8.0, "temper inside a .subckt"),
+    ("out8", 8.0, 8.0, "temper inside a v() probe names a node"),
+    ("out9", 1.0, 2.0, "temper in a source function argument"),
+):
+    ok = bool((relDiff(lo[node], at27, 1e-9) < 1e-6).all()
+              and (relDiff(hi[node], at127, 1e-9) < 1e-6).all())
+    print(what, ok)
+    tests.append(ok)
+
+if isTest():
+    sys.exit(not all(tests))
+>>>FILE

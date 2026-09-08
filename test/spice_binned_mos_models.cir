@@ -1,0 +1,3 @@
+* Deliberately distinct thresholds make the selected geometry observable.
+.model nbin_model.1 nmos level=49 lmin=1e-7 lmax=5e-7 wmin=1e-7 wmax=1e-3 vth0=0.35
+.model nbin_model.2 nmos level=49 lmin=5e-7 lmax=1e-5 wmin=1e-7 wmax=1e-3 vth0=0.95

@@ -9,6 +9,7 @@ Options are organized into the following groups. Each is documented in its own s
 | Group | Description |
 |-------|-------------|
 | [**Temperature, scale, and conductances**](cmd-options-temp.md) | `temp`, `tnom`, `scale`, `gmin`, `gshunt`, `minr` |
+| [**Parameter handling**](cmd-options-params.md) | `unknownparam` |
 | [**Tolerances**](cmd-options-tol.md) | `tolmode`, `tolscale`, `reltol`, `abstol`, `vntol`, `chgtol`, `fluxtol` |
 | [**Relative tolerance reference**](cmd-options-relref.md) | `relref`, `relrefsol`, `relrefres`, `relreflte` |
 | [**Newton-Raphson solver**](cmd-options-nr.md) | `nr_*` options, `matrixcheck`, `rhscheck`, `solutioncheck`, `rcondcheck`, `strictforce` |

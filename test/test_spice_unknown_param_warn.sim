@@ -1,0 +1,11 @@
+Undeclared model/instance parameters are reported when unknownparam="warn"
+
+ground 0
+include "spice_unknown_param.cir" lang=ngspice
+
+control
+  abort always
+  options rawfile="binary"
+  options unknownparam="warn"
+  analysis op1 op
+endc

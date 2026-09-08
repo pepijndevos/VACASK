@@ -1,0 +1,2 @@
+* model library for nested include test
+.model dmod d is=1e-14

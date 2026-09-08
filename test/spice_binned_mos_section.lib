@@ -1,0 +1,17 @@
+* Mirrors GF180: a corner section loads binned cards from another section,
+* while the public device wrapper remains at file scope.
+.lib typical
+.lib 'spice_binned_mos_section.lib' nsection_t
+.lib 'spice_binned_mos_section.lib' nsection_device
+.endl typical
+
+.lib nsection_t
+.model nsection_model.1 nmos level=49 lmin=1e-7 lmax=5e-7 wmin=1e-7 wmax=1e-3 vth0=0.35
+.model nsection_model.2 nmos level=49 lmin=5e-7 lmax=1e-5 wmin=1e-7 wmax=1e-3 vth0=0.95
+.endl nsection_t
+
+.lib nsection_device
+.subckt nsection d g s b l=1 w=1
+M0 d g s b nsection_model l={l} w={w}
+.ends
+.endl nsection_device

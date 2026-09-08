@@ -1,0 +1,8 @@
+simulator lang=spectre
+parameters c0=1u v0=5
+r1 (1 2) res r=1k
+c1 (2 0) cap c=2*c0
+v1 (1 0) vsrc type="pulse" val0=0 val1=v0 delay=1m rise=1u fall=1u width=4m
+model res resistor
+model cap capacitor
+model vsrc vsource

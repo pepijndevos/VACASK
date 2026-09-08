@@ -1,0 +1,37 @@
+Undeclared model/instance parameters are dropped when unknownparam="ignore"
+
+ground 0
+include "spice_unknown_param.cir" lang=ngspice
+
+control
+  abort always
+  options rawfile="binary"
+  options unknownparam="ignore"
+  analysis op1 op
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+from runtest import *
+import sys
+
+p = rawread("op1.raw").get()
+v = lambda n: float(p[n][0])
+
+# The deck elaborating at all is half the test: with the default policy it stops
+# at "Parameter 'dcap' not found."
+ic = (3.0 - v("c2")) / 1e3
+gain = 80e-6 < ic < 120e-6
+
+# A dropped parameter must be a no-op, not a parameter set to something else.
+model_same = v("c1") == v("c2")
+inst_same = v("d1") == v("d2")
+
+ok = bool(gain and model_same and inst_same)
+print("unknownparam=ignore drops undeclared parameters without changing the OP",
+      ok, "ic", ic, "v(c1)", v("c1"), "v(c2)", v("c2"),
+      "v(d1)", v("d1"), "v(d2)", v("d2"))
+if isTest():
+    sys.exit(not ok)
+>>>FILE

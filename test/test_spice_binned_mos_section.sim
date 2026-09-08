@@ -1,0 +1,34 @@
+SPICE sectioned MOS model-bin selection
+
+ground 0
+include "spice_binned_mos_section.lib" lang=ngspice section=typical
+model v vsource
+model r resistor
+vdd (vdd 0) v dc=1.2
+vgate (gate 0) v dc=1.2
+rshort (vdd out_short) r r=2k
+rlong (vdd out_long) r r=2k
+xshort (out_short gate 0 0) nsection l=3e-7 w=2e-6
+xlong (out_long gate 0 0) nsection l=7e-7 w=2e-6
+
+control
+  abort always
+  options rawfile="binary"
+  analysis op1 op
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+from runtest import *
+import sys
+
+p = rawread("op1.raw").get()
+i_short = (1.2 - p["out_short"]) / 2000
+i_long = (1.2 - p["out_long"]) / 2000
+ok = bool((i_short > 2e-5).all() and (i_long > 1e-10).all()
+          and (i_short > 100 * i_long).all())
+print("sectioned model cards select per wrapper instance", i_short, i_long, ok)
+if isTest():
+    sys.exit(not ok)
+>>>FILE

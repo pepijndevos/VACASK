@@ -1,0 +1,35 @@
+* C1: a PDK .model card routinely carries parameters the VACASK master does not
+* declare -- Sky130's BJT cards set dcap/gap1/gap2 and its BSIM4/diode cards set
+* minr, none of which exist in sp_bjt or sp_diode. By default that is a hard
+* error (Parameter 'dcap' not found), which stops the whole corner from loading.
+*
+* Option unknownparam relaxes it: "warn" reports and continues, "ignore" is
+* silent, "error" (the default) keeps the current behaviour.
+*
+* Each device appears twice: once with a card the master fully declares, once
+* with the same card plus the undeclared parameters. Dropping a parameter must
+* be a no-op, so the two copies must agree bit for bit -- an accepted-but-
+* misapplied parameter would move the operating point.
+Vcc vcc 0 3
+
+* Model parameters. Ic = bf*Ib = 100 uA, i.e. 100 mV across Rc.
+Rc1 vcc c1 1k
+Ib1 0 b1 1u
+Q1 c1 b1 0 qref
+
+Rc2 vcc c2 1k
+Ib2 0 b2 1u
+Q2 c2 b2 0 qextra
+
+* Instance parameters go through the same path, so pin them too.
+Rd1 vcc d1 100k
+D1 d1 0 dref
+
+Rd2 vcc d2 100k
+D2 d2 0 dextra bogusinst=7
+
+.model qref   npn level=1 is=1e-16 bf=100 br=1 rb=100 re=1 rc=10
+.model qextra npn level=1 is=1e-16 bf=100 br=1 rb=100 re=1 rc=10 dcap=2 gap1=0 gap2=0
+.model dref   d is=1e-14 n=1.2
+.model dextra d is=1e-14 n=1.2 minr=1
+.end

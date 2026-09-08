@@ -1,0 +1,84 @@
+* ngspice's 'm' multiplier, on instances and on subcircuit calls, mapped to
+* VACASK's $mfactor. Every device under test hangs between out<n> and ground
+* and is driven by a 1 mA current source, so v(out<n>) reads the effective
+* resistance directly (v = 1 mA * R). Every value below is checked
+* analytically by test_spice_mfactor.sim.
+
+* A plain subcircuit that declares no multiplier of its own.
+.subckt rblk a b
+rr a b 1k
+.ends rblk
+
+* m= on an ordinary instance: two 1k in parallel = 500
+I1 0 out1 dc 1m
+R1 out1 0 1k m=2
+
+* m= on an X-line whose subckt does not declare m: 1k/4 = 250
+I2 0 out2 dc 1m
+X2 out2 0 rblk m=4
+
+* The multiplier composes through a nested X-call carrying no m of its own.
+.subckt nestblk a b
+xn a b rblk
+.ends nestblk
+I3 0 out3 dc 1m
+X3 out3 0 nestblk m=2
+
+* A device m= and its X-line's m= multiply: 1k/(2*3) = 166.667
+.subckt mblk a b
+rm a b 1k m=3
+.ends mblk
+I4 0 out4 dc 1m
+X4 out4 0 mblk m=2
+
+* Sky130's 20 V shape: the subckt declares its own m and forwards it by hand.
+* ngspice hands m=2 down as that parameter and does not multiply again; we
+* leave m at its default and multiply instead. Both land on 1k/2 = 500.
+.subckt dblk a b m=1
+rd a b 1k m=m
+.ends dblk
+I5 0 out5 dc 1m
+X5 out5 0 dblk m=2
+
+* A behavioral resistor (r= probing the solution) scales too: 500
+.subckt bblk a b
+rb a b r='1000+0*v(a,b)'
+.ends bblk
+I6 0 out6 dc 1m
+X6 out6 0 bblk m=2
+
+* A current-defining B-source scales: i = 2*v/1000, i.e. 500
+.subckt biblk a b
+B1 a b I=v(a,b)/1000
+.ends biblk
+I7 0 out7 dc 1m
+X7 out7 0 biblk m=2
+
+* A voltage-defining B-source does not (ngspice excludes it): still 0.4 V
+.subckt bvblk a b
+B1 a b V=0.4
+.ends bvblk
+I8 0 out8 dc 1m
+X8 out8 0 bvblk m=2
+
+* An X-call without m stays at 1k: the forwarding defaults to 1.
+I9 0 out9 dc 1m
+X9 out9 0 rblk
+
+* A current source inside a multiplied subckt scales: 2 mA into 1k = 2.0
+.subckt iblk a b
+ii a b dc 1m
+.ends iblk
+R10 out10 0 1k
+X10 0 out10 iblk m=2
+
+* A voltage source inside a multiplied subckt keeps its value; only the
+* resistor beside it is multiplied: 0.3 + 1m*500 = 0.8
+.subckt vblk a b
+vv a mid dc 0.3
+rv mid b 1k
+.ends vblk
+I11 0 out11 dc 1m
+X11 out11 0 vblk m=2
+
+.end

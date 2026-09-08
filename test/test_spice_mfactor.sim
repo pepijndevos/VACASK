@@ -1,0 +1,40 @@
+SPICE 'm' multiplier mapped to $mfactor
+
+ground 0
+include "spice_mfactor.cir" lang=ngspice
+
+control
+  abort always
+  options rawfile="binary"
+  analysis op1 op
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+from runtest import *
+import sys
+
+p = rawread("op1.raw").get()
+
+tests = []
+for node, expected, what in (
+    ("out1",  0.5,     "m= on an ordinary instance"),
+    ("out2",  0.25,    "m= on an X-line, subckt declares no m"),
+    ("out3",  0.5,     "multiplier composes through a nested X-call"),
+    ("out4",  1.0/6.0, "device m= and X-line m= multiply"),
+    ("out5",  0.5,     "subckt declaring and forwarding its own m"),
+    ("out6",  0.5,     "behavioral resistor scales with the multiplier"),
+    ("out7",  0.5,     "current-defining B-source scales"),
+    ("out8",  0.4,     "voltage-defining B-source does not scale"),
+    ("out9",  1.0,     "X-call without m is unaffected"),
+    ("out10", 2.0,     "current source inside a multiplied subckt scales"),
+    ("out11", 0.8,     "voltage source inside a multiplied subckt keeps its value"),
+):
+    ok = bool((relDiff(p[node], expected, 1e-9) < 1e-6).all())
+    print(what, ok)
+    tests.append(ok)
+
+if isTest():
+    sys.exit(not all(tests))
+>>>FILE

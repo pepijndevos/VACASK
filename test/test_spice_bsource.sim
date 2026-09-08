@@ -1,0 +1,40 @@
+SPICE B-sources translated to behavioral sources
+
+ground 0
+include "spice_bsource.cir" lang=ngspice
+
+control
+  abort always
+  options rawfile="binary"
+  analysis op1 op
+  analysis tran1 tran stop=1m step=100u icmode="op"
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+from runtest import *
+import sys
+
+p = rawread("op1.raw").get()
+
+tests = []
+for node, expected, what in (
+    ("out1", 0.5, "B... V= with v(node) and '^' power"),
+    ("out2", 1.0, "B... I= with v(nodeA,nodeB)"),
+    ("out3", 0.5, "B... V= with i(instance) and '**' power"),
+    ("out4", 2.0, "B... V= inside a subcircuit, subckt parameter"),
+):
+    ok = bool((relDiff(p[node], expected, 1e-9) < 1e-6).all())
+    print(what, ok)
+    tests.append(ok)
+
+# ngspice 'time' becomes VACASK's $abstime: v(out5) tracks 1000*t.
+t = rawread("tran1.raw").get()
+ok = bool((relDiff(t["out5"], 1000 * t["time"], 1e-9) < 1e-6).all())
+print("B... V= with ngspice 'time'", ok)
+tests.append(ok)
+
+if isTest():
+    sys.exit(not all(tests))
+>>>FILE

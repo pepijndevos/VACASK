@@ -1,0 +1,27 @@
+SPICE subcircuit and parameter override
+
+ground 0
+include "spice_subckt.cir" lang=ngspice
+
+control
+  abort always
+  options rawfile="binary"
+  analysis tran1 tran stop=4m step=2u icmode="op"
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+from runtest import *
+import numpy as np
+import sys
+
+p = rawread("tran1.raw").get()
+t = p["time"]
+expected = 5 * (1 - np.exp(-t / 2e-3))
+mask = (t > 50e-6) & (t < 3.9e-3)
+ok = relDiff(p["out1"][mask], expected[mask], 1e-5).max() < 0.02
+print("SPICE subckt rval=2k override", ok)
+if isTest():
+    sys.exit(not ok)
+>>>FILE

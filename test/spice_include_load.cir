@@ -1,0 +1,3 @@
+* Second foreign merge into the same destination. Its synthetic sp_resistor
+* alias must be reused rather than emitted as a duplicate.
+R2 2 0 9k

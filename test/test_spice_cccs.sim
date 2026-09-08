@@ -1,0 +1,23 @@
+SPICE current-controlled source
+
+ground 0
+include "spice_cccs.cir" lang=ngspice
+
+control
+  abort always
+  options rawfile="binary"
+  analysis op1 op
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+from runtest import *
+import sys
+
+p = rawread("op1.raw").get()
+ok = bool((relDiff(p["2"], -5.0, 1e-6) < 1e-3).all())
+print("CCCS analytical output is -5 V", ok)
+if isTest():
+    sys.exit(not ok)
+>>>FILE

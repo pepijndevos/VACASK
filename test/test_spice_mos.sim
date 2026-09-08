@@ -1,0 +1,30 @@
+SPICE MOS device switching
+
+ground 0
+include "spice_mos.cir" lang=ngspice
+
+control
+  abort always
+  options rawfile="binary"
+  analysis tran1 tran stop=8m step=5u icmode="op"
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+from runtest import *
+import numpy as np
+import sys
+
+p = rawread("tran1.raw").get()
+off_mask = (p["time"] < 0.8e-3) | ((p["time"] > 5.2e-3) & (p["time"] < 8e-3))
+on_mask = (p["time"] > 1.2e-3) & (p["time"] < 4.8e-3)
+off = p["out"][off_mask]
+on = p["out"][on_mask]
+idd = -p["vdd:flow(br)"]
+ok = bool((off > 3.25).all() and (on < 3.1).all()
+          and (idd[off_mask] < 1e-8).all() and (idd[on_mask] > 1e-5).all())
+print("NMOS output switches and draws current", ok)
+if isTest():
+    sys.exit(not ok)
+>>>FILE

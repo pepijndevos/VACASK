@@ -83,6 +83,7 @@ private:
     std::vector<Location> locationStack;
     Status& status_;
     std::string section;
+    std::string language;
     int inParen;
     int inBracket;
     int inBrace;

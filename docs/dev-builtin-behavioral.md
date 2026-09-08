@@ -247,6 +247,7 @@ port to have one), but for a control node it has no effect on the elaborated cir
 | `log10` | `log` | Verilog-A's `log` is base-10 |
 | `pow`, `hypot`, `atan2` | same name | 2 arguments |
 | `min`, `max` | same name | 2-argument form only; the 1-argument vector-aggregate form is not supported |
+| `sgn` | `((x)>=0.0 ? 1.0 : -1.0)` | Verilog-A has no sign function, so the defining conditional is emitted; zero counts as positive, as it does elsewhere in VACASK |
 | `int` | `$rtoi` | 1 argument |
 | `real` | `$itor` | 1 argument |
 | `ddt` | `ddt` | See [Operators](#operators) |
@@ -254,7 +255,7 @@ port to have one), but for a control node it has no effect on the elaborated cir
 | `white_noise`, `flicker_noise` | same name | See [Noise](#noise) |
 
 All other functions documented in [Builtin Functions](expr-functions.md) (`round`, `fmod`,
-`sgn`, `sign`, `isinf`, `isnan`, `isfinite`, `string`, `vector`, `range`, `gauss`, `unif`,
+`sign`, `isinf`, `isnan`, `isfinite`, `string`, `vector`, `range`, `gauss`, `unif`,
 and the rest) have no Verilog-A equivalent and cannot be used in a behavioral source
 expression.
 

@@ -1,0 +1,51 @@
+SPICE behavioral resistors translated through the generic behavioral API
+
+ground 0
+include "spice_behavioral_res.cir" lang=ngspice
+
+control
+  abort always
+  options rawfile="binary"
+  analysis op1 op
+  save full
+  analysis noise1 noise out="out5" in="vc" from=1 to=1 mode="lin" points=1
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+from runtest import *
+import sys
+
+p = rawread("op1.raw").get()
+noise = rawread("noise1.raw").get()
+
+tests = []
+for node, expected, what in (
+    ("out0", 1.5, "plain numeric r= still uses the resistor master"),
+    ("out1", 2.0, "r= probing v(node)"),
+    ("out2", 3.0, "r= in a subcircuit, subckt parameter + v(a,b) probe"),
+    ("out3", 1.0, "r= probing i(instance)"),
+    ("out5", 2.0, "model-backed behavioral resistor"),
+):
+    ok = bool((relDiff(p[node], expected, 1e-9) < 1e-6).all())
+    print(what, ok)
+    tests.append(ok)
+
+# A resistance expression evaluating to 0 must not divide by zero: the
+# synthesized flow source clamps it, so the node voltage stays finite and tiny.
+ok = bool((abs(p["out4"]) < 1e-6).all())
+print("degenerate r=0 expression stays finite", ok)
+tests.append(ok)
+
+# Rb5 has R=2k, I=1mA, and noise area l*w=2e-11 m^2. Its model disables
+# noise, while the instance enables it again, exercising instance precedence.
+expected = 2000**2 * 3.6e-23 * abs(1e-3)**1.684 / (10e-6 * 2e-6)
+actual = noise["n(rb5,flicker)"]
+ok = bool((relDiff(actual, expected, 1e-30) < 1e-3).all())
+print("model-backed flicker noise", ok)
+tests.append(ok)
+
+if isTest():
+    sys.exit(not all(tests))
+>>>FILE

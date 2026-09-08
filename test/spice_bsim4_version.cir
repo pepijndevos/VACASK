@@ -1,0 +1,23 @@
+* BSIM4 level/version dispatch and parameter typing
+Vd0 d0 0 1.2
+Vd1 d1 0 1.2
+Vd2 d2 0 1.2
+Vd3 d3 0 1.2
+Vd4 d4 0 1.2
+Vg g 0 1.2
+M0 d0 g 0 0 native w=1u l=0.15u
+M1 d1 g 0 0 revision w=1u l=0.15u
+M2 d2 g 0 0 sky130_shape w=1u l=0.15u
+M3 d3 g 0 0 unknown_revision w=1u l=0.15u
+M4 d4 g 0 0 sky130_462 w=1u l=0.15u
+
+* No selector uses the native BSIM4 master; verbose is native-only.
+.model native nmos level=54 verbose=0
+* Explicit 4.8.x selectors use sp_bsim4v8; mult_i is SPICE-master-only.
+.model revision nmos level=54 version=4.80 mult_i=1 rgeomod=1
+* Sky130's unsupported selector keeps the existing sp_bsim4v8 default path.
+.model sky130_shape nmos level=54 version=4.5 mult_i=1
+.model sky130_462 nmos level=54 version=4.62 mult_i=1
+* Genuinely unknown selectors warn before using the same safe default.
+.model unknown_revision nmos level=54 version=9.9 mult_i=1
+.end

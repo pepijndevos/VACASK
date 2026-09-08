@@ -1,0 +1,45 @@
+* A4: an ngspice `.model <name> npn|pnp level=0/1/2` is a Gummel-Poon BJT and
+* must dispatch to the sp_bjt master, not to vbic13.
+*
+* `bf` is the discriminator: it is a Gummel-Poon parameter that VBIC 1.3 does
+* not declare at all (VBIC derives beta from ibei/ibci). Before A4 every npn/pnp
+* card routed to vbic13 and the deck did not even elaborate:
+*   Parameter 'bf' not found.
+*
+* Part 1 -- current gain. Each npn is driven by a fixed base current and loaded
+* by a 1k collector resistor, so the resistor drop reads out beta directly:
+* Ic = bf*Ib = 100*1u = 100u, i.e. 100 mV across 1k.
+Vcc vcc 0 3
+
+Rc3 vcc c3 1k
+Ib3 0 b3 1u
+Qnpn3 c3 b3 0 qnpn
+
+Rc4 vcc c4 1k
+Ib4 0 b4 1u
+Qnpn4 c4 b4 0 0 qnpn
+
+* Part 2 -- the substrate terminal. sp_bjt has four terminals (c, b, e, sub)
+* while an ngspice Q card may name only three; ngspice ties the missing port to
+* ground (inp2q.c:80-82) and VACASK's unconnected-terminal handling must agree.
+*
+* qpnp raises iss until the substrate junction dominates the bias point, so the
+* substrate connection is unmistakably load-bearing: with the substrate at the
+* emitter (qsubh) the junction is off and the base sits near -0.58 V, while
+* grounding it (qsub0) crushes the base to about -0.18 V. Omitting the node
+* (qsubx) must land exactly on the grounded answer, not somewhere between.
+Rp1 s1 0 1k
+Ib1 bs1 0 1u
+Qsubx s1 bs1 vcc qpnp
+
+Rp2 s2 0 1k
+Ib2 bs2 0 1u
+Qsub0 s2 bs2 vcc 0 qpnp
+
+Rp3 s3 0 1k
+Ib3p bs3 0 1u
+Qsubh s3 bs3 vcc vcc qpnp
+
+.model qnpn npn level=1 is=1e-16 bf=100 br=1 rb=100 re=1 rc=10
+.model qpnp pnp level=1 is=1e-16 bf=100 br=1 iss=1e-9
+.end

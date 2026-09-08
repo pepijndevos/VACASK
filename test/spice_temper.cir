@@ -1,0 +1,52 @@
+* ngspice's `temper` (the simulation temperature, in degC) in SPICE-origin
+* expressions -- the sky130_fd_pr__*_20v0 / res_iso_pw shape. VACASK spells the
+* same quantity `$temp`, so the adapter rewrites the identifier.
+* Every branch is driven by 1 mA, so a node voltage reads its resistance in
+* kohm. test_spice_temper.sim checks all of them at 27 degC and at 127 degC.
+
+* 1) temper inside a .param expression referenced by a device.
+.param rt = '1000*(1+1e-3*(temper-27))'
+I1 0 out1 dc 1m
+R1 out1 0 r={rt}
+
+* 2) temper directly in an instance parameter expression.
+I2 0 out2 dc 1m
+R2 out2 0 r='2000+10*(temper-27)'
+
+* 3) ngspice is case-insensitive and PDKs spell it either way.
+I3 0 out3 dc 1m
+R3 out3 0 r='3000+10*(TEMPER-27)'
+
+* 4) Only the whole identifier is the temperature: names that merely contain
+*    it are ordinary parameters.
+.param temperature=4 mytemper=1
+I4 0 out4 dc 1m
+R4 out4 0 r='1000*(temperature+mytemper)'
+
+* 5) temper in a behavioral resistance (r= probing the solution), which is how
+*    sky130_fd_pr__res_iso_pw writes its temperature coefficients.
+Vc c 0 dc 2
+I5 0 out5 dc 1m
+R5 out5 0 r='1000*v(c)*(1+1e-3*(temper-27))'
+
+* 6) temper on a .model card parameter: R = rsh*l/w.
+.model rtm r rsh='600+1*(temper-27)'
+I6 0 out6 dc 1m
+R6 out6 0 rtm l=10 w=1
+
+* 7) temper inside a .subckt, where a top-level .param would not be in scope.
+.subckt tres a b
+Rt a b r='7000+10*(temper-27)'
+.ends tres
+I7 0 out7 dc 1m
+X7 out7 0 tres
+
+* 8) Inside a v()/i() probe the name is a node, not the temperature.
+Vt temper 0 dc 8
+I8 0 out8 dc 1m
+R8 out8 0 r='1000*v(temper)'
+
+* 9) temper in a source function argument.
+V9 out9 0 dc='1+0.01*(temper-27)'
+
+.end

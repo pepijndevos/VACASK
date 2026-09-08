@@ -1,0 +1,23 @@
+Unsupported SPICE devices warn but do not stop simulation
+
+ground 0
+include "spice_warnonly.cir" lang=ngspice
+
+control
+  abort always
+  options rawfile="binary"
+  analysis op1 op
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+from runtest import *
+import sys
+
+p = rawread("op1.raw").get()
+ok = bool((relDiff(p["out"], 2.5, 1e-6) < 1e-3).all())
+print("divider remains valid after unsupported device is skipped", ok)
+if isTest():
+    sys.exit(not ok)
+>>>FILE

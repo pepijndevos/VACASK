@@ -1,0 +1,47 @@
+* Bin selection when the M-instance does not pass bare `l`/`w`.
+*
+* `nind` mirrors the Sky130 20V FET shape: the subcircuit never declares `l`,
+* the M-line takes its channel length from a local .param, so a bin guard
+* written against subckt-scope `l` cannot resolve.
+.subckt nind d g s b lsel=1
+.param lgate={lsel}
+M0 d g s b nind_model l={lgate} w=2e-6
+.model nind_model.1 nmos level=49 lmin=1e-7 lmax=5e-7 wmin=1e-7 wmax=1e-3 vth0=0.35
+.model nind_model.2 nmos level=49 lmin=5e-7 lmax=1e-5 wmin=1e-7 wmax=1e-3 vth0=0.95
+.ends
+* `nplain` mirrors the Sky130 ESD FETs: a single .model card carrying binning
+* bounds but no `.<digits>` suffix. ngspice matches such a card by exact name
+* and never bins it, so the out-of-range bounds below must not hide it.
+.subckt nplain d g s b
+M0 d g s b nplain_model l=3e-7 w=2e-6
+.model nplain_model nmos level=49 lmin=1 lmax=2 wmin=1 wmax=2 vth0=0.35
+.ends
+* Two devices using one model family must select independently in one scope.
+.subckt ndual dshort dlong g s b
+Mshort dshort g s b ndual_model l=3e-7 w=2e-6
+Mlong dlong g s b ndual_model l=7e-7 w=2e-6
+.model ndual_model.1 nmos level=49 lmin=1e-7 lmax=5e-7 wmin=1e-7 wmax=1e-3 vth0=0.35
+.model ndual_model.2 nmos level=49 lmin=5e-7 lmax=1e-5 wmin=1e-7 wmax=1e-3 vth0=0.95
+.ends
+* Width binning uses per-finger width W/NF.
+.subckt nnf dwide dnarrow g s b
+Mwide dwide g s b nnf_model l=3e-7 w=2e-6 nf=1
+Mnarrow dnarrow g s b nnf_model l=3e-7 w=2e-6 nf=2
+.model nnf_model.1 nmos level=54 lmin=1e-7 lmax=5e-7 wmin=5e-7 wmax=1.5e-6 vth0=0.35
+.model nnf_model.2 nmos level=54 lmin=1e-7 lmax=5e-7 wmin=1.5e-6 wmax=3e-6 vth0=0.95
+.ends
+Xshort out_short gate 0 0 nind lsel=3e-7
+Xlong out_long gate 0 0 nind lsel=7e-7
+Xplain out_plain gate 0 0 nplain
+Xdual out_dual_short out_dual_long gate 0 0 ndual
+Xnf out_nf_wide out_nf_narrow gate 0 0 nnf
+Rshort vdd out_short 2k
+Rlong vdd out_long 2k
+Rplain vdd out_plain 2k
+Rdual_short vdd out_dual_short 2k
+Rdual_long vdd out_dual_long 2k
+Rnf_wide vdd out_nf_wide 2k
+Rnf_narrow vdd out_nf_narrow 2k
+Vdd vdd 0 1.2
+Vgate gate 0 1.2
+.end

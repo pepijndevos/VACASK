@@ -1,0 +1,20 @@
+* C2: `.model` and `.subckt` live in separate ngspice namespaces, so the same
+* name may denote both. Sky130's tt corner does exactly this nine times over
+* (`short`, plus eight `sky130_fd_pr__diode_*`), which used to abort the load
+* with "A model/subcircuit with name '...' already exists".
+*
+* Both `dut` definitions are referenced here, so the deck also pins that the
+* references still bind to the right one: a D-line resolves to the .model card,
+* an X-call to the .subckt.
+Vb src 0 DC 5
+* D-line -> the `dut` MODEL. 10k into a forward diode leaves ~0.5 V.
+Rd src d 10k
+Dd d 0 dut
+* X-call -> the `dut` SUBCKT, a matching 10k leg, so v(x) is exactly half of Vb.
+Rx src x 10k
+Xx x 0 dut
+.model dut d is=1e-14 n=1
+.subckt dut a c
+Rs a c 10k
+.ends
+.end

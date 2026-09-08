@@ -1,0 +1,55 @@
+SPICE MOS bin selection through instance l/w expressions
+
+ground 0
+include "spice_binned_mos_indirect.cir" lang=ngspice
+
+control
+  abort always
+  options rawfile="binary"
+  analysis op1 op
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+from runtest import *
+import sys
+
+tests = []
+
+p = rawread("op1.raw").get()
+i_short = (1.2 - p["out_short"]) / 2000
+i_long = (1.2 - p["out_long"]) / 2000
+i_plain = (1.2 - p["out_plain"]) / 2000
+i_dual_short = (1.2 - p["out_dual_short"]) / 2000
+i_dual_long = (1.2 - p["out_dual_long"]) / 2000
+i_nf_wide = (1.2 - p["out_nf_wide"]) / 2000
+i_nf_narrow = (1.2 - p["out_nf_narrow"]) / 2000
+
+# The bin guards have to be compiled from the M-instance's own l expression
+# ({lgate}), not from a subckt-scope `l` that does not exist here. Short picks
+# the vth0=0.35 bin, long the vth0=0.95 bin.
+status = bool((i_short > 2e-5).all() and (i_long > 1e-10).all()
+              and (i_short > 100 * i_long).all())
+print("instance-expression l selects distinct bins", i_short, i_long, status)
+tests.append(status)
+
+status = bool((i_dual_short > 2e-5).all() and (i_dual_long > 1e-10).all()
+              and (i_dual_short > 100 * i_dual_long).all())
+print("two MOS instances select bins independently", i_dual_short, i_dual_long, status)
+tests.append(status)
+
+status = bool((i_nf_narrow > 2e-5).all() and (i_nf_wide > 1e-10).all()
+              and (i_nf_narrow > 5 * i_nf_wide).all())
+print("width bins use per-finger W/NF", i_nf_wide, i_nf_narrow, status)
+tests.append(status)
+
+# An unsuffixed .model card is matched by name, so its (unreachable) binning
+# bounds must not suppress it. Same geometry and vth0 as the short bin.
+status = bool((relDiff(i_plain, i_short, 1e-12) < 1e-6).all())
+print("unsuffixed model card is not binned", i_plain, i_short, status)
+tests.append(status)
+
+if isTest():
+    sys.exit(not all(tests))
+>>>FILE

@@ -1,0 +1,43 @@
+* ngspice behavioral resistors: r= expressions that probe node voltages or
+* branch currents. Each is driven by a 1 mA current source, so the node
+* voltage reads out the resistance directly (v = 1 mA * R).
+* Every value below is checked analytically by test_spice_behavioral_res.sim.
+
+* Control voltages.
+Vc c 0 dc 2
+Vs s3 0 dc 1
+R3s s3 0 1k
+
+* Plain numeric r= must keep using the ordinary resistor master.
+I0 0 out0 dc 1m
+R0 out0 0 r=1500
+
+* r= probing a single node voltage: R = 1000*v(c) = 2k, v(out1) = 2.0
+I1 0 out1 dc 1m
+Rb1 out1 0 r='1000*v(c)'
+
+* Behavioral r= inside a .subckt, driven by a subckt parameter and a
+* two-node probe on a terminal: R = k*500*v(cc,0) = 2*500*3 = 3k
+.subckt vres a b cc k=1
+Rb a b r='k*500*v(cc,0)'
+.ends vres
+Vc2 c2 0 dc 3
+I2 0 out2 dc 1m
+X2 out2 0 c2 vres k=2
+
+* r= probing a branch current: |i(vs)| = 1 mA, so R = 1e6*1e-3 = 1k
+I3 0 out3 dc 1m
+Rb3 out3 0 r='1e6*abs(i(vs))'
+
+* Degenerate r= -> 0 must stay finite (clamped, not a division by zero).
+I4 0 out4 dc 1m
+Rb4 out4 0 r='0*v(c)'
+
+* A model-backed behavioral resistor must preserve noise geometry and model
+* parameters through the synthesized Verilog-A source.
+.param WIDTH=2u KFVAL=3.6e-23
+.model rnoise r (kf=KFVAL af=1.684 lf=1 wf=1 narrow=0 short=0 noise=0)
+I5 0 out5 dc 1m
+Rb5 out5 0 rnoise r='1000*v(c)' w=WIDTH l=10u noise=1
+
+.end

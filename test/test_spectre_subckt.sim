@@ -1,0 +1,26 @@
+Spectre subcircuit parameter overrides
+
+ground 0
+include "spectre_nested.scs" lang=spectre
+
+control
+  abort always
+  options rawfile="binary"
+  analysis tran1 tran stop=3m step=2u icmode="op"
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+from runtest import *
+import numpy as np
+import sys
+
+p = rawread("tran1.raw").get()
+on = (p["time"] > 1.1e-3) & (p["time"] < 2.9e-3)
+current = -p["v1:flow(br)"][on]
+ok = bool((np.abs(current - 2.5e-3) < 5e-6).all())
+print("Spectre subckt r=rext override gives 2.5 mA", ok)
+if isTest():
+    sys.exit(not ok)
+>>>FILE

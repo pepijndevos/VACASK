@@ -1,0 +1,35 @@
+* ngspice B-sources (behavioral sources) translated to VACASK behavioral sources.
+* Every node value below is checked analytically by test_spice_bsource.sim.
+.param k=2
+
+V1 in 0 DC 0.5
+R1 in 0 1k
+
+* Potential-defining, single-node control, ngspice '^' power operator.
+* v(out1) = k*v(in)^2 = 2*0.25 = 0.5
+B1 out1 0 V = k*v(in)^2
+Rl1 out1 0 1k
+
+* Flow-defining, two-node control. Current flows p -> n, i.e. out of node 0
+* and into out2: i = v(in,0)/500 = 1 mA, so v(out2) = 1 mA * 1k = 1.0
+B2 0 out2 I = v(in,0)/500
+Rl2 out2 0 1k
+
+* Current-controlled, '**' power operator, function call.
+* i(v1) is v1's branch flow (0.5 mA in magnitude), so v(out3) = 0.5
+B3 out3 0 V = 1000*abs(i(v1))**1
+Rl3 out3 0 1k
+
+* Behavioral source inside a subcircuit, driven by a subcircuit parameter.
+* v(out4) = kk*v(in) = 4*0.5 = 2.0
+.subckt bamp a out kk=3
+B4 out 0 V = kk*v(a)
+Rl out 0 1k
+.ends bamp
+X1 in out4 bamp kk=4
+
+* ngspice's transient-time variable. v(out5) = 1000*time (0 at the op point).
+B5 out5 0 V = 1000*time
+Rl5 out5 0 1k
+
+.end

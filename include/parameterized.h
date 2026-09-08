@@ -19,6 +19,11 @@ class Parameterized {
 public:
     enum class Write { All, Values, Expressions };
 
+    // What to do with a parameter name the object does not declare.
+    // Only a failed name lookup is affected; evaluation failures and type
+    // mismatches remain fatal under every policy.
+    enum class UnknownParam { Error, Warn, Ignore };
+
     Parameterized();
 
     // No data members, no need to restrict copy/move
@@ -40,12 +45,18 @@ public:
     virtual std::tuple<bool,bool> parameterGiven(Id name, Status& s=Status::ignore);
     
     // Set parameters from parsed netlist
-    std::tuple<bool,bool> setParameters(const std::vector<PTParameterValue>& params, Status& s=Status::ignore);
-    std::tuple<bool,bool> setParameters(const std::vector<PTParameterExpression>& params, RpnEvaluator& eval, RpnEvaluationNetlistContext& ctx, Status& s=Status::ignore);
-    std::tuple<bool,bool> setParameters(const PTParameters& params, RpnEvaluator& eval, RpnEvaluationNetlistContext& ctx, Status& s=Status::ignore);
+    // The unknown parameter policy trails Status because callers that have no
+    // policy to pass (options, analysis parameters, alter) are the majority.
+    std::tuple<bool,bool> setParameters(const std::vector<PTParameterValue>& params, Status& s=Status::ignore, UnknownParam unknown=UnknownParam::Error);
+    std::tuple<bool,bool> setParameters(const std::vector<PTParameterExpression>& params, RpnEvaluator& eval, RpnEvaluationNetlistContext& ctx, Status& s=Status::ignore, UnknownParam unknown=UnknownParam::Error);
+    std::tuple<bool,bool> setParameters(const PTParameters& params, RpnEvaluator& eval, RpnEvaluationNetlistContext& ctx, Status& s=Status::ignore, UnknownParam unknown=UnknownParam::Error);
     std::tuple<bool,bool> setParameters(const PTParameterMap& params, RpnEvaluator& eval, RpnEvaluationNetlistContext& ctx, Write what=Write::All, Status& s=Status::ignore);
 
     void dump(std::ostream& os, const char* prefix="") const;
+
+protected:
+    // True if name is undeclared and the policy says to drop it silently or with a warning
+    bool skipUnknownParameter(Id name, UnknownParam unknown, const Loc& loc) const;
 };
 
 

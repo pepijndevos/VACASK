@@ -1,0 +1,19 @@
+* A1: a plain unlevelled `.model <name> D` is an ngspice diode
+* Both cards carry ngspice-only parameters (isr/nr/ikf) that the native 18-param
+* `diode` master does not declare. Before A1 the deck did not even elaborate:
+* an absent `level=` routed the card to `diode` and the load failed with
+* "Parameter 'ikf' not found".
+*
+* drec differs from dplain only by a recombination current (isr/nr), which must
+* visibly ease its forward voltage: v(r) < v(p). That checks sp_diode really
+* evaluates the parameters rather than merely accepting the card.
+* (ikf is present for parse coverage only -- sp_diode never raises its
+* DIOforwardKneeCurrentGiven flag, so the knee is currently inert.)
+Vb src 0 DC 5
+Rplain src p 10k
+Dplain p 0 dplain
+Rrec src r 10k
+Drec r 0 drec
+.model dplain d is=1e-14 n=1 ikf=1e-3 cjo=1p tt=1n
+.model drec   d is=1e-14 n=1 ikf=1e-3 cjo=1p tt=1n isr=1e-8 nr=2
+.end

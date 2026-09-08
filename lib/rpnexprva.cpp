@@ -75,6 +75,15 @@ static std::tuple<bool, std::string> trivialTranslator(SStack& stack, size_t arg
     return std::make_tuple(true, txt);
 }
 
+// sgn() translation. Verilog-A has no sign function, so emit the conditional
+// that defines VACASK's sgn(): FwSgn (rpnfunctor.h) is (x>=0) ? 1 : -1, i.e.
+// zero counts as positive. Needed on its own, and by the SPICE adapter, which
+// compiles ngspice's behavioral pwr(x,y) into sgn(x)*pow(abs(x),y).
+static std::tuple<bool, std::string> sgnTranslator(SStack& stack, size_t argPos, size_t nArgs, const Rpn::Expression& expr, Status& s) {
+    auto& [argText, argIsId, argIdx] = stack.at(argPos);
+    return std::make_tuple(true, "((" + argText + ")>=0.0 ? 1.0 : -1.0)");
+}
+
 // Noise translation: VACASK name(arg1, ..., argn) -> DestName(arg1, ..., argn)
 // Requires last argument to be a constant string. Returns (true, the
 // formatted Verilog-A function call text) on success; if the last argument
@@ -145,6 +154,8 @@ static std::unordered_map<VAFuncKey, VAFuncTranslator, VAFuncKeyHash> vaFuncMap 
     // "log10") -- a same-name passthrough here would silently be wrong
     { { Id::createStatic("log"),   1 }, trivialTranslator<"ln"> },
     { { Id::createStatic("log10"), 1 }, trivialTranslator<"log"> },
+    // No Verilog-A equivalent function; expanded into a conditional
+    { { Id::createStatic("sgn"),   1 }, sgnTranslator },
     // Type conversion, renamed to the matching Verilog-A system function
     { { Id::createStatic("int"),   1 }, trivialTranslator<"$rtoi"> },
     { { Id::createStatic("real"),  1 }, trivialTranslator<"$itor"> },

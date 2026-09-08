@@ -1,0 +1,23 @@
+Spectre nested include through the native VACASK harness
+
+ground 0
+include "spectre_rc_inc.scs" lang=spectre
+
+control
+  abort always
+  options rawfile="binary"
+  analysis tran1 tran stop=5m step=2u icmode="op"
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+from runtest import *
+import sys
+
+p = rawread("tran1.raw").get()
+ok = bool((p["2"].max() > 4.0) and (p["2"].min() > -1e-3))
+print("Spectre nested model include and RC response", ok)
+if isTest():
+    sys.exit(not ok)
+>>>FILE

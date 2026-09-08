@@ -1,0 +1,9 @@
+* SPICE .include resolution
+* The diode model 'dmod' is defined in spice_models.spice (a separate included file).
+* The nested include must resolve dmod before elaboration.
+.include "spice_models.spice"
+D1 out 0 dmod
+Vin vin 0 DC 5
+R1 vin out 1k
+.tran 1u 10m
+.end

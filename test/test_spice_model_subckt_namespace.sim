@@ -1,0 +1,27 @@
+SPICE .model and .subckt may share one name
+
+ground 0
+include "spice_model_subckt_namespace.cir" lang=ngspice
+
+control
+  abort always
+  options rawfile="binary"
+  analysis op1 op
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+from runtest import *
+import sys
+
+p = rawread("op1.raw").get()
+vdiode, vdiv = float(p["d"][0]), float(p["x"][0])
+# The D-line bound to the `.model dut` card (a forward diode drop), the X-call
+# to the `.subckt dut` definition (an exact 10k/10k divider of the 5 V rail).
+ok = bool(0.4 < vdiode < 1.0 and abs(vdiv - 2.5) < 1e-9)
+print("same name for .model and .subckt, each reference binds correctly", ok,
+      "vdiode", vdiode, "vdiv", vdiv)
+if isTest():
+    sys.exit(not ok)
+>>>FILE

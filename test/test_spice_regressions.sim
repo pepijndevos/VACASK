@@ -1,0 +1,25 @@
+SPICE quoted expressions, aliases, and capacitor models
+
+ground 0
+include "spice_regressions.cir" lang=ngspice
+
+control
+  abort always
+  options rawfile="binary"
+  analysis tran1 tran stop=8u step=10n icmode="op"
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+from runtest import *
+import numpy as np
+import sys
+
+p = rawread("tran1.raw").get()
+ok = bool(np.isfinite(p["out"]).all() and (p["supply"].max() > 0.9)
+          and (p["mid"].max() > 0.4))
+print("quoted expressions and local aliases produce a finite response", ok)
+if isTest():
+    sys.exit(not ok)
+>>>FILE

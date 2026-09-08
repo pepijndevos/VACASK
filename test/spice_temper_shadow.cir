@@ -1,0 +1,18 @@
+* A SPICE deck that declares its own `temper`. The adapter's rewrite is
+* unconditional, so it warns and translates references to $temp anyway: the
+* declaration has no effect. Both scopes that can carry one are covered, a
+* top-level .param and a .subckt parameter list.
+.param temper=1000
+
+* 100*$temp = 2.7 kohm at the default 27 degC, not 100*1000.
+V1 in 0 dc 1
+R1 in 0 r='100*temper'
+
+* Same in a subcircuit: 200*$temp = 5.4 kohm, not 200*1000.
+.subckt tsh a b temper=1000
+Rs a b r='200*temper'
+.ends tsh
+V2 in2 0 dc 1
+X2 in2 0 tsh
+
+.end

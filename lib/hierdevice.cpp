@@ -238,7 +238,10 @@ Instance* HierarchicalModel::createInstance(Circuit& circuit, Instance* parentIn
     // Set instance's parameters, use the evaluator whose latest context is the parent instance's context
     // Note that toplevel instance has no context
     RpnEvaluationNetlistContext ctx(MCData::CtxType::Instance, instance->name());
-    auto [ok1, changed] = instance->setParameters(parsedInstance.parameters(), evaluator, ctx, s);
+    auto [ok1, changed] = instance->setParameters(
+        parsedInstance.parameters(), evaluator, ctx, s,
+        circuit.simulatorOptions().core().unknownParameterPolicy()
+    );
     if (!ok1) {
         return nullptr;
     }
@@ -576,12 +579,16 @@ std::tuple<bool, bool> HierarchicalInstance::subhierarchyChanged(Circuit& circui
 bool HierarchicalInstance::propagateParameters(Circuit& circuit, RpnEvaluator& evaluator, Status& s) {
     // We already have an established context
 
+    // Same policy the children were created under, so a parameter dropped at
+    // creation stays dropped instead of reappearing as an error on propagation
+    auto unknown = circuit.simulatorOptions().core().unknownParameterPolicy();
+
     // Propagate parameters to submodels
     for(auto subModelPtr : childModels_) {
         auto& parsedSubmodel = subModelPtr->parsedModel();
         // Propagate only expressions
         RpnEvaluationNetlistContext ctx(MCData::CtxType::Model, subModelPtr->name());
-        auto [ok, changed] = subModelPtr->setParameters(parsedSubmodel.parameters().expressions(), evaluator, ctx, s);
+        auto [ok, changed] = subModelPtr->setParameters(parsedSubmodel.parameters().expressions(), evaluator, ctx, s, unknown);
         if (!ok) {
             return false;
         }
@@ -595,7 +602,7 @@ bool HierarchicalInstance::propagateParameters(Circuit& circuit, RpnEvaluator& e
         auto& parsedSubinstance = subInstancePtr->parsedInstance();
         // Propagate only expressions
         RpnEvaluationNetlistContext ctx(MCData::CtxType::Instance, subInstancePtr->name());
-        auto [ok, changed] = subInstancePtr->setParameters(parsedSubinstance.parameters().expressions(), evaluator, ctx, s);
+        auto [ok, changed] = subInstancePtr->setParameters(parsedSubinstance.parameters().expressions(), evaluator, ctx, s, unknown);
         if (!ok) {
             return false;
         }

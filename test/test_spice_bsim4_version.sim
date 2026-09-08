@@ -1,0 +1,29 @@
+SPICE BSIM4 version dispatch
+
+ground 0
+include "spice_bsim4_version.cir" lang=ngspice
+
+control
+  abort always
+  print model("m_revision")
+  options rawfile="binary"
+  analysis op1 op
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+from runtest import *
+import sys
+
+op = rawread("op1.raw").get()
+tests = []
+for source in ("vd0", "vd1", "vd2", "vd3", "vd4"):
+    current = -op[source + ":flow(br)"]
+    status = bool((current > 0).all())
+    print(source, "conducts", status)
+    tests.append(status)
+
+if isTest():
+    sys.exit(not all(tests))
+>>>FILE

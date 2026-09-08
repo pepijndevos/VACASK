@@ -1,0 +1,25 @@
+SPICE voltage-controlled source
+
+ground 0
+include "spice_vcvs.cir" lang=ngspice
+
+control
+  abort always
+  options rawfile="binary"
+  analysis tran1 tran stop=2m step=2u icmode="op"
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+from runtest import *
+import numpy as np
+import sys
+
+p = rawread("tran1.raw").get()
+active = np.abs(p["1"]) > 0.1
+ok = bool((np.abs(p["2"][active] - 2 * p["1"][active]) < 2e-3).all())
+print("VCVS gain is 2", ok)
+if isTest():
+    sys.exit(not ok)
+>>>FILE

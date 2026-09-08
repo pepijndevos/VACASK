@@ -1,0 +1,32 @@
+A SPICE deck declaring its own 'temper' warns; references still become $temp
+
+ground 0
+include "spice_temper_shadow.cir" lang=ngspice
+
+control
+  abort always
+  options rawfile="binary"
+  options temp=27
+  analysis op1 op
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+from runtest import *
+import sys
+
+p = rawread("op1.raw").get()
+
+tests = []
+for source, expected, what in (
+    ("v1", 1 / 2700.0, "top-level .param temper does not shadow $temp"),
+    ("v2", 1 / 5400.0, ".subckt parameter temper does not shadow $temp"),
+):
+    ok = bool((relDiff(-p[source + ":flow(br)"], expected, 1e-12) < 1e-6).all())
+    print(what, ok)
+    tests.append(ok)
+
+if isTest():
+    sys.exit(not all(tests))
+>>>FILE

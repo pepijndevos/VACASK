@@ -1,0 +1,13 @@
+* File-scope bins are selected by a MOS nested in a wrapper subcircuit.
+.include 'spice_binned_mos_models.cir'
+.subckt nbin d g s b
+.param l=1 w=1
+M0 d g s b nbin_model l={l} w={w}
+.ends
+Xshort out_short gate 0 0 nbin l=3e-7 w=2e-6
+Xlong out_long gate 0 0 nbin l=7e-7 w=2e-6
+Rshort vdd out_short 2k
+Rlong vdd out_long 2k
+Vdd vdd 0 1.2
+Vgate gate 0 1.2
+.end

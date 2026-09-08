@@ -1,0 +1,9 @@
+Undeclared model parameters stay a hard error by default (unknownparam="error")
+
+ground 0
+include "spice_unknown_param.cir" lang=ngspice
+
+control
+  abort always
+  analysis op1 op
+endc

@@ -1,4 +1,5 @@
 #include "parameterized.h"
+#include "simulator.h"
 #include "common.h"
 
 namespace NAMESPACE {
@@ -47,9 +48,29 @@ std::tuple<bool,bool> Parameterized::parameterGiven(Id name, Status& s) {
     return parameterGiven(ndx, s);
 }
 
-std::tuple<bool,bool> Parameterized::setParameters(const std::vector<PTParameterValue>& params, Status& s) {
+bool Parameterized::skipUnknownParameter(Id name, UnknownParam unknown, const Loc& loc) const {
+    if (unknown==UnknownParam::Error) {
+        return false;
+    }
+    if (auto [ndx, found] = parameterIndex(name); found) {
+        return false;
+    }
+    if (unknown==UnknownParam::Warn) {
+        // Same wording and source excerpt as the error this downgrades
+        Simulator::wrn() << "Warning, parameter '" << std::string(name) << "' not found. Ignored.\n";
+        if (loc) {
+            Simulator::wrn() << loc.toString() << "\n";
+        }
+    }
+    return true;
+}
+
+std::tuple<bool,bool> Parameterized::setParameters(const std::vector<PTParameterValue>& params, Status& s, UnknownParam unknown) {
     bool changed = false;
     for(auto it=params.cbegin(); it!=params.cend(); ++it) {
+        if (skipUnknownParameter(it->name(), unknown, it->location())) {
+            continue;
+        }
         auto [ok, ch] = setParameter(it->name(), it->val(), s);
         changed = changed | ch;
         if (!ok) {
@@ -60,10 +81,15 @@ std::tuple<bool,bool> Parameterized::setParameters(const std::vector<PTParameter
     return std::make_tuple(true, changed);
 }
 
-std::tuple<bool,bool> Parameterized::setParameters(const std::vector<PTParameterExpression>& params, RpnEvaluator& eval, RpnEvaluationNetlistContext& ctx, Status& s) {
+std::tuple<bool,bool> Parameterized::setParameters(const std::vector<PTParameterExpression>& params, RpnEvaluator& eval, RpnEvaluationNetlistContext& ctx, Status& s, UnknownParam unknown) {
     // Assume the context is already set up in evaluator
     bool changed = false;
     for(auto it=params.cbegin(); it!=params.cend(); ++it) {
+        // Drop before evaluating: a parameter that is not going anywhere must not
+        // be able to fail the run through its expression either
+        if (skipUnknownParameter(it->name(), unknown, it->location())) {
+            continue;
+        }
         Value res;
         ctx.setParameterId(it->name());
         if (!eval.evaluate(it->rpn(), res, ctx, s)) {
@@ -79,12 +105,12 @@ std::tuple<bool,bool> Parameterized::setParameters(const std::vector<PTParameter
     return std::make_tuple(true, changed);
 }
 
-std::tuple<bool,bool> Parameterized::setParameters(const PTParameters& params, RpnEvaluator& eval, RpnEvaluationNetlistContext& ctx, Status& s) {
-    auto [ok1, changed] = setParameters(params.values(), s);
+std::tuple<bool,bool> Parameterized::setParameters(const PTParameters& params, RpnEvaluator& eval, RpnEvaluationNetlistContext& ctx, Status& s, UnknownParam unknown) {
+    auto [ok1, changed] = setParameters(params.values(), s, unknown);
     if (!ok1) {
         return std::make_tuple(false, changed);
     }
-    auto [ok2, ch] = setParameters(params.expressions(), eval, ctx, s);
+    auto [ok2, ch] = setParameters(params.expressions(), eval, ctx, s, unknown);
     changed = changed | ch;
     if (!ok2) {
         return std::make_tuple(false, changed);

@@ -11,11 +11,22 @@ macro(prepare_netlist_test simfile)
     foreach(item IN ITEMS ${TEST_DEPENDENCIES})
         file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/${item} DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/${simfile}")
     endforeach()
-    
-    add_test(NAME "${simfile}"
-        COMMAND $<TARGET_FILE:sim> -dp "${CMAKE_CURRENT_SOURCE_DIR}/${simfile}"
-        WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${simfile}"
-    )
+
+    if(${ARGC} GREATER 1)
+        add_test(NAME "${simfile}"
+            COMMAND ${CMAKE_COMMAND}
+                "-DSIMULATOR=$<TARGET_FILE:sim>"
+                "-DNETLIST=${CMAKE_CURRENT_SOURCE_DIR}/${simfile}"
+                "-DEXPECTED_WARNING=${ARGV1}"
+                -P "${CMAKE_CURRENT_SOURCE_DIR}/check_warning.cmake"
+            WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${simfile}"
+        )
+    else()
+        add_test(NAME "${simfile}"
+            COMMAND $<TARGET_FILE:sim> -dp "${CMAKE_CURRENT_SOURCE_DIR}/${simfile}"
+            WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${simfile}"
+        )
+    endif()
     
     # message("Adding netlist test ${simfile}")
     
@@ -28,6 +39,19 @@ macro(prepare_netlist_test simfile)
         "PYTHONPATH=${CMAKE_CURRENT_BINARY_DIR};SIM_TEST=yes"
         TIMEOUT 20
     )
+endmacro()
+
+macro(prepare_failure_test simfile expected_error)
+    file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${simfile}")
+    add_test(NAME "${simfile}"
+        COMMAND ${CMAKE_COMMAND}
+            "-DSIMULATOR=$<TARGET_FILE:sim>"
+            "-DNETLIST=${CMAKE_CURRENT_SOURCE_DIR}/${simfile}"
+            "-DEXPECTED_ERROR=${expected_error}"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/check_failure.cmake"
+        WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${simfile}"
+    )
+    set_tests_properties("${simfile}" PROPERTIES TIMEOUT 20)
 endmacro()
 
 # macro that sets up a test built from a C++ source file, linked against
@@ -142,6 +166,60 @@ prepare_netlist_test(test_behav.sim)
 prepare_netlist_test(test_behavsym.sim)
 prepare_netlist_test(test_behavop.sim)
 prepare_netlist_test(test_behavnoise.sim)
+# Foreign-format include dispatch: a native deck that pulls its devices from a
+# SPICE-dialect file via `include`. Only meaningful when the Rust parser is
+# compiled in.
+if(VACASK_WITH_SPICE)
+    prepare_netlist_test(test_spice_include.sim)
+    prepare_netlist_test(test_spice_include_section.sim)
+    prepare_netlist_test(test_lang_include.sim)
+    prepare_netlist_test(test_lang_override.sim)
+    prepare_netlist_test(test_spectre_rc.sim)
+    prepare_netlist_test(test_spectre_include.sim)
+    prepare_netlist_test(test_spectre_subckt.sim)
+    prepare_failure_test(test_spectre_bad_include.sim "cannot open include")
+    prepare_netlist_test(test_spice_rc.sim)
+    prepare_netlist_test(test_spice_diode.sim)
+    prepare_netlist_test(test_spice_diode_params.sim)
+    prepare_netlist_test(test_spice_subckt.sim)
+    prepare_netlist_test(test_spice_vcvs.sim)
+    prepare_netlist_test(test_spice_cccs.sim)
+    prepare_netlist_test(test_spice_nested_include.sim)
+    prepare_netlist_test(test_spice_res_model.sim)
+    prepare_netlist_test(test_spice_regressions.sim)
+    prepare_netlist_test(test_spice_mos.sim)
+    prepare_netlist_test(test_spice_bsim4_version.sim "version = \"4.80\"")
+    add_test(NAME test_spice_bsim4_unknown_version_warning.sim
+        COMMAND ${CMAKE_COMMAND}
+            "-DSIMULATOR=$<TARGET_FILE:sim>"
+            "-DNETLIST=${CMAKE_CURRENT_SOURCE_DIR}/test_spice_bsim4_version.sim"
+            "-DEXPECTED_WARNING=BSIM4 version '9.9' is not supported.*falling back to 4.8.3"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/check_warning.cmake"
+        WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/test_spice_bsim4_version.sim")
+    set_tests_properties(test_spice_bsim4_unknown_version_warning.sim PROPERTIES
+        ENVIRONMENT "PYTHONPATH=${CMAKE_CURRENT_BINARY_DIR};SIM_TEST=yes" TIMEOUT 20 LABELS "warning")
+    set_tests_properties(test_spice_bsim4_version.sim test_spice_bsim4_unknown_version_warning.sim
+        PROPERTIES RESOURCE_LOCK spice_bsim4_version)
+    prepare_netlist_test(test_spice_binned_mos.sim)
+    prepare_netlist_test(test_spice_binned_mos_section.sim)
+    prepare_netlist_test(test_spice_binned_mos_indirect.sim)
+    prepare_netlist_test(test_spice_bsource.sim)
+    prepare_netlist_test(test_spice_behavioral_res.sim)
+    prepare_netlist_test(test_spice_bjt.sim)
+    prepare_netlist_test(test_spice_model_subckt_namespace.sim)
+    prepare_netlist_test(test_spice_mfactor.sim)
+    prepare_netlist_test(test_spice_temper.sim)
+    prepare_netlist_test(test_spice_pwr.sim)
+    prepare_netlist_test(test_spice_temper_shadow.sim "declares a parameter named 'temper'")
+    set_tests_properties(test_spice_temper_shadow.sim PROPERTIES LABELS "warning")
+    prepare_netlist_test(test_spice_unknown_param.sim)
+    prepare_netlist_test(test_spice_unknown_param_warn.sim "Warning, parameter 'dcap' not found")
+    set_tests_properties(test_spice_unknown_param_warn.sim PROPERTIES LABELS "warning")
+    prepare_failure_test(test_spice_unknown_param_error.sim "Parameter 'dcap' not found")
+    prepare_netlist_test(test_spice_warnonly.sim "WARNING: SPICE device.*MutualInductor.*skipped")
+    set_tests_properties(test_spice_warnonly.sim PROPERTIES LABELS "warning")
+
+endif()
 prepare_netlist_test(test_behavexpr.sim)
 prepare_netlist_test(test_delay.sim)
 prepare_netlist_test(test_delayvar.sim)

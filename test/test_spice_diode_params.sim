@@ -1,0 +1,27 @@
+SPICE unlevelled diode card takes the full ngspice parameter set
+
+ground 0
+include "spice_diode_params.cir" lang=ngspice
+
+control
+  abort always
+  options rawfile="binary"
+  analysis op1 op
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+from runtest import *
+import sys
+
+p = rawread("op1.raw").get()
+vplain, vrec = float(p["p"][0]), float(p["r"][0])
+# Both diodes conduct in a plausible forward range, and the recombination
+# current gets drec to the same bias current at a lower forward voltage.
+ok = bool(0.4 < vplain < 1.0 and 0.3 < vrec < 1.0 and vrec < vplain - 0.005)
+print("unlevelled .model D honours ngspice-only params (isr lowers Vf)", ok,
+      "vplain", vplain, "vrec", vrec)
+if isTest():
+    sys.exit(not ok)
+>>>FILE

@@ -1,0 +1,45 @@
+SPICE library section include OP analysis
+
+ground 0
+
+// Both option orders and both sections of the same library must be loaded.
+// Path-only visitation used to skip the second include, leaving rff unresolved.
+model vsource vsource
+
+include "spice_include_corners.lib" lang=ngspice section=tt
+include "spice_include_corners.lib" section=ff lang=ngspice
+
+// m_ prefix on a SPICE `.model` name -- see test_lang_include.sim.
+r1 (1 2) m_rtt r=1k
+r2 (2 0) m_rff r=9k
+
+v1 (1 0) vsource dc=10
+
+control
+  abort always
+  var dbglevel=0
+  options rawfile="binary" op_debug=dbglevel
+  analysis op1 op
+
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+from runtest import *
+import sys
+
+tests=[]
+
+op1 = rawread('op1.raw').get()
+
+# The two section-local models form a 1k/9k divider.
+v = op1["2"]
+exact = 9.0
+status = (relDiff(v, exact, 1e-6) < 1e-3).all()
+print("V(2)=", v, "exact=", exact, "(tt + ff sections)", status)
+tests.append(status)
+
+if isTest():
+    sys.exit(not all(tests))
+>>>FILE
