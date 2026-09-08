@@ -116,7 +116,7 @@ typedef struct subckt {
 
 #include "dflscanner.h"
 
-#ifdef VACASK_WITH_SPICE
+#ifdef CADNIP_PARSERS
 // For draining foreign-format (SPICE/Spectre) includes stashed by the scanner
 // into the toplevel definition (see the `output` rule).
 #include "netlistrs.h"
@@ -273,7 +273,7 @@ output
   : INNETLIST subckt_build END {
     // Toplevel circuit definition
     $2.def.add(std::move($2.parameters));
-#ifdef VACASK_WITH_SPICE
+#ifdef CADNIP_PARSERS
     // Drain foreign-format (SPICE/Spectre) includes the scanner deferred: parse
     // each via the Rust adapter and merge its models/subckts/devices into the
     // toplevel def (auto-emitting the OSDI loads they need). Runs before

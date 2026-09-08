@@ -227,13 +227,13 @@ target_include_directories(simlib PUBLIC
     ${CMAKE_CURRENT_BINARY_DIR}
     ${FLEX_INCLUDE_DIRS}
 )
-# SPICE/Spectre support is optional (see top-level VACASK_WITH_SPICE). When on,
-# compile the Rust-parser adapter into simlib, define VACASK_WITH_SPICE for the
+# SPICE/Spectre support is optional (see top-level CADNIP_PARSERS). When on,
+# compile the Rust-parser adapter into simlib, define CADNIP_PARSERS for the
 # scanner/grammar include-dispatch guards, and link the cxx bridge. The PUBLIC
 # scope propagates the bridge + define to the vacask binary and the demos.
-if(VACASK_WITH_SPICE)
+if(CADNIP_PARSERS)
     target_sources(simlib PRIVATE netlistrs.cpp)
-    target_compile_definitions(simlib PUBLIC VACASK_WITH_SPICE)
+    target_compile_definitions(simlib PUBLIC CADNIP_PARSERS)
     target_link_libraries(simlib PUBLIC netlist_cxx_bridge)
 endif()
 # target_compile_definitions(dlib PRIVATE BUILDING_SIM_DLL)

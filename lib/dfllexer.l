@@ -320,7 +320,7 @@ after INCEND we have
                 if (pos!=FileStack::badFileId) {
                     auto& fname = tables.fileStack().canonicalName(pos);
                     if (!language.empty()) {
-#ifdef VACASK_WITH_SPICE
+#ifdef CADNIP_PARSERS
                         // Foreign-format (SPICE/Spectre) include: do not lex it
                         // natively. Stash it for the grammar to dispatch to the
                         // Rust adapter at end-of-parse. The INC/LINESTART pops
@@ -334,7 +334,7 @@ after INCEND we have
 #else
                         loc->begin = stringStart;
                         error(*loc, std::string("include of SPICE/Spectre file '")+fname+
-                              "' requires a build with -DVACASK_WITH_SPICE=ON");
+                              "' requires a build with -DCADNIP_PARSERS=ON");
                         return(token::YYerror);
 #endif
                     } else {
@@ -417,7 +417,7 @@ after INCEND we have
                 if (pos!=FileStack::badFileId) {
                     auto& fname = tables.fileStack().canonicalName(pos);
                     if (!language.empty()) {
-#ifdef VACASK_WITH_SPICE
+#ifdef CADNIP_PARSERS
                         // Foreign-format library include with a section: defer to
                         // the Rust adapter (parse_netlist_lib extracts the
                         // section). Do not lex natively; pop back to LINESTART and
@@ -434,7 +434,7 @@ after INCEND we have
                         yy_pop_state();
                         loc->begin = stringStart;
                         error(*loc, std::string("include of SPICE/Spectre library '")+fname+
-                              "' requires a build with -DVACASK_WITH_SPICE=ON");
+                              "' requires a build with -DCADNIP_PARSERS=ON");
                         return(token::YYerror);
 #endif
                     } else {

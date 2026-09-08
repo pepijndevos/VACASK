@@ -88,8 +88,8 @@ can contain multiple sections for different purposes.
 
 ## Foreign-format includes (SPICE / Spectre)
 
-When VACASK is built with SPICE/Spectre support (the `VACASK_WITH_SPICE` CMake
-option, on by default), the `include` directive also accepts SPICE and Spectre
+When VACASK is built with SPICE/Spectre support (the `CADNIP_PARSERS` CMake
+option, off by default), the `include` directive also accepts SPICE and Spectre
 netlist files. They are dispatched to the bundled Rust parser and their
 **models, subcircuit definitions, and device instances** are merged into the
 top-level circuit, exactly as if you had written them in native VACASK syntax:
@@ -211,9 +211,9 @@ Foreign includes are supported at the **top level** of the deck. An `include` of
 a foreign-format file inside a `subckt` body is merged into the top-level
 definition rather than that subcircuit.
 
-If VACASK was built with `-DVACASK_WITH_SPICE=OFF`, including a foreign-format
-file reports an error asking you to rebuild with the option enabled; native
-`.sim` includes are unaffected.
+If VACASK was built with `-DCADNIP_PARSERS=OFF` (the default), including a
+foreign-format file reports an error asking you to rebuild with the option
+enabled; native `.sim` includes are unaffected.
 
 ## Nesting includes
 

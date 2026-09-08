@@ -14,18 +14,18 @@ endif()
 enable_testing()
 
 # --- Rust netlist parser (optional; netlist-cxx via Corrosion) --------------
-# SPICE/Spectre netlist support is optional. When ON (default), the Rust parser
-# is fetched and built with cargo and wired into the vacask binary; when OFF,
-# no Rust toolchain is needed and foreign-format includes report a clean error.
-# Flip the default below to change the out-of-the-box behavior.
-option(VACASK_WITH_SPICE "Build with SPICE/Spectre netlist support (requires a Rust toolchain)" ON)
+# SPICE/Spectre netlist support is optional. When OFF (default), no Rust
+# toolchain is needed and foreign-format includes report a clean error; when
+# ON, the Rust parser is fetched and built with cargo and wired into the
+# vacask binary. Flip the default below to change the out-of-the-box behavior.
+option(CADNIP_PARSERS "Build with Cadnip parsers, requires a Rust toolchain)" OFF)
 
-if(VACASK_WITH_SPICE)
+if(CADNIP_PARSERS)
     find_program(CARGO_EXECUTABLE cargo)
     if(NOT CARGO_EXECUTABLE)
         message(FATAL_ERROR
-            "VACASK_WITH_SPICE=ON requires a Rust toolchain (cargo) on PATH. "
-            "Install Rust (https://rustup.rs) or reconfigure with -DVACASK_WITH_SPICE=OFF.")
+            "CADNIP_PARSERS=ON requires a Rust toolchain (cargo) on PATH. "
+            "Install Rust (https://rustup.rs) or reconfigure with -DCADNIP_PARSERS=OFF.")
     endif()
 
     include(FetchContent)
@@ -61,8 +61,9 @@ if(VACASK_WITH_SPICE)
         CRATE netlist_cxx
         FILES lib.rs
     )
+    message(STATUS "Building with Cadnip parsers support (Spectre/SPICE netlist parsers)")
 else()
-    message(STATUS "VACASK_WITH_SPICE=OFF: building without SPICE/Spectre support (no Rust toolchain needed)")
+    message(STATUS "CADNIP_PARSERS=OFF: building without Cadnip parsers support (no Rust toolchain needed)")
 endif()
 
 message(STATUS "CMake version ${CMAKE_VERSION}")
