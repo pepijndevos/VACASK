@@ -88,7 +88,7 @@ can contain multiple sections for different purposes.
 
 ## Foreign-format includes (SPICE / Spectre)
 
-When VACASK is built with SPICE/Spectre support (the `CADNIP_PARSERS` CMake
+When VACASK is built with foreign netlist support (the `CADNIP_PARSERS` CMake
 option, off by default), the `include` directive also accepts SPICE and Spectre
 netlist files. They are dispatched to the bundled Rust parser and their
 **models, subcircuit definitions, and device instances** are merged into the

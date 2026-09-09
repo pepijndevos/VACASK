@@ -99,6 +99,7 @@ Yes we do. It is bundled with the binary packages. [The user's manual](docs/inde
 - Verilog-A natures and disciplines for setting absolute tolerances on unknowns and residuals (see [demo/natures](demo/natures)). 
 - Monte Carlo analysis with Latin hypercube sampling (see [demo/mc](demo/mc)). 
 - Touchstone file to VACASK lumped model converter based on scikit-rf (see [demo/ts](demo/ts)). 
+- [Foreign language parsers](docs/input-include.md#foreign-format-includes-spice--spectre) (experimental), supporting ngspice, HSPICE, PSPICE, Xyce, and Spectre. 
  
 VACASK is being developed by Árpád Bűrmen at the EDA Laboratory, University of Ljubljana, Slovenia. Several people have contributed to VACASK. See [contributors.md](contributors.md) for details. 
 
@@ -191,6 +192,25 @@ The `default` variant of models can be found in the [devices/spice](devices/spic
 
 Examples of SPICE3 model usage are in [demo/spice](demo/spice). 
 
+# Foreign language parsers
+
+VACASK can read netlist files written in other simulators' dialects and pull them
+into a native deck via the `include` directive. Supported dialects are ngspice,
+HSPICE, PSPICE, Xyce, and Spectre. The included file's analysis and control cards
+are ignored, and device/model names and a few parameters are rewritten to fit
+VACASK's namespace. See [foreign-format includes](docs/input-include.md#foreign-format-includes-spice--spectre)
+for details.
+
+This feature is experimental and off by default. Enable it with the
+`CADNIP_PARSERS` CMake option (`-DCADNIP_PARSERS=ON`). The parsers are written in
+Rust, so a Rust toolchain (`cargo`) must be on `PATH`; the parser crate is
+fetched automatically during configuration. When built with the option off (the
+default), no Rust toolchain is needed and including a foreign-format file reports
+an error asking you to rebuild with it enabled.
+
+The foreign parsers are an experimental feature and are still maturing. Expect
+rough edges and incomplete dialect coverage. Bug reports should be raised as
+issues and addressed to Pepijn de Vos.
 
 # Installation from pre-built packages
 [Pre-built packages](https://codeberg.org/arpadbuermen/VACASK/releases) for Linux (based on the stable version of Debian) and Windows are available. The OpenVAF-Reloaded compiler is included in all binary packages. Linux users can choose between a .tgz archive and a .deb package. The Windows package is a .zip file that you can unpack wherever you want. It is recommended to add the `bin` directory to the system path. 

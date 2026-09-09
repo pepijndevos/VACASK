@@ -48,20 +48,27 @@ std::tuple<bool,bool> Parameterized::parameterGiven(Id name, Status& s) {
     return parameterGiven(ndx, s);
 }
 
+// Return value: true means that we are allowed to skip this parameter evaluation/setting
+// Performs an extra name lookup for each parameter
 bool Parameterized::skipUnknownParameter(Id name, UnknownParam unknown, const Loc& loc) const {
+    // In case of policy=error we do not skipđ
+    // Not skipping will trigger the error in the second lookup
     if (unknown==UnknownParam::Error) {
         return false;
     }
+    // Look up name, if found we do not skip
     if (auto [ndx, found] = parameterIndex(name); found) {
         return false;
     }
+    // Not found, print message if policy=warn
     if (unknown==UnknownParam::Warn) {
-        // Same wording and source excerpt as the error this downgrades
+        // Same wording and source as the error, except that it is reported as a warning
         Simulator::wrn() << "Warning, parameter '" << std::string(name) << "' not found. Ignored.\n";
         if (loc) {
             Simulator::wrn() << loc.toString() << "\n";
         }
     }
+    // Not found, can skip because policy=error already returned false
     return true;
 }
 

@@ -66,10 +66,13 @@ int main(int argc, char**argv) {
     Simulator::out() << 
         Platform::programHomepage+"\n";
     #ifdef OPENMP_ENABLED
-    Simulator::out() << "OpenMP parallel processing\n";
+    Simulator::out() << "  OpenMP parallel processing\n";
     #endif
     #ifdef SIM_HAVE_SUPERLU
-    Simulator::out() << "SuperLU_MT parallel linear solver\n";
+    Simulator::out() << "  SuperLU_MT parallel linear solver\n";
+    #endif
+    #ifdef CADNIP_PARSERS
+    Simulator::out() << "  Cadnip foreign parsers\n";
     #endif
     #ifdef SIMDEBUG
     Simulator::out() << "\n" << "Warning! This is a debug build. Simulator will be slow.\n";

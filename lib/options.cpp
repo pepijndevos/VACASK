@@ -374,7 +374,7 @@ bool SimulatorOptions::staticInitialize() {
     }
 
     // Options that affect parameterized expressions
-    // temp and scale are mapped to $temp and $scale
+    // temp, tnom, and scale are mapped to $temp, $tnom, and $scale
     for(auto it : std::initializer_list<Id>{
         Id::createStatic("temp"),
         Id::createStatic("tnom"),

@@ -12,7 +12,6 @@ BISON_TARGET(dflparser
 ADD_FLEX_BISON_DEPENDENCY(dfllexer dflparser)
 
 add_library(simlib STATIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/../include/netlistrs.h
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/common.h
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/generator.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/acct.h 
@@ -232,6 +231,7 @@ target_include_directories(simlib PUBLIC
 # scanner/grammar include-dispatch guards, and link the cxx bridge. The PUBLIC
 # scope propagates the bridge + define to the vacask binary and the demos.
 if(CADNIP_PARSERS)
+    target_sources(simlib PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../include/netlistrs.h)
     target_sources(simlib PRIVATE netlistrs.cpp)
     target_compile_definitions(simlib PUBLIC CADNIP_PARSERS)
     target_link_libraries(simlib PUBLIC netlist_cxx_bridge)
