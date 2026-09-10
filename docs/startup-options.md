@@ -61,6 +61,12 @@ thread count that schedules cleanly. Measure with `print stats`.
 More threads is not always faster: for small circuits the factorization is cheap
 and thread startup dominates, so the serial default often wins.
 
+Leave `--blas-ncpu` at `1` unless the circuit is very large. The dense operations
+it parallelizes are a small share of the total work for typical circuits, so
+raising it only adds thread-management overhead and inflates the required
+`OMP_NUM_THREADS` (recall the `ncpu * blas_ncpu` product above). It pays off only
+when the small-signal dense blocks are large enough to amortize that cost.
+
 Builds without the SuperLU backend or without OpenMP run everything on one
 thread, and both options have no effect.
 
