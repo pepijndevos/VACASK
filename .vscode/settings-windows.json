@@ -6,15 +6,21 @@
     "cmake.ctest.allowParallelJobs": true,
     "cmake.buildEnvironment": {
         "VERBOSE": "1"
-    }, 
-    
+    },
+    "cmake.testEnvironment": {
+        "PYTHONIOENCODING": "utf-8"
+    },
+
     "cmake.generator": "Ninja", 
     "cmake.configureSettings": { 
         "Boost_ROOT": "e:/build/boost_1_88_0/stage", 
-        "SuiteSparse_DIR": "e:/build/installation/", 
+        "SuiteSparse_DIR": "e:/build/installation/",
+        "OPENBLAS_DIR": "e:/build/installation/",
         "OPENVAF_DIR": "e:/OpenVAF/OpenVAF/target/release", 
         "TOMLPP_DIR": "e:/build/tomlplusplus-3.4.0", 
+        "SuperluMT_DIR": "e:/build/superlu_mt-4.0.0",
         "CADNIP_PARSERS": "ON", 
+        "Rust_TOOLCHAIN": "stable-x86_64-pc-windows-gnu"
         // "OPENVAF_OPTIONS": "--target_cpu generic", 
         // "CMAKE_C_FLAGS": "-march=x86-64-v2"
     }, 

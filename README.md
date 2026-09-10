@@ -361,7 +361,7 @@ cd OpenVAF
 The compiler binary will be at `target/release/openvaf-r`. The `mb-experimental` branch exposes the OSDI 0.5 interface. Build the master branch of the [OpenVAF-Reloaded repository](https://github.com/OpenVAF-Reloaded/OpenVAF) the same way if you want the compiler that exposes the default OSDI 0.4 interface. 
 
 ### Building the simulator
-Create a build directory and configure with CMake. Most dependencies are found in the Homebrew prefix automatically. What remains is the path to the OpenVAF-Reloaded compiler and the BLAS/LAPACK selection. `BLA_VENDOR` makes CMake use OpenBLAS instead of Apple's Accelerate framework. Because the OpenBLAS package is keg-only its prefix must be added to `CMAKE_PREFIX_PATH`. `Boost_USE_STATIC_LIBS` links Boost statically so that the simulator does not depend on the Homebrew Boost dynamic libraries. 
+Create a build directory and configure with CMake. Most dependencies are found in the Homebrew prefix automatically. What remains is the path to the OpenVAF-Reloaded compiler and the BLAS/LAPACK selection. `BLA_VENDOR` makes CMake use OpenBLAS instead of Apple's Accelerate framework. Because the OpenBLAS package is keg-only its prefix must be added to `CMAKE_PREFIX_PATH`. `Boost_USE_STATIC_LIBS` links Boost statically so that the simulator does not depend on the Homebrew Boost dynamic libraries. If you want SuperLU_MT support, download its sources and build the library. 
 ```
 cmake -G Ninja -S <sources directory> -B <build directory> -DCMAKE_BUILD_TYPE=Release \
     -DOPENVAF_DIR=<directory holding the openvaf-r binary> \
@@ -369,6 +369,7 @@ cmake -G Ninja -S <sources directory> -B <build directory> -DCMAKE_BUILD_TYPE=Re
     -DBLA_VENDOR=OpenBLAS \
     -DCMAKE_PREFIX_PATH=$(brew --prefix openblas)
     -DSuperluMT_DIR=<directory_where_you_unpacked_superlu_sources> \
+    -DCADNIP_PARSERS=ON
 ```
 
 Build the simulator:
@@ -453,14 +454,35 @@ cmake --build . -j 8
 cmake --install . --prefix e:/build/installation
 ```
 
+If you want SuperLU_MT support you wll have to download its sources (see the Linux section). Unpack them in `e:\build`, enter the unpacked directory, and type
+```
+make
+```
+
+You probably built OpenVAF-Reloaded so you have the `x86_64-pc-windows-msvc` Rust toolchain. For Cadnip parsers support make sure you also have the `stable-x86_64-pc-windows-gnu` toolchain. So type 
+```
+rustup toolchain install stable-x86_64-pc-windows-gnu
+```
+
 Replace the `e:\...` paths with your own, if needed. In the end OpenBLAS will be installed in `e:\build\installation`. 
 
 ### Building the simulator
 Unpack the sources, create a build directory, and type. 
 ```
-cmake -G Ninja -S <sources directory> -B <build directory> -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=e:\build\mingw.cmake -DOPENVAF_DIR=<path to the OpenVAF-Reloaded compiler> -DBoost_ROOT=e:/build/boost_1_88_0/stage -DTOMLPP_DIR=e:/build/tomlplusplus-3.4.0 -DSuiteSparse_DIR=e:/build/installation -DTOMLPP_DIR=e:/build/tomlpusplus-3.4.0
+cmake -G Ninja -S <sources directory> -B <build directory> -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=e:\build\mingw.cmake -DOPENVAF_DIR=<path to the OpenVAF-Reloaded compiler> -DBoost_ROOT=e:/build/boost_1_88_0/stage -DTOMLPP_DIR=e:/build/tomlplusplus-3.4.0 -DSuiteSparse_DIR=e:/build/installation -DTOMLPP_DIR=e:/build/tomlpusplus-3.4.0 -DOPENBLAS_DIR=e:/build/installation
 cmake --build <build directory>
 ```
+
+For SuperLU_MT support add the following option to the first cmake command
+```
+-DSuperluMT_DIR=e:/build/superlu_mt-4.0.0
+```
+
+For Cadnip parsers add
+```
+-DCADNIP_PARSERS=ON Rust_TOOLCHAIN=stable-x86_64-pc-windows-gnu
+```
+
 Replace the `e:\...` paths with your own, if needed. All paths must be absolute and therefore include the drive letter. In the end the simulator can be found in `<build directory>/simulator`. To create a package (.zip), go to the `<build directory>` and type. 
 ```
 cpack

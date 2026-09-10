@@ -251,6 +251,11 @@ endif()
 #find_package(SuiteSparse CONFIG REQUIRED)
 #include_directories("${SuiteSparse_INCLUDE_DIRS}")
 include_directories("${SuiteSparse_DIR}/include")
+if (${SIM_PLATFORM} STREQUAL "Windows")
+    # cblas.h ships under an openblas/ subdirectory in the OpenBLAS install;
+    # lib/libplatform.cpp includes it unqualified as <cblas.h>.
+    include_directories("${OPENBLAS_DIR}/include/openblas")
+endif()
 
 # Bison >= 3.3 is required (matches %require "3.3" in lib/dflparser.y).
 # Flex  >= 2.6.4 is required for the (?:...) non-capturing group syntax used in
@@ -289,7 +294,8 @@ if (DEFINED SuperluMT_DIR)
         NO_DEFAULT_PATH)
     # SuperLU_MT here was built against OpenBLAS; its static library carries
     # unresolved BLAS symbols that this resolves at the final link.
-    find_library(SIM_SUPERLU_BLAS NAMES openblas)
+    find_library(SIM_SUPERLU_BLAS NAMES openblas
+        HINTS "${OPENBLAS_DIR}/lib")
 
     # OpenMP is probed unconditionally further up; the _OPENMP variant of the
     # SuperLU_MT library needs it.
@@ -404,6 +410,7 @@ endif()
 # What to link with the object files to produce an executable
 if (${SIM_PLATFORM} STREQUAL "Windows")
     link_directories(${SuiteSparse_DIR}/lib)
+    link_directories(${OPENBLAS_DIR}/lib)
     set(SIM_EXE_LIBRARIES
             Boost::filesystem
             Boost::process
@@ -417,8 +424,8 @@ if (${SIM_PLATFORM} STREQUAL "Windows")
             ${SuiteSparse_DIR}/lib/libcholmod.a
             ${SuiteSparse_DIR}/lib/libklu_cholmod.a
             ${SuiteSparse_DIR}/lib/libsuitesparseconfig.a
-            ${SuiteSparse_DIR}/lib/libopenblas.a
-            gomp wsock32
+            ${OPENBLAS_DIR}/lib/libopenblas.a
+            gomp dl wsock32
         CACHE STRING "External libraries for creating an executable."
         FORCE
     )
