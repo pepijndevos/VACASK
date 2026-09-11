@@ -266,7 +266,7 @@ All these components come as pre-built packages for [Debian](https://www.debian.
 - Scikit-rf
 - Matplotlib
 
-First, install the OpenVAF-Reloaded compiler. The latest development version of OpenVAF-Reloaded can be found at [https://fides.fe.uni-lj.si/openvaf/download](https://fides.fe.uni-lj.si/openvaf/download/). Make sure you download the OSDI 0.4 or 0.5 version. Of course, you can also take the OpenVAF-Reloaded binary from the VACASK binary packages (.deb and .tar.gz for Linux, .zip for Windows). If the OpenVAF-Reloaded binary you pick up is named `openvaf-r` you have the right one (it produces models with the OSDI 0.4/0.5 interface). If you decide to build the compiler yourself, git-clone the [OpenVAF-Reloaded repository](https://github.com/OpenVAF-Reloaded/OpenVAF). Instructions for building can be found in the [README.md](https://github.com/OpenVAF-Reloaded/OpenVAF/blob/master/README.md) file. 
+First, install the OpenVAF-Reloaded compiler. The latest development version of OpenVAF-Reloaded can be found at [https://fides.fe.uni-lj.si/openvaf/download](https://fides.fe.uni-lj.si/openvaf/download/). Make sure you download the OSDI 0.4 or 0.5 version. Of course, you can also take the OpenVAF-Reloaded binary from the VACASK binary packages (.deb and .tar.gz for Linux, .zip for Windows). If the OpenVAF-Reloaded binary you pick up is named `openvaf-r` you have the right one (it produces models with the OSDI 0.4/0.5 interface). If you decide to build the compiler yourself, git-clone the [OpenVAF-Reloaded repository](https://github.com/OpenVAF-Reloaded/OpenVAF). Note that the `main` branch contains the OSDI 0.4 version. The OSDI 0.5 version is in the `mb-experimental` branch. Instructions for building can be found in the [README.md](https://github.com/OpenVAF-Reloaded/OpenVAF/blob/master/README.md) file. 
 
 macOS users must build OpenVAF-Reloaded from sources. Make sure you [install all prerequisites](#macos).  Then follow these [short instructions for building OpenVAF](#building-openvaf-reloaded). 
 
@@ -308,10 +308,11 @@ Create a `build` directory and create the build system
 cmake -G Ninja -S <sources directory> -B <build directory> -DCMAKE_BUILD_TYPE=Release \
     -DOPENVAF_DIR=<path to the OpenVAF-Reloaded compiler> \
     -DBoost_ROOT=<directory_where_you_unpacked_boost_sources>/stage \
-    -DSuperluMT_DIR=<directory_where_you_unpacked_superlu_sources>
+    -DSuperluMT_DIR=<directory_where_you_unpacked_superlu_sources> \
+    -DCADNIP_PARSERS=ON 
 ```
 
-If you do not specify `-DSuperluMT_DIR` SuperLU support will not be compiled into the binary. 
+If you do not specify `-DSuperluMT_DIR` SuperLU support will not be compiled into the binary. Similarly, if you do not specify `-DCADNIP_PARSERS=ON` foreign netlist format parsers will not be built. For the latter to build successfully you will have to install the rust toolchain. 
 
 To build with GNU make, replace `-G Ninja` with `-G "Unix Makefiles"`. The build process is started by typing
 ```
@@ -480,7 +481,7 @@ For SuperLU_MT support add the following option to the first cmake command
 
 For Cadnip parsers add
 ```
--DCADNIP_PARSERS=ON Rust_TOOLCHAIN=stable-x86_64-pc-windows-gnu
+-DCADNIP_PARSERS=ON -DRust_TOOLCHAIN=stable-x86_64-pc-windows-gnu
 ```
 
 Replace the `e:\...` paths with your own, if needed. All paths must be absolute and therefore include the drive letter. In the end the simulator can be found in `<build directory>/simulator`. To create a package (.zip), go to the `<build directory>` and type. 
