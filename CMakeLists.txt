@@ -287,15 +287,15 @@ set(SIM_HAVE_SUPERLU FALSE)
 if (DEFINED SuperluMT_DIR)
     find_path(SIM_SUPERLU_INCLUDE slu_mt_ddefs.h
         HINTS "${SuperluMT_DIR}/SRC" "${SuperluMT_DIR}/include" "${SuperluMT_DIR}"
-        NO_DEFAULT_PATH)
+        NO_DEFAULT_PATH NO_CMAKE_FIND_ROOT_PATH)
     find_library(SIM_SUPERLU_LIBRARY
         NAMES superlu_mt_OPENMP superlu_mt_PTHREAD superlu_mt
         HINTS "${SuperluMT_DIR}/lib"
-        NO_DEFAULT_PATH)
+        NO_DEFAULT_PATH NO_CMAKE_FIND_ROOT_PATH)
     # SuperLU_MT here was built against OpenBLAS; its static library carries
     # unresolved BLAS symbols that this resolves at the final link.
     find_library(SIM_SUPERLU_BLAS NAMES openblas
-        HINTS "${OPENBLAS_DIR}/lib")
+        HINTS "${OPENBLAS_DIR}/lib" NO_CMAKE_FIND_ROOT_PATH)
 
     # OpenMP is probed unconditionally further up; the _OPENMP variant of the
     # SuperLU_MT library needs it.
