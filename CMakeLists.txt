@@ -425,7 +425,12 @@ if (${SIM_PLATFORM} STREQUAL "Windows")
             ${SuiteSparse_DIR}/lib/libklu_cholmod.a
             ${SuiteSparse_DIR}/lib/libsuitesparseconfig.a
             ${OPENBLAS_DIR}/lib/libopenblas.a
-            gomp dl wsock32
+            # Static GCC runtime so the exe doesn't need libgcc_s_seh-1.dll or
+            # libstdc++-6.dll at runtime (no -static-lib<name> driver flag
+            # exists for winpthread/dl, so those are forced static further
+            # down, after libgomp.a - see the comment there).
+            -static-libgcc -static-libstdc++
+            wsock32
         CACHE STRING "External libraries for creating an executable."
         FORCE
     )
@@ -471,8 +476,53 @@ endif()
 # that stays scoped to those TUs (lib/CMakeLists.txt). $<LINK_ONLY:...> drops the
 # imported target's INTERFACE_COMPILE_OPTIONS so nothing else gets -fopenmp.
 if (OpenMP_CXX_FOUND)
+    set(_sim_openmp_gomp_static "")
+    if (${SIM_PLATFORM} STREQUAL "Windows" AND OpenMP_gomp_LIBRARY)
+        # FindOpenMP resolves "gomp" to libgomp.dll's import library and bakes
+        # that literal .dll.a path into OpenMP::OpenMP_CXX, so linking that
+        # target pulls libgomp-1.dll back in even under -static-libgcc et al.
+        # above (a driver flag only intercepts "-lgomp", not an explicit path).
+        # Link the static archive sitting next to it instead.
+        get_filename_component(_sim_openmp_gomp_dir "${OpenMP_gomp_LIBRARY}" DIRECTORY)
+        if (EXISTS "${_sim_openmp_gomp_dir}/libgomp.a")
+            set(_sim_openmp_gomp_static "${_sim_openmp_gomp_dir}/libgomp.a")
+        endif()
+    endif()
+    if (_sim_openmp_gomp_static)
+        set(SIM_EXE_LIBRARIES ${SIM_EXE_LIBRARIES}
+                ${_sim_openmp_gomp_static}
+                ${OpenMP_mingwthrd_LIBRARY}
+            CACHE STRING "External libraries for creating an executable."
+            FORCE
+        )
+    else()
+        set(SIM_EXE_LIBRARIES ${SIM_EXE_LIBRARIES}
+                $<LINK_ONLY:OpenMP::OpenMP_CXX>
+            CACHE STRING "External libraries for creating an executable."
+            FORCE
+        )
+    endif()
+endif()
+
+if (${SIM_PLATFORM} STREQUAL "Windows")
+    # Static winpthread/dl (dlfcn-win32, used directly by lib/dynload.cpp for
+    # plugin loading, and pulled in by static libgomp.a above for its
+    # dlopen/dlsym-based plugin-offload support). A static archive only
+    # satisfies undefined references from things earlier on the link line, so
+    # this bracket must come after every consumer, in particular after
+    # libgomp.a above.
+    #
+    # Deliberately no closing -Wl,-Bdynamic: this link already carries a plain
+    # -static (added by Corrosion for Rust's static CRT), under which GCC's
+    # own -static-libstdc++ stops self-bracketing its auto-appended -lstdc++
+    # at the end of the command (it assumes -static already covers it) and
+    # just trusts the current link mode instead. Reverting to -Bdynamic here
+    # would leave that trailing -lstdc++ resolving dynamically again. Nothing
+    # after this point needs a real dynamic library: the rest are explicit
+    # .a paths plus Windows import-only libs (kernel32 etc.) that resolve the
+    # same in either mode.
     set(SIM_EXE_LIBRARIES ${SIM_EXE_LIBRARIES}
-            $<LINK_ONLY:OpenMP::OpenMP_CXX>
+            -Wl,-Bstatic -lwinpthread -ldl
         CACHE STRING "External libraries for creating an executable."
         FORCE
     )
