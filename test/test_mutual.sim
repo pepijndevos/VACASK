@@ -23,7 +23,8 @@ control
   options sweep_debug=0 op_debug=0 smsig_debug=0
   options rawfile="binary" strictsave=1
   analysis ac1 ac from=1 to=100k mode="dec" points=10
-  options tran_debug=0 reltol=1e-4 tran_method="trap" tran_lteratio=3.5
+  // Keep integration error below the analytical comparison's voltage tolerance.
+  options tran_debug=0 reltol=1e-5 tran_method="trap" tran_lteratio=3.5
   analysis tran1 tran step=0.02m stop=60m
   
   postprocess(PYTHON, "runme.py")

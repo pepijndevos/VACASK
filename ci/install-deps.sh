@@ -25,13 +25,13 @@ case "$OS" in
         cmake ninja-build \
         bison flex flex-devel \
         suitesparse-devel \
-         openblas-devel lapack-devel \
-         llvm-devel clang clang-devel
+        openblas-devel lapack-devel \
+        llvm-devel clang clang-devel
       # The simulator spawns "python3" from PATH at runtime (see libplatform.cpp)
       # to run test control blocks that import numpy/scipy. AlmaLinux's python3
       # has no pip in this image, so bootstrap it with ensurepip first.
       python3 -m ensurepip --upgrade
-       python3 -m pip install --upgrade numpy scipy matplotlib
+      python3 -m pip install --upgrade numpy scipy matplotlib
       # Boost bootstrap uses gcc (the manylinux default compiler). clang is also
       # installed above, but only because openvaf-r's build requires it.
       BOOST_TOOLSET=gcc
@@ -45,7 +45,7 @@ case "$OS" in
         libsuitesparse-dev \
         libopenblas-dev liblapack-dev \
         llvm-dev libclang-dev clang \
-         python3 python3-numpy python3-scipy python3-matplotlib
+        python3 python3-numpy python3-scipy python3-matplotlib
       BOOST_TOOLSET=clang
     fi
 
@@ -89,9 +89,9 @@ case "$OS" in
       mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja \
       mingw-w64-x86_64-boost mingw-w64-x86_64-suitesparse \
       mingw-w64-x86_64-tomlplusplus mingw-w64-x86_64-llvm mingw-w64-x86_64-clang \
-       mingw-w64-x86_64-lld mingw-w64-x86_64-rust mingw-w64-x86_64-dlfcn \
+      mingw-w64-x86_64-lld mingw-w64-x86_64-rust mingw-w64-x86_64-dlfcn \
       mingw-w64-x86_64-python mingw-w64-x86_64-python-numpy \
-      mingw-w64-x86_64-python-scipy
+      mingw-w64-x86_64-python-scipy mingw-w64-x86_64-python-matplotlib
     ;;
 
   *)

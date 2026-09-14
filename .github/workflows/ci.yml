@@ -54,7 +54,7 @@ jobs:
           pacboy: >-
             gcc:p cmake:p ninja:p boost:p suitesparse:p
             tomlplusplus:p llvm:p clang:p lld:p rust:p python:p
-            python-numpy:p python-scipy:p dlfcn:p
+            python-numpy:p python-scipy:p python-matplotlib:p dlfcn:p
 
       - name: Cache OpenVAF-Reloaded build
         id: cache-openvaf
