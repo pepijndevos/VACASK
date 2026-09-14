@@ -56,7 +56,10 @@ if(CADNIP_PARSERS)
                             "(expected crates/netlist-cxx/Cargo.toml).")
     endif()
 
-    corrosion_import_crate(MANIFEST_PATH "${_netlistrs_src}/crates/netlist-cxx/Cargo.toml")
+    corrosion_import_crate(
+        MANIFEST_PATH "${_netlistrs_src}/crates/netlist-cxx/Cargo.toml"
+        CRATES netlist-cxx
+    )
     corrosion_add_cxxbridge(netlist_cxx_bridge
         CRATE netlist_cxx
         FILES lib.rs
@@ -255,6 +258,8 @@ if (${SIM_PLATFORM} STREQUAL "Windows")
     # cblas.h ships under an openblas/ subdirectory in the OpenBLAS install;
     # lib/libplatform.cpp includes it unqualified as <cblas.h>.
     include_directories("${OPENBLAS_DIR}/include/openblas")
+elseif (${SIM_PLATFORM} STREQUAL "Darwin")
+    include_directories("${OPENBLAS_DIR}/include")
 endif()
 
 # Bison >= 3.3 is required (matches %require "3.3" in lib/dflparser.y).

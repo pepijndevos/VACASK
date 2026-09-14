@@ -46,12 +46,14 @@ case "$OS" in
     CMAKE_ARGS+=("-DBoost_USE_STATIC_LIBS=ON")
     CMAKE_ARGS+=("-DBLA_VENDOR=OpenBLAS")
     CMAKE_ARGS+=("-DCMAKE_PREFIX_PATH=$OPENBLAS_PREFIX")
+    CMAKE_ARGS+=("-DOPENBLAS_DIR=$OPENBLAS_PREFIX")
     ;;
   MINGW*|MSYS*)
     CMAKE_ARGS+=(
       "-DSuiteSparse_DIR=/mingw64"
       "-DTOMLPP_DIR=/mingw64"
       "-DBoost_ROOT=/mingw64"
+      "-DOPENBLAS_DIR=/mingw64"
       "-DBISON_EXECUTABLE=/usr/bin/bison"
       "-DFLEX_EXECUTABLE=/usr/bin/flex"
       "-DFLEX_INCLUDE_DIR=/usr/include"
