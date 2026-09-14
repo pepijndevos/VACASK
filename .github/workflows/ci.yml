@@ -34,6 +34,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
       - name: Install dependencies (Linux)
         if: runner.os == 'Linux'
         run: ci/install-deps.sh
@@ -51,7 +54,7 @@ jobs:
           pacboy: >-
             gcc:p cmake:p ninja:p boost:p suitesparse:p
             tomlplusplus:p llvm:p clang:p lld:p rust:p python:p
-            python-numpy:p python-scipy:p
+            python-numpy:p python-scipy:p python-matplotlib:p dlfcn:p
 
       - name: Cache OpenVAF-Reloaded build
         id: cache-openvaf

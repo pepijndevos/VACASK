@@ -29,6 +29,7 @@ NPROC=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
 echo "==> Configuring VACASK"
 CMAKE_ARGS=(-G Ninja -S "$SOURCE_DIR" -B "$BUILD_DIR" -DCMAKE_BUILD_TYPE=Release)
 CMAKE_ARGS+=("-DOPENVAF_DIR=$OPENVAF_DIR")
+CMAKE_ARGS+=(-DCADNIP_PARSERS=ON)
 
 case "$OS" in
   Linux)
@@ -45,12 +46,14 @@ case "$OS" in
     CMAKE_ARGS+=("-DBoost_USE_STATIC_LIBS=ON")
     CMAKE_ARGS+=("-DBLA_VENDOR=OpenBLAS")
     CMAKE_ARGS+=("-DCMAKE_PREFIX_PATH=$OPENBLAS_PREFIX")
+    CMAKE_ARGS+=("-DOPENBLAS_DIR=$OPENBLAS_PREFIX")
     ;;
   MINGW*|MSYS*)
     CMAKE_ARGS+=(
       "-DSuiteSparse_DIR=/mingw64"
       "-DTOMLPP_DIR=/mingw64"
       "-DBoost_ROOT=/mingw64"
+      "-DOPENBLAS_DIR=/mingw64"
       "-DBISON_EXECUTABLE=/usr/bin/bison"
       "-DFLEX_EXECUTABLE=/usr/bin/flex"
       "-DFLEX_INCLUDE_DIR=/usr/include"
