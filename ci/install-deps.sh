@@ -78,7 +78,8 @@ case "$OS" in
       llvm@18 cmake ninja \
       bison flex \
       suite-sparse openblas boost tomlplusplus \
-      numpy scipy matplotlib
+      numpy scipy
+    python3 -m pip install --user matplotlib
     ;;
 
   MINGW*|MSYS*)
