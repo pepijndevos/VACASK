@@ -78,7 +78,7 @@ case "$OS" in
       llvm@18 cmake ninja \
       bison flex \
       suite-sparse openblas boost tomlplusplus \
-      numpy scipy
+      numpy scipy matplotlib
     ;;
 
   MINGW*|MSYS*)
@@ -88,7 +88,7 @@ case "$OS" in
       mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja \
       mingw-w64-x86_64-boost mingw-w64-x86_64-suitesparse \
       mingw-w64-x86_64-tomlplusplus mingw-w64-x86_64-llvm mingw-w64-x86_64-clang \
-      mingw-w64-x86_64-lld mingw-w64-x86_64-rust \
+       mingw-w64-x86_64-lld mingw-w64-x86_64-rust mingw-w64-x86_64-dlfcn \
       mingw-w64-x86_64-python mingw-w64-x86_64-python-numpy \
       mingw-w64-x86_64-python-scipy
     ;;

@@ -260,6 +260,8 @@ if (${SIM_PLATFORM} STREQUAL "Windows")
     include_directories("${OPENBLAS_DIR}/include/openblas")
 elseif (${SIM_PLATFORM} STREQUAL "Darwin")
     include_directories("${OPENBLAS_DIR}/include")
+elseif (${SIM_PLATFORM} STREQUAL "Linux")
+    include_directories("/usr/include/openblas")
 endif()
 
 # Bison >= 3.3 is required (matches %require "3.3" in lib/dflparser.y).
