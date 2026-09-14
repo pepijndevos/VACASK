@@ -142,11 +142,11 @@ try:
     Gf_VAC_KADS = abs(f0_sim  - f0_KADS) / f0_sim
     Gf_VAC_QC   = abs(f0_sim  - f0_QUCS) / f0_sim
     print()
-    print(f"{'Simulator':<16} {'f0 [MHz]':>14}  {'|Γf| vs K-ADS':>14}")
+    print(f"{'Simulator':<16} {'f0 [MHz]':>14}  {'|Gf| vs K-ADS':>14}")
     print(f"{'QUCS-COPEN':<16} {f0_QUCS/1e6:>14.5f}  {Gf_QC_KADS*100:>13.5f}%")
     print(f"{'Keysight-ADS':<16} {f0_KADS/1e6:>14.5f}  {'—':>14}")
     print(f"{'VACASK':<16} {f0_sim/1e6:>14.5f}  {Gf_VAC_KADS*100:>13.5f}%")
-    print(f"|Γf| VACASK vs QUCS-COPEN = {Gf_VAC_QC*100:.5f}%")
+    print(f"|Gf| VACASK vs QUCS-COPEN = {Gf_VAC_QC*100:.5f}%")
 
     delta = abs(f0_sim  - f0_KADS) / f0_sim
     ok = delta<1e-5
