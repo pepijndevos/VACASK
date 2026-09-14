@@ -34,6 +34,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
       - name: Install dependencies (Linux)
         if: runner.os == 'Linux'
         run: ci/install-deps.sh

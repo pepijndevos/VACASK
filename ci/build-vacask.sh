@@ -29,6 +29,7 @@ NPROC=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
 echo "==> Configuring VACASK"
 CMAKE_ARGS=(-G Ninja -S "$SOURCE_DIR" -B "$BUILD_DIR" -DCMAKE_BUILD_TYPE=Release)
 CMAKE_ARGS+=("-DOPENVAF_DIR=$OPENVAF_DIR")
+CMAKE_ARGS+=(-DCADNIP_PARSERS=ON)
 
 case "$OS" in
   Linux)
