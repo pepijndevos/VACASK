@@ -44,6 +44,14 @@ ERRORCLASS(OsdiDelayChangeDetected)
     }
 END_ERRORCLASS(OsdiDelayChangeDetected);
 
+ERRORCLASS(OsdiNoiseExponentChangeDetected)
+    Id instance;
+    Id srcName;
+    OsdiNoiseExponentChangeDetected(Id instance, Id srcName) : instance(instance), srcName(srcName) {}
+    std::string format() const {
+        return "OSDI noise exponent change detected in instance '" + std::to_string(instance) + "', source '" + std::string(srcName) + "'.'";
+    }
+END_ERRORCLASS(OsdiNoiseExponentChangeDetected);
 
 class Circuit;
 
@@ -164,6 +172,7 @@ private:
     GlobalStorageIndex offsStates;
     GlobalStorageIndex offsDeviceStates;
     GlobalStorageIndex offsDelayHistory;
+    GlobalStorageIndex offsModulatedNoise;
 };
 
 }

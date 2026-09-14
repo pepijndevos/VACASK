@@ -282,6 +282,16 @@ typedef struct LoadSetup {
     // Delay lines
     DelayLines* delayLines_ {nullptr};
     bool firstTimepoint {};
+
+    // Noise modulation function values
+    Vector<double>* noiseModulationFunction {nullptr};
+    GlobalStorageIndex noiseSourceStride {0};
+    GlobalStorageIndex noiseSourceOffset {0};
+    Vector<double>* noiseExponent {nullptr};
+    bool exponentCheck {true};
+    // Need have these per thread in the future
+    Vector<double> noiseDensityScratchpad;
+    Vector<double> noiseExponentScratchpad;
     
     // 
     // Internals

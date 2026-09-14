@@ -1194,6 +1194,12 @@ GlobalStorageIndex Circuit::allocateDelayHistory(LocalStorageIndex n) {
     return retval;
 }
 
+GlobalStorageIndex Circuit::allocateModulatedNoise(LocalStorageIndex n) {
+    auto retval = modulatedNoiseCount_;
+    modulatedNoiseCount_ += n;
+    return retval;
+}
+
 bool Circuit::nodeOrdering(Status& s) {
     // Build node order vector
     nodeOrder.clear();

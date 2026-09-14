@@ -503,6 +503,9 @@ bool OsdiInstance::collapseNodesCore(Circuit& circuit, Status& s) {
 }
 
 bool OsdiInstance::populateStructuresCore(Circuit& circuit, Status& s) {
+    auto* mod = model();
+    auto* dev = mod->device();
+
     // Find controlling current nodes for behavioral sources
     // Bind them to instance terminals, handle node reference count
     if (auto bd = parsedInstance_.behavioralData(); bd) {
@@ -527,10 +530,10 @@ bool OsdiInstance::populateStructuresCore(Circuit& circuit, Status& s) {
     }
 
     // Build Jacobian entries
-    auto descr = model()->device()->descriptor();
-    auto numEntries = model()->device()->jacobianEntriesCount();
+    auto descr = dev->descriptor();
+    auto numEntries = dev->jacobianEntriesCount();
     for(decltype(numEntries) i=0; i<numEntries; i++) {
-        auto& entry = model()->device()->jacobianEntry(i);
+        auto& entry = dev->jacobianEntry(i);
         auto ne = nodes_[entry.nodes.node_1];
         auto nu = nodes_[entry.nodes.node_2];
         
@@ -548,7 +551,7 @@ bool OsdiInstance::populateStructuresCore(Circuit& circuit, Status& s) {
     }
 
     // Reserve internal states, store indices
-    auto internalStateCount = model()->device()->internalStateCount();
+    auto internalStateCount = dev->internalStateCount();
     auto stateIndices = stateIndexTable();
 
     // Allocate entries for internal states
@@ -562,7 +565,7 @@ bool OsdiInstance::populateStructuresCore(Circuit& circuit, Status& s) {
     }
 
     // Reserve reactive residual node states
-    auto nodeStateCount = model()->device()->nonzeroReactiveResiduals().size()*2;
+    auto nodeStateCount = dev->nonzeroReactiveResiduals().size()*2;
     circuit.allocateStates(nodeStateCount);
     // Total state vector chunk allocated for the instance 
     // has internalStateCount+nodeStateCount entries
@@ -571,13 +574,23 @@ bool OsdiInstance::populateStructuresCore(Circuit& circuit, Status& s) {
     auto deviceStateCount = descr->num_inputs + 
         // model()->device()->nonzeroResistiveJacobianEntries().size() + 
         // model()->device()->nonzeroReactiveJacobianEntries().size() + 
-        model()->device()->nonzeroResistiveResiduals().size() + 
-        model()->device()->nonzeroReactiveResiduals().size();
+        dev->nonzeroResistiveResiduals().size() + 
+        dev->nonzeroReactiveResiduals().size();
     offsDeviceStates = circuit.allocateDeviceStates(deviceStateCount);
 
     // Reserve delay history entries
-    auto delayCount = model()->device()->absdelayCount();
+    auto delayCount = dev->absdelayCount();
     offsDelayHistory = circuit.allocateDelayHistory(delayCount);
+
+    // Reserve modulated noise source entries
+    auto nNoise = dev->noiseSourceCount();
+    LocalStorageIndex cnt=0;
+    for(decltype(nNoise) i=0; i<nNoise; i++) {
+        if (dev->noiseSourceType(i)!=NoiseType::Table) {
+            cnt++;
+        }
+    }
+    offsModulatedNoise = circuit.allocateModulatedNoise(cnt);
 
     // Loop through delays, create (out, in) and (out, out) sparsity pattern entries
     for(decltype(delayCount) i=0; i<delayCount; i++) {
@@ -1653,6 +1666,41 @@ bool OsdiInstance::loadCore(Circuit& circuit, CommonData& commons, LoadSetup& lo
                     }
                     loadSetup.delayLines_->setMaxDelay(delayNdx, td);
                 }
+            }
+        }
+    }
+
+    // Noise modulation functions, exponent change check
+    if (loadSetup.noiseSourceStride) {
+        auto atSrc = offsModulatedNoise;
+        auto nNoise = model()->device()->noiseSourceCount();
+        loadSetup.noiseDensityScratchpad.resize(nNoise);
+        loadSetup.noiseExponentScratchpad.resize(nNoise);
+        loadNoiseParameters(
+            circuit, 
+            loadSetup.noiseDensityScratchpad.data(), 
+            loadSetup.noiseExponentScratchpad.data()
+        );
+        for(decltype(nNoise) i=0; i<nNoise; i++) {
+            auto at = loadSetup.noiseSourceStride*atSrc + loadSetup.noiseSourceOffset;
+            switch (model()->device()->noiseSourceType(i)) {
+                case NoiseType::White:
+                    (*loadSetup.noiseModulationFunction)[at] = loadSetup.noiseDensityScratchpad[i];
+                    (*loadSetup.noiseExponent)[atSrc] = 0.0;
+                    atSrc++;
+                    break;
+                case NoiseType::Flicker:
+                    (*loadSetup.noiseModulationFunction)[at] = loadSetup.noiseDensityScratchpad[i];
+                    auto newExp = loadSetup.noiseExponentScratchpad[i];
+                    if (loadSetup.exponentCheck) {
+                        if ((*loadSetup.noiseExponent)[atSrc]!=newExp) {
+                            errors.push(OsdiNoiseExponentChangeDetected(name(), noiseSourceName(i)));
+                            return false;
+                        }
+                    }
+                    (*loadSetup.noiseExponent)[atSrc] = newExp;
+                    atSrc++;
+                    break;
             }
         }
     }
