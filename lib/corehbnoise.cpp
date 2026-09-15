@@ -508,6 +508,8 @@ CoreCoroutine HBNoiseCore::coroutine(bool continuePrevious, ErrorConsumer& error
 
         Vector<double> noiseDensity;
 
+        Vector<Complex> noiseSourceToOutputGain(nf);
+        
         // Set total output noise to 0
         outputNoise = 0.0;
 
@@ -537,9 +539,11 @@ CoreCoroutine HBNoiseCore::coroutine(bool continuePrevious, ErrorConsumer& error
                     if (debug>1) {
                         Simulator::dbg() << "  instance '" << std::string(name) << "'\n";
                     }
-
-                    // Collect noise excitations
-                    noiseDensity.resize(nSources);
+                    
+                    // TODO: Loop through all frequencies, evaluate noise at each frequency
+                    // Store in a vector with nf slots, one slot per one frequency. 
+                    // slot size equals number of noise sources. 
+                    noiseDensity.resize(nSources*nf);
                     if (!inst->loadNoise(circuit, frequency, noiseDensity.data())) {
                         errors.push(HbNoisePsdFailed{});
                         if (debug>0) {
@@ -553,12 +557,25 @@ CoreCoroutine HBNoiseCore::coroutine(bool continuePrevious, ErrorConsumer& error
                     double sourceContribution = 0.0;
                     double totalInstanceContribution = 0.0;
                     for(decltype(nSources) ndx=0; ndx<nSources; ndx++) {
-                        // TODO: HB-specific per-source noise contribution.
-                        // Combine noiseModulationSpec (this source's periodic
-                        // modulation spectrum) with the per-sideband transfer
-                        // functions to the output (solved via acMatrix/acSolution,
-                        // one RHS per sideband of this source), fold into
-                        // sourceContribution/totalInstanceContribution.
+                        // Compute gain from noise source to output
+                        // We have the adjoint solution yr with n*nf components + bucket
+                        // Compute gain from noise source to output spur (zr) with nf components, 
+                        // one per noise source spur. 
+                        auto [e1, e2] = inst->noiseExcitation(circuit, ndx);
+                        VectorView<Complex> e1Spurs(acSolution, e1*nf, nf, 1);
+                        VectorView<Complex> e2Spurs(acSolution, e2*nf, nf, 1);
+                        VectorView<Complex> zrSpurs(noiseSourceToOutputGain);
+                        zrSpurs.vectorPlusScaledVector(e1Spurs, e2Spurs, -1);
+
+                        // Compute wr = M^H z^conj with nf components
+                        // Conjugate columns of M are rows od M^H. 
+                        // Dot product each row with z^conj to get one component wr. 
+                        // Do this without assembling M. 
+                        
+                        // Compute sum_i |zr_i|^2 RN_{ii}
+                        // RN is a diagonal matrix holding PSDs at spur frequencies
+                        
+                        // Add to instance contribution
                     }
                     // End of noise sources loop
 
