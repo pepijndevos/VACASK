@@ -514,6 +514,16 @@ static bool isBinnedModel(const netlist::SpiceModel& m) {
         && !spiceParamValue(m.params, "wmax").empty();
 }
 
+static std::string spiceBinRange(const std::string& value,
+                                 const std::string& lower,
+                                 const std::string& upper) {
+    // Match ngspice's 1e-15 m lower-bound equality tolerance. Geometry
+    // expressions such as 0.22*1e-6 can round below the literal 2.2e-7.
+    // Keep the upper bound strict so an exact shared edge selects the next bin.
+    return "((" + value + " >= (" + lower + ") || abs(" + value + " - (" + lower +
+           ")) < 1e-15) && " + value + " < (" + upper + "))";
+}
+
 static void emitBinnedModelGroup(std::vector<const netlist::SpiceModel*>& bins,
                                  const std::string& baseName,
                                  PTSubcircuitDefinition& into, Parser& p,
@@ -1030,10 +1040,8 @@ static bool addSpiceDevice(const netlist::SpiceDevice& dev, PTSubcircuitDefiniti
             PTBlockSequence seq;
             for (const auto& bin : bins->second) {
                 std::string guard =
-                    l + "*$scale >= "  + bin.lmin +
-                    " && " + l + "*$scale < " + bin.lmax +
-                    " && " + w + "*$scale/" + nf + " >= " + bin.wmin +
-                    " && " + w + "*$scale/" + nf + " < " + bin.wmax;
+                    spiceBinRange(l + "*$scale", bin.lmin, bin.lmax) + " && " +
+                    spiceBinRange(w + "*$scale/" + nf, bin.wmin, bin.wmax);
                 PTInstance inst(Id(name.c_str()), spiceModelId(bin.modelName),
                                 spiceNodeList(dev.nodes));
                 if (!ps.empty()) inst.add(p.parseParameters(ps));

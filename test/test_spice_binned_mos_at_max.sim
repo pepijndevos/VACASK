@@ -1,0 +1,11 @@
+SPICE MOS bin upper bound remains exclusive
+
+include "spice_binned_mos_boundary.cir" lang=ngspice
+model vsource vsource
+v1 (d 0) vsource dc=1.2
+x1 (d d 0 0) nboundary w=8.8e-7 l=2.8e-7
+
+control
+  abort always
+  analysis op1 op
+endc

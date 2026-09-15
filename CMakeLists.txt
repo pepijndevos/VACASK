@@ -45,7 +45,7 @@ if(CADNIP_PARSERS)
         FetchContent_Declare(
             NetlistParseRs
             GIT_REPOSITORY https://github.com/NyanCAD/NetlistParse.rs.git
-            GIT_TAG 78c1737a7f4a9239ab445ed491aedc622c0fab53
+            GIT_TAG d565fd3e359893fbc4376bb9c7b5608ef786e6bb
         )
         FetchContent_MakeAvailable(NetlistParseRs)
         set(_netlistrs_src "${netlistparsers_SOURCE_DIR}")

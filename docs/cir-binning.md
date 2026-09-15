@@ -41,6 +41,18 @@ m2 (drain gate source bulk) nmos w=2u l=1u
 
 During elaboration each instance evaluates the `@if` chain using its own `w` and `l` values and connects to exactly one binned model.
 
+## Imported SPICE models
+
+For SPICE model families with numeric bin suffixes and `lmin`, `lmax`, `wmin`,
+and `wmax` bounds, the foreign parser generates the selection blocks. It uses
+the MOS instance's scaled length and scaled per-finger width (`w/nf`).
+
+Lower bounds are inclusive, with ngspice's absolute equality tolerance of
+`1e-15` meters. This accommodates floating-point roundoff when a geometry
+expression such as `0.22*1e-6` evaluates just below the literal bound `2.2e-7`.
+Upper bounds remain exclusive. If no bin matches, elaboration reports a
+missing master for the unsuffixed model name.
+
 ## Guidelines
 
 - Keep binned model definitions in a separate include file and include it with the wrapper subcircuit.

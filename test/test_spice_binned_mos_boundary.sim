@@ -1,0 +1,58 @@
+SPICE MOS bin lower bounds tolerate geometry expression roundoff
+
+include "spice_binned_mos_boundary.cir" lang=ngspice
+model vsource vsource
+
+// 0.22*1e-6 is one ULP below the literal lower bound 2.2e-7.
+xwidth (width gate 0 0) nboundary w=0.22 * 1 * 1e-6 l=0.28 * 1e-6
+xwidth_ref (width_ref gate 0 0) nboundary w=2.2e-7 l=2.8e-7
+xlength (length gate 0 0) nboundary w=2.8e-7 l=0.22 * 1e-6
+xlength_ref (length_ref gate 0 0) nboundary w=2.8e-7 l=2.2e-7
+xnf (nf gate 0 0) nboundary w=0.22 * 3 * 1e-6 l=2.8e-7 nf=3
+xnf_ref (nf_ref gate 0 0) nboundary w=6.6e-7 l=2.8e-7 nf=3
+// Exact shared boundaries belong to the next bin, not the preceding one.
+xwidth_upper (width_upper gate 0 0) nboundary w=4.4e-7 l=2.8e-7
+xlength_upper (length_upper gate 0 0) nboundary w=2.8e-7 l=4.4e-7
+
+vgate (gate 0) vsource dc=1.2
+vwidth (width 0) vsource dc=1.2
+vwidth_ref (width_ref 0) vsource dc=1.2
+vlength (length 0) vsource dc=1.2
+vlength_ref (length_ref 0) vsource dc=1.2
+vnf (nf 0) vsource dc=1.2
+vnf_ref (nf_ref 0) vsource dc=1.2
+vwidth_upper (width_upper 0) vsource dc=1.2
+vlength_upper (length_upper 0) vsource dc=1.2
+
+control
+  abort always
+  options rawfile="binary"
+  analysis op1 op
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+from runtest import *
+import sys
+
+p = rawread("op1.raw").get()
+tests = []
+for name in ("width", "length", "nf"):
+    current = -p["v" + name + ":flow(br)"]
+    reference = -p["v" + name + "_ref:flow(br)"]
+    ok = bool((reference > 1e-6).all()
+              and (relDiff(current, reference, 1e-12) < 1e-6).all())
+    print(name, "expression matches literal boundary", current, reference, ok)
+    tests.append(ok)
+
+for name in ("width", "length"):
+    current = -p["v" + name + "_upper:flow(br)"]
+    reference = -p["v" + name + "_ref:flow(br)"]
+    ok = bool((current > 1e-10).all() and (reference > 5 * current).all())
+    print(name, "shared upper bound selects high-threshold bin", current, reference, ok)
+    tests.append(ok)
+
+if isTest():
+    sys.exit(not all(tests))
+>>>FILE
