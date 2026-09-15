@@ -11,7 +11,7 @@ model capacitor capacitor
 model vsource vsource
 model d simdio is=1e-12 n=2 kf=1e-15 af=1.2 ef=1.5 debug=0
 
-v2 (2 0) vsource dc=0.8
+v2 (2 0) vsource dc=0.8 $mfactor=2
 r2 (2 3) resistor r=1k $mfactor=3
 d2 (3 0) d $mfactor=5
 c2 (3 0) capacitor c=1u
@@ -43,7 +43,11 @@ tests = []
 
 op1 = rawread('op1.raw').get()
 
-i = -op1["v2:flow(br)"]
+# actual current is $mfactor times greater
+# We need the total voltage source current because it is later used as 
+# total diode current which is divided by diode's $mafactor to get 
+# the current of a single diode. 
+i = -op1["v2:flow(br)"]*2 # actual current is $mfactor times greater
 exactv3 = diocalc.dioSolve(5*1e-12, 2, 27, 1000.0/3, 0.8)
 exacti, exactgd = diocalc.dioMod(exactv3, 5*1e-12, 2, 27)
 # print("-i(v2)=", i)

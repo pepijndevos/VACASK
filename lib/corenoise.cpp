@@ -484,24 +484,23 @@ CoreCoroutine NoiseCore::coroutine(bool continuePrevious, ErrorConsumer& errors)
                 break;
             }
         }
-        
-        // Compute power gain
-        zero(acSolution); 
-        auto [e1, e2] = inputSource->sourceExcitation(circuit);
-        acSolution[e1] += inputSource->scaledUnityExcitation();
-        acSolution[e2] -= inputSource->scaledUnityExcitation();
+
+        // Solve adjoint system with response on RHS
+        zero(acSolution);
+        acSolution[up] += 1.0;
+        acSolution[un] -= 1.0;
 
         if (debug>=100) {
-            Simulator::dbg() << "Linear system for power gain\n";
-            acMatrix.dump(Simulator::dbg(), dataWithoutBucket(acSolution, bucketSize)); 
+            Simulator::dbg() << "Linear system for adjoint solve\n";
+            acMatrix.dump(Simulator::dbg(), dataWithoutBucket(acSolution, bucketSize));
             Simulator::dbg() << "\n";
         }
 
-        // Solve, set bucket to 0.0
-        if (!cxSolver_->solve(dataWithoutBucket(acSolution, bucketSize), errors)) {
+        // Solve transposed system, set bucket to 0.0
+        if (!cxSolver_->tsolve(dataWithoutBucket(acSolution, bucketSize), errors)) {
             errors.push(NoiseMatrixError{});
             if (debug>2) {
-                Simulator::dbg() << "Failed to solve factored system.\n";
+                Simulator::dbg() << "Failed to solve adjoint factored system.\n";
             }
             error = true;
             break;
@@ -511,21 +510,22 @@ CoreCoroutine NoiseCore::coroutine(bool continuePrevious, ErrorConsumer& errors)
         if (options.solutioncheck && !acMatrix.isFinite(dataWithoutBucket(acSolution, bucketSize), true, true, errors)) {
             errors.push(NoiseSolutionNotFinite{});
             if (options.smsig_debug) {
-                Simulator::dbg() << "A solution entry is not finite. Solver failed.\n";
+                Simulator::dbg() << "An adjoint solution entry is not finite. Solver failed.\n";
             }
             error = true;
             break;
         }
-        
+
+        // Power gain from the adjoint solution, no extra solve needed
+        auto [e1, e2] = inputSource->sourceExcitation(circuit);
+
         // Power gain
-        // For $mfactor!=1 this gain is from the sources magnitude to the output. 
-        // For a voltage source $mfactor has no effect. 
+        // For $mfactor!=1 this gain is from the sources magnitude to the output.
+        // For a voltage source $mfactor has no effect.
         // For a current source $mfactor actually increases the excitation $mfactor times
-        // so the obtained gain is $mfactor times greater compared to the one obtained 
-        // for $mfactor=1. 
-        // Effectively this means the gain is measured from the source's mag value to
-        // the specified output. 
-        auto tf = (acSolution[up] - acSolution[un]);
+        // so the obtained gain is $mfactor times greater compared to the one obtained
+        // for $mfactor=1.
+        auto tf = inputSource->scaledUnityExcitation() * (acSolution[e1] - acSolution[e2]);
         powerGain = std::abs(tf);
         powerGain *= powerGain;
 
@@ -588,34 +588,9 @@ CoreCoroutine NoiseCore::coroutine(bool continuePrevious, ErrorConsumer& errors)
                             Simulator::dbg() << "\n";
                         }
 
-                        // Compute gain from noise source to output
-                        zero(acSolution); 
+                        // Gain from noise source to output, from the adjoint solution
                         auto [e1, e2] = inst->noiseExcitation(circuit, ndx);
-
-                        // Set RHS, load negated unity excitation to get the true value of response after solve()
-                        // Here this is not neccessary because we are working with the absolute value of the response. 
-                        acSolution[e1] += -1.0;
-                        acSolution[e2] -= -1.0;
-
-                        if (debug>=100) {
-                            Simulator::dbg() << "Linear system for contribution '"+std::string(contrib)+"' of '"+std::string(name)+"'\n";
-                            acMatrix.dump(Simulator::dbg(), dataWithoutBucket(acSolution, bucketSize)); 
-                            Simulator::dbg() << "\n";
-                        }
-
-                        // Solve, set bucket to 0.0
-                        if (!cxSolver_->solve(dataWithoutBucket(acSolution, bucketSize), errors)) {
-                            errors.push(NoiseMatrixError{});
-                            if (debug>2) {
-                                Simulator::dbg() << "Failed to solve factored system.\n";
-                            }
-                            error = true;
-                            break;
-                        }
-                        acSolution[0] = 0.0;
-                        
-                        // Power gain from noise source to output
-                        auto tf = acSolution[up] - acSolution[un];
+                        auto tf = acSolution[e1] - acSolution[e2];
                         auto gain = std::abs(tf);
                         gain *= gain;
                         
