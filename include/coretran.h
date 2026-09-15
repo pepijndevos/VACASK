@@ -120,6 +120,16 @@ SIMPLE_ERRORCLASS(TranBreakpointPanic, "Panic in breakpoint handling.");
 
 SIMPLE_ERRORCLASS(TranNrSolverFailed, "Transient NR solver failed.");
 
+ERRORCLASS(TranTableNoiseNotSupported)
+    Id instance;
+    Id srcName;
+    TranTableNoiseNotSupported(Id instance, Id srcName) : instance(instance), srcName(srcName) {}
+    std::string format() const {
+        return "OSDI table noise not supported in instance '" + std::to_string(instance) + "', source '" + std::string(srcName) + "'.'";
+    }
+END_ERRORCLASS(TranTableNoiseNotSupported);
+
+
 // Operating point core functionality, assumes all circuit parameters and simulator options have been set
 // This core uses no other core
 class TranCore : public AnalysisCore {
@@ -208,7 +218,7 @@ protected:
     TranParameters& params;
 
 private:
-    std::tuple<size_t, size_t, size_t> countNoiseSources() const;
+    std::tuple<bool, size_t, size_t, size_t> countNoiseSources(ErrorConsumer& errors) const;
     bool evalAndLoadWrapper(EvalSetup& evalSetup, LoadSetup& loadSetup, ErrorConsumer& errors);
 
     // Update breakpoint, but only if it is after last

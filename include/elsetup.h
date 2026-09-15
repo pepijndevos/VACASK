@@ -286,10 +286,11 @@ typedef struct LoadSetup {
     // Noise modulation function values
     Vector<double>* noiseModulationFunction {nullptr};
     GlobalStorageIndex noiseSourceStride {0};
-    GlobalStorageIndex noiseSourceOffset {0};
+    // Use jacobianLoadOffset as offset into noiseModulationFunction vector's slot
     Vector<double>* noiseExponent {nullptr};
-    bool exponentCheck {true};
-    // Need have these per thread in the future
+    // No need to have these per thread in the future because 
+    // load is always serial due to Jacobian += races. 
+    // TODO: get rid of these by adding per-source acceess functions to OSDI
     Vector<double> noiseDensityScratchpad;
     Vector<double> noiseExponentScratchpad;
     

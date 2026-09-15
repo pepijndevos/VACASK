@@ -163,8 +163,8 @@ public:
 
     // Set stored solutiuon for evaluation, does not set up Jacobian to save memory
     // Bind circuit to jacColoc and evaluate at current solution
-    bool evaluateAtNodeset(ErrorConsumer& errors);
-    bool getFrequencyDomainJacobians(CSCBlockSparseComplexMatrix& jacSpec, const Spurs& prunedSpurs);
+    bool evaluateAtNodeset(bool noiseModulation, ErrorConsumer& errors);
+    bool getFrequencyDomainJacobians(CSCBlockSparseComplexMatrix& jacSpec, const Spurs& prunedSpurs, Vector<Complex>* noiseModulationSpec=nullptr);
 
     void dump(std::ostream& os) const;
 
@@ -248,6 +248,13 @@ private:
     // captures by reference are fully constructed before its init list runs.
     NRSettings nrSettings;
     HBNRSolver nrSolver;
+
+    // Noise modulation function values, groups of lnegth nt correspond to values
+    // of one source's modulation function at colocation points. 
+    Vector<double> noiseModulationTd;
+
+    // Noise exponent check scratchpad
+    Vector<double> noiseExponent;
 };
 
 }

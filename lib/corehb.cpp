@@ -281,7 +281,7 @@ bool HBCore::buildGrid(ErrorConsumer& errors) {
 }
 
 // Called after build
-bool HBCore::evaluateAtNodeset(ErrorConsumer& errors) {
+bool HBCore::evaluateAtNodeset(bool noiseModulation, ErrorConsumer& errors) {
 
     // Unlock delays, allow delay change
     delayLines_.clearChanged();
@@ -293,10 +293,24 @@ bool HBCore::evaluateAtNodeset(ErrorConsumer& errors) {
         .matrixCheck = bool(options.matrixcheck), 
     };
 
-    // Copy from forces slot 1 to solution vector.
-    // solution and the slot-1 force vector both carry an nt-wide bucket.
+    // Get sizes
     auto n = circuit.unknownCount();
     auto nt = timepoints.size();
+    
+    // Do we need the values of the time-domain noise modulation functions
+    if (noiseModulation) {
+        // Scale vector
+        noiseModulationTd.resize(nt*circuit.modulatedNoiseCount());
+        // Install in evaluator
+        auto& ls = nrSolver.loadSetup();
+        ls.noiseModulationFunction = &noiseModulationTd;
+        ls.noiseSourceStride = nt;
+        noiseExponent.resize(circuit.modulatedNoiseCount());
+        ls.noiseExponent = &noiseExponent;
+    }
+
+    // Copy from forces slot 1 to solution vector.
+    // solution and the slot-1 force vector both carry an nt-wide bucket.
     solution.upsize(2, (n+1)*nt);
     solution.vector() = nrSolver.forces(1).unknownValue_;
 
@@ -304,28 +318,38 @@ bool HBCore::evaluateAtNodeset(ErrorConsumer& errors) {
     nrSolver.enableForces(0, false);
     nrSolver.enableForces(1, false);
     
+    bool isOk = true;
+
     // Rebuild NR solver structures
     if (!nrSolver.rebuild(n*nt, errors)) {
         errors.push(HbSolverBuildFailed{});
-        return false;
+        isOk = false;
     }
 
     // Initialize NR solver (continue previous)
-    if (!nrSolver.initialize(true, errors)) {
+    if (isOk && !nrSolver.initialize(true, errors)) {
         errors.push(HbSolverInitFailed{});
-        return false;
+        isOk = false;
     }
 
     // Run evaluation (continue previous)
-    if (!nrSolver.evaluate(true, errors)) {
+    if (isOk && !nrSolver.evaluate(true, errors)) {
         errors.push(HbEvaluationFailed{});
-        return false;
+        isOk = false;
     }
 
-    return true;
+    // Remove noise modulation founction pointer from load setup
+    if (noiseModulation) {
+        auto& ls = nrSolver.loadSetup();
+        ls.noiseModulationFunction = nullptr;
+        ls.noiseSourceStride = 0;
+        ls.noiseExponent = nullptr;
+    }
+
+    return isOk;
 }
 
-bool HBCore::getFrequencyDomainJacobians(CSCBlockSparseComplexMatrix& jacSpec, const Spurs& prunedSpurs) {
+bool HBCore::getFrequencyDomainJacobians(CSCBlockSparseComplexMatrix& jacSpec, const Spurs& prunedSpurs, Vector<Complex>* noiseModulationSpec) {
     // Assumes evaluation was performed, writes frequency domin jacobians to jacSpec
     auto nt = timepoints.size();
     auto nf = spurs_.smsigFreq().size();
@@ -335,11 +359,12 @@ bool HBCore::getFrequencyDomainJacobians(CSCBlockSparseComplexMatrix& jacSpec, c
     // Pruned spurs
     auto& fullSmsigFreqIndex = prunedSpurs.fullSmsigFreqIndex();
     auto prunedDcIndex = prunedSpurs.dcIndex();
+    auto nPrunedFullSpec = fullSmsigFreqIndex.size();
 
     // Scratchpad for frequency domain spectrum
     Vector<Complex> GFullJac(nfp);
     Vector<Complex> CFullJac(nfp);
-
+    
     // Go through all dense blocks
     for(auto& [pos, flags] : circuit.sparsityMap().positions()) {
         // Delay only blocks are skipped, we handle only nonlinear resistive/reactive Jacobian blocks
@@ -417,7 +442,7 @@ bool HBCore::getFrequencyDomainJacobians(CSCBlockSparseComplexMatrix& jacSpec, c
         auto CCol = fdBlock.column(1);
 
         // Copy to frequency domain Jacobian block
-        for(decltype(prunedDcIndex) k=0; k<fullSmsigFreqIndex.size(); k++) {
+        for(decltype(prunedDcIndex) k=0; k<nPrunedFullSpec; k++) {
             auto fullIndex = fullSmsigFreqIndex[k];
             if (fullIndex>=dcIndex) {
                 // Positive frequency, GfullJac and CFullJac contain only DC and positive frequencies
@@ -461,6 +486,44 @@ bool HBCore::getFrequencyDomainJacobians(CSCBlockSparseComplexMatrix& jacSpec, c
         //     std::cout << "])\n";
         // }
 
+    }
+
+    // Do we need noise modulation function spectra
+    if (noiseModulationSpec) {
+        auto nNoise = circuit.modulatedNoiseCount();
+        for(decltype(nNoise) i=0; i<nNoise; i++) {
+            Vector<Complex> specBlock(nfp);
+    
+            VectorView tdVec(noiseModulationTd, i*nt, nt, 1);
+
+            // APFT on stored time-domain values, same layout as for Jacobians:
+            // write starting at imag part of DC component (see comment above)
+            auto specDest = VectorView(reinterpret_cast<double*>(&specBlock.at(0))+1, nt, 1);
+            APFT.multiply(tdVec, specDest);
+
+            // Move DC from imag to real part, set imag part to 0
+            specBlock.at(0) = specBlock.at(0).imag();
+
+            // Divide by 2 all positive frequency components, except DC
+            // Spectrum is two-sided, but HB computes a one-sided spectrum
+            VectorView specBlockView(specBlock, 1, nfp-1, 1);
+            specBlockView.scale(0.5);
+
+            // Map into slot of noiseModulationSpec holding the two-sided 
+            // noise modulation function spectrum. 
+            // Slot size is nPrunedFullSpec. 
+            VectorView noiseSlot(*noiseModulationSpec, i*nPrunedFullSpec, nPrunedFullSpec, 1);
+            for(decltype(prunedDcIndex) k=0; k<nPrunedFullSpec; k++) {
+                auto fullIndex = fullSmsigFreqIndex[k];
+                if (fullIndex>=dcIndex) {
+                    // Positive frequency, specBlock contains only DC and positive frequencies
+                    noiseSlot[k] = specBlock[fullIndex-dcIndex];
+                } else {
+                    // Negative frequency, conjugate corresponding positive frequency
+                    noiseSlot[k] = std::conj(specBlock[dcIndex-fullIndex]);
+                }
+            }
+        }
     }
 
     return true;

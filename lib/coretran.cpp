@@ -584,7 +584,7 @@ Id TranCore::methodTrapezoidal = Id::createStatic("trap");
 Id TranCore::methodBDF2 = Id::createStatic("bdf2");
 Id TranCore::methodGear2 = Id::createStatic("gear2");
 
-std::tuple<size_t, size_t, size_t> TranCore::countNoiseSources() const {
+std::tuple<bool, size_t, size_t, size_t> TranCore::countNoiseSources(ErrorConsumer& errors) const {
     // Count white and flicker noise sources
     // Device/model/instance loops
     // Must traverse in exactly the same order each time at noise load. 
@@ -618,13 +618,16 @@ std::tuple<size_t, size_t, size_t> TranCore::countNoiseSources() const {
                         case NoiseType::Flicker:
                             nFlicker++;
                             break;
+                        case NoiseType::Table:
+                            errors.push(TranTableNoiseNotSupported(inst->name(), inst->noiseSourceName(ins)));
+                            return std::make_tuple(false, 0, 0, 0);
                     }
                 }
             }
         }
     }
 
-    return std::make_tuple(nWhite, nFlicker, maxNsCount);
+    return std::make_tuple(true, nWhite, nFlicker, maxNsCount);
 }
 
 CoreCoroutine TranCore::coroutine(bool continuePrevious, ErrorConsumer& errors) {
@@ -733,7 +736,10 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious, ErrorConsumer& errors) 
         randomGenerator.seed(params.noiseseed);
         
         // Count noise sources, get maximal number of sources per instance
-        auto [nWhite, nFlicker, maxNsCount] = countNoiseSources();
+        auto [countOk, nWhite, nFlicker, maxNsCount] = countNoiseSources(errors); 
+        if (!countOk) {
+            co_yield CoreState::Aborted;
+        }
         
         if (params.noisemode==noiseZoh) {
             // Compute number of VM rows for ZOH flicker noise generator

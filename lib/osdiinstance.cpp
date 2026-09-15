@@ -1682,7 +1682,7 @@ bool OsdiInstance::loadCore(Circuit& circuit, CommonData& commons, LoadSetup& lo
             loadSetup.noiseExponentScratchpad.data()
         );
         for(decltype(nNoise) i=0; i<nNoise; i++) {
-            auto at = loadSetup.noiseSourceStride*atSrc + loadSetup.noiseSourceOffset;
+            auto at = loadSetup.noiseSourceStride*atSrc + loadSetup.jacobianLoadOffset;
             switch (model()->device()->noiseSourceType(i)) {
                 case NoiseType::White:
                     (*loadSetup.noiseModulationFunction)[at] = loadSetup.noiseDensityScratchpad[i];
@@ -1692,7 +1692,8 @@ bool OsdiInstance::loadCore(Circuit& circuit, CommonData& commons, LoadSetup& lo
                 case NoiseType::Flicker:
                     (*loadSetup.noiseModulationFunction)[at] = loadSetup.noiseDensityScratchpad[i];
                     auto newExp = loadSetup.noiseExponentScratchpad[i];
-                    if (loadSetup.exponentCheck) {
+                    // Check exponent for all but the first point (initialization)
+                    if (loadSetup.jacobianLoadOffset>0) {
                         if ((*loadSetup.noiseExponent)[atSrc]!=newExp) {
                             errors.push(OsdiNoiseExponentChangeDetected(name(), noiseSourceName(i)));
                             return false;
