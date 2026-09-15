@@ -59,7 +59,6 @@ HBACCore::HBACCore(
     jacSpec(jacSpec),
     acMatrix(acMatrix),
     acSolution(acSolution),
-    firstBuild(true),
     params(params),
     delayLines_(delayLines),
     hbacDelayBindings_(hbacDelayBindings),
@@ -216,50 +215,45 @@ void HBACCore::computeOmega(Real f) {
 //   omega - small-signal frequencies 2 pi (f+f_n), one per output row n
 //   block - (p,q) subblock of H(omega) to fill, size nf x nf
 //           column-major assumed
+// Shared (static) implementations, see declaration in corehbac.h
 void HBACCore::fillDenseBlock(
+    const Spurs& spurs,
     const VectorView<Complex>& G,
     const VectorView<Complex>& C,
     const Vector<Real>& omega,
     DenseMatrixView<Complex>& block
 ) {
-    auto& stencil = spurs_.mixingStencil();
+    auto& stencil = spurs.mixingStencil();
     auto nf = stencil.nRows();
-    
-    // G.dump(std::cout);
-    // C.dump(std::cout);
-    // std::cout << "\n";
 
     // Outer loop over columns (assume column major matrix)
     auto* o = &omega.at(0);
     for (size_t m = 0; m < nf; m++) {
         // Omega is common for the whole row
-        auto [start, end] = spurs_.rowRange(m);
+        auto [start, end] = spurs.rowRange(m);
         auto om = o + start;
         auto p1 = &block.at(start, m);
         auto jacIndex = &stencil.at(start, m);
-        
-        // TODO: remove
-        // start=0;
-        // end=nf;
 
         for(size_t n = start; n < end; n++) {
-            // std::cout << "col " << m << " row " << n << " ji=" << *jacIndex << "\n";
             if (*jacIndex>=0) {
                 auto k = *jacIndex;
                 *p1 = G[k] + Complex(0.0, *om) * C[k];
-                // std::cout << "  " << g << " " << c << "\n";
             }
             p1++;
             jacIndex++;
             om++;
         }
-
-        // block.dump(std::cout);
-        // std::cout << "\n";
     }
 }
 
-void HBACCore::fillMatrix() {
+// Shared (static) implementations, see declaration in corehbac.h
+void HBACCore::fillMatrix(
+    Circuit& circuit, const Spurs& spurs,
+    CSCBlockSparseComplexMatrix& jacSpec, CSCBlockSparseComplexMatrix& acMatrix,
+    const Vector<Real>& omega,
+    DelayLines& delayLines, DelayMatrixBindings<DenseMatrixView<Complex>>& delayBindings
+) {
     acMatrix.zero();
     for(auto& [pos, flags] : circuit.sparsityMap().positions()) {
         // Delay only blocks are skipped, we load only nonlinear resistive/reactive Jacobian blocks
@@ -272,38 +266,26 @@ void HBACCore::fillMatrix() {
         auto G = jacSpecBlock.column(0);
         auto C = jacSpecBlock.column(1);
 
-        // TODO: remove
-        // if (pos.first==3 && pos.second==3) {
-        //     int a=1;
-        // }
-
         // Get AC matrix block
         auto [block, found2] = acMatrix.block(pos);
-        
-        // Fill block
-        fillDenseBlock(G, C, omega, block);
 
-        // std::cout << pos.first << " " << pos.second << "\n";
-        // std::cout << "Jg: ";
-        // G.dump(std::cout);
-        // std::cout << "Jc: ";
-        // C.dump(std::cout);
-        // block.dump(std::cout);
+        // Fill block
+        fillDenseBlock(spurs, G, C, omega, block);
     }
 
     // Delay lines.
     // A linear delay does not mix spurs, so at spur n the small-signal
-    // equation of the delay output at any spur is 
+    // equation of the delay output at any spur is
     //   -out + exp(-j omega td) in = 0
     // i.e. the (out,in) block is diag(exp(-j w_n td)) and (out,out) is -I.
     // The main loop above skips delay-only blocks, so these blocks still hold
     // the zeros left by acMatrix.zero(); the += below builds them from scratch.
     auto nDelay = circuit.delayHistoryCount();
-    auto nf = spurs_.mixingStencil().nRows();
+    auto nf = spurs.mixingStencil().nRows();
     for(decltype(nDelay) i=0; i<nDelay; i++) {
-        auto td = delayLines_.delay(i);
-        auto [outIn, outOut] = hbacDelayBindings_[i];
-        
+        auto td = delayLines.delay(i);
+        auto [outIn, outOut] = delayBindings[i];
+
         auto outOutDiag = outOut.diagonal();
         auto outInDiag = outIn.diagonal();
         for(decltype(nf) k=0; k<nf; k++) {
@@ -313,63 +295,38 @@ void HBACCore::fillMatrix() {
     }
 }
 
+// Explicit instantiation for HBACParameters (the only user so far);
+// definition lives in corehbac.h, see there.
+template bool HBACCore::rebuildCore<HBACParameters>(
+    HBACParameters& params, HBCore& hbCore, Circuit& circuit,
+    Spurs& spurs,
+    CSCBlockSparseComplexMatrix& jacSpec, CSCBlockSparseComplexMatrix& acMatrix,
+    DelayLines& delayLines, DelayMatrixBindings<DenseMatrixView<Complex>>& delayBindings,
+    ErrorConsumer& errors
+);
+
 bool HBACCore::rebuild(ErrorConsumer& errors) {
 
-    auto& options = circuit.simulatorOptions().core();
-
-    // Make a local copy of spurs structure
-    spurs_ = Spurs(hbCore_.spurs());
-
-    // Get maxharm and maxfreq
-    Vector<Int> maxharm(spurs_.fundamentals().size());
-    if (params.maxharm.isVector()) {
-        // Vector maxharm
-        if (params.maxharm.type()!=Value::Type::IntVec) {
-            errors.push(HbAcMaxharmType{});
-            return false;
-        }
-        if (params.maxharm.size()!=spurs_.fundamentals().size()) {
-            errors.push(HbAcMaxharmSize{});
-            return false;
-        }
-        maxharm = params.maxharm.val<IntVector>();
-    } else {
-        // Scalar maxharm
-        if (params.maxharm.type()!=Value::Type::Int) {
-            errors.push(HbAcMaxharmScalarType{});
-            return false;
-        }
-        maxharm.assign(spurs_.fundamentals().size(), params.maxharm.val<Int>());
-    }
-    auto maxfreq = params.maxfreq;
-    
-    // Prune spurs
-    if (!spurs_.prune(maxharm, maxfreq)) {
-        errors.push(HbAcSpurPruneFailed{});
+    // call com function here, leave dead code below it unchanged.
+    if (!rebuildCore<HBACParameters>(
+        params, hbCore_, circuit, spurs_, jacSpec, acMatrix, delayLines_, hbacDelayBindings_, errors
+    )) {
         return false;
     }
-
-    // Build mixing map
-    if (!spurs_.buildMixingMap(options.smsig_debug>0)) {
-        errors.push(HbAcMixingMapFailed{});
-        return false;
-    }
-    auto& stencil = spurs_.mixingStencil();
-    auto nf = stencil.nRows();
-
-    hbacResolver_.setFreqCount(nf);
+    auto nfNew = spurs_.mixingStencil().nRows();
+    hbacResolver_.setFreqCount(nfNew);
     acMatrix.setResolver(&hbacResolver_);
 
     // Collect output spurs
-    std::vector<int> newSpurIndices;
+    std::vector<int> newOutSpurIndices;
     if (params.outspur.type() == Value::Type::ValueVec) {
         // List of spurs: each element is a real frequency or integer weight vector
         // Empty list means all spurs
         if (params.outspur.size()==0) {
             // Empty list means all spurs
-            auto nf = spurs_.smsigFreq().size();
-            for(decltype(nf) i=0; i<nf; i++) {
-                newSpurIndices.push_back(static_cast<int>(i));
+            auto nfAll = spurs_.smsigFreq().size();
+            for(decltype(nfAll) i=0; i<nfAll; i++) {
+                newOutSpurIndices.push_back(static_cast<int>(i));
             }
         } else {
             size_t cnt=0;
@@ -379,7 +336,7 @@ bool HBACCore::rebuild(ErrorConsumer& errors) {
                     errors.push(HbAcOutspurNotFound{cnt});
                     return false;
                 }
-                newSpurIndices.push_back(static_cast<int>(ndx));
+                newOutSpurIndices.push_back(static_cast<int>(ndx));
                 cnt++;
             }
         }
@@ -390,35 +347,35 @@ bool HBACCore::rebuild(ErrorConsumer& errors) {
             errors.push(HbAcOutspurSingleNotFound{});
             return false;
         }
-        newSpurIndices.push_back(static_cast<int>(ndx));
+        newOutSpurIndices.push_back(static_cast<int>(ndx));
     }
 
     // No output spurs, error
-    if (newSpurIndices.empty()) {
+    if (newOutSpurIndices.empty()) {
         errors.push(HbAcNoOutspur{});
         return false;
     }
 
     // Collect new spur signatures
-    std::vector<std::vector<Int>> newSignatures;
-    newSignatures.reserve(newSpurIndices.size());
-    for (auto i : newSpurIndices) {
+    std::vector<std::vector<Int>> newOutSpurSignatures;
+    newOutSpurSignatures.reserve(newOutSpurIndices.size());
+    for (auto i : newOutSpurIndices) {
         auto w = spurs_.smsigFreqWeights(i);
         std::vector<Int> sig(w.n());
         for (size_t k = 0; k < w.n(); k++) {
             sig[k] = w[k];
         }
-        newSignatures.push_back(std::move(sig));
+        newOutSpurSignatures.push_back(std::move(sig));
     }
 
     // Check for change
     if (spurIndices.size()!=0) {
-        if (newSignatures.size()!=spurSignatures.size()) {
+        if (newOutSpurSignatures.size()!=spurSignatures.size()) {
             errors.push(HbAcOutspurChanged{});
             return false;
         }
         for(size_t i=0; i<spurSignatures.size(); i++) {
-            if (newSignatures[i]!=spurSignatures[i]) {
+            if (newOutSpurSignatures[i]!=spurSignatures[i]) {
                 errors.push(HbAcOutspurChanged{});
                 return false;
             }
@@ -426,31 +383,19 @@ bool HBACCore::rebuild(ErrorConsumer& errors) {
     }
 
     // Update spur indices and signatures
-    spurIndices = std::move(newSpurIndices);
-    spurSignatures = std::move(newSignatures);
+    spurIndices = std::move(newOutSpurIndices);
+    spurSignatures = std::move(newOutSpurSignatures);
 
     // Build suffixes
-    constructSuffixes();
-
-    // Jacobian spectral components
-    if (!jacSpec.rebuild(circuit.sparsityMap(), circuit.unknownCount(), nf, 2, errors, true)) {
-        return false;
-    }
-
-    // AC analysis matrix
-    if (!acMatrix.rebuild(circuit.sparsityMap(), circuit.unknownCount(), nf, nf, errors)) {
-        return false;
-    }
-
-    // Bind delay lines to acMatrix blocks. delayLines_ is shared with hbCore_
-    // and already sized by HBCore::rebuild() (run before this by
-    // HBAC::rebuildCores); delay values are filled during the HB solve /
-    // evaluateAtNodeset() in coroutine(). The (out,in) and (out,out) blocks
-    // must exist in the sparsity map (absdelay declares the Jacobian entry),
-    // so this only fails on a genuine topology error.
-    if (!delayLines_.bindToBlockMatrix(acMatrix, hbacDelayBindings_, errors)) {
-        errors.push(HbAcDelayBindFailed{});
-        return false;
+    suffixes.clear();
+    for (auto i : spurIndices) {
+        auto w = spurs_.smsigFreqWeights(i);
+        std::string s;
+        for (size_t k = 0; k < w.n(); k++) {
+            if (k > 0) s += ',';
+            s += std::to_string(w[k]);
+        }
+        suffixes.push_back(std::move(s));
     }
 
     return true;
@@ -618,7 +563,7 @@ CoreCoroutine HBACCore::coroutine(bool continuePrevious, ErrorConsumer& errors) 
         }
 
         // Construct matrix
-        fillMatrix();
+        fillMatrix(circuit, spurs_, jacSpec, acMatrix, omega, delayLines_, hbacDelayBindings_);
 
         // Fill RHS
         zero(acSolution);

@@ -193,6 +193,7 @@ add_library(simlib STATIC
     corehbxform.cpp
     corehbnr.cpp
     corehbac.cpp
+    corehbnoise.cpp
     an.cpp
     ansupport.cpp 
     ansolution.cpp 

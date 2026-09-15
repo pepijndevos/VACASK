@@ -57,7 +57,6 @@ HBCore::HBCore(
     continueState(nullptr),
     outfile(nullptr),
     converged_(false),
-    firstBuild(true),
     params(params),
     hbResolver_(circuit),
     nrSolver(circuit, commons, jacColoc, jacobian, solution, solutionFD,
@@ -678,7 +677,6 @@ bool HBCore::rebuild(ErrorConsumer& errors) {
         return false;
     }
     
-    firstBuild = false;
     return true;
 }
 

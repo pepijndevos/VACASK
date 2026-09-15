@@ -216,9 +216,7 @@ private:
 
     // Previous HB parameters to check if we need to rebuild()
     HBParameters oldParams;
-    // Flag indicating rebuild() has not been called yet
-    bool firstBuild;
-
+    
     // HB parameters
     HBParameters& params;
 

@@ -197,6 +197,37 @@ public:
     HBCore& hbCore_;
     OutputRawfile* outfile;
 
+    // Shared implementations of fillDenseBlock/fillMatrix, usable by other
+    // HB small-signal cores (e.g. HBNoiseCore) that need the same matrix
+    // construction but do not derive from HBACCore. All state that the
+    // instance methods above access implicitly through members is passed
+    // in explicitly instead. Public so unrelated cores can call them.
+    static void fillDenseBlock(
+        const Spurs& spurs,
+        const VectorView<Complex>& G, const VectorView<Complex>& C, const Vector<Real>& omega,
+        DenseMatrixView<Complex>& block
+    );
+
+    static void fillMatrix(
+        Circuit& circuit, const Spurs& spurs,
+        CSCBlockSparseComplexMatrix& jacSpec, CSCBlockSparseComplexMatrix& acMatrix,
+        const Vector<Real>& omega,
+        DelayLines& delayLines, DelayMatrixBindings<DenseMatrixView<Complex>>& delayBindings
+    );
+
+    // Shared rebuild() plumbing, templated on ParametersStruct for reuse by
+    // other cores; defined below (out-of-class, still in this header - see
+    // there for why). Param name must differ from the Parameters typedef
+    // above (GCC rejects the definition otherwise).
+    template<typename ParametersStruct>
+    static bool rebuildCore(
+        ParametersStruct& params, HBCore& hbCore, Circuit& circuit,
+        Spurs& spurs,
+        CSCBlockSparseComplexMatrix& jacSpec, CSCBlockSparseComplexMatrix& acMatrix,
+        DelayLines& delayLines, DelayMatrixBindings<DenseMatrixView<Complex>>& delayBindings,
+        ErrorConsumer& errors
+    );
+
 protected:
     // Bucket size is nf
 
@@ -212,12 +243,6 @@ protected:
     // Construct omega vector with 2*pi*(f+f_n)
     void computeOmega(Real f);
 
-    // Fill dense block
-    void fillDenseBlock(const VectorView<Complex>& G, const VectorView<Complex>& C, const Vector<Real>& omega, DenseMatrixView<Complex>& block);
-
-    // Build matrix
-    void fillMatrix();
-
     VectorRepository<Complex>& hbSolution;
     CSCBlockSparseComplexMatrix& jacSpec;
     CSCBlockSparseComplexMatrix& acMatrix;
@@ -225,8 +250,6 @@ protected:
 
     // Previous HB parameters to check if we need to rebuild()
     HBACParameters oldParams;
-    // Flag indicating rebuild() has not been called yet
-    bool firstBuild;
 
     HBACParameters& params;
 
@@ -248,6 +271,84 @@ private:
 
     ComplexSparseSolver* cxSolver_;
 };
+
+// Out-of-class definition of the rebuildCore template (declared above).
+// Lives in this header, not corehbac.cpp, so any .cpp that needs a new
+// Parameters instantiation can add its own explicit instantiation without
+// corehbac.cpp knowing about it. Output-spur selection (which is
+// HBAC-specific) stays in HBACCore::rebuild(), not here.
+template<typename ParametersStruct>
+bool HBACCore::rebuildCore(
+    ParametersStruct& params, HBCore& hbCore, Circuit& circuit,
+    Spurs& spurs,
+    CSCBlockSparseComplexMatrix& jacSpec, CSCBlockSparseComplexMatrix& acMatrix,
+    DelayLines& delayLines, DelayMatrixBindings<DenseMatrixView<Complex>>& delayBindings,
+    ErrorConsumer& errors
+) {
+    // Make a local copy of spurs structure
+    spurs = Spurs(hbCore.spurs());
+
+    // Get maxharm and maxfreq
+    Vector<Int> maxharm(spurs.fundamentals().size());
+    if (params.maxharm.isVector()) {
+        // Vector maxharm
+        if (params.maxharm.type()!=Value::Type::IntVec) {
+            errors.push(HbAcMaxharmType{});
+            return false;
+        }
+        if (params.maxharm.size()!=spurs.fundamentals().size()) {
+            errors.push(HbAcMaxharmSize{});
+            return false;
+        }
+        maxharm = params.maxharm.template val<IntVector>();
+    } else {
+        // Scalar maxharm
+        if (params.maxharm.type()!=Value::Type::Int) {
+            errors.push(HbAcMaxharmScalarType{});
+            return false;
+        }
+        maxharm.assign(spurs.fundamentals().size(), params.maxharm.template val<Int>());
+    }
+    auto maxfreq = params.maxfreq;
+
+    // Prune spurs
+    if (!spurs.prune(maxharm, maxfreq)) {
+        errors.push(HbAcSpurPruneFailed{});
+        return false;
+    }
+
+    // Build mixing map
+    if (!spurs.buildMixingMap(circuit.simulatorOptions().core().smsig_debug>0)) {
+        errors.push(HbAcMixingMapFailed{});
+        return false;
+    }
+    auto& stencil = spurs.mixingStencil();
+    auto nf = stencil.nRows();
+
+    // Jacobian spectral components
+    if (!jacSpec.rebuild(circuit.sparsityMap(), circuit.unknownCount(), nf, 2, errors, true)) {
+        return false;
+    }
+
+    // AC analysis matrix
+    if (!acMatrix.rebuild(circuit.sparsityMap(), circuit.unknownCount(), nf, nf, errors)) {
+        return false;
+    }
+
+    // Bind delay lines to acMatrix blocks. delayLines is shared with the
+    // driving HBCore and already sized by its own rebuild(), run before
+    // this by the owning analysis; delay values are filled during the HB
+    // solve / evaluateAtNodeset() in the caller's coroutine(). The
+    // (out,in) and (out,out) blocks must exist in the sparsity map
+    // (absdelay declares the Jacobian entry), so this only fails on a
+    // genuine topology error.
+    if (!delayLines.bindToBlockMatrix(acMatrix, delayBindings, errors)) {
+        errors.push(HbAcDelayBindFailed{});
+        return false;
+    }
+
+    return true;
+}
 
 }
 
