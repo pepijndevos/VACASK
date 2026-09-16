@@ -314,9 +314,9 @@ bool AnalysisCore::addNoiseContribInst(const PTSave& save, bool details, ErrorCo
             auto name = std::string("n(") + std::string(save.objName()) + ")";
             addOutputDescriptor(OutputDescriptor(OutdNoiseContribInst, name, save.objName()));
         } else {
-            // Two arguments 
+            // Two arguments
             auto name = std::string("n(") + std::string(save.objName()) + "," + std::string(save.subName())+ ")";
-            addOutputDescriptor(OutputDescriptor(OutdNoiseContribInst, name, save.objName(), save.subName()));
+            addOutputDescriptor(OutputDescriptor(OutdNoiseContribInstPartial, name, save.objName(), save.subName()));
         }
         savesCount++;
     }

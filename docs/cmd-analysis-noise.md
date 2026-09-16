@@ -59,7 +59,8 @@ See [AC Small-Signal Analysis](cmd-analysis-ac.md) for a description of sweep mo
 | `default` | Save total noise contribution `n(instance)` for all noisy instances (default behavior). |
 | `full` | Save total `n(instance)` and per-source `n(instance,contrib)` for all noisy instances and all their noise sources. |
 | `n(instance)` | Save the total output-referred noise contribution of the given instance. |
-| `nc(instance,contrib)` | Save the output-referred contribution of a specific noise source `contrib` within `instance`. |
+| `n(instance,contrib)` | Save the output-referred contribution of a specific noise source `contrib` within `instance`. |
+| `nc(instance)` | Save the total output-referred noise contribution of `instance`, plus one descriptor per individual noise source it has (each written as `n(instance,contrib)` in the output). |
 
 The following operating point save directives are also supported. They apply to
 the operating point results and specify which operating point results to write
