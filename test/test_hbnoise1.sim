@@ -1,0 +1,170 @@
+Modulated flicker noise via harmonic balance noise analysis
+
+ground 0
+
+load "res.va"
+
+model resistor res
+model isource isource
+
+// Modulated flicker noise - same device/parameters as test_trannoise4.sim,
+// but computed directly with hbnoise instead of transient noise + manual
+// sideband folding.
+r1 (1 0) resistor r=1k pf=1e-20 ef=1
+i1 (0 1) isource type="sine" sinedc=0.0 ampl=ampl freq=fmod
+
+// Noiseless twin of r1/i1 - same large-signal drive, no device noise -
+// used to subtract out the modulating swing from the transient waveform,
+// same construction as test_trannoise4.sim.
+r0 (10 0) resistor r=1k
+i0 (0 10) isource type="sine" sinedc=0.0 ampl=ampl freq=fmod
+
+control
+  abort always
+
+  // Modulating current amplitude and frequency
+  var ampl=2.0
+  var fmod=1k
+
+  // Transient noise frequency range (independent of the hbnoise offset
+  // sweep below) - same values as test_trannoise4.sim.
+  var noisefmin=20.0
+  var noisefmax=10k
+
+  // Offset frequency range. outspur defaults to 0 (DC), so the physical
+  // output frequency equals the offset frequency directly - one sweep from
+  // near-DC up past fmod shows both the near-DC 1/f skirt and the
+  // upconverted skirt around the fmod carrier.
+  var fmin=1.0
+  var fmax=5000.0
+
+  options rawfile="binary" strictsave=1
+  options reltol=1e-3 vntol=1e-6 abstol=1e-12
+
+  save full
+  analysis hbnoise1 hbnoise freq=[fmod] nharm=15 in="i1" out="1" from=fmin to=fmax mode="dec" points=100
+
+  // Transient noise reference: simulate the actual modulated circuit in the
+  // time domain, same construction as test_trannoise4.sim.
+  save p(r0,i) default
+  analysis tran1 tran stop=40/noisefmin step=1m noisefmax=noisefmax noisefmin=noisefmin
+
+  // Reference: unmodulated flicker shape (same device biased at a constant
+  // unit current), computed with ordinary (LTI) noise analysis, folded
+  // around the carrier in python - same construction as
+  // test_trannoise4.sim's reference.
+  alter instance("i1") sinedc=1
+  elaborate changes
+  analysis noise1 noise out="1" in="i1" from=0.1 to=4000 mode="dec" points=200
+
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "res.va" <<<FILE
+`include "constants.vams"
+`include "disciplines.vams"
+
+module res(A,B);
+    // Simple resistor with constant white, shot, and flicker noise
+
+    // Terminals and internal nodes
+    inout A, B;
+    electrical A,B;
+
+    branch (A,B) br;
+
+	(*desc= "Resistance", type="instance", units = "Ohm"*) parameter real r = 1 from [0:inf];
+    (*desc= "Noise switch", type="instance", units = ""*)  parameter integer noisy = 1;
+    (*desc= "White noise factor (constant)", type="instance", units = ""*)  parameter real pw0 = 0;
+    (*desc= "White noise factor (current)", type="instance", units = ""*)  parameter real pw1 = 0;
+    (*desc= "Flicker noise power", type="instance", units = ""*)  parameter real pf = 0;
+    (*desc= "Flicker noise exponent", type="instance", units = ""*)  parameter real ef = 1.0;
+	(*desc= "Current", units ="A" *) real i;
+
+    analog begin
+        I(br) <+ V(br)/r;
+        i = V(br) / r;
+        if (noisy) begin
+            I(br) <+ white_noise(pw0, "white_const");
+            I(br) <+ white_noise(pw1*2*`P_Q*i, "white_shot");
+            I(br) <+ flicker_noise((i>=0?1:-1)*pf*pow(abs(i),2), ef, "flicker");
+        end
+	end
+endmodule
+
+>>>FILE
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+from runtest import *
+import numpy as np
+import sys
+
+hbn = rawread('hbnoise1.raw').get()
+f = hbn['frequency'].real
+onoise = hbn['onoise'].real
+nr1 = hbn['n(r1)'].real
+print(nr1)
+
+noise = rawread('noise1.raw').get()
+reff = noise['frequency'].real
+refpsd = noise['onoise'].real
+
+ampl = 2.0
+f0 = 1000.0
+
+# Fold the unmodulated reference shape around the carrier - same
+# construction as test_trannoise4.sim's python postprocessing (Coram et al.).
+refpsd_folded = ampl**2*(np.interp(np.abs(f0-f), reff, refpsd) + np.interp(np.abs(f0+f), reff, refpsd))/4
+
+# Transient noise reference: simulate the actual modulated circuit in the
+# time domain and estimate its output PSD via Welch's method - an
+# independent (non-folding) check of the hbnoise result, same construction
+# as test_trannoise4.sim's python postprocessing.
+from scipy.signal import welch
+
+tran = rawread('tran1.raw').get()
+xt = tran['time'].real
+yt = (tran['1'] - tran['10']).real  # subtract the noiseless twin (r0/i0) to isolate r1's noise
+
+noisefmin = 20.0
+
+# Average timestep should be <= timestep limit; resample to a uniform grid
+dx = xt.max()/xt.shape[0]
+xs = np.arange(xt[0], xt[-1] + dx, dx)
+ys = np.interp(xs, xt, yt)
+
+# Compute nperseg so that frequency resolution is noisefmin/2
+nperseg = int(np.ceil(1/dx/(noisefmin/2)))
+ftr, Pxx = welch(
+    ys,
+    fs=1/dx,
+    window='hann',
+    nperseg=nperseg,
+    noverlap=nperseg/2,
+    return_onesided=True,
+    scaling='density',
+    average='mean'
+)
+
+if isTest():
+    # Not a regression test yet - just confirm all three analyses produced output.
+    sys.exit(0)
+else:
+    import matplotlib.pyplot as plt
+
+    fig1, ax1 = plt.subplots(1, 1, figsize=(7,5), dpi=100)
+    ax1.set_title('Modulated flicker noise via hbnoise, af=2, alpha=1, fmod=1kHz')
+    ax1.set_ylabel('Output PSD [A^2/Hz]')
+    ax1.set_xlabel('f [Hz]')
+    ax1.loglog(f, onoise, label='onoise (hbnoise)')
+    ax1.loglog(f, nr1, '--', label='n(r1) (hbnoise)')
+    ax1.loglog(f, refpsd_folded, 'r:', label='folded LTI reference')
+    ax1.loglog(ftr, Pxx, 'g', alpha=0.6, label='transient noise (Welch)')
+    ax1.legend(loc='lower left')
+    ax1.grid(True, which='both')
+    fig1.tight_layout()
+
+    fig1.savefig('test_hbnoise1.png')
+    plt.show()
+>>>FILE

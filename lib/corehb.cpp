@@ -306,6 +306,10 @@ bool HBCore::evaluateAtNodeset(bool noiseModulation, ErrorConsumer& errors) {
         ls.noiseSourceStride = nt;
         noiseExponent.resize(circuit.noiseModulationSlotsCount());
         ls.noiseExponent = &noiseExponent;
+        // Ask OSDI models to compute their noise-related state (e.g. the
+        // operating-point-dependent current squared that scales flicker
+        // noise) so load_noise_params() below has something to read.
+        nrSolver.evalSetup().evaluateNoise = true;
     }
 
     // Copy from forces slot 1 to solution vector.
@@ -343,6 +347,7 @@ bool HBCore::evaluateAtNodeset(bool noiseModulation, ErrorConsumer& errors) {
         ls.noiseModulationFunction = nullptr;
         ls.noiseSourceStride = 0;
         ls.noiseExponent = nullptr;
+        nrSolver.evalSetup().evaluateNoise = false;
     }
 
     return isOk;

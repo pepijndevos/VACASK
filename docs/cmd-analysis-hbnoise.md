@@ -113,7 +113,10 @@ the HB operating point results and are written to `<analysis>.hb.*` when `writeh
 | `n(instance)` | Total output-referred noise PSD contributed by `instance`. |
 | `n(instance,contrib)` | Output-referred noise PSD of the specific noise source `contrib` within `instance`. |
 
-The `onoise`/`gain`/`n(...)` are reported at the offset frequency.
+The `onoise`/`gain`/`n(...)` are reported at the offset frequency. `onoise` and every
+`n(...)` are one-sided PSDs (frequency $\ge 0$ only), the same convention
+[Small-Signal Noise Analysis](cmd-analysis-noise.md) uses - a device biased at a
+constant operating point gives the same `n(instance,contrib)` from either analysis.
 
 ## Examples
 

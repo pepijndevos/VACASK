@@ -1352,6 +1352,7 @@ bool Circuit::buildSparsityAndStates(Status& s) {
     statesCount_ = 0;
     deviceStatesCount_ = 0;
     delayHistoryCount_ = 0;
+    noiseModulationSlotsCount_ = 0;
     for(auto& dev : devices) {
         if (!dev.get()->populateStructures(*this, s)) {
             return false;

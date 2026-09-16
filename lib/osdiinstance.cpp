@@ -1681,16 +1681,31 @@ bool OsdiInstance::loadCore(Circuit& circuit, CommonData& commons, LoadSetup& lo
             loadSetup.noiseDensityScratchpad.data(), 
             loadSetup.noiseExponentScratchpad.data()
         );
+        // Our noise is m(t)n(t) where m(t) is the modulation function 
+        // and n(t) is the stationary noise. The one-sided PSD at t is
+        //   sign(m(t)) |m(t)|^2 A/f^alpha 
+        // Absorb A into ma(t)
+        //   sign(ma(t)) |ma(t)|^2 / f^alpha 
+        // If modulation function is ma(t) the PSD of stationary noise is 
+        //   1/f^alpha
+        // (for white noise alpha=0, for flicker noise 0<alpha<2). 
+        // Because OSDI returns the one-sided PSD the value we get as 
+        // noiseDensity (D) is 
+        //   D = 2 sign(ma(t)) |ma(t)|^2
+        // The corresponding modulation function ma(t) is then
+        // ma(t) = sign(D) sqrt(|D|/2)
         for(decltype(nNoise) i=0; i<nNoise; i++) {
             auto at = loadSetup.noiseSourceStride*atSrc + loadSetup.jacobianLoadOffset;
+            auto D = loadSetup.noiseDensityScratchpad[i];
+            auto m = (D>=0?1:-1)*std::sqrt(std::abs(D)/2);
             switch (model()->device()->noiseSourceType(i)) {
                 case NoiseType::White:
-                    (*loadSetup.noiseModulationFunction)[at] = loadSetup.noiseDensityScratchpad[i];
+                    (*loadSetup.noiseModulationFunction)[at] = m;
                     (*loadSetup.noiseExponent)[atSrc] = 0.0;
                     atSrc++;
                     break;
                 case NoiseType::Flicker:
-                    (*loadSetup.noiseModulationFunction)[at] = loadSetup.noiseDensityScratchpad[i];
+                    (*loadSetup.noiseModulationFunction)[at] = m;
                     auto newExp = loadSetup.noiseExponentScratchpad[i];
                     // Check exponent for all but the first point (initialization)
                     if (loadSetup.jacobianLoadOffset>0) {

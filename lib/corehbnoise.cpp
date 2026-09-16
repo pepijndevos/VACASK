@@ -557,20 +557,23 @@ CoreCoroutine HBNoiseCore::coroutine(bool continuePrevious, ErrorConsumer& error
                             error = true;
                             break;
                         }
-                        // Overwrite white noise with 1/2 and flicker noise with 1/(2f)
-                        // because OSDI returns one-sided PSD. 
-                        // Divide table noise by 2. 
-                        // Reference shape only - amplitude/exponent scaling is
-                        // carried by the modulation function M instead.
+                        // White/flicker noise is A/f^alpha. We absorbed A into the modulation function. 
+                        // All computations work with two-sided PSD. 
+                        // The fact that OSDI returns one-sided PSD was compensated in the 
+                        // modulation function when we absorbed A (see corehb.cpp). 
+                        // Overwrite white noise with 1 and flicker noise with 1/f
                         for (decltype(nSources) ndx=0; ndx<nSources; ndx++) {
                             switch (inst->noiseSourceType(ndx)) {
                                 case NoiseType::White:
-                                    noiseDensity[i*nSources+ndx] = 0.5;
+                                    noiseDensity[i*nSources+ndx] = 1;
                                     break;
                                 case NoiseType::Flicker:
-                                    noiseDensity[i*nSources+ndx] = 0.5/freqAtSpur;
+                                    noiseDensity[i*nSources+ndx] = 1/freqAtSpur;
                                     break;
                                 case NoiseType::Table:
+                                    // For table noise the modulation function is ma(t) = 1.
+                                    // We need to take into account that the returned PSD 
+                                    // is one-sided by dividing it with 2. 
                                     noiseDensity[i*nSources+ndx] /= 2;
                                     break;
                                 default:
@@ -644,6 +647,9 @@ CoreCoroutine HBNoiseCore::coroutine(bool continuePrevious, ErrorConsumer& error
                             auto w = std::abs(wr[i]);
                             sourceContribution += w*w*psdAtSpur[i];
                         }
+
+                        // We just computed two-sided PSD. We need to return the one-sided PSD. 
+                        sourceContribution *= 2;
 
                         // Find slot to which we store the contribution of this noise source
                         auto contrib = inst->noiseSourceName(ndx);

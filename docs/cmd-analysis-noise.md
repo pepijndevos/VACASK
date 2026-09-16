@@ -86,6 +86,10 @@ The output file always contains:
 | `n(instance)` | Total output-referred noise PSD contributed by `instance`. |
 | `n(instance,contrib)` | Output-referred noise PSD of the specific noise source `contrib` within `instance`. |
 
+`onoise` and every `n(...)` are one-sided PSDs (frequency $\ge 0$ only) - the same
+convention [(Quasi)Periodic Small-Signal Noise Analysis](cmd-analysis-hbnoise.md)
+uses.
+
 ## Examples
 
 **Basic noise analysis:**
