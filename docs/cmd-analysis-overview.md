@@ -40,6 +40,7 @@ where $x_0$ is the operating point. $J_r$ captures resistive behavior (conductan
 | [Periodic Steady-State](cmd-analysis-pss.md) | `pss` | Computes the periodic steady-state response in the time domain with the shooting Newton method; for autonomous circuits also finds the oscillation period. |
 | [Harmonic Balance](cmd-analysis-hb.md) | `hb` | Computes the periodic steady-state response in the frequency domain. |
 | [(Quasi)Periodic Small-Signal (Harmonic Balance-based)](cmd-analysis-hbac.md) | `hbac` | Sweeps frequency and computes the small-signal response around a harmonic balance operating point. |
+| [(Quasi)Periodic Small-Signal Noise (Harmonic Balance-based)](cmd-analysis-hbnoise.md) | `hbnoise` | Computes cyclostationary small-signal noise spectral densities referred to a chosen output, around a harmonic balance operating point. |
 
 ## Stored solutions
 
