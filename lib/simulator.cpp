@@ -10,7 +10,8 @@
 #include "antran.h"
 #include "annoise.h"
 #include "anhb.h"
-#include "anhbac.h" 
+#include "anhbac.h"
+#include "anhbnoise.h"
 #include "anpss.h"
 #include "solklu.h"
 #ifdef SIM_HAVE_SUPERLU
@@ -123,6 +124,7 @@ bool Simulator::setup(
     ok &= registerAnalysis<Tran>(s);
     ok &= registerAnalysis<HB>(s);
     ok &= registerAnalysis<HBAC>(s);
+    ok &= registerAnalysis<HBNoise>(s);
     ok &= registerAnalysis<Pss>(s);
 
     // Register real and complex klu solver here

@@ -92,13 +92,17 @@ add_library(simlib STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/coretrancoef.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/coretrannr.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/coretran.h 
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include/corepsstran.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include/corepss.h
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/corehb.h
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/corehbnr.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include/corehbac.h
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/an.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/ansupport.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/ansolution.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/coresweep.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/anop.h 
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include/ansmsig.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/andcinc.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/andcxf.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/anac.h 
@@ -107,17 +111,16 @@ add_library(simlib STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/anacsp.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/annoise.h
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/antran.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/../include/anhb.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/../include/corepsstran.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/../include/corepss.h
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/anpss.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include/anhb.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include/anhbsmsig.h 
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include/anhbac.h
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/tdnblock.h
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/tdnzohwhite.h
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/tdnzohflicker.h
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/tdnsdewhite.h
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/tdnsdeflicker.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/../include/anhb.h 
-    ${CMAKE_CURRENT_SOURCE_DIR}/../include/anhbac.h
+    
     acct.cpp
     libplatform.cpp 
     dynload.cpp 
@@ -214,6 +217,7 @@ add_library(simlib STATIC
     tdnsdewhite.cpp
     tdnsdeflicker.cpp
     anhbac.cpp
+    anhbnoise.cpp
     corepsstran.cpp
     corepss.cpp
     anpss.cpp
