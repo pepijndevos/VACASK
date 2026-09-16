@@ -63,7 +63,7 @@ bool AnalysisCore::addOutputDescriptor(OutputDescriptor&& descr) {
 bool AnalysisCore::addAllUnknowns(const PTSave& save, ErrorConsumer& errors) {
     if (save.objName() || save.subName()) {
         // No parameters should be passed for default
-        expectedSaveArgumentsError(0, errors);
+        expectedSaveArgumentsError(0, false, errors);
         return false;
     }
     // Go through all variables, skip index 0 (corresponds to ground node potential),
@@ -81,7 +81,7 @@ bool AnalysisCore::addAllUnknowns(const PTSave& save, ErrorConsumer& errors) {
 bool AnalysisCore::addAllNodes(const PTSave& save, ErrorConsumer& errors) {
     if (save.objName() || save.subName()) {
         // No parameters should be passed for default
-        expectedSaveArgumentsError(0, errors);
+        expectedSaveArgumentsError(0, false, errors);
         return false;
     }
     // Go through all nodes 
@@ -103,7 +103,7 @@ bool AnalysisCore::addAllNodes(const PTSave& save, ErrorConsumer& errors) {
 bool AnalysisCore::addNode(const PTSave& save, ErrorConsumer& errors) {
     if (!save.objName() || save.subName()) {
         // One parameter should be passed
-        expectedSaveArgumentsError(1, errors);
+        expectedSaveArgumentsError(1, false, errors);
         return false;
     }
     // Create descriptor
@@ -115,7 +115,7 @@ bool AnalysisCore::addNode(const PTSave& save, ErrorConsumer& errors) {
 bool AnalysisCore::addFlow(const PTSave& save, ErrorConsumer& errors) {
     if (!save.objName() || save.subName()) {
         // One parameter should be passed
-        expectedSaveArgumentsError(1, errors);
+        expectedSaveArgumentsError(1, false, errors);
         return false;
     }
     // Node name <objName>:flow(br) 
@@ -130,7 +130,7 @@ bool AnalysisCore::addFlow(const PTSave& save, ErrorConsumer& errors) {
 bool AnalysisCore::addInstanceOutvar(const PTSave& save, ErrorConsumer& errors) {
     if (!save.objName() || !save.subName()) {
         // Both parameters should be passed
-        expectedSaveArgumentsError(2, errors);
+        expectedSaveArgumentsError(2, false, errors);
         return false;
     }
     // Create descriptor
@@ -143,7 +143,7 @@ bool AnalysisCore::addInstanceOutvar(const PTSave& save, ErrorConsumer& errors) 
 bool AnalysisCore::addAllTfZin(const PTSave& save, std::unordered_map<Id,size_t>& nameMap, ErrorConsumer& errors) {
     if (save.objName() || save.subName()) {
         // No parameters should be passed for default
-        expectedSaveArgumentsError(0, errors);
+        expectedSaveArgumentsError(0, false, errors);
         return false;
     }
     // Go through all independent sources
@@ -182,7 +182,7 @@ bool AnalysisCore::addAllTfZin(const PTSave& save, std::unordered_map<Id,size_t>
 bool AnalysisCore::addTf(const PTSave& save, std::unordered_map<Id,size_t>& nameMap, ErrorConsumer& errors) {
     if (!save.objName() || save.subName()) {
         // One parameter should be passed
-        expectedSaveArgumentsError(1, errors);
+        expectedSaveArgumentsError(1, false, errors);
         return false;
     }
     // Will insert only if entry does not exist
@@ -203,7 +203,7 @@ bool AnalysisCore::addTf(const PTSave& save, std::unordered_map<Id,size_t>& name
 bool AnalysisCore::addZin(const PTSave& save, std::unordered_map<Id,size_t>& nameMap, ErrorConsumer& errors) {
     if (!save.objName() || save.subName()) {
         // One parameter should be passed
-        expectedSaveArgumentsError(1, errors);
+        expectedSaveArgumentsError(1, false, errors);
         return false;
     }
     // Will insert only if entry does not exist
@@ -223,7 +223,7 @@ bool AnalysisCore::addZin(const PTSave& save, std::unordered_map<Id,size_t>& nam
 bool AnalysisCore::addYin(const PTSave& save, std::unordered_map<Id,size_t>& nameMap, ErrorConsumer& errors) {
     if (!save.objName() || save.subName()) {
         // One parameter should be passed
-        expectedSaveArgumentsError(1, errors);
+        expectedSaveArgumentsError(1, false, errors);
         return false;
     }
     // Will insert only if entry does not exist
@@ -243,7 +243,7 @@ bool AnalysisCore::addYin(const PTSave& save, std::unordered_map<Id,size_t>& nam
 bool AnalysisCore::addAllNoiseContribInst(const PTSave& save, bool details, ErrorConsumer& errors) {
     if (save.objName() || save.subName()) {
         // No parameters should be passed for default
-        expectedSaveArgumentsError(0, errors);
+        expectedSaveArgumentsError(0, false, errors);
         return false;
     }
     // Go through all instances
@@ -281,9 +281,9 @@ bool AnalysisCore::addAllNoiseContribInst(const PTSave& save, bool details, Erro
 
 bool AnalysisCore::addNoiseContribInst(const PTSave& save, bool details, ErrorConsumer& errors) {
     if (details) {
-        // Expect only one argument
+        // Expect only one argument (nc(a))
         if (!save.objName() || save.subName()) {
-            expectedSaveArgumentsError(1, errors);
+            expectedSaveArgumentsError(1, false, errors);
             return false;
         }
         // Get instance
@@ -303,9 +303,9 @@ bool AnalysisCore::addNoiseContribInst(const PTSave& save, bool details, ErrorCo
             }
         }
     } else {
-        // One or two arguments
+        // One or two arguments (n(a), n(a,b))
         if (!save.objName() && !save.subName()) {
-            expectedSaveArgumentsError(1, errors);
+            expectedSaveArgumentsError(1, true, errors);
             return false;
         }
         if (!save.subName()) {
@@ -481,8 +481,8 @@ std::tuple<bool, Instance*> AnalysisCore::getExcitation(Id name, ErrorConsumer& 
     return std::make_tuple(true, inst);
 }
 
-void AnalysisCore::expectedSaveArgumentsError(int expectedArgumentCount, ErrorConsumer& errors) {
-    errors.push(CoreSaveArguments{expectedArgumentCount});
+void AnalysisCore::expectedSaveArgumentsError(int expectedArgumentCount, bool atLeast, ErrorConsumer& errors) {
+    errors.push(CoreSaveArguments{expectedArgumentCount, atLeast});
 }
 
 void AnalysisCore::dump(std::ostream& os) const {

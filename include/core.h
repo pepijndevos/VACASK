@@ -40,8 +40,13 @@ END_ERRORCLASS(CoreInstanceNotSource);
 
 ERRORCLASS(CoreSaveArguments)
     int count;
-    CoreSaveArguments(int count) : count(count) {}
+    bool atLeast;
+    CoreSaveArguments(int count, bool atLeast=false) : count(count), atLeast(atLeast) {}
     std::string format() const {
+        if (atLeast) {
+            if (count == 1) return "Save directive requires at least one argument.";
+            return "Save directive requires at least " + std::to_string(count) + " arguments.";
+        }
         if (count == 0) return "Save directive does not accept arguments.";
         if (count == 1) return "Save directive requires one argument.";
         return "Save directive requires " + std::to_string(count) + " arguments.";
@@ -225,7 +230,7 @@ public:
     bool addOutvarOutputSource(bool strict, Id instance, Id outvar, Id asName, ErrorConsumer& errors);
 
 protected:
-    void expectedSaveArgumentsError(int expectedArgumentCount, ErrorConsumer& errors);
+    void expectedSaveArgumentsError(int expectedArgumentCount, bool atLeast, ErrorConsumer& errors);
 
     CommonData& commons;
 
