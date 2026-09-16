@@ -464,12 +464,12 @@ public:
     GlobalStorageIndex allocateStates(LocalStorageIndex n);
     GlobalStorageIndex allocateDeviceStates(LocalStorageIndex n);
     GlobalStorageIndex allocateDelayHistory(LocalStorageIndex n);
-    GlobalStorageIndex allocateModulatedNoise(LocalStorageIndex n);
+    GlobalStorageIndex allocateNoiseModulationSlots(LocalStorageIndex n);
 
     GlobalStorageIndex statesCount() const { return statesCount_; };
     GlobalStorageIndex deviceStatesCount() const { return deviceStatesCount_; };
     GlobalStorageIndex delayHistoryCount() const { return delayHistoryCount_; };
-    GlobalStorageIndex modulatedNoiseCount() const { return modulatedNoiseCount_; };
+    GlobalStorageIndex noiseModulationSlotsCount() const { return noiseModulationSlotsCount_; };
     
     // Drivers
     // Return value: ok, unknowns changed, sparsity changed
@@ -607,7 +607,7 @@ private:
     GlobalStorageIndex delayHistoryCount_;
 
     // Modulated noise source count
-    GlobalStorageIndex modulatedNoiseCount_;
+    GlobalStorageIndex noiseModulationSlotsCount_;
 
     // Evaluator for parameterized expression (parameters netlist lines)
     RpnEvaluator paramEvaluator_;

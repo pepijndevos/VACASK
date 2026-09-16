@@ -1194,9 +1194,9 @@ GlobalStorageIndex Circuit::allocateDelayHistory(LocalStorageIndex n) {
     return retval;
 }
 
-GlobalStorageIndex Circuit::allocateModulatedNoise(LocalStorageIndex n) {
-    auto retval = modulatedNoiseCount_;
-    modulatedNoiseCount_ += n;
+GlobalStorageIndex Circuit::allocateNoiseModulationSlots(LocalStorageIndex n) {
+    auto retval = noiseModulationSlotsCount_;
+    noiseModulationSlotsCount_ += n;
     return retval;
 }
 

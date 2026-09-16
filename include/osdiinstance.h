@@ -114,11 +114,13 @@ public:
     // Noise API
     virtual ParameterIndex noiseSourceCount() const { return model()->device()->noiseSourceCount(); };
     virtual ParameterIndex uniqueNoiseSourceCount() const { return model()->device()->uniqueNoiseSourceCount(); };
+    virtual ParameterIndex modulatedNoiseSourceCount() const { return model()->device()->modulatedNoiseSourceCount(); };
     virtual Id noiseSourceName(ParameterIndex ndx) const { return model()->device()->noiseSourceName(ndx); };
     virtual std::tuple<ParameterIndex, bool> uniqueNoiseSourceIndex(Id name) const { return model()->device()->uniqueNoiseSourceIndex(name); }
     virtual std::tuple<EquationIndex, EquationIndex> noiseExcitation(Circuit& cir, ParameterIndex ndx) const;
     virtual bool loadNoise(Circuit& circuit, double freq, double* noiseDensity);
-    virtual NoiseType noiseSourceType(ParameterIndex ndx) const { return model()->device()->noiseSourceType(ndx); }; 
+    virtual NoiseType noiseSourceType(ParameterIndex ndx) const { return model()->device()->noiseSourceType(ndx); };
+    virtual GlobalStorageIndex noiseModulationBase() const { return offsNoiseModulation; };
     virtual bool loadNoiseParameters(Circuit& circuit, double* power, double* exponent) { 
         model()->device()->descriptor()->load_noise_params(core(), model()->core(), power, exponent);
         return true;
@@ -172,7 +174,7 @@ private:
     GlobalStorageIndex offsStates;
     GlobalStorageIndex offsDeviceStates;
     GlobalStorageIndex offsDelayHistory;
-    GlobalStorageIndex offsModulatedNoise;
+    GlobalStorageIndex offsNoiseModulation;
 };
 
 }

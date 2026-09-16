@@ -582,7 +582,7 @@ bool OsdiInstance::populateStructuresCore(Circuit& circuit, Status& s) {
     auto delayCount = dev->absdelayCount();
     offsDelayHistory = circuit.allocateDelayHistory(delayCount);
 
-    // Reserve modulated noise source entries
+    // Reserve noise modulation entries
     auto nNoise = dev->noiseSourceCount();
     LocalStorageIndex cnt=0;
     for(decltype(nNoise) i=0; i<nNoise; i++) {
@@ -590,7 +590,7 @@ bool OsdiInstance::populateStructuresCore(Circuit& circuit, Status& s) {
             cnt++;
         }
     }
-    offsModulatedNoise = circuit.allocateModulatedNoise(cnt);
+    offsNoiseModulation = circuit.allocateNoiseModulationSlots(cnt);
 
     // Loop through delays, create (out, in) and (out, out) sparsity pattern entries
     for(decltype(delayCount) i=0; i<delayCount; i++) {
@@ -1672,7 +1672,7 @@ bool OsdiInstance::loadCore(Circuit& circuit, CommonData& commons, LoadSetup& lo
 
     // Noise modulation functions, exponent change check
     if (loadSetup.noiseSourceStride) {
-        auto atSrc = offsModulatedNoise;
+        auto atSrc = offsNoiseModulation;
         auto nNoise = model()->device()->noiseSourceCount();
         loadSetup.noiseDensityScratchpad.resize(nNoise);
         loadSetup.noiseExponentScratchpad.resize(nNoise);

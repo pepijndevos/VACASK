@@ -205,6 +205,7 @@ OsdiFile::OsdiFile(void* handle_, std::string file_, Status& s)
     noiseSourceNames.resize(descriptorCount);
     uniqueNoiseSourceIndices.resize(descriptorCount);
     noiseSourceNameTranslators.resize(descriptorCount);
+    modulatedNoiseSourceCounts.resize(descriptorCount);
     nodeNameLists.resize(descriptorCount);
     nodeMaps.resize(descriptorCount);
     allowsBypass_.resize(descriptorCount);
@@ -287,6 +288,7 @@ OsdiFile::OsdiFile(void* handle_, std::string file_, Status& s)
                 }
             }
         }
+        ParameterIndex modulatedNoiseSourceCount = 0;
         for(OsdiNoiseId j=0; j<desc->num_noise_src; j++) {
             std::string tmp = desc->noise_sources[j].name;
             // Add lowercase noise source name to the list of noise source names and the translator
@@ -304,7 +306,12 @@ OsdiFile::OsdiFile(void* handle_, std::string file_, Status& s)
             }
             // Store unique index
             uniqueNoiseSourceIndices[i].push_back(uniqueNdx);
+            // Count non-Table (modulated) noise sources
+            if (static_cast<NoiseType>(desc->noise_source_type[j])!=NoiseType::Table) {
+                modulatedNoiseSourceCount++;
+            }
         }
+        modulatedNoiseSourceCounts[i] = modulatedNoiseSourceCount;
         auto& nnList = nodeNameLists[i];
         auto& nodeMap = nodeMaps[i];
         for(decltype(desc->num_nodes) j=0; j<desc->num_nodes; j++) {

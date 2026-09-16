@@ -158,6 +158,9 @@ public:
     // Number of unique noise sources
     inline ParameterIndex uniqueNoiseSourceCount() const { return osdiFile->uniqueNoiseSourceCount(index_); };
 
+    // Number of noise sources with a modulation function (i.e. not Table-type)
+    inline ParameterIndex modulatedNoiseSourceCount() const { return osdiFile->modulatedNoiseSourceCount(index_); };
+
     // Noise source name
     inline Id noiseSourceName(ParameterIndex ndx) const { return osdiFile->noiseSourceName(index_, ndx); }; 
 

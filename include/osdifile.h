@@ -219,6 +219,9 @@ public:
     // Number of unique noise sources
     inline ParameterIndex uniqueNoiseSourceCount(OsdiDeviceIndex deviceIndex) const { return noiseSourceNameTranslators[deviceIndex].size(); };
 
+    // Number of noise sources with a modulation function (i.e. not Table-type), precomputed at load time
+    inline ParameterIndex modulatedNoiseSourceCount(OsdiDeviceIndex deviceIndex) const { return modulatedNoiseSourceCounts[deviceIndex]; };
+
     // Noise source name
     inline Id noiseSourceName(OsdiDeviceIndex deviceIndex, ParameterIndex ndx) const { return noiseSourceNames[deviceIndex][ndx]; }; 
 
@@ -404,6 +407,9 @@ private:
 
     // Vector of maps from noise source name to unique noise source index
     std::vector<std::unordered_map<Id, ParameterIndex>> noiseSourceNameTranslators;
+
+    // Number of non-Table (modulated) noise sources, one entry per device
+    std::vector<ParameterIndex> modulatedNoiseSourceCounts;
 
     // Vector of vectors of node identifiers
     std::vector<std::vector<Id>> nodeNameLists;

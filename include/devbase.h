@@ -578,6 +578,7 @@ public:
     // Noise API
     virtual ParameterIndex noiseSourceCount() const { return 0; };
     virtual ParameterIndex uniqueNoiseSourceCount() const { return 0; };
+    virtual ParameterIndex modulatedNoiseSourceCount() const { return 0; };
     virtual Id noiseSourceName(ParameterIndex ndx) const { return Id(); };
     virtual std::tuple<ParameterIndex, bool> uniqueNoiseSourceIndex(ParameterIndex ndx) const { return std::make_tuple(0, false); };
     virtual std::tuple<ParameterIndex, bool> uniqueNoiseSourceIndex(Id name) const { return std::make_tuple(0, false); };
@@ -586,6 +587,12 @@ public:
 
     virtual std::tuple<EquationIndex, EquationIndex> noiseExcitation(Circuit& cir, ParameterIndex ndx) const { return std::make_tuple(0, 0); };
     virtual bool loadNoise(Circuit& circuit, double freq, double* noiseDensity) { return true; };
+
+    // Base global index of this instance's slots in the noise modulation
+    // function spectrum (one slot per non-Table noise source, in noise
+    // source order); caller adds its own running non-Table count to get
+    // the slot of a particular noise source
+    virtual GlobalStorageIndex noiseModulationBase() const { return SIM_SIZE_T_MAX; };
 
     // Sets parameter defaults, computes node collapsing
     // Return value: ok, unknowns changed, sparsity changed

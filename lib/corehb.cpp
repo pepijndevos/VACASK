@@ -299,12 +299,12 @@ bool HBCore::evaluateAtNodeset(bool noiseModulation, ErrorConsumer& errors) {
     // Do we need the values of the time-domain noise modulation functions
     if (noiseModulation) {
         // Scale vector
-        noiseModulationTd.resize(nt*circuit.modulatedNoiseCount());
+        noiseModulationTd.resize(nt*circuit.noiseModulationSlotsCount());
         // Install in evaluator
         auto& ls = nrSolver.loadSetup();
         ls.noiseModulationFunction = &noiseModulationTd;
         ls.noiseSourceStride = nt;
-        noiseExponent.resize(circuit.modulatedNoiseCount());
+        noiseExponent.resize(circuit.noiseModulationSlotsCount());
         ls.noiseExponent = &noiseExponent;
     }
 
@@ -489,7 +489,7 @@ bool HBCore::getFrequencyDomainJacobians(CSCBlockSparseComplexMatrix& jacSpec, c
 
     // Do we need noise modulation function spectra
     if (noiseModulationSpec) {
-        auto nNoise = circuit.modulatedNoiseCount();
+        auto nNoise = circuit.noiseModulationSlotsCount();
         for(decltype(nNoise) i=0; i<nNoise; i++) {
             Vector<Complex> specBlock(nfp);
     
