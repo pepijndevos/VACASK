@@ -1,12 +1,6 @@
 # Converting IHP Open PDK (sg13cmos5l) for use with VACASK
 
-SG13CMOS5L is SG13G2's little cousin. First, obtain and convert the ihp-sg13g2 PDK. See [../ihp-sg13g2/README.md](../ihp-sg13g2/README.md) for details. 
-
-Enter the directory where the subdirectory with ihp-sg13g2 is found. Then clone the IHP SG13CMOS5L PDK
-```
-cd IHP-Open-PDK
-git clone https://github.com/IHP-GmbH/ihp-sg13cmos5l.git
-```
+SG13CMOS5L is SG13G2's little cousin. When you clone the development branch of the PDK you also get SG13CMOS5L. See [../ihp-sg13g2/README.md](../ihp-sg13g2/README.md) for details. 
 
 Set environmental variables
 * `PDK_ROOT` to the directory where you downloaded the PDK (e.g. `/home/myname/IHP-Open-PDK`) and

@@ -14,10 +14,10 @@ Update submodules
 git submodule update --init --recursive
 ```
 
-If conversion fails or the converted PDK does not work, you can try again with commit c1d6f49ea902a88e328dda022805da8887ea26e3 from the development branch by typing (immediately after clone)
+If conversion fails or the converted PDK does not work, you can try again with commit 4b7b0faaa37badacfc5d234393f191c899433a8a from the development branch by typing (immediately after clone)
 ```
 cd IHP-Open-PDK
-git checkout c1d6f49ea902a88e328dda022805da8887ea26e3
+git checkout 4b7b0faaa37badacfc5d234393f191c899433a8a
 git submodule update --init --recursive
 ```
 
