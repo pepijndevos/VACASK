@@ -120,9 +120,9 @@ reff2 = np.exp(np.arange(np.log(f0+fmin), np.log(fmax-fmin) + dxi2, dxi2))
 
 # Scale with squared sine amplitude
 # Compute reference modulated PSD, LF range
-refpsd1 = ampl**2*(np.interp(np.abs(f0-reff1), reff, refpsd) + np.interp(np.abs(f0+reff1), reff, refpsd))/4
+refpsd1 = ampl**2/4*(np.interp(np.abs(f0-reff1), reff, refpsd) + np.interp(np.abs(f0+reff1), reff, refpsd))
 # Compute reference modulated PSD, HF range
-refpsd2 = ampl**2*(np.interp(np.abs(f0-reff2), reff, refpsd) + np.interp(np.abs(f0+reff2), reff, refpsd))/4
+refpsd2 = ampl**2/4*(np.interp(np.abs(f0-reff2), reff, refpsd) + np.interp(np.abs(f0+reff2), reff, refpsd))
 
 # Average timestep should be <= timestep limit
 dx = x.max()/x.shape[0]

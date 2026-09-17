@@ -96,9 +96,12 @@ endmodule
 
 embed "runme.py" <<<FILE
 from rawfile import rawread
+from vacaskpp import *
 from runtest import *
 import numpy as np
 import sys
+
+tests=[]
 
 hbn = rawread('hbnoise1.raw').get()
 f = hbn['frequency'].real
@@ -112,10 +115,33 @@ refpsd = noise['onoise'].real
 
 ampl = 2.0
 f0 = 1000.0
+fmin = f.min()
+fmax = f.max()
+noisefmin = 20.0
 
 # Fold the unmodulated reference shape around the carrier - same
 # construction as test_trannoise4.sim's python postprocessing (Coram et al.).
-refpsd_folded = ampl**2*(np.interp(np.abs(f0-f), reff, refpsd) + np.interp(np.abs(f0+f), reff, refpsd))/4
+refpsd_folded = ampl**2/4*(np.interp(np.abs(f0-f), reff, refpsd) + np.interp(np.abs(f0+f), reff, refpsd))
+
+# Compare the folded reference to the hbnoise result, split into LF/HF bands
+# around the carrier - same construction as test_trannoise4.sim. The bands
+# stay clear of the carrier singularity (margin = noisefmin) and stay within
+# the unmodulated noise sweep's range (reff), so the fold stays accurate.
+fL = f[(f>=fmin)*(f<=f0-noisefmin)]
+refpsdL = ampl**2/4*(np.interp(np.abs(f0-fL), reff, refpsd) + np.interp(np.abs(f0+fL), reff, refpsd))
+ferrL, errL = errorWrtRef(fL, refpsdL, f, onoise, mode='db10')
+diff = np.abs(errL).max()
+status = diff<3
+print("max lf err [dB] =", diff, status)
+tests.append(status)
+
+fH = f[(f>=f0+noisefmin)*(f<=min(fmax, reff.max()-f0))]
+refpsdH = ampl**2/4*(np.interp(np.abs(f0-fH), reff, refpsd) + np.interp(np.abs(f0+fH), reff, refpsd))
+ferrH, errH = errorWrtRef(fH, refpsdH, f, onoise, mode='db10')
+diff = np.abs(errH).max()
+status = diff<3
+print("max hf err [dB] =", diff, status)
+tests.append(status)
 
 # Transient noise reference: simulate the actual modulated circuit in the
 # time domain and estimate its output PSD via Welch's method - an
@@ -126,8 +152,6 @@ from scipy.signal import welch
 tran = rawread('tran1.raw').get()
 xt = tran['time'].real
 yt = (tran['1'] - tran['10']).real  # subtract the noiseless twin (r0/i0) to isolate r1's noise
-
-noisefmin = 20.0
 
 # Average timestep should be <= timestep limit; resample to a uniform grid
 dx = xt.max()/xt.shape[0]
@@ -148,23 +172,21 @@ ftr, Pxx = welch(
 )
 
 if isTest():
-    # Not a regression test yet - just confirm all three analyses produced output.
-    sys.exit(0)
+    sys.exit(not all(tests))
 else:
     import matplotlib.pyplot as plt
 
-    fig1, ax1 = plt.subplots(1, 1, figsize=(7,5), dpi=100)
-    ax1.set_title('Modulated flicker noise via hbnoise, af=2, alpha=1, fmod=1kHz')
+    fig1, ax1 = plt.subplots(1, 1, figsize=(6,4.5), dpi=100)
+    ax1.set_title('Flicker noise modulated via current')
     ax1.set_ylabel('Output PSD [A^2/Hz]')
     ax1.set_xlabel('f [Hz]')
     ax1.loglog(f, onoise, label='onoise (hbnoise)')
     ax1.loglog(f, nr1, '--', label='n(r1) (hbnoise)')
-    ax1.loglog(f, refpsd_folded, 'r:', label='folded LTI reference')
+    ax1.loglog(f, refpsd_folded, 'r', label='folded LTI reference')
     ax1.loglog(ftr, Pxx, 'g', alpha=0.6, label='transient noise (Welch)')
     ax1.legend(loc='lower left')
-    ax1.grid(True, which='both')
+
     fig1.tight_layout()
 
-    fig1.savefig('test_hbnoise1.png')
     plt.show()
 >>>FILE

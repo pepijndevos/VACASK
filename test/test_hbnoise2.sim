@@ -1,0 +1,151 @@
+Modulated flicker noise via explicit multiplier (harmonic balance noise analysis)
+
+ground 0
+
+load "fnoisemult.va"
+
+model fnoise fnoise
+model mult mult
+model vsource vsource
+
+// Unmodulated flicker noise voltage source - unlike test_hbnoise1.sim's
+// bias-dependent noise generator, this one's noise PSD never depends on any
+// large-signal drive, so the modulation below comes entirely from the
+// multiplier, not from the noise source itself.
+n1 (nin) fnoise pf=1e-20 ef=1
+
+// Carrier - unit-amplitude sine at fmod. Sets the periodic large-signal
+// drive for the multiplier and the harmonic balance base frequency.
+vlo (lo 0) vsource type="sine" sinedc=0.0 ampl=ampl freq=fmod
+
+// Multiplier - out = gain * V(nin) * V(lo), amplitude-modulating the
+// unmodulated flicker noise from n1 with the sinusoidal carrier.
+m1 (out nin lo) mult gain=1
+
+control
+  abort always
+
+  // Modulation signal amplitude and carrier frequency
+  var ampl=2.0
+  var fmod=1k
+
+  // Offset frequency range - same construction as test_hbnoise1.sim
+  var fmin=1.0
+  var fmax=3000.0
+
+  options rawfile="binary" strictsave=1
+  options reltol=1e-3 vntol=1e-6 abstol=1e-12
+
+  save full
+  analysis hbnoise1 hbnoise freq=[fmod] nharm=15 in="vlo" out="out" from=fmin to=fmax mode="dec" points=100
+
+  // Reference: unmodulated flicker shape of n1 alone, measured directly at
+  // its own node before the multiplier - computed with ordinary (LTI) noise
+  // analysis, folded around the carrier in python - same construction as
+  // test_hbnoise1.sim's reference.
+  analysis noise1 noise out="nin" in="vlo" from=0.1 to=4000 mode="dec" points=200
+
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "fnoisemult.va" <<<FILE
+`include "constants.vams"
+`include "disciplines.vams"
+
+module fnoise(A);
+    // Ideal flicker-noise voltage source, unmodulated (no bias dependence)
+    inout A;
+    electrical A;
+
+    branch (A) br;
+
+    (*desc= "Flicker noise power", type="instance", units = ""*)  parameter real pf = 1e-20 from [0:inf];
+    (*desc= "Flicker noise exponent", type="instance", units = ""*)  parameter real ef = 1.0;
+
+    analog begin
+        V(br) <+ flicker_noise(pf, ef, "flicker");
+    end
+endmodule
+
+module mult(OUT, IN, LO);
+    // Ideal analog multiplier: V(OUT) = gain * V(IN) * V(LO)
+    inout OUT, IN, LO;
+    electrical OUT, IN, LO;
+
+    branch (OUT) br_out;
+
+    (*desc= "Gain", type="instance", units = ""*) parameter real gain = 1.0;
+
+    analog begin
+        V(br_out) <+ gain*V(IN)*V(LO);
+    end
+endmodule
+
+>>>FILE
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+from vacaskpp import *
+from runtest import *
+import numpy as np
+import sys
+
+tests=[]
+
+hbn = rawread('hbnoise1.raw').get()
+f = hbn['frequency'].real
+onoise = hbn['onoise'].real
+nn1 = hbn['n(n1)'].real
+
+noise = rawread('noise1.raw').get()
+reff = noise['frequency'].real
+refpsd = noise['onoise'].real
+
+ampl = 2.0
+f0 = 1000.0
+fmin = f.min()
+fmax = f.max()
+noisefmin = 20.0
+
+# Fold the unmodulated reference shape around the carrier - same
+# construction as test_hbnoise1.sim's python postprocessing (Coram et al.).
+refpsd_folded = ampl**2/4*(np.interp(np.abs(f0-f), reff, refpsd) + np.interp(np.abs(f0+f), reff, refpsd))
+
+# Compare the folded reference to the hbnoise result, split into LF/HF bands
+# around the carrier - same construction as test_hbnoise1.sim. The bands
+# stay clear of the carrier singularity (margin = noisefmin) and stay within
+# the unmodulated noise sweep's range (reff), so the fold stays accurate.
+fL = f[(f>=fmin)*(f<=f0-noisefmin)]
+refpsdL = ampl**2/4*(np.interp(np.abs(f0-fL), reff, refpsd) + np.interp(np.abs(f0+fL), reff, refpsd))
+ferrL, errL = errorWrtRef(fL, refpsdL, f, onoise, mode='db10')
+diff = np.abs(errL).max()
+status = diff<3
+print("max lf err [dB] =", diff, status)
+tests.append(status)
+
+fH = f[(f>=f0+noisefmin)*(f<=min(fmax, reff.max()-f0))]
+refpsdH = ampl**2/4*(np.interp(np.abs(f0-fH), reff, refpsd) + np.interp(np.abs(f0+fH), reff, refpsd))
+ferrH, errH = errorWrtRef(fH, refpsdH, f, onoise, mode='db10')
+diff = np.abs(errH).max()
+status = diff<3
+print("max hf err [dB] =", diff, status)
+tests.append(status)
+
+if isTest():
+    sys.exit(not all(tests))
+else:
+    import matplotlib.pyplot as plt
+
+    fig1, ax1 = plt.subplots(1, 1, figsize=(6,4.5), dpi=100)
+    ax1.set_title('Modulated flicker noise via explicit multiplier')
+    ax1.set_ylabel('Output PSD [V^2/Hz]')
+    ax1.set_xlabel('f [Hz]')
+    ax1.loglog(f, onoise, label='onoise (hbnoise)')
+    ax1.loglog(f, nn1, '--', label='n(n1) (hbnoise)')
+    ax1.loglog(f, refpsd_folded, 'r', label='folded LTI reference')
+    ax1.legend(loc='lower left')
+
+    fig1.tight_layout()
+
+    plt.show()
+>>>FILE
