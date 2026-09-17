@@ -31,7 +31,7 @@ control
 
   // Offset frequency range - same construction as test_hbnoise1.sim
   var fmin=1.0
-  var fmax=3000.0
+  var fmax=5000.0
 
   options rawfile="binary" strictsave=1
   options reltol=1e-3 vntol=1e-6 abstol=1e-12
@@ -43,7 +43,7 @@ control
   // its own node before the multiplier - computed with ordinary (LTI) noise
   // analysis, folded around the carrier in python - same construction as
   // test_hbnoise1.sim's reference.
-  analysis noise1 noise out="nin" in="vlo" from=0.1 to=4000 mode="dec" points=200
+  analysis noise1 noise out="nin" in="vlo" from=0.1 to=10000 mode="dec" points=200
 
   postprocess(PYTHON, "runme.py")
 endc

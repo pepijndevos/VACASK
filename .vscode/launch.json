@@ -160,7 +160,7 @@ opnr{
             // "args": [ "-df", "${workspaceFolder}/demo/behavioral/lightbulb.sim" ], 
             // "args": [ "-df", "${workspaceFolder}/demo/delay/tline.sim" ], 
             // "args": [ "-df", "${workspaceFolder}/test/test_hbnoise1.sim" ], 
-            "args": [ "-df", "${workspaceFolder}/test/test_hbnoise2.sim" ], 
+             "args": [ "-df", "${workspaceFolder}/test/test_hbnoise2.sim" ], 
             // "args": [ "-dp" ], 
             // "args": [ "-df", "${workspaceFolder}/benchmark/c6288/vacask/runme.sim" ], 
             // "args": [ "-df", "${workspaceFolder}/benchmark/c6288/vacask-ieb/runme.sim" ], 
