@@ -1,5 +1,8 @@
 #include <stdlib.h>
 #include <iostream>
+#ifdef OPENMP_ENABLED
+#include <mutex>
+#endif
 #include "osdi.h"
 #include "limitfunctions.h"
 #include "osdicallback.h"
@@ -13,6 +16,17 @@ namespace NAMESPACE {
 // std::endl is slow because it flushes the stream, use \n
 
 void osdiLogMessage(void *handle, char *msg, uint32_t level) {
+#ifdef OPENMP_ENABLED
+    // Only lock when more than one thread can actually call in
+    // BLAS threads do not count here, SImulator::nCpu() does. 
+    static const bool needsLock = Simulator::nCpu()>1;
+    static std::mutex logMutex;
+    std::unique_lock<std::mutex> lock(logMutex, std::defer_lock);
+    if (needsLock) {
+        lock.lock();
+    }
+#endif
+
     OsdiCallbackHandle *h = (OsdiCallbackHandle *)handle;
     std::ostream *dst = &Simulator::out();
 
