@@ -167,6 +167,20 @@ public:
         codes_.push_back(code);
     }
 
+    // Move all of other's entries onto the end of this stack. other is left empty.
+    void merge(ErrorStack& other) {
+        for (std::size_t i = 0; i < other.codes_.size(); i++) {
+            const ErrorInfo& info = info_of(other.codes_[i]);
+            if (info.size > slotSize_ || info.align > slotAlign_) {
+                throw std::runtime_error("ErrorStack::merge: error type registered after this stack was constructed");
+            }
+            void* dst = acquireSlot();
+            info.relocate(dst, other.slotAt(i));
+            codes_.push_back(other.codes_[i]);
+        }
+        other.codes_.clear();
+    }
+
     // Destroy all stored errors, keep the buffer for reuse.
     void clear() {
         for (std::size_t i = 0; i < codes_.size(); i++) {
@@ -277,6 +291,18 @@ public:
             status_->clear();
         }
         pushed = 0;
+    };
+
+    // Append other's entries to this one; throws on ErrorStack/Status mismatch.
+    void merge(ErrorConsumer& other) {
+        if (errors_ && other.errors_) {
+            errors_->merge(*other.errors_);
+        } else if (status_ && other.status_) {
+            status_->set(*other.status_);
+        } else if ((errors_ && other.status_) || (status_ && other.errors_)) {
+            throw std::runtime_error("ErrorConsumer::merge: consumer type mismatch");
+        }
+        pushed += other.pushed;
     };
 
     // Concatenated messages of everything collected so far ("" for an sink that throws away messages).
