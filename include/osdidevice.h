@@ -56,7 +56,7 @@ public:
         DelayLines* delayLines, 
         ErrorConsumer& ec
     );
-    virtual bool evalAndLoad(Circuit& circuit, CommonData& commons, EvalSetup* evalSetup, LoadSetup* loadSetup, ErrorConsumer& errors);
+    virtual bool evalAndLoad(Circuit& circuit, CommonData& commons, EvalSetup* evalSetup, LoadSetup* loadSetup, ErrorConsumer& errors, Device::EvalPtr from=Device::EvalPtr::begin, Device::EvalPtr to=Device::EvalPtr::end) override;
     virtual Model* createModel(Circuit& circuit, Instance* parentInstance, RpnEvaluator& evaluator, const PTModel& parsedModel, Status& s=Status::ignore);
     virtual void dump(int indent, std::ostream& os) const;
 

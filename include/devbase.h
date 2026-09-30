@@ -56,6 +56,19 @@ class Device : public FlagBase<DeviceFlags> {
 public:
     friend class Model;
 
+    struct EvalPtr {
+        size_t model;
+        size_t instance;
+
+        EvalPtr(size_t model, size_t instance) : model(model), instance(instance) {};
+        
+        static const EvalPtr begin;
+        static const EvalPtr end;
+
+        bool operator==(const EvalPtr& other) const { return model==other.model && instance==other.instance; };
+        bool operator!=(const EvalPtr& other) const { return model!=other.model || instance!=other.instance; };
+    };
+
     Device(Id name, const Loc& location=Loc::bad); 
     virtual ~Device() = default;
 
@@ -132,7 +145,7 @@ public:
     virtual bool load(Circuit& circuit, LoadSetup& loadSetup) { return true; };
 
     // Evaluate instances and load results
-    virtual bool evalAndLoad(Circuit& circuit, CommonData& commons, EvalSetup* evalSetup, LoadSetup* loadSetup, ErrorConsumer& errors) { return true; };
+    virtual bool evalAndLoad(Circuit& circuit, CommonData& commons, EvalSetup* evalSetup, LoadSetup* loadSetup, ErrorConsumer& errors, EvalPtr from=EvalPtr::begin, EvalPtr to=EvalPtr::end) { return true; };
     
     // A model created with this method is owned by the circuit. 
     // No need to delete it manually, it will get deleted when the circuit is deleted. 

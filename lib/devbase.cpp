@@ -4,6 +4,9 @@
 
 namespace NAMESPACE {
 
+const Device::EvalPtr Device::EvalPtr::begin = Device::EvalPtr(0, 0);
+const Device::EvalPtr Device::EvalPtr::end = EvalPtr(SIM_SIZE_T_MAX, SIM_SIZE_T_MAX);
+
 Device::Device(Id name, const Loc& location) 
     : name_(name), loc(location), tovh(0), novh(0) {
 }

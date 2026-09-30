@@ -390,7 +390,7 @@ bool OsdiDevice::bind(
 
 
 
-bool OsdiDevice::evalAndLoad(Circuit& circuit, CommonData& commons, EvalSetup* evalSetup, LoadSetup* loadSetup, ErrorConsumer& errors) {
+bool OsdiDevice::evalAndLoad(Circuit& circuit, CommonData& commons, EvalSetup* evalSetup, LoadSetup* loadSetup, ErrorConsumer& errors, Device::EvalPtr from, Device::EvalPtr to) {
     auto& opt = circuit.simulatorOptions().core();
     OsdiSimInfo simInfo;
 
@@ -466,11 +466,30 @@ bool OsdiDevice::evalAndLoad(Circuit& circuit, CommonData& commons, EvalSetup* e
         novh++;
     }
     
-    for(auto model : models()) {
+    size_t m1, m2, i1, i2;
+    if (from!=Device::EvalPtr::begin) {
+        m1 = from.model;
+        i1 = from.instance;
+    } else {
+        m1 = 0;
+        i1 = 0;
+    }
+    if (to!=Device::EvalPtr::end) {
+        m2 = to.model;
+        i2 = to.instance;
+    } else {
+        m2 = models().size();
+        i2 = 0;
+    }
+    for(size_t iMod=m1; iMod<m2; iMod++) {
+        auto& model = models()[iMod];
         if (model->instanceCount()==0) {
             continue;
         }
-        for(auto instance : model->instances()) {
+        size_t ii1 = (iMod==m1) ? i1 : 0;
+        size_t ii2 = (iMod==m2) ? i2 : (model->instances().size());
+        for(size_t iInst=ii1; iInst<ii2; iInst++) {
+            auto& instance = model->instances()[iInst];
             if (evalSetup && !static_cast<OsdiInstance*>(instance)->evalCore(circuit, commons, simInfo, *evalSetup, errors)) {
                 return false;
             }
