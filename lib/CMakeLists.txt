@@ -165,6 +165,7 @@ add_library(simlib STATIC
     natures.cpp
     node.cpp
     circuit.cpp
+    ciromp.cpp
     coredelay.cpp
     openvafcomp.cpp
     ciroptions.cpp 

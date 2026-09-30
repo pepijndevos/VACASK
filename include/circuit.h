@@ -175,6 +175,19 @@ private:
     std::vector<Value> values;
 };
 
+class InstanceSequencePointer {
+public:
+    InstanceSequencePointer(size_t device, size_t model, size_t instance)
+        : device(device), model(model), instance(instance) {};
+    
+    std::tuple<size_t, size_t, size_t> unpack() const { return std::make_tuple(device, model, instance); };
+
+private:
+    size_t device;
+    size_t model;
+    size_t instance;
+};
+
 // Circuit
 enum class CircuitFlags : uint8_t {
     VariablesChanged = 1, 
@@ -399,6 +412,7 @@ public:
     // Instance counts
     size_t instanceCount() const;
     size_t subcircuitInstanceCount() const;
+    size_t primitiveInstanceCount() const { return instanceCount()-subcircuitInstanceCount(); };
 
     // Remove istance from map and delete it
     bool remove(Instance* instance, Status& s=Status::ignore);
@@ -487,6 +501,9 @@ public:
     std::tuple<bool, bool> propagateDownHierarchy(Status& s=Status::ignore);
     
     bool applyInstanceFlags(Instance::Flags fClear, Instance::Flags fSet);
+
+    void partitionInstances(size_t n);
+
     bool evalAndLoad(CommonData& commons, EvalSetup* evalSetup, LoadSetup* loadSetup, bool (*deviceSelector)(Device*), ErrorConsumer& errors);
 
     bool evalAndLoadSerial(CommonData& commons, EvalSetup* evalSetup, LoadSetup* loadSetup, bool (*deviceSelector)(Device*), ErrorConsumer& errors);
@@ -646,6 +663,9 @@ private:
     // Per-thread error stacks and Status instances (used in parallel evaluation)
     std::vector<ErrorStack> threadErrorStack;
     std::vector<Status> threadStatus;
+
+    // Instance partitioning for parallel evaluation
+    std::vector<InstanceSequencePointer> evalPartitioning;
 
     template<typename T> bool singleSetterHelper(Id name, Id param, const Value& v, Status& s, const char* failMsg);
     template<typename T> bool groupSetterHelper(Id name, const PTParameters& params, Status& s, const char* failMsg);

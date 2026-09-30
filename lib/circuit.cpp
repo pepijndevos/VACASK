@@ -1508,6 +1508,27 @@ bool Circuit::evalAndLoadParallel(CommonData& commons, EvalSetup* evalSetup, Loa
         return false;
     }
 
+    // Compute number of batches
+    size_t oversubscribe = 5;
+    size_t nBatches = Simulator::nCpu()*oversubscribe;
+
+    // Too many batches, reduce oversubscribe, minimum is 1
+    if (nBatches>primitiveInstanceCount()) {
+        // Decrease oversubscribe
+        auto newOversubscribe = primitiveInstanceCount()/Simulator::nCpu();
+        if (newOversubscribe<1) {
+            newOversubscribe = 1;
+        }
+        nBatches = Simulator::nCpu()*oversubscribe;
+        // If we have more CPUs than batches, just leave some CPUs without work. 
+    }
+
+    // Do we have corrent instance partitioning? 
+    if (evalPartitioning.size()!=nBatches) {
+        // No, partition now, uniform partitioning
+        partitionInstances(nBatches);
+    }
+
     // Number of available CPUs
     auto availableCpus = cpuCount();
 
