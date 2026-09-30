@@ -488,6 +488,9 @@ public:
     
     bool applyInstanceFlags(Instance::Flags fClear, Instance::Flags fSet);
     bool evalAndLoad(CommonData& commons, EvalSetup* evalSetup, LoadSetup* loadSetup, bool (*deviceSelector)(Device*), ErrorConsumer& errors);
+
+    bool evalAndLoadSerial(CommonData& commons, EvalSetup* evalSetup, LoadSetup* loadSetup, bool (*deviceSelector)(Device*), ErrorConsumer& errors);
+    bool evalAndLoadParallel(CommonData& commons, EvalSetup* evalSetup, LoadSetup* loadSetup, ErrorConsumer& errors);
     
     // Simulator options (Parameterized class with simulator options core)
     // IStruct<SimulatorOptions>& simulatorOptions() { return simOptions; };
@@ -635,6 +638,14 @@ private:
 
     // Annotated solutions (for nodesets, ics, and hb-assisted hb)
     std::unordered_map<Id, AnnotatedSolution> solutionRepository;
+
+    // Per-device and per-thread statistics (used in parallel evaluation)
+    std::vector<size_t> threadDevEvalLoadCalls;
+    RealVector threadDevEvalLoadTimes;
+
+    // Per-thread error stacks and Status instances (used in parallel evaluation)
+    std::vector<ErrorStack> threadErrorStack;
+    std::vector<Status> threadStatus;
 
     template<typename T> bool singleSetterHelper(Id name, Id param, const Value& v, Status& s, const char* failMsg);
     template<typename T> bool groupSetterHelper(Id name, const PTParameters& params, Status& s, const char* failMsg);

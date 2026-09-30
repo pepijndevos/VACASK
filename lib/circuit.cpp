@@ -1423,7 +1423,8 @@ bool Circuit::evalAndLoad(CommonData& commons, EvalSetup* evalSetup, LoadSetup* 
             tables_.accounting().acctNew.tevalload += Accounting::wclkDelta(t0);
             return false;
         }
-        evalSetup->clearFlags();
+        // Clear flags and bounds in common data
+        evalSetup->clearInstanceFlags();
         evalSetup->clearBounds();
     }
     if (loadSetup) {
@@ -1432,13 +1433,27 @@ bool Circuit::evalAndLoad(CommonData& commons, EvalSetup* evalSetup, LoadSetup* 
             return false;
         }
     }
-    
+
+    bool retval;
+    if (Simulator::nCpu()>1 && evalSetup && !deviceSelector) {
+        // Do parallel run only if we have more than 1 CPU, no device selector, and we are evaluating
+        retval = evalAndLoadParallel(commons, evalSetup, loadSetup, errors);
+    } else {
+        // Serial run
+        retval = evalAndLoadSerial(commons, evalSetup, loadSetup, deviceSelector, errors);
+    }
+
+    tables_.accounting().acctNew.tevalload += Accounting::wclkDelta(t0);
+    return retval;
+}
+
+bool Circuit::evalAndLoadSerial(CommonData& commons, EvalSetup* evalSetup, LoadSetup* loadSetup, bool (*deviceSelector)(Device*), ErrorConsumer& errors) {
     // Enable accounting on device basis
     size_t ndx = 0;
     Accounting::Timepoint td0;
     
     if constexpr(devacct) {
-        // Last entry is for overhead
+        // Last entry is for overhead, count does not change so on first resize this initializes vector to 0
         tables_.accounting().devEvalLoadCalls.resize(devices.size()+1, 0);
         tables_.accounting().devEvalLoadTimes.resize(devices.size()+1, 0);
         // Measure overhead
@@ -1446,6 +1461,7 @@ bool Circuit::evalAndLoad(CommonData& commons, EvalSetup* evalSetup, LoadSetup* 
         tables_.accounting().devEvalLoadTimes.back() += Accounting::wclkDelta(td0);
         tables_.accounting().devEvalLoadCalls.back()++;
     }
+
     bool retval = true;
     bool first = true;
     for(auto& dev : devices) {
@@ -1478,9 +1494,137 @@ bool Circuit::evalAndLoad(CommonData& commons, EvalSetup* evalSetup, LoadSetup* 
             ndx++;
         }
     }
-    tables_.accounting().acctNew.tevalload += Accounting::wclkDelta(t0);
+    
     return retval;
 }
+
+bool Circuit::evalAndLoadParallel(CommonData& commons, EvalSetup* evalSetup, LoadSetup* loadSetup, ErrorConsumer& errors) {
+    // Enable accounting on device basis
+    size_t ndx = 0;
+    Accounting::Timepoint td0;
+
+    // Initialize thread data
+    if (!evalSetup->initializeThreads()) {
+        return false;
+    }
+
+    // Number of available CPUs
+    auto availableCpus = cpuCount();
+
+    // Prepare and clear error stacks and statuses
+    auto usingErrorStack = errors.isErrorStack();
+    if (usingErrorStack) {
+        threadErrorStack.resize(availableCpus);
+        for(auto& es : threadErrorStack) {
+            es.clear();
+        }
+    } else {
+        threadStatus.resize(availableCpus);
+        for(auto& s : threadStatus) {
+            s.clear();
+        }
+    }
+    
+    if constexpr(devacct) {
+        // Prepare and clear per-thread statistics
+        threadDevEvalLoadCalls.resize((devices.size()+1)*availableCpus);
+        threadDevEvalLoadTimes.resize((devices.size()+1)*availableCpus);
+
+        zero(threadDevEvalLoadCalls);
+        zero(threadDevEvalLoadTimes);
+        
+        // Common statistics in accounting
+        // Last entry is for overhead, count does not change so on first resize this initializes vector to 0
+        tables_.accounting().devEvalLoadCalls.resize(devices.size()+1, 0);
+        tables_.accounting().devEvalLoadTimes.resize(devices.size()+1, 0);
+        // Measure overhead
+        td0 = Accounting::wclk();
+        tables_.accounting().devEvalLoadTimes.back() += Accounting::wclkDelta(td0);
+        tables_.accounting().devEvalLoadCalls.back()++;
+    }
+    
+    // Clear thread data, call in parallel loop
+    evalSetup->clearThreadInstanceFlags();
+    evalSetup->clearThreadBounds();
+    evalSetup->markThreadUsed();
+
+    bool retval = true;
+    bool first = true;
+    for(auto& dev : devices) {
+        // Skip first device (this is always the Hierarchical device)
+        // Will save some time
+        if (first) {
+            first = false;
+            if constexpr(devacct) {
+                ndx++;
+            }
+            continue;
+        }
+        auto* devPtr = dev.get();
+        if (devPtr->instanceCount()==0)  {
+            // Do nothing
+        } else {
+            if constexpr(devacct) {
+                td0 = Accounting::wclk();
+            }
+            if (!devPtr->evalAndLoad(*this, commons, evalSetup, loadSetup, errors)) {
+                retval = false;
+                break;
+            }
+            if constexpr(devacct) {
+                tables_.accounting().devEvalLoadTimes[ndx] += Accounting::wclkDelta(td0);
+                tables_.accounting().devEvalLoadCalls[ndx]++;
+            }
+        }
+        if constexpr(devacct) {
+            ndx++;
+        }
+    }
+
+    // Merge thread data into data
+    evalSetup->merge(commons);
+
+    // Merge errors
+    if (usingErrorStack) {
+        for(int i=0; i<availableCpus; i++) {
+            if (!evalSetup->wasThreadUsed(i)) {
+                continue;
+            }
+            ErrorConsumer ec(threadErrorStack[i]);
+            errors.merge(ec);
+        }
+    } else {
+        for(int i=0; i<availableCpus; i++) {
+            if (!evalSetup->wasThreadUsed(i)) {
+                continue;
+            }
+            ErrorConsumer ec(threadStatus[i]);
+            errors.merge(ec);
+        }
+    }
+
+    // Merge per-thread device load statistics
+    if constexpr(devacct) {
+        zero(tables_.accounting().devEvalLoadCalls);
+        zero(tables_.accounting().devEvalLoadTimes);
+
+        size_t at = 0;
+        size_t nSlots = tables_.accounting().devEvalLoadCalls.size(); 
+        for(decltype(availableCpus) i=0; i<availableCpus; i++) {
+            if (!evalSetup->wasThreadUsed(i)) {
+                continue;
+            }
+            auto origin = i*availableCpus;
+            for(size_t j=0; j<nSlots; j++) {
+                tables_.accounting().devEvalLoadCalls[j] += threadDevEvalLoadCalls[origin+j];
+                tables_.accounting().devEvalLoadTimes[j] += threadDevEvalLoadTimes[origin+j];
+            }
+        }
+    }
+
+    return retval;
+}
+
 
 AnnotatedSolution& Circuit::newStoredSolution(Id name) {
     AnnotatedSolution* ptr;

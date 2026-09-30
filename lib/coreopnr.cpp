@@ -565,9 +565,9 @@ bool OpNRSolver::preIteration(bool continuePrevious) {
 
 bool OpNRSolver::postSolve(bool continuePrevious) {
     auto& acct = circuit.tables().accounting();
-    acct.acctNew.bpinst += evalSetup_.bypassableInstances;
-    acct.acctNew.bpopport += evalSetup_.bypassOpportunuties;
-    acct.acctNew.bpbypassed += evalSetup_.bypassedInstances;
+    acct.acctNew.bpinst += evalSetup_.data.bypassableInstances;
+    acct.acctNew.bpopport += evalSetup_.data.bypassOpportunuties;
+    acct.acctNew.bpbypassed += evalSetup_.data.bypassedInstances;
     
     return true;
 }
@@ -616,13 +616,13 @@ bool OpNRSolver::evalAndLoadWrapper(EvalSetup& evalSetup, LoadSetup& loadSetup, 
     }
 
     // Store Abort, Finish, and Stop flag
-    if (evalSetup.requests.abort) {
+    if (evalSetup.data.requests.abort) {
         setFlags(Flags::Abort);
     }
-    if (evalSetup.requests.finish) {
+    if (evalSetup.data.requests.finish) {
         setFlags(Flags::Finish);
     }
-    if (evalSetup.requests.stop) {
+    if (evalSetup.data.requests.stop) {
         setFlags(Flags::Stop);
     }
     
@@ -705,7 +705,7 @@ std::tuple<bool, bool> OpNRSolver::buildSystem(bool continuePrevious, ErrorConsu
     // Evaluate and load
     auto evalSt = evalAndLoadWrapper(evalSetup_, loadSetup_, errors);
     if (!evalSt) {
-        return std::make_tuple(false, evalSetup_.limitingApplied);
+        return std::make_tuple(false, evalSetup_.data.limitingApplied);
     }
 
     // Load delay line contributions.
@@ -749,11 +749,11 @@ std::tuple<bool, bool> OpNRSolver::buildSystem(bool continuePrevious, ErrorConsu
             Simulator::dbg() << "Failed to load forced values at iteration " << iteration << "\n";
         }
         errors.push(OpNrLoadForcesError{});
-        return std::make_tuple(false, evalSetup_.limitingApplied);
+        return std::make_tuple(false, evalSetup_.data.limitingApplied);
     }
 
     // Prevent convergence if limiting was applied
-    return std::make_tuple(true, evalSetup_.limitingApplied); 
+    return std::make_tuple(true, evalSetup_.data.limitingApplied); 
 }
 
 bool OpNRSolver::evaluate(ErrorConsumer& errors) {

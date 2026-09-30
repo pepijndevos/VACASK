@@ -338,19 +338,19 @@ CoreCoroutine NoiseCore::coroutine(bool continuePrevious, ErrorConsumer& errors)
     }
 
     // Handle Abort, Finish, Stop
-    if (esReactNoise.requests.abort) {
+    if (esReactNoise.data.requests.abort) {
         if (debug>0) {
             Simulator::dbg() << "Abort requested during AC Jacobian / noise  evaluation. Exiting.\n";
         }
         co_yield CoreState::Aborted;
     }
-    if (esReactNoise.requests.finish) {
+    if (esReactNoise.data.requests.finish) {
         if (debug>0) {
             Simulator::dbg() << "Finish requested during AC Jacobian / noise evaluation. Exiting.\n";
         }
         co_yield CoreState::Finished;
     }
-    if (esReactNoise.requests.stop) {
+    if (esReactNoise.data.requests.stop) {
         if (debug>0) {
             Simulator::dbg() << "Stop requested during AC Jacobian / noise evaluation. Exiting.\n";
         }

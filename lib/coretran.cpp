@@ -568,7 +568,7 @@ bool TranCore::evalAndLoadWrapper(EvalSetup& evalSetup, LoadSetup& loadSetup, Er
     }
     
     // Handle abort right now, finish and stop are handled outside NR loop
-    if (evalSetup.requests.abort) {
+    if (evalSetup.data.requests.abort) {
         if (circuit.simulatorOptions().core().tran_debug>0) {
             Simulator::dbg() << "Abort requested during evaluation.\n";
         }
@@ -1065,11 +1065,11 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious, ErrorConsumer& errors) 
     bool stopFlag = false;
     bool finishFlag = false;
     if (params.icmode==icmodeOp) {
-        finishFlag |= opCore_.solver().evalSetup().requests.finish;
-        stopFlag |= opCore_.solver().evalSetup().requests.stop;
+        finishFlag |= opCore_.solver().evalSetup().data.requests.finish;
+        stopFlag |= opCore_.solver().evalSetup().data.requests.stop;
     }
-    finishFlag |= esInit.requests.finish;
-    stopFlag |= esInit.requests.stop;
+    finishFlag |= esInit.data.requests.finish;
+    stopFlag |= esInit.data.requests.stop;
     if (finishFlag) {
         co_yield CoreState::Finished;
     } else if (stopFlag) {
@@ -1104,7 +1104,7 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious, ErrorConsumer& errors) 
 
     // Retrieve next breakpoint, take into account stop time and start time
     // Ignore breakpoints <=0
-    double nextBreakPoint = esInit.nextBreakPoint;
+    double nextBreakPoint = esInit.data.nextBreakPoint;
     updateBreakPoint(nextBreakPoint, params.stop, 0.0);
     updateBreakPoint(nextBreakPoint, params.start, 0.0);
     // Due to stop time we definitely have a finite break point after 0.0
@@ -1112,7 +1112,7 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious, ErrorConsumer& errors) 
 
     // Need to store last accepted point's boundStep value
     // so that we can apply it when timepoint is rejected
-    acceptedBoundStep = esInit.boundStep;
+    acceptedBoundStep = esInit.data.boundStep;
 
     // Initial timestep equals stop time
     auto h0 = params.stop;
@@ -1130,8 +1130,8 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious, ErrorConsumer& errors) 
     }
     // Limit by maxFreq (tran_ffmax*period/2)
     // Maybe get rid of this
-    if (options.tran_ffmax>0 && esInit.maxFreq>0) { 
-        h0 = std::min(h0, options.tran_ffmax/(2*esInit.maxFreq));
+    if (options.tran_ffmax>0 && esInit.data.maxFreq>0) { 
+        h0 = std::min(h0, options.tran_ffmax/(2*esInit.data.maxFreq));
     }
 
     // Need to store last accepted point's hmax value
@@ -1144,8 +1144,8 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious, ErrorConsumer& errors) 
         h0 = std::min(h0, options.tran_fbr*breakDelta);
     }
     // Limit by initial boundStep
-    if (esInit.boundStep>0) {
-        h0 = std::min(h0, esInit.boundStep);
+    if (esInit.data.boundStep>0) {
+        h0 = std::min(h0, esInit.data.boundStep);
     }
 
     // Scale by tran_fs
@@ -1424,9 +1424,9 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious, ErrorConsumer& errors) 
         }
 
         // Next break point assuming tSolve will be accepted,
-        nextBreakPoint = nrSolver.evalSetup().nextBreakPoint;
-        auto boundStep = nrSolver.evalSetup().boundStep;
-        auto discontinuity = nrSolver.evalSetup().discontinuity;
+        nextBreakPoint = nrSolver.evalSetup().data.nextBreakPoint;
+        auto boundStep = nrSolver.evalSetup().data.boundStep;
+        auto discontinuity = nrSolver.evalSetup().data.discontinuity;
         // Update breakpoint with stop and start time, ignore breakpoints <= tSolve
         // tsolve=tk+hk>0 because tk>=0 and hk>0. 
         updateBreakPoint(nextBreakPoint, params.stop, tSolve);
@@ -1469,8 +1469,8 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious, ErrorConsumer& errors) 
         // Limit by maxFreq (tran_ffmax*period/2)
         // Maybe get rid of this
         // Use esInit's computed maxFreq value
-        if (options.tran_ffmax>0 && esInit.maxFreq>0) { 
-            hmax = std::min(hmax, options.tran_ffmax/(2*esInit.maxFreq));
+        if (options.tran_ffmax>0 && esInit.data.maxFreq>0) { 
+            hmax = std::min(hmax, options.tran_ffmax/(2*esInit.data.maxFreq));
         }
 
         // Assume strong SDE convergence
@@ -1878,13 +1878,13 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious, ErrorConsumer& errors) 
             // Check Finish and Stop
             // Verilog-AMS LRM states that Finish and Stop should be taken into account
             // at converged iterations (we assume that this means accepted timepoints in transient analysis). 
-            if (nrSolver.evalSetup().requests.finish) {
+            if (nrSolver.evalSetup().data.requests.finish) {
                 if (debug) {
                     Simulator::dbg() << "Finishing analysis on request.\n";
                 }
                 finished = true;
                 co_yield CoreState::Finished;
-            } else if (nrSolver.evalSetup().requests.stop) {
+            } else if (nrSolver.evalSetup().data.requests.stop) {
                 if (debug) {
                     Simulator::dbg() << "Stoppings analysis on request.\n";
                 }

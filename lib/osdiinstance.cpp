@@ -1225,9 +1225,9 @@ bool OsdiInstance::outputBypassCheckCore(Circuit& circuit, CommonData& commons, 
     }
 
     // Count converged instances
-    evalSetup.instancesConvergenceChecks++;
+    evalSetup.threadData().instancesConvergenceChecks++;
     if (converged) {
-        evalSetup.convergedInstances++; 
+        evalSetup.threadData().convergedInstances++; 
     }
 
     // Device has (output) history now
@@ -1282,7 +1282,7 @@ bool OsdiInstance::evalCore(Circuit& circuit, CommonData& commons, OsdiSimInfo& 
 
     // Check if device is bypassable and high precision is not requested
     bool bypass = false;
-    evalSetup.bypassableInstances++;
+    evalSetup.threadData().bypassableInstances++;
 
     if (!device->checkFlags(Device::Flags::Bypassable)) {
         // Not bypassable, nothing to do
@@ -1291,7 +1291,7 @@ bool OsdiInstance::evalCore(Circuit& circuit, CommonData& commons, OsdiSimInfo& 
         bypass = false;
         // If device output is converged, this is a bypass opportunity that was not taken
         if (checkFlags(Flags::OutputConverged)) {
-            evalSetup.bypassOpportunuties++;
+            evalSetup.threadData().bypassOpportunuties++;
         }
         // Not bypassed, output no longer converged
         clearFlags(Flags::Bypassed|Flags::OutputConverged);
@@ -1299,14 +1299,14 @@ bool OsdiInstance::evalCore(Circuit& circuit, CommonData& commons, OsdiSimInfo& 
         // Forcing a bypass (continuation bypass)
         bypass = true;
         // This is a bypass opportunity that was taken
-        evalSetup.bypassOpportunuties++;
+        evalSetup.threadData().bypassOpportunuties++;
         // Bypass regardless of converged flag, do not change converged flag
         setFlags(Flags::Bypassed);
     } else if (evalSetup.allowBypass) {
         // Bypass is allowed (inactive element bypass)
         if (checkFlags(Flags::OutputConverged)) {
             // Device output is converged, this is a bypass opportunity
-            evalSetup.bypassOpportunuties++;
+            evalSetup.threadData().bypassOpportunuties++;
             // Converged, check if we can bypass
             if (inputBypassCheckCore(circuit, commons, evalSetup)) {
                 // Bypassing
@@ -1332,7 +1332,7 @@ bool OsdiInstance::evalCore(Circuit& circuit, CommonData& commons, OsdiSimInfo& 
 
     // Evaluation, skip it if bypass is true
     if (bypass) {
-        evalSetup.bypassedInstances++;
+        evalSetup.threadData().bypassedInstances++;
         // The reactive residuals will be stored in the states even if instance is bypassed. 
         // The stored value will be taken from the last instance evaluation. 
         // But we must make sure we copy the states of the limiting functions to new states.  
@@ -1362,26 +1362,26 @@ bool OsdiInstance::evalCore(Circuit& circuit, CommonData& commons, OsdiSimInfo& 
             // If some variable x is linearized to xl the Jacobian is computed at xl instead of x
             // i.e. limiting takes place and EVAL_RET_FLAG_LIM is set
             // We are may not stop the NR loop until this flag is gone for all instances. 
-            evalSetup.limitingApplied = true;
+            evalSetup.threadData().limitingApplied = true;
             setFlags(Flags::LimitingApplied);
         } else {
-            evalSetup.limitingApplied = false;
+            evalSetup.threadData().limitingApplied = false;
             clearFlags(Flags::LimitingApplied);
         }
 
         if (evalFlags & EVAL_RET_FLAG_FATAL) {
             // Fatal error occurred, must abort simulation. 
-            evalSetup.requests.abort = true;
+            evalSetup.threadData().requests.abort = true;
         } 
         if (evalFlags & EVAL_RET_FLAG_FINISH) {
             // $finish was called asking the simulator to finish simulation 
             // (exit gracefully) if the current iteration converged. 
-            evalSetup.requests.finish = true;
+            evalSetup.threadData().requests.finish = true;
         } 
         if (evalFlags & EVAL_RET_FLAG_STOP) {
             // $stop was called asking the simulator to pause the simulation
             // if the current iteration converged. 
-            evalSetup.requests.stop = true;
+            evalSetup.threadData().requests.stop = true;
         }
     }
 

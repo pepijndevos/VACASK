@@ -298,19 +298,19 @@ CoreCoroutine ACXFCore::coroutine(bool continuePrevious, ErrorConsumer& errors) 
     }
 
     // Handle Abort, Finish, Stop
-    if (esReactive.requests.abort) {
+    if (esReactive.data.requests.abort) {
         if (debug>0) {
             Simulator::dbg() << "Abort requested during AC Jacobian evaluation. Exiting.\n";
         }
         co_yield CoreState::Aborted;
     }
-    if (esReactive.requests.finish) {
+    if (esReactive.data.requests.finish) {
         if (debug>0) {
             Simulator::dbg() << "Finish requested during AC Jacobian evaluation. Exiting.\n";
         }
         co_yield CoreState::Finished;
     }
-    if (esReactive.requests.stop) {
+    if (esReactive.data.requests.stop) {
         if (debug>0) {
             Simulator::dbg() << "Stop requested during AC Jacobian evaluation. Exiting.\n";
         }

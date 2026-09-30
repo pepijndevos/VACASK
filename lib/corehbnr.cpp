@@ -380,13 +380,13 @@ bool HBNRSolver::evalAndLoadWrapper(EvalSetup& evalSetup, LoadSetup& loadSetup, 
     }
 
     // Store Abort, Finish, and Stop flag
-    if (evalSetup_.requests.abort) {
+    if (evalSetup_.data.requests.abort) {
         setFlags(Flags::Abort);
     }
-    if (evalSetup_.requests.finish) {
+    if (evalSetup_.data.requests.finish) {
         setFlags(Flags::Finish);
     }
-    if (evalSetup_.requests.stop) {
+    if (evalSetup_.data.requests.stop) {
         setFlags(Flags::Stop);
     }
     
@@ -632,7 +632,7 @@ std::tuple<bool, bool> HBNRSolver::buildSystem(bool continuePrevious, ErrorConsu
             Simulator::dbg() << "Failed to load forced values at iteration " << iteration << "\n";
         }
         errors.push(HbNrLoadForces{});
-        return std::make_tuple(false, evalSetup_.limitingApplied);
+        return std::make_tuple(false, evalSetup_.data.limitingApplied);
     }
     
     // OK, do not prevent convergence

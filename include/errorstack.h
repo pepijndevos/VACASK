@@ -141,10 +141,16 @@ public:
           slotSize_((max_size() + max_align() - 1) / max_align() * max_align()) {}
     ~ErrorStack() { reset(); }
 
-    // Non-copyable and non-movable: the buffer holds raw objects with
-    // type-erased lifetime.
+    // Non-copyable, move-constructible only: buffer_ is a raw owning
+    // pointer, so a defaulted move would copy it without nulling the
+    // source, causing a double free. Transfer ownership by hand instead.
+    ErrorStack(ErrorStack&& other) noexcept
+        : slotAlign_(other.slotAlign_), slotSize_(other.slotSize_),
+          buffer_(other.buffer_), capacity_(other.capacity_), codes_(std::move(other.codes_)) {
+        other.buffer_ = nullptr;
+        other.capacity_ = 0;
+    }
     ErrorStack           (const ErrorStack&)  = delete;
-    ErrorStack           (      ErrorStack&&) = delete;
     ErrorStack& operator=(const ErrorStack&)  = delete;
     ErrorStack& operator=(      ErrorStack&&) = delete;
 
@@ -269,6 +275,8 @@ public:
     ErrorConsumer() : status_(nullptr), errors_(nullptr), pushed(0) {};
     ErrorConsumer(Status& s) : status_(&s), errors_(nullptr), pushed(0) {};
     ErrorConsumer(ErrorStack& s) : status_(nullptr), errors_(&s), pushed(0) {};
+
+    bool isErrorStack() const { return errors_; };
 
     template<typename T>
     void push(T&& err) {

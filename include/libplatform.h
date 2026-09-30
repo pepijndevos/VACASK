@@ -57,6 +57,8 @@ int cpuCount();
 
 void setCpuCount(int n);
 
+int cpuIndex();
+
 void setBlasCpuCount(int n);
 
 int blasCpuCount();

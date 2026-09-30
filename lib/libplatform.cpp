@@ -162,6 +162,14 @@ void setCpuCount(int n) {
 #endif
 }
 
+int cpuIndex() {
+#ifdef OPENMP_ENABLED
+    return omp_get_thread_num();
+#else
+    return -1;
+#endif
+}
+
 void setBlasCpuCount(int n) {
     openblas_set_num_threads(n);
 }

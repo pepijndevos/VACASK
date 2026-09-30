@@ -6,6 +6,7 @@
 #include "ansupport.h"
 #include "coretrancoef.h"
 #include "coredelay.h"
+#include "libplatform.h"
 #include "common.h"
 
 
@@ -29,7 +30,102 @@ typedef struct DeviceRequests {
         finish = false;
         stop = false;
     };
+
+    void merge(DeviceRequests& other) {
+        abort = abort || other.abort;
+        finish = finish || other.finish;
+        stop = stop || other.stop;
+    }
 } Requests;
+
+// EvalSetup data that must be stored per thread
+typedef struct EvalSetupThreadData {
+    // Return information on what happened during evaluation
+    // Verilog-A abort/finish/stop
+    struct DeviceRequests requests;
+    
+    // Limiting applied (i.e. $discontinuity(-1))
+    bool limitingApplied {};
+    
+    // Discontinuity signalled
+    // Negative when no discontinuity, set first by an instance that calls $discontinuity with 
+    // a nonnegative argument, updated by subsequent instances that call $discontinuity 
+    // with a lower nonnegative argument. 
+    Int discontinuity;
+    
+    // For setting the upper bound on the timestep
+    // Infinite initially, set first by an instance that calls $bound_step with 
+    // an argument greater than 0, updated by subsequent instances that call 
+    // $bound_step with a lower argument that is greater than 0. 
+    double boundStep {};
+
+    // Next breakpoint
+    // Infinite initially, set first by an instance if the set value is greater than current
+    // time, updated by subsequent instances that set it to a value greater than current time. 
+    double nextBreakPoint;
+    
+    // For setting maximal source frequency
+    // Zero initially, increased by instances that generate a signal. 
+    double maxFreq {};
+
+    // Counter of convergence checks, is reset by initialize()
+    size_t instancesConvergenceChecks;
+    // Counter of convergence checks that resulted in a converged instance, is reset by initialize()
+    size_t convergedInstances;
+
+    // Counter of instances that are not converged, is reset by initialize()
+    size_t bypassableInstances;
+    size_t bypassOpportunuties;
+    size_t bypassedInstances;
+
+    // Methods
+    void clearInstanceFlags() {
+        requests.clear();
+        discontinuity = -1;
+        limitingApplied = false;
+    };
+
+    bool initialize() {
+        nextBreakPoint = -1.0;
+        boundStep = -1.0;
+        maxFreq = 0.0;
+        
+        instancesConvergenceChecks = 0;
+        convergedInstances = 0;
+
+        bypassableInstances = 0;
+        bypassOpportunuties = 0;
+        bypassedInstances = 0;
+
+        return true;
+    };
+
+    void clearBounds() { 
+        boundStep=std::numeric_limits<double>::infinity(); 
+        nextBreakPoint=std::numeric_limits<double>::infinity(); 
+        discontinuity=-1; 
+        maxFreq=0.0; 
+    };
+
+    void setBoundStep(double bound) { if (bound<boundStep) boundStep=bound; };
+    void setDiscontinuity(Int i) { if (i<0) return; if (discontinuity<0 || i<discontinuity) discontinuity=i; };
+    bool setBreakPoint(double t, CommonData& commons) { if (t<nextBreakPoint) { nextBreakPoint = t; } return true; };
+    void setMaxFreq(double freq) { if (freq>maxFreq) maxFreq=freq; }; 
+
+    void merge(struct EvalSetupThreadData& other, CommonData& commons) {
+        requests.merge(other.requests);
+        limitingApplied = limitingApplied || other.limitingApplied;
+        setDiscontinuity(other.discontinuity);
+        setBoundStep(other.boundStep);
+        if (other.nextBreakPoint>=0) setBreakPoint(other.nextBreakPoint, commons);
+        setMaxFreq(other.maxFreq);
+        instancesConvergenceChecks += other.instancesConvergenceChecks;
+        convergedInstances += other.convergedInstances;
+        bypassableInstances += other.bypassableInstances;
+        bypassOpportunuties += other.bypassOpportunuties;
+        bypassedInstances += other.bypassedInstances;
+    };
+} EvalSetupThreadData;
 
 typedef struct EvalSetup {
     // {} for default initialization
@@ -93,10 +189,7 @@ typedef struct EvalSetup {
     // Convergence check
     // Check reactive residual and Jacobian for convergence
     bool checkReactiveConvergece {};
-    // Counter of convergence checks, is reset by initialize()
-    size_t instancesConvergenceChecks;
-    // Counter of convergence checks that resulted in a converged instance, is reset by initialize()
-    size_t convergedInstances;
+    
     
     // 
     // Internals
@@ -107,58 +200,98 @@ typedef struct EvalSetup {
     double* oldStates; // states (current data)
     double* newStates; // can be either from states (future data) or dummyStates (current data)
 
-    //
-    // OMP: Need these to be created per-thread and merged after parallel run
-    // 
+    // Merged evaluation data across threads
+    EvalSetupThreadData data;
 
-    // OMP: See also ParserTables::accounting() - maybe we should create these per-thread and merge
+    // Evaluation data, one structure per thread
+    std::vector<EvalSetupThreadData> threadDataStruct;
 
-    // OMP: osdi_log() needs a mutex - who cares about speed when we are writing messages
-    
-    // Return information on what happened during evaluation
-    // Verilog-A abort/finish/stop
-    struct DeviceRequests requests;
-    
-    // Limiting applied (i.e. $discontinuity(-1))
-    bool limitingApplied {};
-    
-    // Discontinuity signalled
-    // Negative when no discontinuity, set first by an instance that calls $discontinuity with 
-    // a nonnegative argument, updated by subsequent instances that call $discontinuity 
-    // with a lower nonnegative argument. 
-    Int discontinuity;
-    
-    // For setting the upper bound on the timestep
-    // Infinite initially, set first by an instance that calls $bound_step with 
-    // an argument greater than 0, updated by subsequent instances that call 
-    // $bound_step with a lower argument that is greater than 0. 
-    double boundStep {};
+    // Boolean vector indicating which thread structures were touched
+    std::vector<bool> threadUsed;
 
-    // Next breakpoint
-    // Infinite initially, set first by an instance if the set value is greater than current
-    // time, updated by subsequent instances that set it to a value greater than current time. 
-    double nextBreakPoint;
-    
-    // For setting maximal source frequency
-    // Zero initially, increased by instances that generate a signal. 
-    double maxFreq {};
+    // Running in parallel mode
+    bool parallel {false};
 
-    // Counter of instances that are not converged, is reset by initialize()
-    size_t bypassableInstances;
-    size_t bypassOpportunuties;
-    size_t bypassedInstances;
+    EvalSetupThreadData& threadData() { 
+        if (parallel) {
+            // More than one thread
+            return threadDataStruct[cpuIndex()] ;
+        } else {
+            // One thread
+            return data;
+        }
+    };
+
+//    //
+//    // OMP: Need these to be created per-thread and merged after parallel run
+//    // 
+//
+//    // OMP: See also ParserTables::accounting() - maybe we should create these per-thread and merge
+//
+//    // OMP: osdi_log() needs a mutex - who cares about speed when we are writing messages
+//    
+//    // Return information on what happened during evaluation
+//    // Verilog-A abort/finish/stop
+//    struct DeviceRequests requests;
+//    
+//    // Limiting applied (i.e. $discontinuity(-1))
+//    bool limitingApplied {};
+//    
+//    // Discontinuity signalled
+//    // Negative when no discontinuity, set first by an instance that calls $discontinuity with 
+//    // a nonnegative argument, updated by subsequent instances that call $discontinuity 
+//    // with a lower nonnegative argument. 
+//    Int discontinuity;
+//    
+//    // For setting the upper bound on the timestep
+//    // Infinite initially, set first by an instance that calls $bound_step with 
+//    // an argument greater than 0, updated by subsequent instances that call 
+//    // $bound_step with a lower argument that is greater than 0. 
+//    double boundStep {};
+//
+//    // Next breakpoint
+//    // Infinite initially, set first by an instance if the set value is greater than current
+//    // time, updated by subsequent instances that set it to a value greater than current time. 
+//    double nextBreakPoint;
+//    
+//    // For setting maximal source frequency
+//    // Zero initially, increased by instances that generate a signal. 
+//    double maxFreq {};
+//
+//    // Counter of convergence checks, is reset by initialize()
+//    size_t instancesConvergenceChecks;
+//    // Counter of convergence checks that resulted in a converged instance, is reset by initialize()
+//    size_t convergedInstances;
+//
+//    // Counter of instances that are not converged, is reset by initialize()
+//    size_t bypassableInstances;
+//    size_t bypassOpportunuties;
+//    size_t bypassedInstances;
 
     //
     // OMP: Check when these are called - handle properly in OMP case
     // 
 
     // Methods
-    void clearFlags() {
-        requests.clear();
-        discontinuity = -1;
-        limitingApplied = false;
+    void clearInstanceFlags() {
+        data.clearInstanceFlags(); 
+    }
+    void clearBounds() {
+        data.clearBounds();
+    }
+    void clearThreadInstanceFlags() {
+        threadData().clearInstanceFlags();
     };
-
+    void clearThreadBounds() { 
+        threadData().clearBounds();
+    };
+    void markThreadUsed() {
+        threadUsed[cpuIndex()] = true;
+    }
+    bool wasThreadUsed(int i) {
+        return threadUsed[i];
+    }
+    
     bool initialize() {
         // DBGCHECK(states && states->size()<2, "States history must have at least two slots.");
         // DBGCHECK(solution && solution->size()<2, "Solution history must have at least two slots.");
@@ -186,44 +319,60 @@ typedef struct EvalSetup {
             DBGCHECK(states->size()<integCoeffs->b().size()+1, "Integration method requires a state history with at least "+std::to_string(integCoeffs->b().size()+1)+" slots.");
         }
 
-        nextBreakPoint = -1.0;
-        boundStep = -1.0;
-        maxFreq = 0.0;
-        
-        instancesConvergenceChecks = 0;
-        convergedInstances = 0;
+        // Mark as serial
+        parallel = false;
 
-        bypassableInstances = 0;
-        bypassOpportunuties = 0;
-        bypassedInstances = 0;
+        // Initialize common slot (always)
+        return data.initialize();
+    };
 
+    bool initializeThreads() {
+        // Mark as parallel
+        parallel = true;
+        // Create thread data slots
+        auto availableCpus = cpuCount();
+        // Resize is cheap if space is already allocated
+        threadDataStruct.resize(availableCpus);
+        // Initialize slots
+        for(decltype(availableCpus) i=0; i<availableCpus; i++) {
+            if (!threadDataStruct[i].initialize()) {
+                return false;
+            }
+            threadDataStruct[i].clearInstanceFlags();
+            threadDataStruct[i].clearBounds();
+        }
+        // Flags for indicating a thread was used
+        threadUsed.resize(availableCpus);
+        std::fill(threadUsed.begin(), threadUsed.end(), false); 
         return true;
-    };
+    }
 
-    void clearBounds() { 
-        boundStep=std::numeric_limits<double>::infinity(); 
-        nextBreakPoint=std::numeric_limits<double>::infinity(); 
-        discontinuity=-1; 
-        maxFreq=0.0; 
-    };
-    void setBoundStep(double bound) { if (bound<boundStep) boundStep=bound; };
-    void setDiscontinuity(Int i) { if (i<0) return; if (discontinuity<0 || i<discontinuity) discontinuity=i; };
+    void setBoundStep(double bound) { threadData().setBoundStep(bound); };
+    void setDiscontinuity(Int i) { threadData().setDiscontinuity(i); };
     bool setBreakPoint(double t, CommonData& commons) {
         if (std::abs(t-time) <= timeRelativeTolerance*time) {
             // Breakpoint now or close to now, it is too late to take it into account. 
             // It should have been set earlier. 
-            // Signal discontinuity
+            // TODO: Maybe signal discontinuity of order 1
         } else if (t<time) {
             // Breakpoint in past, ignore
         } else {
             // Set next breakpoint
-            if (t<nextBreakPoint) {
-                nextBreakPoint = t;
-            }
+            threadData().setBreakPoint(t, commons);
         }
         return true;
     };
-    void setMaxFreq(double freq) { if (freq>maxFreq) maxFreq=freq; }; 
+    void setMaxFreq(double freq) { threadData().setMaxFreq(freq); }; 
+
+    void merge(CommonData& commons) {
+        auto availableCpus = cpuCount();
+        for(decltype(availableCpus) i=0; i<availableCpus; i++) {
+            if (!threadUsed[i]) {
+                continue;
+            }
+            data.merge(threadDataStruct[i], commons);
+        }
+    };
 } EvalSetup;
 
 
