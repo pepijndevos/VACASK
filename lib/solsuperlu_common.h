@@ -22,6 +22,7 @@
 #include <cstdlib>
 #include <stdexcept>
 #include "solsuperluitf.h"
+#include "libplatform.h"
 #include "common.h"
 
 namespace NAMESPACE {
@@ -181,8 +182,12 @@ public:
         haveSymbolic = true;
         gluOwner = this;        // this instance now owns the static GlobalLU_t
 
+        // SuperLU_MT's parallel region has no num_threads clause, set the default team size
         int_t info = 0;
+        auto savedCpuCount = openmpCpuCount();
+        setCpuCount(nprocs);
         B::gstrf(&options, &AC, permR.data(), &L, &U, &stat, &info);
+        setCpuCount(savedCpuCount);
 
         Destroy_CompCol_Permuted(&AC);
 
@@ -207,7 +212,10 @@ public:
         B::createDense(&Bmat, n, static_cast<int_t>(nrhs), reinterpret_cast<SluVal*>(rhs), n);
 
         int_t info = 0;
+        auto savedCpuCount = openmpCpuCount();
+        setCpuCount(nprocs);
         B::gstrs(trans ? TRANS : NOTRANS, &L, &U, permR.data(), permC.data(), &Bmat, &stat, &info);
+        setCpuCount(savedCpuCount);
 
         Destroy_SuperMatrix_Store(&Bmat);
         return info;

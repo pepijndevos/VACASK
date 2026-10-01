@@ -11,71 +11,94 @@
 | `-sp` | `--skip-postprocess` | Do not run `postprocess` steps defined in the control block. |
 | `-qp` | `--quiet-progress` | Suppress progress messages. |
 | `--no-output` | | Suppress writing of result files. |
-| `-n <n>` | `--ncpu <n>` | Number of threads the multithreaded SuperLU solver spawns per factorization. Default `1`. `n <= 0` autodetects: it honors `OMP_NUM_THREADS` if set, otherwise uses all available CPUs. |
+| `-n <n>` | `--ncpu <n>` | Number of threads used for device evaluation and by the multithreaded SuperLU solver. Default `1`. `n <= 0` autodetects: it honors `OMP_NUM_THREADS` if set, otherwise uses all available CPUs. |
 | `-b <n>` | `--blas-ncpu <n>` | Number of threads OpenBLAS may use for dense operations. Default `1`. `n <= 0` lets OpenBLAS autodetect. |
 
 If no filename is given VACASK prints a hint and exits.
 
 ## Parallelism
 
-VACASK runs single-threaded except for the sparse linear solver used by
-[harmonic balance](cmd-analysis-hb.md) and the harmonic-balance-based
-[(quasi)periodic small-signal analysis](cmd-analysis-hbac.md). When the simulator
-is built with the multithreaded SuperLU backend, that solver is the default for
-these analyses. Every other analysis uses the `klu` solver, which ignores both
-options below.
+VACASK uses OpenMP threads in three places: device evaluation, the SuperLU
+sparse solver, and OpenBLAS dense operations. Everything else, including
+assembly of the Jacobian and the `klu` solver, runs on one thread.
 
 There are two independent thread counts:
 
-- `--ncpu` (`-n`): threads the SuperLU factorization (`pdgstrf`) spawns.
-  Default `1`.
+- `--ncpu` (`-n`): threads used for device evaluation and by the SuperLU
+  factorization. Default `1`.
 - `--blas-ncpu` (`-b`): threads OpenBLAS uses for dense operations, most of which
   occur in the small-signal analyses. Default `1`.
 
-### Serial runs
+### Device evaluation
 
-When both `--ncpu` and `--blas-ncpu` are `1` (the defaults), VACASK also pins the
-OpenMP pool to a single thread. SuperLU's factorization loop has no explicit
-thread-count clause, so without this cap it would still create a full-size team
-of worker threads that busy-wait through every factorization and burn CPU for
-nothing. With the cap, a default run is genuinely serial.
+With `--ncpu` greater than `1` the device instances are split into batches
+(about five per thread) that are evaluated in parallel. The results are then
+loaded into the Jacobian and the residual on a single thread. Device evaluation
+runs in every analysis, regardless of the selected solver.
 
-### Sizing the thread pool
+### SuperLU solver
 
-As soon as either `--ncpu` or `--blas-ncpu` exceeds `1`, VACASK stops managing the
-OpenMP pool; its size then comes entirely from `OMP_NUM_THREADS`. Set it to match
-the work requested.
+The SuperLU factorization runs on `--ncpu` threads. SuperLU is used by the
+analyses that select it with the [solver options](cmd-options-solver.md). When the
+simulator is built with the SuperLU backend, it is the default for
+[harmonic balance](cmd-analysis-hb.md) and the
+[(quasi)periodic small-signal analyses](cmd-analysis-hbac.md). The `klu` solver
+ignores `--ncpu`.
 
-The solver and OpenBLAS thread counts multiply: a factorization on `--ncpu`
-threads, each of which may call into an `--blas-ncpu`-threaded OpenBLAS, needs
-`ncpu * blas_ncpu` threads in the pool. With `--ncpu 4 --blas-ncpu 3` size it for
-`4 * 3 = 12`:
+### OpenBLAS
 
-```text
-OMP_NUM_THREADS=12 vacask -n 4 -b 3 circuit.sim
-```
-
-An undersized pool oversubscribes the cores and is usually slower than a smaller
-thread count that schedules cleanly. Measure with `print stats`.
-
-More threads is not always faster: for small circuits the factorization is cheap
-and thread startup dominates, so the serial default often wins.
+`--blas-ncpu` applies only to OpenBLAS calls made outside the parallel regions
+above. An OpenBLAS call made from inside a parallel region runs on one thread, so
+the two counts do not multiply and no extra thread pool needs to be reserved.
 
 Leave `--blas-ncpu` at `1` unless the circuit is very large. The dense operations
 it parallelizes are a small share of the total work for typical circuits, so
-raising it only adds thread-management overhead and inflates the required
-`OMP_NUM_THREADS` (recall the `ncpu * blas_ncpu` product above). It pays off only
-when the small-signal dense blocks are large enough to amortize that cost.
+raising it only adds thread-management overhead. It pays off only when the
+small-signal dense blocks are large enough to amortize that cost.
 
-Builds without the SuperLU backend or without OpenMP run everything on one
-thread, and both options have no effect.
+### Choosing the thread count
+
+The thread counts are passed to OpenMP explicitly, so `OMP_NUM_THREADS` only
+matters when `--ncpu` or `--blas-ncpu` is `<= 0`. A typical parallel run is
+
+```text
+vacask -n 4 circuit.sim
+```
+
+More threads is not always faster: for small circuits evaluation and
+factorization are cheap and thread synchronization dominates, so the serial
+default often wins. Do not set `--ncpu` above the number of physical cores.
+Measure with `print stats`.
+
+### OpenMP environment
+
+For best performance set the following OpenMP environment variables before
+starting VACASK:
+
+| Variable | Value | Effect |
+|----------|-------|--------|
+| `OMP_PROC_BIND` | `close` | Pins each thread to a fixed place, with places assigned next to each other. Threads do not migrate between cores. |
+| `OMP_PLACES` | `cores` | One place per physical core, so two threads never share the hyperthreads of one core. |
+
+```text
+OMP_PROC_BIND=close OMP_PLACES=cores vacask -n 4 circuit.sim
+```
+
+By default idle threads spin for a while before they sleep. When the serial
+work between parallel regions is long, or other processes compete for the
+cores, setting `OMP_WAIT_POLICY=passive` may help. Idle threads then sleep
+immediately instead of burning CPU time, at the cost of a few microseconds per
+parallel region to wake them. Measure both settings with `print stats`.
+
+Builds without OpenMP run everything on one thread, and both options have no
+effect.
 
 ## Startup Sequence
 
 When VACASK is launched it performs the following steps in order:
 
 1. Parse command line flags.
-2. Resolve the thread counts from `--ncpu` / `--blas-ncpu` (and `OMP_NUM_THREADS`); cap the OpenMP pool to one thread when both are `1`.
+2. Resolve the thread counts from `--ncpu` / `--blas-ncpu` (and `OMP_NUM_THREADS` when a count is `<= 0`).
 3. Apply `SIM_MODULE_PATH`, `SIM_INCLUDE_PATH`, and `SIM_OPENVAF` environment variables if set.
 4. Read [TOML configuration files](startup-paths.md#toml-configuration-files) in order. Later files override earlier ones.
 5. Parse the input file.

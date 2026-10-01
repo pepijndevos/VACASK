@@ -100,7 +100,7 @@ Yes we do. It is bundled with the binary packages. [The user's manual](docs/inde
 - Monte Carlo analysis with Latin hypercube sampling (see [demo/mc](demo/mc)). 
 - Touchstone file to VACASK lumped model converter based on scikit-rf (see [demo/ts](demo/ts)). 
 - [Foreign language parsers](docs/input-include.md#foreign-format-includes-spice--spectre) (experimental), supporting ngspice, HSPICE, PSPICE, Xyce, and Spectre. 
-- [Parallel](docs/startup-options.md#parallelism) solver support - see the `--ncpu` and the `--blas-ncpu` options.
+- [Parallel](docs/startup-options.md#parallelism) device evaluation and solver support - see the `--ncpu` and the `--blas-ncpu` options. For best performance also set `OMP_PROC_BIND=close` and `OMP_PLACES=cores` in the environment (see [OpenMP environment](docs/startup-options.md#openmp-environment)).
  
 VACASK is being developed by Árpád Bűrmen at the EDA Laboratory, University of Ljubljana, Slovenia. Several people have contributed to VACASK. See [contributors.md](contributors.md) for details. 
 
