@@ -1,6 +1,7 @@
 #include <filesystem>
 #include <limits>
 #include <algorithm>
+#include <atomic>
 #include "circuit.h"
 #include "osdifile.h"
 #include "osdidevice.h"
@@ -447,6 +448,9 @@ void Circuit::clear() {
         it.get()->clearModelList();
     }
 
+    // Invalidate instance partitioning
+    evalPartitioning.clear();
+
     // No need to clear entity lists under models
     // as they have been deleted with them. 
     // An exception to this are subcircuit models because they were not deleted. 
@@ -684,6 +688,8 @@ const Instance* Circuit::findInstance(Id name) const {
 }
 
 bool Circuit::buildEntityLists(Status& s) {
+    // Entity lists change, invalidate instance partitioning
+    evalPartitioning.clear();
     for(auto& it : devices) {
         it.get()->clearModelList();
     }
@@ -1500,8 +1506,7 @@ bool Circuit::evalAndLoadSerial(CommonData& commons, EvalSetup* evalSetup, LoadS
 
 bool Circuit::evalAndLoadParallel(CommonData& commons, EvalSetup* evalSetup, LoadSetup* loadSetup, ErrorConsumer& errors) {
     // Enable accounting on device basis
-    size_t ndx = 0;
-    Accounting::Timepoint td0;
+    auto tdEval = Accounting::wclk();
 
     // Initialize thread data
     if (!evalSetup->initializeThreads()) {
@@ -1519,12 +1524,15 @@ bool Circuit::evalAndLoadParallel(CommonData& commons, EvalSetup* evalSetup, Loa
         if (newOversubscribe<1) {
             newOversubscribe = 1;
         }
-        nBatches = Simulator::nCpu()*oversubscribe;
+        nBatches = Simulator::nCpu()*newOversubscribe;
         // If we have more CPUs than batches, just leave some CPUs without work. 
     }
 
-    // Do we have corrent instance partitioning? 
-    if (evalPartitioning.size()!=nBatches) {
+    // Do we have correct instance partitioning? 
+    // There is one less partition than entries due to sentinel
+    // Partitioner creates at most one partition per instance
+    auto expectedPartitions = std::min(nBatches, primitiveInstanceCount());
+    if (evalPartitioning.size()==0 || evalPartitioning.size()-1!=expectedPartitions) {
         // No, partition now, uniform partitioning
         partitionInstances(nBatches);
     }
@@ -1546,61 +1554,63 @@ bool Circuit::evalAndLoadParallel(CommonData& commons, EvalSetup* evalSetup, Loa
         }
     }
     
+    auto nDev = devices.size();
+
     if constexpr(devacct) {
         // Prepare and clear per-thread statistics
-        threadDevEvalLoadCalls.resize((devices.size()+1)*availableCpus);
-        threadDevEvalLoadTimes.resize((devices.size()+1)*availableCpus);
+        threadDevEvalLoadCalls.resize((nDev+1)*availableCpus);
+        threadDevEvalLoadTimes.resize((nDev+1)*availableCpus);
 
         zero(threadDevEvalLoadCalls);
         zero(threadDevEvalLoadTimes);
         
         // Common statistics in accounting
         // Last entry is for overhead, count does not change so on first resize this initializes vector to 0
-        tables_.accounting().devEvalLoadCalls.resize(devices.size()+1, 0);
-        tables_.accounting().devEvalLoadTimes.resize(devices.size()+1, 0);
+        tables_.accounting().devEvalLoadCalls.resize(nDev+1, 0);
+        tables_.accounting().devEvalLoadTimes.resize(nDev+1, 0);
         // Measure overhead
-        td0 = Accounting::wclk();
+        auto td0 = Accounting::wclk();
         tables_.accounting().devEvalLoadTimes.back() += Accounting::wclkDelta(td0);
         tables_.accounting().devEvalLoadCalls.back()++;
     }
     
-    // Clear thread data, call in parallel loop
-    evalSetup->clearThreadInstanceFlags();
-    evalSetup->clearThreadBounds();
-    evalSetup->markThreadUsed();
-
-    bool retval = true;
-    bool first = true;
-    for(auto& dev : devices) {
-        // Skip first device (this is always the Hierarchical device)
-        // Will save some time
-        if (first) {
-            first = false;
-            if constexpr(devacct) {
-                ndx++;
-            }
+    // Sweep through partitioning
+    auto nPart = evalPartitioning.size()-1;
+    // Shared failure flag, relaxed ordering suffices (only a hint to stop early)
+    std::atomic<bool> failed {false};
+    for(decltype(nPart) i=0; i<nPart; i++) {
+        // After a failure skip remaining batches (no break allowed in omp for)
+        if (failed.load(std::memory_order_relaxed)) {
             continue;
         }
-        auto* devPtr = dev.get();
-        if (devPtr->instanceCount()==0)  {
-            // Do nothing
-        } else {
+        auto from = evalPartitioning[i];
+        auto to = evalPartitioning[i+1];
+        auto dev1 = from.device;
+        auto dev2 = to.device;
+        // Each time we process a batch in a thread we mark that thread as used
+        evalSetup->markThreadUsed();
+        // Per-thread error consumer
+        auto thread = cpuIndex();
+        ErrorConsumer threadErrors = usingErrorStack ? ErrorConsumer(threadErrorStack[thread]) : ErrorConsumer(threadStatus[thread]);
+        for(size_t iDev=dev1; !failed.load(std::memory_order_relaxed) && iDev<nDev && iDev<=dev2; iDev++) {
+            auto fromEv = (iDev==dev1) ? Device::EvalPtr(from.model, from.instance) : Device::EvalPtr::begin;
+            auto toEv = (iDev==dev2) ? Device::EvalPtr(to.model, to.instance) : Device::EvalPtr::end;
+            auto* devPtr = devices[iDev].get();
+            // Thread-private timepoint
+            Accounting::Timepoint tdDev;
             if constexpr(devacct) {
-                td0 = Accounting::wclk();
+                tdDev = Accounting::wclk();
             }
-            if (!devPtr->evalAndLoad(*this, commons, evalSetup, loadSetup, errors)) {
-                retval = false;
-                break;
+            if (!devPtr->evalAndLoad(*this, commons, evalSetup, nullptr, threadErrors, fromEv, toEv)) {
+                failed.store(true, std::memory_order_relaxed);
             }
             if constexpr(devacct) {
-                tables_.accounting().devEvalLoadTimes[ndx] += Accounting::wclkDelta(td0);
-                tables_.accounting().devEvalLoadCalls[ndx]++;
+                threadDevEvalLoadTimes[thread*(nDev+1)+iDev] += Accounting::wclkDelta(tdDev);
+                threadDevEvalLoadCalls[thread*(nDev+1)+iDev]++;
             }
-        }
-        if constexpr(devacct) {
-            ndx++;
         }
     }
+    bool retval = !failed.load();
 
     // Merge thread data into data
     evalSetup->merge(commons);
@@ -1626,21 +1636,48 @@ bool Circuit::evalAndLoadParallel(CommonData& commons, EvalSetup* evalSetup, Loa
 
     // Merge per-thread device load statistics
     if constexpr(devacct) {
-        zero(tables_.accounting().devEvalLoadCalls);
-        zero(tables_.accounting().devEvalLoadTimes);
-
-        size_t at = 0;
-        size_t nSlots = tables_.accounting().devEvalLoadCalls.size(); 
         for(decltype(availableCpus) i=0; i<availableCpus; i++) {
             if (!evalSetup->wasThreadUsed(i)) {
                 continue;
             }
-            auto origin = i*availableCpus;
-            for(size_t j=0; j<nSlots; j++) {
+            auto origin = i*(nDev+1);
+            for(size_t j=0; j<nDev+1; j++) {
                 tables_.accounting().devEvalLoadCalls[j] += threadDevEvalLoadCalls[origin+j];
                 tables_.accounting().devEvalLoadTimes[j] += threadDevEvalLoadTimes[origin+j];
             }
         }
+    }
+
+    // Time evaluation only
+    tables_.accounting().acctNew.teval += Accounting::wclkDelta(tdEval);
+
+    // Eval failed, exit
+    if (!retval) {
+        return false;
+    }
+
+    // Now do loading
+    if (loadSetup) {
+        auto tl0 = Accounting::wclk();
+        bool first = true;
+        for(auto& dev : devices) {
+            // Skip first device (this is always the Hierarchical device)
+            // Will save some time
+            if (first) {
+                first = false;
+                continue;
+            }
+            auto* devPtr = dev.get();
+            if (devPtr->instanceCount()==0)  {
+                // Do nothing
+            } else {
+                if (!devPtr->evalAndLoad(*this, commons, nullptr, loadSetup, errors)) {
+                    retval = false;
+                    break;
+                }
+            }
+        }
+        tables_.accounting().acctNew.tload += Accounting::wclkDelta(tl0);
     }
 
     return retval;

@@ -1,19 +1,22 @@
 #include <algorithm>
+#include <stdexcept>
 #include "circuit.h"
 #include "common.h"
 
 namespace NAMESPACE {
 
 void Circuit::partitionInstances(size_t n) {
-    evalPartitioning.clear();
-    if (n<=0) {
-        return;
+    if (n==0) {
+        throw std::logic_error("Instance partitioning requires at least one slot.");
     }
+    evalPartitioning.clear();
 
     // Count all instances, skip Hierarchical device
     auto ndev = deviceCount();
     size_t total = primitiveInstanceCount();
     if (total==0) {
+        // Stop at first device after Hierarchical
+        evalPartitioning.emplace_back(1, SIM_SIZE_T_MAX, SIM_SIZE_T_MAX);
         return;
     }
 
@@ -85,8 +88,8 @@ void Circuit::partitionInstances(size_t n) {
         }
     }
 
-    // End sentinel, one past the last real instance
-    evalPartitioning.emplace_back(ndev, 0, 0);
+    // End sentinel
+    evalPartitioning.emplace_back(ndev, SIM_SIZE_T_MAX, SIM_SIZE_T_MAX);
 }
 
 }

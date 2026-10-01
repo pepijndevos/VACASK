@@ -23,8 +23,12 @@ void Accounting::dumpTotal(int indent, std::ostream& os) const {
 
     os << pfx << "Eval and load calls:             " << acctNew.evalload << "\n";
     os << pfx << "Eval and load time:              " << acctNew.tevalload << "\n";
-    // os << pfx << "Load time:                      " << acctNew.tload << "\n";
-    // os << pfx << "Jacobian write time:            " << acctNew.teval << "\n";
+    if (acctNew.teval>0) {
+        os << pfx << "Eval time:                       " << acctNew.teval << "\n";
+    }
+    if (acctNew.tload>0) {
+        os << pfx << "Load time:                       " << acctNew.tload << "\n";
+    }
 
     os << "\n";
 
@@ -75,10 +79,6 @@ void Accounting::dumpDevTimes(int indent, std::ostream& os, Circuit& circuit) co
             }
             os << pfx << "  " << circuit.device(i)->name() << "  t=" << devEvalLoadTimes[i] << " n=" << devEvalLoadCalls[i] 
                << " t/n=" << devEvalLoadTimes[i]/devEvalLoadCalls[i];
-            if (circuit.device(i)->novh>0) {
-                os << " tovh=" << circuit.device(i)->tovh << " novh=" << circuit.device(i)->novh
-                   << " tovh/novh=" << circuit.device(i)->tovh/circuit.device(i)->novh;
-            }
             os << "\n";
         }
         if (devEvalLoadCalls[nn-1]!=0) {

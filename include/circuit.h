@@ -175,19 +175,6 @@ private:
     std::vector<Value> values;
 };
 
-class InstanceSequencePointer {
-public:
-    InstanceSequencePointer(size_t device, size_t model, size_t instance)
-        : device(device), model(model), instance(instance) {};
-    
-    std::tuple<size_t, size_t, size_t> unpack() const { return std::make_tuple(device, model, instance); };
-
-private:
-    size_t device;
-    size_t model;
-    size_t instance;
-};
-
 // Circuit
 enum class CircuitFlags : uint8_t {
     VariablesChanged = 1, 
@@ -216,6 +203,17 @@ public:
     Circuit           (      Circuit&&) = delete;
     Circuit& operator=(const Circuit&)  = delete;
     Circuit& operator=(      Circuit&&) = delete;
+
+    struct InstanceSequencePointer {
+        InstanceSequencePointer(size_t device, size_t model, size_t instance)
+            : device(device), model(model), instance(instance) {};
+        
+        size_t device;
+        size_t model;
+        size_t instance;
+    };
+
+
     
     bool isValid() const { return valid; };
 

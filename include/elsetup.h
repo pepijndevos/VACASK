@@ -39,7 +39,8 @@ typedef struct DeviceRequests {
 } Requests;
 
 // EvalSetup data that must be stored per thread
-typedef struct EvalSetupThreadData {
+// Aligned so that per-thread slots in a vector do not share cache lines
+typedef struct alignas(falseSharingAlignment) EvalSetupThreadData {
     // Return information on what happened during evaluation
     // Verilog-A abort/finish/stop
     struct DeviceRequests requests;
@@ -206,8 +207,9 @@ typedef struct EvalSetup {
     // Evaluation data, one structure per thread
     std::vector<EvalSetupThreadData> threadDataStruct;
 
-    // Boolean vector indicating which thread structures were touched
-    std::vector<bool> threadUsed;
+    // Flags indicating which thread structures were touched
+    // Not std::vector<bool>: it packs bits, so concurrent writes from different threads race on the same word
+    std::vector<uint8_t> threadUsed;
 
     // Running in parallel mode
     bool parallel {false};
@@ -268,10 +270,6 @@ typedef struct EvalSetup {
 //    size_t bypassOpportunuties;
 //    size_t bypassedInstances;
 
-    //
-    // OMP: Check when these are called - handle properly in OMP case
-    // 
-
     // Methods
     void clearInstanceFlags() {
         data.clearInstanceFlags(); 
@@ -279,12 +277,6 @@ typedef struct EvalSetup {
     void clearBounds() {
         data.clearBounds();
     }
-    void clearThreadInstanceFlags() {
-        threadData().clearInstanceFlags();
-    };
-    void clearThreadBounds() { 
-        threadData().clearBounds();
-    };
     void markThreadUsed() {
         threadUsed[cpuIndex()] = true;
     }

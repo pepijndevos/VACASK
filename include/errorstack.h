@@ -302,15 +302,20 @@ public:
     };
 
     // Append other's entries to this one; throws on ErrorStack/Status mismatch.
+    // Push count grows by the number of merged entries, not by other.pushed,
+    // because other may be a fresh wrapper around an already filled ErrorStack/Status.
     void merge(ErrorConsumer& other) {
         if (errors_ && other.errors_) {
+            pushed += other.errors_->size();
             errors_->merge(*other.errors_);
         } else if (status_ && other.status_) {
+            if (other.status_->message().size()>0) {
+                pushed++;
+            }
             status_->set(*other.status_);
         } else if ((errors_ && other.status_) || (status_ && other.errors_)) {
             throw std::runtime_error("ErrorConsumer::merge: consumer type mismatch");
         }
-        pushed += other.pushed;
     };
 
     // Concatenated messages of everything collected so far ("" for an sink that throws away messages).

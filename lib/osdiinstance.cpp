@@ -1243,8 +1243,6 @@ bool OsdiInstance::evalCore(Circuit& circuit, CommonData& commons, OsdiSimInfo& 
     auto device = model_->device();
     auto descr = device->descriptor();
 
-    Accounting::Timepoint td0;
-    
     // Prepare callback handle
     OsdiCallbackHandle handle = OsdiCallbackHandle {
         .kind = 3, 
@@ -1346,26 +1344,20 @@ bool OsdiInstance::evalCore(Circuit& circuit, CommonData& commons, OsdiSimInfo& 
             }
         }
     } else {
-        if constexpr(devacct) {
-            td0 = Accounting::wclk();
-        }
-        
         // Core evaluation, need to call it always to compute bound step
         auto evalFlags = descr->eval(&handle, core(), model_->core(), &simInfo);
-        
-        // if constexpr(devacct) {
-        //     device->tovh += Accounting::wclkDelta(td0);
-        // }
 
         // Handle evalFlags
         if (evalFlags & EVAL_RET_FLAG_LIM) {
             // If some variable x is linearized to xl the Jacobian is computed at xl instead of x
             // i.e. limiting takes place and EVAL_RET_FLAG_LIM is set
             // We are may not stop the NR loop until this flag is gone for all instances. 
+            // evalSetup limiting flag is sticky (ORed across instances)
             evalSetup.threadData().limitingApplied = true;
+            // Per-instance flag, set it now
             setFlags(Flags::LimitingApplied);
         } else {
-            evalSetup.threadData().limitingApplied = false;
+            // Per-instance flag, clear it now
             clearFlags(Flags::LimitingApplied);
         }
 
@@ -1384,10 +1376,6 @@ bool OsdiInstance::evalCore(Circuit& circuit, CommonData& commons, OsdiSimInfo& 
             evalSetup.threadData().requests.stop = true;
         }
     }
-
-    // if constexpr(devacct) {
-    //     td0 = Accounting::wclk();
-    // }
     
     auto nodeStateIndex = offsStates + device->internalStateCount();
     if (evalSetup.integCoeffs || evalSetup.storeReactiveState) {

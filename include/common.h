@@ -19,6 +19,10 @@ const size_t stringPoolBlockSize = 8192;
 const size_t stringPoolGrowthFactor = 2; 
 const size_t stringPoolRetries = 4;
 
+// Alignment that keeps per-thread data off each other's cache lines (avoids false sharing)
+// Upper bound: 64-byte lines are fetched in pairs on x86, Apple and some ARM cores have 128-byte lines
+constexpr size_t falseSharingAlignment = 128;
+
 // Source line and column number type
 typedef uint32_t SourceLineNumber;
 typedef uint32_t SourceColumnNumber;

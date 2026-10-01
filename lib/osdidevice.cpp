@@ -462,43 +462,32 @@ bool OsdiDevice::evalAndLoad(Circuit& circuit, CommonData& commons, EvalSetup* e
         }
     }
 
-    if constexpr(devacct) {
-        novh++;
-    }
-    
-    size_t m1, m2, i1, i2;
-    if (from!=Device::EvalPtr::begin) {
-        m1 = from.model;
-        i1 = from.instance;
-    } else {
-        m1 = 0;
-        i1 = 0;
-    }
-    if (to!=Device::EvalPtr::end) {
-        m2 = to.model;
-        i2 = to.instance;
-    } else {
-        m2 = models().size();
-        i2 = 0;
-    }
-    for(size_t iMod=m1; iMod<m2; iMod++) {
+    // For prevents from falling off the cliff
+    auto nMod = models().size();
+    for(size_t iMod=from.model; iMod<nMod; iMod++) {
         auto& model = models()[iMod];
-        if (model->instanceCount()==0) {
-            continue;
-        }
-        size_t ii1 = (iMod==m1) ? i1 : 0;
-        size_t ii2 = (iMod==m2) ? i2 : (model->instances().size());
-        for(size_t iInst=ii1; iInst<ii2; iInst++) {
-            auto& instance = model->instances()[iInst];
-            if (evalSetup && !static_cast<OsdiInstance*>(instance)->evalCore(circuit, commons, simInfo, *evalSetup, errors)) {
-                return false;
-            }
-            if (loadSetup) {
-                auto lst = static_cast<OsdiInstance*>(instance)->loadCore(circuit, commons, *loadSetup, errors);
-                if (!lst) {
+        if (model->instanceCount()>0) {    
+            size_t i1 = (from.model==iMod) ? from.instance : 0;
+            size_t i2 = (to.model==iMod) ? (to.instance) : (model->instances().size());
+            // For prevents from falling off the cliff
+            i2 = std::min(model->instances().size(), i2);
+            for(size_t iInst=i1; iInst<i2; iInst++) {
+                // Check for exit
+                auto& instance = model->instances()[iInst];
+                if (evalSetup && !static_cast<OsdiInstance*>(instance)->evalCore(circuit, commons, simInfo, *evalSetup, errors)) {
                     return false;
                 }
+                if (loadSetup) {
+                    auto lst = static_cast<OsdiInstance*>(instance)->loadCore(circuit, commons, *loadSetup, errors);
+                    if (!lst) {
+                        return false;
+                    }
+                }
             }
+        }
+        // Just finished with the last model, exit
+        if (to.model==iMod) {
+            break;
         }
     }
     

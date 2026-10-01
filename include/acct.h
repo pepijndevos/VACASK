@@ -23,8 +23,6 @@ typedef struct AcctData {
     double tchgelab {0};
 
     size_t evalload {0};
-    size_t resload {0};
-    size_t sysload {0};
     size_t factor {0};
     size_t refactor {0};
     size_t solve {0};
@@ -42,8 +40,6 @@ typedef struct AcctData {
     double tevalload {0};
     double teval {0};
     double tload {0};
-    double tresload {0};
-    double tsysload {0};
     double tfactor {0};
     double trefactor {0}; 
     double tsolve {0};
