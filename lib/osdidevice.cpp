@@ -1,6 +1,7 @@
 #include <cstddef>
 #include <cstdlib>
 #include <new>
+#include <algorithm>
 #include "osdidevice.h"
 #include "osdimodel.h"
 #include "osdiinstance.h"
@@ -27,6 +28,46 @@ OsdiDevice::OsdiDevice(OsdiFile* of, int descriptorIndex, Id asName, Loc locatio
     }
     if (osdiFile->usesAbstime(index_)) {
         setFlags(Flags::UsesAbstime);
+    }
+    buildLoadPrefetchOffsets();
+}
+
+void OsdiDevice::buildLoadPrefetchOffsets() {
+    // Collect byte ranges in instance core that load reads, one offset per cache line
+    std::vector<uint32_t> offs;
+    auto addRange = [&](uint32_t start, size_t size) {
+        if (start==UINT32_MAX || size==0) {
+            return;
+        }
+        for(size_t o=start; o<start+size; o+=cacheLineSize) {
+            offs.push_back(o);
+        }
+        offs.push_back(start+size-1);
+    };
+    auto d = descriptor_;
+    // Node mapping (residual loads)
+    addRange(d->node_mapping_offset, d->num_nodes*sizeof(uint32_t));
+    // Resistive Jacobian pointers
+    addRange(d->jacobian_ptr_resist_offset, d->num_jacobian_entries*sizeof(double*));
+    // Reactive Jacobian pointers
+    for(uint32_t i=0; i<d->num_jacobian_entries; i++) {
+        addRange(d->jacobian_entries[i].react_ptr_off, sizeof(double*));
+    }
+    // Residuals and linearized rhs (also read by loadCore)
+    for(uint32_t i=0; i<d->num_nodes; i++) {
+        auto& n = d->nodes[i];
+        addRange(n.resist_residual_off, sizeof(double));
+        addRange(n.react_residual_off, sizeof(double));
+        addRange(n.resist_limit_rhs_off, sizeof(double));
+        addRange(n.react_limit_rhs_off, sizeof(double));
+    }
+    // One offset per cache line
+    std::sort(offs.begin(), offs.end());
+    loadPrefetchOffsets_.clear();
+    for(auto o : offs) {
+        if (loadPrefetchOffsets_.empty() || o/cacheLineSize!=loadPrefetchOffsets_.back()/cacheLineSize) {
+            loadPrefetchOffsets_.push_back(o);
+        }
     }
 }
 
@@ -462,18 +503,37 @@ bool OsdiDevice::evalAndLoad(Circuit& circuit, CommonData& commons, EvalSetup* e
         }
     }
 
+    // Load-only pass reads instance data that is no longer in cache, prefetch it
+    bool prefetch = loadSetup && !evalSetup;
+
     // For prevents from falling off the cliff
     auto nMod = models().size();
     for(size_t iMod=from.model; iMod<nMod; iMod++) {
         auto& model = models()[iMod];
-        if (model->instanceCount()>0) {    
+        if (model->instanceCount()>0) {
             size_t i1 = (from.model==iMod) ? from.instance : 0;
             size_t i2 = (to.model==iMod) ? (to.instance) : (model->instances().size());
             // For prevents from falling off the cliff
             i2 = std::min(model->instances().size(), i2);
+            auto& insts = model->instances();
             for(size_t iInst=i1; iInst<i2; iInst++) {
+                if (prefetch) {
+                    // Instance object two ahead (first two lines hold model, flags, core pointer)
+                    if (iInst+2<i2) {
+                        auto p = reinterpret_cast<const char*>(insts[iInst+2]);
+                        prefetchRead(p);
+                        prefetchRead(p+cacheLineSize);
+                    }
+                    // Core data one ahead (its instance object was prefetched in previous iteration)
+                    if (iInst+1<i2) {
+                        auto c = static_cast<const char*>(static_cast<OsdiInstance*>(insts[iInst+1])->core());
+                        for(auto off : loadPrefetchOffsets_) {
+                            prefetchRead(c+off);
+                        }
+                    }
+                }
                 // Check for exit
-                auto& instance = model->instances()[iInst];
+                auto& instance = insts[iInst];
                 if (evalSetup && !static_cast<OsdiInstance*>(instance)->evalCore(circuit, commons, simInfo, *evalSetup, errors)) {
                     return false;
                 }

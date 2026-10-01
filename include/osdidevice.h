@@ -219,6 +219,10 @@ private:
     OsdiFile* osdiFile;
     OsdiFile::OsdiDeviceIndex index_;
     OsdiDescriptor* descriptor_;
+
+    // Offsets (one per cache line) of instance core data read by load, used for prefetching
+    std::vector<uint32_t> loadPrefetchOffsets_;
+    void buildLoadPrefetchOffsets();
 };
 
 

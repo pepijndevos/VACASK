@@ -7,6 +7,9 @@
 #include <cstdlib>
 #include <complex>
 #include <type_traits>
+#if defined(_MSC_VER) && (defined(_M_X64) || defined(_M_IX86))
+#include <xmmintrin.h>
+#endif
 
 
 namespace NAMESPACE {
@@ -22,6 +25,18 @@ const size_t stringPoolRetries = 4;
 // Alignment that keeps per-thread data off each other's cache lines (avoids false sharing)
 // Upper bound: 64-byte lines are fetched in pairs on x86, Apple and some ARM cores have 128-byte lines
 constexpr size_t falseSharingAlignment = 128;
+
+// Cache line size used for stepping through memory when prefetching
+constexpr size_t cacheLineSize = 64;
+
+// Hint the CPU to fetch the cache line containing addr (no-op if unsupported, never faults)
+inline void prefetchRead(const void* addr) {
+#if defined(__GNUC__) || defined(__clang__)
+    __builtin_prefetch(addr, 0, 3);
+#elif defined(_MSC_VER) && (defined(_M_X64) || defined(_M_IX86))
+    _mm_prefetch(static_cast<const char*>(addr), _MM_HINT_T0);
+#endif
+}
 
 // Source line and column number type
 typedef uint32_t SourceLineNumber;

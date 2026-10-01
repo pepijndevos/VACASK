@@ -1379,9 +1379,11 @@ bool OsdiInstance::evalCore(Circuit& circuit, CommonData& commons, OsdiSimInfo& 
     
     auto nodeStateIndex = offsStates + device->internalStateCount();
     if (evalSetup.integCoeffs || evalSetup.storeReactiveState) {
+        // Unknown indices from core (set by bindCore), avoids chasing Node pointers
+        auto nodeMapping = nodeMappingArray();
         for(auto i : device->nonzeroReactiveResiduals()) {
             // Get unknown index
-            auto u = nodes_[i]->unknownIndex();
+            auto u = nodeMapping[i];
             // For ground nodes, skip the rest
             if (u!=0) {
                 // Get residual offset and residual
@@ -1554,12 +1556,15 @@ bool OsdiInstance::loadCore(Circuit& circuit, CommonData& commons, LoadSetup& lo
         }
     }
 
+    // Unknown indices from core (set by bindCore), avoids chasing Node pointers
+    auto nodeMapping = nodeMappingArray();
+
     // Update maximal resistive residual contribution
     if (loadSetup.maxResistiveResidualContribution) {
         for(auto i : model()->device()->nonzeroResistiveResiduals()) {
         // for(uint32_t i=0; i<descr->num_nodes; i++) {
             // Get unknown index
-            auto u = nodes_[i]->unknownIndex();
+            auto u = nodeMapping[i];
             // For ground nodes, skip the rest
             if (u!=0) {
                 // Get residual offset and residual
@@ -1591,7 +1596,7 @@ bool OsdiInstance::loadCore(Circuit& circuit, CommonData& commons, LoadSetup& lo
     ) {
         for(auto i : device->nonzeroReactiveResiduals()) {
             // Get unknown index
-            auto u = nodes_[i]->unknownIndex();
+            auto u = nodeMapping[i];
             // For ground nodes, skip the rest
             if (u!=0) {
                 // No need to compute it, retrieve it from states
