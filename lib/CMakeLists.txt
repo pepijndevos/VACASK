@@ -256,9 +256,10 @@ endif()
 # OPENMP_ENABLED is defined project-wide (top-level CMakeLists.txt). The -fopenmp
 # compile flag is not - it is scoped to just the TUs that need it, and the rest
 # of simlib is built without it. libplatform.cpp needs the flag for
-# omp_get_max_threads() / omp_set_num_threads().
+# omp_get_max_threads() / omp_set_num_threads(), ciromp.cpp for the parallel
+# instance evaluation loop.
 if (OpenMP_CXX_FOUND)
-    set_source_files_properties(libplatform.cpp PROPERTIES
+    set_source_files_properties(libplatform.cpp ciromp.cpp PROPERTIES
         COMPILE_OPTIONS "${OpenMP_CXX_FLAGS}"
     )
 endif()

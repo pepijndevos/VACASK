@@ -1,7 +1,6 @@
 #include <filesystem>
 #include <limits>
 #include <algorithm>
-#include <atomic>
 #include "circuit.h"
 #include "osdifile.h"
 #include "osdidevice.h"
@@ -1509,7 +1508,7 @@ bool Circuit::evalAndLoadParallel(CommonData& commons, EvalSetup* evalSetup, Loa
     auto tdEval = Accounting::wclk();
 
     // Initialize thread data
-    if (!evalSetup->initializeThreads()) {
+    if (!evalSetup->initializeThreads(Simulator::nCpu())) {
         return false;
     }
 
@@ -1538,7 +1537,8 @@ bool Circuit::evalAndLoadParallel(CommonData& commons, EvalSetup* evalSetup, Loa
     }
 
     // Number of available CPUs
-    auto availableCpus = cpuCount();
+    // Number of threads in parallel evaluation
+    auto availableCpus = Simulator::nCpu();
 
     // Prepare and clear error stacks and statuses
     auto usingErrorStack = errors.isErrorStack();
@@ -1574,43 +1574,8 @@ bool Circuit::evalAndLoadParallel(CommonData& commons, EvalSetup* evalSetup, Loa
         tables_.accounting().devEvalLoadCalls.back()++;
     }
     
-    // Sweep through partitioning
-    auto nPart = evalPartitioning.size()-1;
-    // Shared failure flag, relaxed ordering suffices (only a hint to stop early)
-    std::atomic<bool> failed {false};
-    for(decltype(nPart) i=0; i<nPart; i++) {
-        // After a failure skip remaining batches (no break allowed in omp for)
-        if (failed.load(std::memory_order_relaxed)) {
-            continue;
-        }
-        auto from = evalPartitioning[i];
-        auto to = evalPartitioning[i+1];
-        auto dev1 = from.device;
-        auto dev2 = to.device;
-        // Each time we process a batch in a thread we mark that thread as used
-        evalSetup->markThreadUsed();
-        // Per-thread error consumer
-        auto thread = cpuIndex();
-        ErrorConsumer threadErrors = usingErrorStack ? ErrorConsumer(threadErrorStack[thread]) : ErrorConsumer(threadStatus[thread]);
-        for(size_t iDev=dev1; !failed.load(std::memory_order_relaxed) && iDev<nDev && iDev<=dev2; iDev++) {
-            auto fromEv = (iDev==dev1) ? Device::EvalPtr(from.model, from.instance) : Device::EvalPtr::begin;
-            auto toEv = (iDev==dev2) ? Device::EvalPtr(to.model, to.instance) : Device::EvalPtr::end;
-            auto* devPtr = devices[iDev].get();
-            // Thread-private timepoint
-            Accounting::Timepoint tdDev;
-            if constexpr(devacct) {
-                tdDev = Accounting::wclk();
-            }
-            if (!devPtr->evalAndLoad(*this, commons, evalSetup, nullptr, threadErrors, fromEv, toEv)) {
-                failed.store(true, std::memory_order_relaxed);
-            }
-            if constexpr(devacct) {
-                threadDevEvalLoadTimes[thread*(nDev+1)+iDev] += Accounting::wclkDelta(tdDev);
-                threadDevEvalLoadCalls[thread*(nDev+1)+iDev]++;
-            }
-        }
-    }
-    bool retval = !failed.load();
+    // Sweep through partitioning in parallel (in ciromp.cpp, compiled with OpenMP)
+    bool retval = evalPartitions(commons, evalSetup, usingErrorStack);
 
     // Merge thread data into data
     evalSetup->merge(commons);

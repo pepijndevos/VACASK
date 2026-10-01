@@ -276,8 +276,7 @@ int main(int argc, char**argv) {
     }
 
     // CPU info
-    Simulator::dbg() << "Available CPUs:     " << cpuCount() << "\n";
-    Simulator::dbg() << "CPUs used:          " << Simulator::nCpu() << "\n";
+    Simulator::dbg() << "OpenMP CPUs:        " << Simulator::nCpu() << "\n";
     Simulator::dbg() << "OpenBLAS CPUs:      " << blasCpuCount() << "\n";
     Simulator::dbg() << "\n";
 

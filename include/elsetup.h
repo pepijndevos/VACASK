@@ -318,15 +318,14 @@ typedef struct EvalSetup {
         return data.initialize();
     };
 
-    bool initializeThreads() {
+    bool initializeThreads(int nThreads) {
         // Mark as parallel
         parallel = true;
         // Create thread data slots
-        auto availableCpus = cpuCount();
         // Resize is cheap if space is already allocated
-        threadDataStruct.resize(availableCpus);
+        threadDataStruct.resize(nThreads);
         // Initialize slots
-        for(decltype(availableCpus) i=0; i<availableCpus; i++) {
+        for(decltype(nThreads) i=0; i<nThreads; i++) {
             if (!threadDataStruct[i].initialize()) {
                 return false;
             }
@@ -334,7 +333,7 @@ typedef struct EvalSetup {
             threadDataStruct[i].clearBounds();
         }
         // Flags for indicating a thread was used
-        threadUsed.resize(availableCpus);
+        threadUsed.resize(nThreads);
         std::fill(threadUsed.begin(), threadUsed.end(), false); 
         return true;
     }
@@ -357,8 +356,8 @@ typedef struct EvalSetup {
     void setMaxFreq(double freq) { threadData().setMaxFreq(freq); }; 
 
     void merge(CommonData& commons) {
-        auto availableCpus = cpuCount();
-        for(decltype(availableCpus) i=0; i<availableCpus; i++) {
+        auto nThreads = threadDataStruct.size();
+        for(decltype(nThreads) i=0; i<nThreads; i++) {
             if (!threadUsed[i]) {
                 continue;
             }

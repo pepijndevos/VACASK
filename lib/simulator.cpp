@@ -88,22 +88,15 @@ bool Simulator::setup(
 
     startupPath_ = std::filesystem::current_path().string();
 
-    // Is this a serial run?
-    if ((ncpu==1) && (blasNcpu==1)) {
-        // Force 1 OMP thread so no time is wasted by spinning unused threads
-        setCpuCount(1);
-    }
-
-    // CPU count (OpenMP)
+    // CPU count (OpenMP), our parallel regions use it explicitly
     if (ncpu<=0) {
-        // Autodetect CPU count
-        ncpu_ = cpuCount();
+        // Autodetect CPU count, must be done before OpenBLAS CPU count is set
+        ncpu_ = openmpCpuCount();
     } else {
-        // Set manually, do not limit OpenMP to this number
         ncpu_ = ncpu;
     }
 
-    // CPU count (OpenBLAS)
+    // CPU count (OpenBLAS), also sets OpenMP default thread count which OpenMP OpenBLAS follows
     if (blasNcpu>0) {
         setBlasCpuCount(blasNcpu);
     }

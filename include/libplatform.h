@@ -53,7 +53,7 @@ const char* defaultOpenVafBinaryName();
 
 std::string formattedTimestamp();
 
-int cpuCount();
+int openmpCpuCount();
 
 void setCpuCount(int n);
 

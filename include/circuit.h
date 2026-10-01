@@ -501,6 +501,8 @@ public:
     bool applyInstanceFlags(Instance::Flags fClear, Instance::Flags fSet);
 
     void partitionInstances(size_t n);
+    // Parallel eval of partitions, called by evalAndLoadParallel()
+    bool evalPartitions(CommonData& commons, EvalSetup* evalSetup, bool usingErrorStack);
 
     bool evalAndLoad(CommonData& commons, EvalSetup* evalSetup, LoadSetup* loadSetup, bool (*deviceSelector)(Device*), ErrorConsumer& errors);
 

@@ -148,7 +148,7 @@ std::string formattedTimestamp() {
 }
 #endif
 
-int cpuCount() {
+int openmpCpuCount() {
 #ifdef OPENMP_ENABLED
     return omp_get_max_threads();
 #else
@@ -171,6 +171,11 @@ int cpuIndex() {
 }
 
 void setBlasCpuCount(int n) {
+#ifdef OPENMP_ENABLED
+    // OpenMP OpenBLAS ignores openblas_set_num_threads() and follows omp_get_max_threads() of the calling thread.
+    // Our parallel regions use explicit thread counts, so this setting only affects BLAS.
+    omp_set_num_threads(n);
+#endif
     openblas_set_num_threads(n);
 }
 
