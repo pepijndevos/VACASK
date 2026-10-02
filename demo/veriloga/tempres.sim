@@ -1,0 +1,58 @@
+Resistor whose resistance equals temperature - Jacobiac contains $temperature contrib
+
+// Verilog-A model is embedded below and compiled on load.
+// $temperature in Verilog-A is in Kelvin, so R[Ohm] = T[K].
+
+ground 0
+
+load "tempjac.va"
+
+model tempjac tempjac
+model isource isource
+
+// 1A flows from ground through i1 into node 1
+i1 (0 1) isource dc=1
+r1 (1 0) tempjac
+
+control
+  save v(1)
+
+  // Sweep ambient temperature (in Celsius)
+  sweep temp option="temp" from=-50 to=150 mode="lin" points=40
+    analysis op1 op
+
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "tempjac.va" <<<FILE
+`include "disciplines.vams"
+
+module tempjac(a, b);
+    inout a, b;
+    electrical a, b;
+
+    analog begin
+        V(a, b) <+ $temperature * I(a, b);
+    end
+endmodule
+>>>FILE
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+import numpy as np
+import matplotlib.pyplot as plt
+
+op1 = rawread('op1.raw').get()
+temp = op1['temp']
+v = op1['1']
+
+fig, ax = plt.subplots(1, 1)
+fig.suptitle('Voltage across a resistor with R=T[K], I=1A')
+ax.plot(temp, v, '.-', label='simulated')
+ax.plot(temp, temp+273.15, '--', label='1A*(T+273.15)')
+ax.set_xlabel('T [deg C]')
+ax.set_ylabel('V [V]')
+ax.grid(True)
+ax.legend()
+plt.show()
+>>>FILE
