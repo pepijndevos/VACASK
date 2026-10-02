@@ -887,36 +887,35 @@ bool OsdiInstance::inputBypassCheckCore(Circuit& circuit, CommonData& commons, E
     auto nInputs = descr->num_inputs;
     bool bypass = true;
 
-    // We must compare input change between stored input and old_solution. 
-    // This is the last delta computed by the NR algorithm. 
-    // because there is no no delta available between two consecutive NR 
-    // runs we better compute this delta each time anew. 
+    // Unknown indices from core (set by bindCore), avoids chasing Node pointers
+    auto nodeMapping = nodeMappingArray();
+
+    // We must compare input change between stored input and old_solution.
+    // This is the last delta computed by the NR algorithm.
+    // because there is no no delta available between two consecutive NR
+    // runs we better compute this delta each time anew.
     for(decltype(nInputs) i=0; i<nInputs; i++) {
         // Get column indices within instance
         auto col1 = tab[i].node_1;
         auto col2 = tab[i].node_2;
 
-        // Get nodes
-        auto node1 = col1==UINT32_MAX ? nullptr : nodes_[col1];
-        auto node2 = col2==UINT32_MAX ? nullptr : nodes_[col2];
-
         // Both nodes are ground, nothing to do
-        if (!node1 && !node2) {
+        if (col1==UINT32_MAX && col2==UINT32_MAX) {
             continue;
         }
-        
+
         // Compute input
         double v1 = 0;
         double abstol = std::numeric_limits<double>::infinity();
-        if (node1) {
-            auto u1 = node1->unknownIndex();
+        if (col1!=UINT32_MAX) {
+            auto u1 = nodeMapping[col1];
             v1 = evalSetup.oldSolution[u1];
             // Update absolute tolerance with unknown abstol of node1
             abstol = std::min(abstol, commons.unknown_abstol[u1]);
-            
+
         }
-        if (node2) {
-            auto u2 = node2->unknownIndex();
+        if (col2!=UINT32_MAX) {
+            auto u2 = nodeMapping[col2];
             v1 -= evalSetup.oldSolution[u2];
             // Update absolute tolerance with unknown abstol of node2
             abstol = std::min(abstol, commons.unknown_abstol[u2]);
@@ -1002,7 +1001,10 @@ bool OsdiInstance::outputBypassCheckCore(Circuit& circuit, CommonData& commons, 
     // Previous values of residual contributions
     auto f1 = input1 + descr->num_inputs; // Jr1 + Jrnz.size();
     auto q1 = f1 + fnz.size(); // Jc1 + Jcnz.size();
-    
+
+    // Unknown indices from core (set by bindCore), avoids chasing Node pointers
+    auto nodeMapping = nodeMappingArray();
+
     //
     // Check resistive residual and resistive Jacobian
     // 
@@ -1018,10 +1020,8 @@ bool OsdiInstance::outputBypassCheckCore(Circuit& circuit, CommonData& commons, 
     // double rres[nn];
     i = 0;
     for(auto resNdx : fnz) {
-        // Get node
-        auto node = nodes_[resNdx];
         // Get unknown index
-        auto u = node->unknownIndex();
+        auto u = nodeMapping[resNdx];
 
         // Get new residual
         // If we arrive here limiting was not applied, no need to add linearized residual
@@ -1113,10 +1113,8 @@ bool OsdiInstance::outputBypassCheckCore(Circuit& circuit, CommonData& commons, 
 
         i = 0;
         for(auto resNdx : qnz) {
-            // Get node
-            auto node = nodes_[resNdx];
             // Get unknown index
-            auto u = node->unknownIndex();
+            auto u = nodeMapping[resNdx];
             
             // Get new residual
             // If we arrive here limiting was not applied, no need to add linearized residual
@@ -1204,18 +1202,14 @@ bool OsdiInstance::outputBypassCheckCore(Circuit& circuit, CommonData& commons, 
             auto col1 = tab[i].node_1;
             auto col2 = tab[i].node_2;
 
-            // Get nodes
-            auto node1 = col1==UINT32_MAX ? nullptr : nodes_[col1];
-            auto node2 = col2==UINT32_MAX ? nullptr : nodes_[col2];
-            
             // Compute input value
             double vin = 0;
-            if (node1) {
-                auto u1 = node1->unknownIndex();
+            if (col1!=UINT32_MAX) {
+                auto u1 = nodeMapping[col1];
                 vin = evalSetup.oldSolution[u1];
             }
-            if (node2) {
-                auto u2 = node2->unknownIndex();
+            if (col2!=UINT32_MAX) {
+                auto u2 = nodeMapping[col2];
                 vin -= evalSetup.oldSolution[u2];
             }
             
