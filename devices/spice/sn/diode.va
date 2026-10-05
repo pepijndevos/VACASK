@@ -3,9 +3,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // 
 // SPICE flavour: ngspice
-// Version      : ngspice-47-131-g9cf762afb
+// Version      : ngspice-47-157-gf8472b491
 // Origin       : https://sourceforge.net/u/arpadbuermen/ngspice/ci/vadng-pre-48/tree/
-// Date         : 2026-09-07 06:15:31 UTC
+// Date         : 2026-10-05 06:54:14 UTC
 // Module name  : sp_diode
 // Model variant: sn
 // 
@@ -196,8 +196,8 @@ module sp_diode(a, c);
   // Instance output variables
   (* desc = "Diode voltage" *) real vd;
   (* desc = "Diode conductance" *) real gd;
-  (* desc = "Diode sidewall capacitance" *) real cd;
-  (* desc = "Diode capacitance" *) real cdsw;
+  (* desc = "Diode capacitance" *) real cd;
+  (* desc = "Diode sidewall capacitance" *) real cdsw;
   (* desc = "Diode capacitor charge" *) real charge;
 
   // Model output variables
@@ -218,6 +218,7 @@ module sp_diode(a, c);
   real DIOtJctSWCap = 0;
   real DIOtTransitTime = 0;
   real DIOtGradingCoeff = 0;
+  real DIOtGradingCoeffSW = 0;
   real DIOtConductance = 0;
   real DIOtConductanceSW = 0;
   real DIOtDepCap = 0;
@@ -229,6 +230,7 @@ module sp_diode(a, c);
   real DIOtVcrit = 0;
   real DIOtVcritSW = 0;
   real DIOtF1 = 0;
+  real DIOtF1SW = 0;
   real DIOtBrkdwnV = 0;
   real DIOtF2 = 0;
   real DIOtF3 = 0;
@@ -715,6 +717,7 @@ module sp_diode(a, c);
     lnTRatio = ln(DIOtemp/DIOnomTemp);
     factor = 1.0+tm1*dt+tm2*dt*dt;
     DIOtGradingCoeff = m*factor;
+    DIOtGradingCoeffSW = mjsw*factor;
     if (tlev==0||tlev==1) begin
       egfet = 1.16-7.02e-4*DIOtemp*DIOtemp/(DIOtemp+1108);
       egfet1 = 1.16-7.02e-4*DIOnomTemp*DIOnomTemp/(DIOnomTemp+1108);
@@ -787,6 +790,7 @@ module sp_diode(a, c);
     xfcs = ln(1-fcs);
     DIOtF1 = DIOtJctPot*(1-exp((1-DIOtGradingCoeff)*xfc))/(1-DIOtGradingCoeff);
     DIOtDepCap = fc*DIOtJctPot;
+    DIOtF1SW = DIOtJctSWPot*(1-exp((1-DIOtGradingCoeffSW)*xfcs))/(1-DIOtGradingCoeffSW);
     DIOtDepSWCap = fcs*DIOtJctSWPot;
     totalSatCur = DIOtSatCur+DIOtSatSWCur;
     if ($param_given(rsw)) begin
@@ -1105,7 +1109,7 @@ module sp_diode(a, c);
       deplcapSW = czeroSW*sargSW;
     end else begin
       czof2SW = czeroSW/DIOtF2SW;
-      deplchargeSW = czeroSW*DIOtF1+czof2SW*(DIOtF3SW*(vdx-DIOtDepSWCap)+mjsw/(DIOtJctSWPot+DIOtJctSWPot)*(vdx*vdx-DIOtDepSWCap*DIOtDepSWCap));
+      deplchargeSW = czeroSW*DIOtF1SW+czof2SW*(DIOtF3SW*(vdx-DIOtDepSWCap)+mjsw/(DIOtJctSWPot+DIOtJctSWPot)*(vdx*vdx-DIOtDepSWCap*DIOtDepSWCap));
       deplcapSW = czof2SW*(DIOtF3SW+mjsw*vdx/DIOtJctSWPot);
     end
     if (revrec) begin
