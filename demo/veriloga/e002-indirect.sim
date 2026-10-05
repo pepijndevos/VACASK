@@ -1,0 +1,63 @@
+Non-inverting amplifier with an ideal opamp (indirect branch contribution)
+
+// The ideal opamp is modeled with an indirect branch contribution
+//   V(out) : V(inp, inn) == 0;
+// It says: find V(out) such that V(inp, inn) equals 0.
+// The opamp output is a voltage source whose value is an unknown,
+// determined by the equation V(inp, inn)=0 (virtual short).
+// Negative feedback through r1 and r2 makes the closed loop gain
+//   vout/vin = 1 + r2/r1 = 10
+
+ground 0
+
+load "resistor.osdi"
+load "opamp.va"
+
+model resistor resistor
+model vsource vsource
+model opamp opamp
+
+vin (in 0) vsource dc=0
+x1 (in fb out) opamp
+r1 (fb 0) resistor r=1k
+r2 (out fb) resistor r=9k
+
+control
+  sweep vin instance="vin" parameter="dc" from=-1 to=1 mode="lin" points=20
+    analysis op1 op
+
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "opamp.va" <<<FILE
+`include "disciplines.vams"
+
+module opamp(inp, inn, out);
+    inout inp, inn, out;
+    electrical inp, inn, out;
+
+    analog begin
+        V(out) : V(inp, inn) == 0;
+    end
+endmodule
+>>>FILE
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+import numpy as np
+import matplotlib.pyplot as plt
+
+op1 = rawread('op1.raw').get()
+vin = op1['in']
+vout = op1['out']
+
+fig, ax = plt.subplots(1, 1)
+fig.suptitle('Non-inverting amplifier, ideal opamp')
+ax.plot(vin, vout, '.-', label='simulated')
+ax.plot(vin, 10*vin, '--', label='(1+r2/r1)*vin')
+ax.set_xlabel('vin [V]')
+ax.set_ylabel('vout [V]')
+ax.grid(True)
+ax.legend()
+plt.show()
+>>>FILE

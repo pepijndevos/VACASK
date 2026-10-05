@@ -1,0 +1,80 @@
+Fixed and variable delay with absdelay()
+
+// A triangular input is delayed by two Verilog-A absdelay() elements.
+//   d1: fixed delay, absdelay(V(in), td)
+//   d2: variable delay, absdelay(V(in), V(ctl), maxtd)
+//       the delay equals V(ctl) (1V=1s), maxtd is its upper bound.
+
+ground 0
+
+load "delay.va"
+
+model vsrc vsource
+model fixdly fixdelay
+model vardly vardelay
+
+// 1kHz triangle between -1V and 1V
+vin (in 0) vsrc type="pwl" wave=[0, -1,  0.5m, 1,  1m, -1] period=1m
+
+// Delay control for d2: 0.3ms +/- 0.2ms at 250Hz, delay sweeps from 0.1ms to 0.5ms
+vc (ctl 0) vsrc type="sine" sinedc=0.3m ampl=0.2m freq=250
+
+d1 (outfix in) fixdly td=0.25m
+d2 (outvar in ctl) vardly maxtd=1m
+
+control
+  analysis tran1 tran stop=4m step=1u maxstep=5u
+
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "delay.va" <<<FILE
+`include "disciplines.vams"
+
+module fixdelay(out, in);
+    inout out, in;
+    electrical out, in;
+
+    (*desc = "Delay", type = "instance", units = "s"*) parameter real td = 1m from (0:inf);
+
+    analog begin
+        // Delay is constant, fixed at the first timepoint
+        V(out) <+ absdelay(V(in), td);
+    end
+endmodule
+
+module vardelay(out, in, ctl);
+    inout out, in, ctl;
+    electrical out, in, ctl;
+
+    (*desc = "Maximum delay", type = "instance", units = "s"*) parameter real maxtd = 1m from (0:inf);
+
+    analog begin
+        // Delay is a signal, maxtd is the constant upper bound
+        V(out) <+ absdelay(V(in), V(ctl), maxtd);
+    end
+endmodule
+>>>FILE
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+import matplotlib.pyplot as plt
+
+tran1 = rawread('tran1.raw').get()
+t = tran1['time']*1e3
+
+fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
+fig.suptitle('Fixed and variable absdelay()')
+ax1.plot(t, tran1['in'], label='in')
+ax1.plot(t, tran1['outfix'], label='fixed delay (0.25ms)')
+ax1.plot(t, tran1['outvar'], label='variable delay')
+ax1.set_ylabel('V [V]')
+ax1.grid(True)
+ax1.legend(loc='upper right')
+ax2.plot(t, tran1['ctl']*1e3)
+ax2.set_xlabel('time [ms]')
+ax2.set_ylabel('variable delay [ms]')
+ax2.grid(True)
+fig.tight_layout()
+plt.show()
+>>>FILE
