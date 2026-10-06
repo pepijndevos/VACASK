@@ -501,8 +501,9 @@ bool OsdiDevice::evalAndLoad(Circuit& circuit, CommonData& commons, EvalSetup* e
         }
     }
 
-    // Load-only pass reads instance data that is no longer in cache, prefetch it
-    bool prefetch = loadSetup && !evalSetup;
+    // Instance data is too large to stay cached, so prefetch the next instance in
+    // the load-only pass and in the serial eval+load pass
+    bool prefetch = loadSetup!=nullptr;
 
     // For prevents from falling off the cliff
     auto nMod = models().size();
@@ -525,6 +526,10 @@ bool OsdiDevice::evalAndLoad(Circuit& circuit, CommonData& commons, EvalSetup* e
                     // Core data one ahead (its instance object was prefetched in previous iteration)
                     if (iInst+1<i2) {
                         auto c = static_cast<const char*>(static_cast<OsdiInstance*>(insts[iInst+1])->core());
+                        // Eval also touches the head of core, which the load offsets may not cover
+                        if (evalSetup && !loadPrefetchOffsets_.empty() && loadPrefetchOffsets_.front()>=cacheLineSize) {
+                            prefetchRead(c);
+                        }
                         for(auto off : loadPrefetchOffsets_) {
                             prefetchRead(c+off);
                         }
