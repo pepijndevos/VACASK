@@ -523,9 +523,10 @@ bool Spurs::buildMixingMap(Int debug, Status& s) {
 std::tuple<bool, size_t> Spurs::smsigFreqIndex(double f, double tol) const {
     // smsigFreq_ is sorted by value; find the first element >= f
     auto it = std::lower_bound(smsigFreq_.begin(), smsigFreq_.end(), f);
-    // Check the candidate and the element just before it
-    for (auto jt : {it, std::prev(it)}) {
-        if (jt < smsigFreq_.begin() || jt == smsigFreq_.end()) continue;
+    // Check the candidate and the element just before it; prev(begin()) is UB
+    auto before = it == smsigFreq_.begin() ? it : std::prev(it);
+    for (auto jt : {it, before}) {
+        if (jt == smsigFreq_.end()) continue;
         auto ref = std::max(std::abs(f), std::abs(*jt));
         if (std::abs(f - *jt) <= ref * tol) {
             auto smsigIndex = static_cast<size_t>(jt - smsigFreq_.begin());
