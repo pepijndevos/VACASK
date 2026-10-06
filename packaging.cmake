@@ -32,6 +32,14 @@ else()
     set(docs_directory "share/doc/${PROGRAM_NAME}")
 endif()
 
+if(SKBUILD)
+    set(source_directory "vacask/src")
+    set(docs_directory "vacask/doc")
+    set(VACASK_BIN_DIR "vacask/bin")
+else()
+    set(VACASK_BIN_DIR "bin")
+endif()
+
 string(TOLOWER "${SIM_PLATFORM}" lowercase_platform)
 
 # Executables
@@ -43,7 +51,7 @@ install(TARGETS sim
 endif()
 
 install(FILES ${OPENVAF_COMPILER}
-	DESTINATION "bin"
+	DESTINATION ${VACASK_BIN_DIR}
 	PERMISSIONS ${install_permissions_executable}
 )
 
