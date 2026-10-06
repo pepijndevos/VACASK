@@ -10,7 +10,7 @@
 
 namespace py = pybind11;
 
-// pyvacask.simulator
+// vacask.simulator
 void InitSimulatorModule(py::module &m) {
     m.def(
         "setup",

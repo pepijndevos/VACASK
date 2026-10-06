@@ -10,7 +10,7 @@
 
 namespace py = pybind11;
 
-// pyvacask.options
+// vacask.options
 void InitOptionsModule(py::module &m) {
     py::class_<sim::SimulatorOptions>(m, "SimulatorOptions")
         .def(py::init<>())

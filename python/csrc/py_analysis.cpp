@@ -10,7 +10,7 @@
 
 namespace py = pybind11;
 
-// pyvacask.analysis
+// vacask.analysis
 void InitAnalysisModule(py::module &m) {
     py::class_<sim::Analysis>(m, "Analysis")
         .def_property_readonly("name", &sim::Analysis::name)

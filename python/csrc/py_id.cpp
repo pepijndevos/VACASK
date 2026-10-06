@@ -10,7 +10,7 @@
 
 namespace py = pybind11;
 
-// pyvacask.loc
+// vacask.loc
 void InitIdModule(py::module &m) {
     py::class_<sim::Id>(m, "Id")
     // Constructors

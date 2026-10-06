@@ -1,13 +1,13 @@
 import os
 import sys
 
-from pyvacask import *
-from pyvacask import simulator as sim
+from vacask import *
+from vacask import simulator as sim
 
 import numpy as np
 import matplotlib.pyplot as plt
 
-from pyvacask.lib.python.rawfile import rawread
+from vacask.rawfile import rawread
 
 def test_demo1(): 
     sim.setup()

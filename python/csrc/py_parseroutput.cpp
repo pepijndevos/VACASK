@@ -10,7 +10,7 @@
 
 namespace py = pybind11;
 
-// pyvacask.parser_output
+// vacask.parser_output
 void InitParserOutputModule(py::module &m) {
     py::class_<sim::ParserTables>(m, "ParserTables")
         .def(py::init<const std::string&>())

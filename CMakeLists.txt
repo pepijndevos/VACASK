@@ -175,7 +175,7 @@ endif()
 message(STATUS "Platform: ${SIM_PLATFORM}")
 
 if (SKBUILD)
-    set(PROGRAM_LIB_DIR "pyvacask/lib")
+    set(PROGRAM_LIB_DIR "vacask")
 endif()
 
 # Compiler
@@ -218,7 +218,7 @@ endif()
 set(STAGED_LIBRARY_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${PROGRAM_LIB_DIR}")
 message(STATUS "Staged library directory: ${STAGED_LIBRARY_DIRECTORY}")
 
-# Find Python. For pyvacask get dev version, for others it is needed for tests.
+# Find Python. For vacask get dev version, for others it is needed for tests.
 if (SKBUILD)
     find_package(Python 3 REQUIRED COMPONENTS Interpreter Development)
 else()
@@ -620,23 +620,25 @@ add_subdirectory(demo/api)
 include("packaging.cmake")
 
 if (SKBUILD)
-# PyBIND11                                                          
-set(PYBIND11_FINDPYTHON ON)                                         
-find_package(pybind11 CONFIG REQUIRED)                              
-pybind11_add_module(_pyvacask                                       
-    pyvacask/csrc/py_module.cpp                                     
-    pyvacask/csrc/py_analysis.cpp                                   
-    pyvacask/csrc/py_circuit.cpp                                    
-    pyvacask/csrc/py_compiler.cpp                                   
-    pyvacask/csrc/py_id.cpp                                         
-    pyvacask/csrc/py_loc.cpp                                        
-    pyvacask/csrc/py_parseroutput.cpp                               
-    pyvacask/csrc/py_simulator.cpp                                  
-    pyvacask/csrc/py_options.cpp                                    
-)                                                                   
-#target_link_options(pyvacask PRIVATE "-Wl,-Bstatic")               
-target_link_libraries(_pyvacask PRIVATE simlib ${SIM_EXE_LIBRARIES})
-install(TARGETS _pyvacask                                           
-        LIBRARY DESTINATION pyvacask                                
-)                                                                   
+# PyBIND11
+set(PYBIND11_FINDPYTHON ON)
+find_package(pybind11 CONFIG REQUIRED)
+pybind11_add_module(_vacask
+    python/csrc/py_module.cpp
+    python/csrc/py_analysis.cpp
+    python/csrc/py_circuit.cpp
+    python/csrc/py_compiler.cpp
+    python/csrc/py_id.cpp
+    python/csrc/py_loc.cpp
+    python/csrc/py_parseroutput.cpp
+    python/csrc/py_simulator.cpp
+    python/csrc/py_options.cpp
+)
+#target_link_options(_vacask PRIVATE "-Wl,-Bstatic")
+target_link_libraries(_vacask PRIVATE simlib ${SIM_EXE_LIBRARIES})
+install(TARGETS _vacask
+        LIBRARY DESTINATION vacask
+        RUNTIME DESTINATION vacask
+        ARCHIVE DESTINATION vacask
+) 
 endif()

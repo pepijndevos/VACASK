@@ -3,7 +3,7 @@ requires = ["scikit-build-core", "pybind11"]
 build-backend = "scikit_build_core.build"
 
 [project]
-name = "pyvacask"
+name = "vacask"
 version = "0.1.0"
 authors = [
   { name="Arpad Buermen", email="arpad.burmen@fe.uni-lj.si" },
@@ -32,4 +32,4 @@ testpaths = [
 ]
 
 [tool.scikit-build]
-wheel.packages = ["pyvacask/src/pyvacask"]
+wheel.packages = ["python/src/vacask"]

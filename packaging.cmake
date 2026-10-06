@@ -35,10 +35,12 @@ endif()
 string(TOLOWER "${SIM_PLATFORM}" lowercase_platform)
 
 # Executables
+if (NOT SKBUILD)
 install(TARGETS sim
 	DESTINATION "bin"
 	PERMISSIONS ${install_permissions_executable}
 )
+endif()
 
 install(FILES ${OPENVAF_COMPILER}
 	DESTINATION "bin"
@@ -60,12 +62,14 @@ foreach(item IN ITEMS ${OSDI_FILES})
     )
 endforeach()
 
-# Library: sample configuration file (all directives commented out)
-install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/config" DESTINATION "${PROGRAM_LIB_DIR}"
-	FILE_PERMISSIONS ${install_permissions_file}
-	DIRECTORY_PERMISSIONS ${install_permissions_directory}
-    FILES_MATCHING PATTERN "*.toml"
-)
+if (NOT SKBUILD)
+    # Library: sample configuration file (all directives commented out)
+    install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/config" DESTINATION "${PROGRAM_LIB_DIR}"
+    	FILE_PERMISSIONS ${install_permissions_file}
+    	DIRECTORY_PERMISSIONS ${install_permissions_directory}
+        FILES_MATCHING PATTERN "*.toml"
+    )
+endif()
 
 # Library: simulator includes
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/inc" DESTINATION "${PROGRAM_LIB_DIR}"
@@ -74,12 +78,14 @@ install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/inc" DESTINATION "${PROGRAM_LIB_D
     FILES_MATCHING PATTERN "*.inc"
 )
 
+if (NOT SKBUILD)
 # Library: python files
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/python" DESTINATION "${PROGRAM_LIB_DIR}"
 	FILE_PERMISSIONS ${install_permissions_file}
 	DIRECTORY_PERMISSIONS ${install_permissions_directory}
     FILES_MATCHING PATTERN "*.py" PATTERN "*.tcl"
 )
+endif()
 
 # License
 install(FILES "LICENSE" DESTINATION "${docs_directory}"
@@ -93,20 +99,21 @@ install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/docs" DESTINATION "${docs_directo
     FILES_MATCHING PATTERN "*.md"
 )
 
-# Demo files
-install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/demo" DESTINATION "${docs_directory}"
-	FILE_PERMISSIONS ${install_permissions_file}
-	DIRECTORY_PERMISSIONS ${install_permissions_directory}
-    PATTERN "CMakeLists.txt" EXCLUDE
-)
-
-# Test files
-install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/test" DESTINATION "${docs_directory}"
-	FILE_PERMISSIONS ${install_permissions_file}
-	DIRECTORY_PERMISSIONS ${install_permissions_directory}
-    PATTERN "CMakeLists.txt" EXCLUDE
-)
-
+if (NOT SKBUILD)
+    # Demo files
+    install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/demo" DESTINATION "${docs_directory}"
+    	FILE_PERMISSIONS ${install_permissions_file}
+    	DIRECTORY_PERMISSIONS ${install_permissions_directory}
+        PATTERN "CMakeLists.txt" EXCLUDE
+    )
+    
+    # Test files
+    install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/test" DESTINATION "${docs_directory}"
+    	FILE_PERMISSIONS ${install_permissions_file}
+    	DIRECTORY_PERMISSIONS ${install_permissions_directory}
+        PATTERN "CMakeLists.txt" EXCLUDE
+    )
+endif()
 
 if(${SIM_PLATFORM} STREQUAL "Windows")
     set(CPACK_GENERATOR "ZIP")

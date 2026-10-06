@@ -10,7 +10,7 @@
 
 namespace py = pybind11;
 
-// pyvacask.loc
+// vacask.loc
 void InitLocModule(py::module &m) {
     py::class_<sim::Loc>(m, "Loc")
         .def(py::init<>())

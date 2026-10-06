@@ -1,33 +1,33 @@
 set(python_files
-    rawfile.py
-    vacaskpp.py
-    runtest.py
-    sg13g2tovc.py
-    xschem2vc.py
-    sg13g2xschem.tcl
-    ts2vc.py
-    ng2vc.py
-    ng2vclib/__init__.py 
-    ng2vclib/converter.py 
-    ng2vclib/dfl.py 
-    ng2vclib/exc.py 
-    ng2vclib/generators.py 
-    ng2vclib/patterns.py
-    ng2vclib/m_devices.py 
-    ng2vclib/m_file.py 
-    ng2vclib/m_inst_d.py 
-    ng2vclib/m_inst_n.py 
-    ng2vclib/m_inst_passive.py 
-    ng2vclib/m_inst_q.py 
-    ng2vclib/m_inst_x.py 
-    ng2vclib/m_masters.py 
-    ng2vclib/m_params.py
-    ng2vclib/m_model.py 
-    ng2vclib/m_output.py 
+    src/vacask/rawfile.py
+    src/vacask/vacaskpp.py
+    src/vacask/runtest.py
+    src/vacask/sg13g2tovc.py
+    src/vacask/xschem2vc.py
+    src/vacask/sg13g2xschem.tcl
+    src/vacask/ts2vc.py
+    src/vacask/ng2vc.py
+    src/vacask/ng2vclib/__init__.py 
+    src/vacask/ng2vclib/converter.py 
+    src/vacask/ng2vclib/dfl.py 
+    src/vacask/ng2vclib/exc.py 
+    src/vacask/ng2vclib/generators.py 
+    src/vacask/ng2vclib/patterns.py
+    src/vacask/ng2vclib/m_devices.py 
+    src/vacask/ng2vclib/m_file.py 
+    src/vacask/ng2vclib/m_inst_d.py 
+    src/vacask/ng2vclib/m_inst_n.py 
+    src/vacask/ng2vclib/m_inst_passive.py 
+    src/vacask/ng2vclib/m_inst_q.py 
+    src/vacask/ng2vclib/m_inst_x.py 
+    src/vacask/ng2vclib/m_masters.py 
+    src/vacask/ng2vclib/m_params.py
+    src/vacask/ng2vclib/m_model.py 
+    src/vacask/ng2vclib/m_output.py 
 )
 
 # Prepare directory for staging the osdi library
-set(STAGED_PYTHON_DIRECTORY "${STAGED_LIBRARY_DIRECTORY}/python")
+set(STAGED_PYTHON_DIRECTORY "${STAGED_LIBRARY_DIRECTORY}/python/src")
 file(MAKE_DIRECTORY "${STAGED_PYTHON_DIRECTORY}")
 
 # Copy .py files to staging directory

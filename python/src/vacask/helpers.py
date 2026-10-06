@@ -1,11 +1,11 @@
 import os
-from ._pyvacask.parser_output import PTParameterValue
-from ._pyvacask.parser_output import PTParameterExpression
-from ._pyvacask.parser_output import PTParsedIdentifier
-from ._pyvacask.id import Id
-from ._pyvacask.value import Value
-from ._pyvacask.rpnexpr import Rpn
-from ._pyvacask.compiler import OpenvafCompiler
+from ._vacask.parser_output import PTParameterValue
+from ._vacask.parser_output import PTParameterExpression
+from ._vacask.parser_output import PTParsedIdentifier
+from ._vacask.id import Id
+from ._vacask.value import Value
+from ._vacask.rpnexpr import Rpn
+from ._vacask.compiler import OpenvafCompiler
 
 def PV(ident:str, value) -> PTParameterValue:
     """

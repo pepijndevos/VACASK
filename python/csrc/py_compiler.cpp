@@ -10,7 +10,7 @@
 
 namespace py = pybind11;
 
-// pyvacask.compiler
+// vacask.compiler
 void InitCompilerModule(py::module &m) {
     py::class_<sim::OpenvafCompiler, sim::SourceCompiler>(m, "OpenvafCompiler")
         .def(py::init([](

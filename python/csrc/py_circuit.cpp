@@ -10,7 +10,7 @@
 
 namespace py = pybind11;
 
-// pyvacask.circuit
+// vacask.circuit
 void InitCircuitModule(py::module &m) {
     py::class_<sim::Circuit, std::unique_ptr<sim::Circuit>>(m, "Circuit")
         .def(py::init<sim::ParserTables&, sim::SourceCompiler*, sim::Status&>(),
