@@ -1,0 +1,99 @@
+5th-order Bessel low-pass filter with laplace_nd()
+
+// The filter is described only by its transfer function
+//   H(s) = b0 / (a0 + a1 s + a2 s^2 + a3 s^3 + a4 s^4 + a5 s^5)
+// given to laplace_nd() as numerator and denominator coefficients
+// in ascending powers of s. There is no RLC network in the model.
+// A Bessel filter has a maximally flat group delay, so its step
+// response has almost no overshoot.
+// The AC analysis gives the frequency response, the transient
+// analysis gives the response to a 1V step.
+
+ground 0
+
+load "bessel.va"
+
+model vsrc vsource
+model bessel bessel5
+
+// 1V step at 1ms, mag=1 for AC
+vin (in 0) vsrc type="pulse" val0=0 val1=1 delay=1m rise=1u fall=1u width=1 mag=1
+
+x1 (in out) bessel
+
+control
+  analysis ac1 ac from=10 to=100k mode="dec" points=50
+  analysis tran1 tran stop=5m step=1u maxstep=5u
+
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "bessel.va" <<<FILE
+`include "disciplines.vams"
+
+// 5th-order analog Bessel low-pass filter, fc = 1000 Hz. Coefficients are
+// the output of scipy.signal.bessel(N=5, Wn=2*pi*1000, analog=True, norm='phase').
+module bessel5(in, out);
+    input in;
+    output out;
+    electrical in, out;
+
+    analog begin
+        V(out) <+ laplace_nd(V(in), '{9.79262991312900096e+18}, '{9.79262991312900096e+18, 6.13487665087554400e+15, 1.70816496602651050e+12, 2.67532354915964007e+08, 2.39433418235021163e+04, 1.00000000000000000e+00});
+    end
+endmodule
+>>>FILE
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+import numpy as np
+import matplotlib.pyplot as plt
+
+ac1 = rawread('ac1.raw').get()
+tran1 = rawread('tran1.raw').get()
+
+# Exact transfer function for comparison
+b = [9.79262991312900096e+18]
+a = [9.79262991312900096e+18, 6.13487665087554400e+15, 1.70816496602651050e+12,
+     2.67532354915964007e+08, 2.39433418235021163e+04, 1.00000000000000000e+00]
+
+f = np.real(ac1['frequency'])
+h = ac1['out']
+s = 2j*np.pi*f
+hx = np.polyval(b[::-1], s)/np.polyval(a[::-1], s)
+
+# Group delay -dphi/domega
+def gdelay(h):
+  return -np.gradient(np.unwrap(np.angle(h)), 2*np.pi*f)
+
+fig, (ax1, ax2, ax3) = plt.subplots(3, 1, sharex=True)
+fig.suptitle('5th-order Bessel filter, frequency response')
+ax1.semilogx(f, 20*np.log10(np.abs(h)), label='simulated')
+ax1.semilogx(f, 20*np.log10(np.abs(hx)), '--', label='H(s)')
+ax1.set_ylabel('|H| [dB]')
+ax1.set_ylim(-80, 5)
+ax1.grid(True)
+ax1.legend(loc='lower left')
+ax2.semilogx(f, np.unwrap(np.angle(h))*180/np.pi)
+ax2.semilogx(f, np.unwrap(np.angle(hx))*180/np.pi, '--')
+ax2.set_ylabel('phase [deg]')
+ax2.grid(True)
+ax3.semilogx(f, gdelay(h)*1e3)
+ax3.semilogx(f, gdelay(hx)*1e3, '--')
+ax3.set_xlabel('f [Hz]')
+ax3.set_ylabel('group delay [ms]')
+ax3.grid(True)
+fig.tight_layout()
+
+t = tran1['time']*1e3
+fig, ax = plt.subplots(1, 1)
+fig.suptitle('5th-order Bessel filter, step response')
+ax.plot(t, tran1['in'], label='in')
+ax.plot(t, tran1['out'], label='out')
+ax.set_xlabel('time [ms]')
+ax.set_ylabel('V [V]')
+ax.grid(True)
+ax.legend(loc='lower right')
+
+plt.show()
+>>>FILE

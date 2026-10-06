@@ -1,0 +1,75 @@
+4-bit DAC with a bus input
+
+// The DAC has a vectored ("bus") input port declared as
+//   input [0:3] d;
+// It expands into four scalar terminals d[0]..d[3] that are connected
+// to four separate nodes in the netlist. The bits are accessed with
+// bit-selects V(d[0])..V(d[3]).
+// A 4-bit counter made of four pulse sources drives the DAC so that
+// the output is a 16-step staircase.
+
+ground 0
+
+load "dac.va"
+
+model vsrc vsource
+model dac dac4
+
+// Counter bits, d0 is LSB, bit i has a period of 2^i ms
+v0 (b0 0) vsrc type="pulse" val0=0 val1=1 delay=0.5m rise=1u fall=1u width=0.5m-1u period=1m
+v1 (b1 0) vsrc type="pulse" val0=0 val1=1 delay=1m   rise=1u fall=1u width=1m-1u   period=2m
+v2 (b2 0) vsrc type="pulse" val0=0 val1=1 delay=2m   rise=1u fall=1u width=2m-1u   period=4m
+v3 (b3 0) vsrc type="pulse" val0=0 val1=1 delay=4m   rise=1u fall=1u width=4m-1u   period=8m
+
+// Terminals: d[0], d[1], d[2], d[3], out
+x1 (b0 b1 b2 b3 out) dac vref=1.6
+
+control
+  print device("dac4")
+  analysis tran1 tran stop=8m step=1u maxstep=10u
+
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "dac.va" <<<FILE
+`include "disciplines.vams"
+
+module dac4(d, out);
+    input [0:3] d;
+    output out;
+    electrical [0:3] d;
+    electrical out;
+
+    (*desc = "Full scale voltage", type = "instance", units = "V"*) parameter real vref = 1.0;
+
+    real code;
+
+    analog begin
+        // Bit i has weight 2^i, inputs are assumed to be in the [0,1] range
+        code = V(d[0]) + 2*V(d[1]) + 4*V(d[2]) + 8*V(d[3]);
+        V(out) <+ vref * code / 16;
+    end
+endmodule
+>>>FILE
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+import matplotlib.pyplot as plt
+
+tran1 = rawread('tran1.raw').get()
+t = tran1['time']*1e3
+
+fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
+fig.suptitle('4-bit DAC with a bus input')
+for i in range(4):
+  ax1.plot(t, tran1[f'b{i}']+1.5*i, label=f'd[{i}]')
+ax1.set_ylabel('bits (offset)')
+ax1.set_yticks([])
+ax1.legend(loc='upper left')
+ax2.plot(t, tran1['out'])
+ax2.set_xlabel('time [ms]')
+ax2.set_ylabel('out [V]')
+ax2.grid(True)
+fig.tight_layout()
+plt.show()
+>>>FILE
