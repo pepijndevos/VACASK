@@ -348,6 +348,14 @@ OsdiFile::~OsdiFile() {
     closeDynamicLibrary(handle);
 }
 
+void OsdiFile::cleanup() {
+    // Drops the unique_ptrs, closing every module while the circuit
+    // and its devices are already gone
+    registry.clear();
+    fileOrder.clear();
+    nameToFile.clear();
+}
+
 Id OsdiFile::deviceIdentifier(OsdiDeviceIndex index, Status& s) {
     if (index>=descriptorCount || descriptors.size()==0) {
         s.set(Status::NotFound, 

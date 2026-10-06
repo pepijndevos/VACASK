@@ -73,6 +73,10 @@ public:
     // Get the vector of loaded files
     static const std::vector<OsdiFile*>& files() { return fileOrder; };
 
+    // Close all loaded modules; call before main returns so that module
+    // unloading does not depend on static destruction order
+    static void cleanup();
+
     // Translators
     // Id (name) -> simulator id of parameter/output variable
     inline std::tuple<ParameterIndex, bool> instanceParameterIndex(OsdiDeviceIndex deviceIndex, Id name) const {

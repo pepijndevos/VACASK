@@ -7,6 +7,7 @@
 #include "platform.h"
 #include "cmd.h"
 #include "config.h"
+#include "osdifile.h"
 #include "common.h"
 #include <filesystem>
 #include <unordered_set>
@@ -204,6 +205,11 @@ int main(int argc, char**argv) {
     // Defaults when env var is not defined
     auto modStr = modCstring ? std::string(modCstring) : defaultModuleDirectory;
     auto incStr = incCstring ? std::string(incCstring) : defaultIncludeDirectory;
+
+    // Close OSDI modules when main returns, ahead of static destruction
+    struct OsdiModuleCleanup {
+        ~OsdiModuleCleanup() { OsdiFile::cleanup(); }
+    } osdiModuleCleanup;
 
     // Setup simulator
     if (!Simulator::setup(modStr, incStr, ncpu, blasNcpu, status)) {
