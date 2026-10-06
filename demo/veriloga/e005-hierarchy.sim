@@ -1,0 +1,136 @@
+Hierarchical Verilog-A modules vs. netlist subcircuits
+
+// divider.va describes a resistive network with module instantiation:
+//   buffer   - a 1 Ohm resistor instantiated inside a module
+//   divider  - instantiates buffer and resistors (including an instance
+//              array rarr[0:1]) and also has its own analog block
+// The modules are loaded with the "va_" prefix (map=["*", "va_*"]) so
+// that va_resistor does not clash with the builtin resistor loaded from
+// resistor.osdi.
+// The same network is built from netlist subcircuits and resistor.osdi.
+// Both networks are driven by the same source, a DC sweep compares
+// their output voltages and input currents.
+
+ground 0
+
+load "resistor.osdi"
+load "divider.va" map=["*", "va_*"]
+
+model vsrc vsource
+model resistor resistor
+model va_divider va_divider
+
+subckt buffer(in out)
+  rb (in out) resistor r=1
+ends
+
+subckt divider(in out gnd)
+parameters r_direct=5e3
+  b1 (in mid) buffer
+  r1 (mid out) resistor r=1e3
+  r2 (out gnd) resistor r=2e3
+  rarr0 (out gnd) resistor r=1e3
+  rarr1 (out gnd) resistor r=1e3
+  rdirect (in gnd) resistor r=r_direct
+ends
+
+vin (in 0) vsrc dc=0
+
+// Zero volt sources measure the input currents
+vpva (in inva) vsrc dc=0
+vpnl (in innl) vsrc dc=0
+
+xva (inva outva 0) va_divider
+xnl (innl outnl 0) divider
+
+control
+  sweep vin instance="vin" parameter="dc" from=-1 to=1 mode="lin" points=20
+    analysis op1 op
+
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "divider.va" <<<FILE
+`include "disciplines.vams"
+
+module resistor(p, n);
+    inout p, n;
+    electrical p, n;
+    parameter real r = 1000;
+    analog begin
+        I(p, n) <+ V(p, n) / r;
+    end
+endmodule
+
+module buffer(in, out);
+    inout in, out;
+    electrical in, out;
+    resistor #(.r(1)) rb(in, out);
+endmodule
+
+// The buffer connects `in` to the internal node `mid`, which is the input
+// of the divider (r1 from `mid` to `out`, then r2 and rarr to `gnd`).
+// `divider` also has its own analog block: a direct resistor from `in` to
+// `gnd`, in parallel with the whole in->mid->out->gnd instantiated
+// network -- exercising a module that mixes instantiation statements with
+// ordinary analog behavior.
+module divider(in, out, gnd);
+    inout in, out, gnd;
+    electrical in, out, gnd;
+    electrical mid;
+    parameter real r_direct = 5e3;
+
+    // 1 Ohm buffer from input to divider
+    buffer b1(in, mid);
+    // Divider
+    resistor #(.r(1e3)) r1(mid, out);
+    resistor #(2e3) r2(.p(out), .n(gnd));
+    // instance array: two resistors with default r (1k) in parallel, out to gnd
+    resistor rarr[0:1](out, gnd);
+
+    analog begin
+        // r_direct resistor between input and gnd
+        I(in, gnd) <+ V(in, gnd) / r_direct;
+    end
+endmodule
+>>>FILE
+
+embed "runme.py" <<<FILE
+from rawfile import rawread
+import numpy as np
+import matplotlib.pyplot as plt
+
+op1 = rawread('op1.raw').get()
+vin = op1['in']
+vva = op1['outva']
+vnl = op1['outnl']
+# Current flows from in through the probe into the divider
+iva = op1['vpva:flow(br)']
+inl = op1['vpnl:flow(br)']
+
+print("max |vout(VA)-vout(netlist)|:", np.max(np.abs(vva-vnl)))
+print("max |iin(VA)-iin(netlist)|:  ", np.max(np.abs(iva-inl)))
+
+fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, sharex=True)
+fig.suptitle('Hierarchical Verilog-A vs. netlist subcircuit')
+ax1.plot(vin, vva, '.-', label='Verilog-A')
+ax1.plot(vin, vnl, 'x--', label='netlist')
+ax1.set_ylabel('vout [V]')
+ax1.grid(True)
+ax1.legend()
+ax2.plot(vin, vva-vnl)
+ax2.set_ylabel('vout difference [V]')
+ax2.grid(True)
+ax3.plot(vin, iva*1e3, '.-', label='Verilog-A')
+ax3.plot(vin, inl*1e3, 'x--', label='netlist')
+ax3.set_xlabel('vin [V]')
+ax3.set_ylabel('iin [mA]')
+ax3.grid(True)
+ax3.legend()
+ax4.plot(vin, (iva-inl)*1e3)
+ax4.set_xlabel('vin [V]')
+ax4.set_ylabel('iin difference [mA]')
+ax4.grid(True)
+fig.tight_layout()
+plt.show()
+>>>FILE
