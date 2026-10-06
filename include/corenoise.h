@@ -155,7 +155,7 @@ public:
     void dump(std::ostream& os) const;
 
     OperatingPointCore& opCore_;
-    OutputRawfile* outfile;
+    std::unique_ptr<OutputRawfile> outfile;
 
 protected:
     static constexpr size_t bucketSize = 1;

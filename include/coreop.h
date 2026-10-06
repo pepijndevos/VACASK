@@ -174,7 +174,7 @@ protected:
     bool continuePrevious;
     bool converged_;
 
-    OutputRawfile* outfile;
+    std::unique_ptr<OutputRawfile> outfile;
     
     PreprocessedUserForces preprocessedNodeset;
 

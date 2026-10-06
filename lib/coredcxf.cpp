@@ -44,7 +44,7 @@ DCXFCore::DCXFCore(
 }
 
 DCXFCore::~DCXFCore() {
-    delete outfile;
+    outfile.reset();
 }
 
 bool DCXFCore::resolveOutputDescriptors(bool strict, ErrorConsumer& errors) {
@@ -129,7 +129,7 @@ bool DCXFCore::initializeOutputs(const std::string& name, ErrorConsumer& errors)
     }
     // Create output file if not created yet
     if (!outfile) {
-        outfile = new OutputRawfile(
+        outfile = std::make_unique<OutputRawfile>(
             name, outputSources,
             (circuit.simulatorOptions().core().rawfile==SimulatorOptions::rawfileBinary ? OutputRawfile::Flags::Binary : OutputRawfile::Flags::None) |
                 OutputRawfile::Flags::Padded);
@@ -146,8 +146,7 @@ bool DCXFCore::initializeOutputs(const std::string& name, ErrorConsumer& errors)
 bool DCXFCore::finalizeOutputs(ErrorConsumer& errors) {
     if (outfile) {
         bool ok = outfile->epilogue(errors);
-        delete outfile;
-        outfile = nullptr;
+        outfile.reset();
         if (!ok) {
             return false;
         }
@@ -157,8 +156,7 @@ bool DCXFCore::finalizeOutputs(ErrorConsumer& errors) {
 
 bool DCXFCore::deleteOutputs(Id name, ErrorConsumer& errors) {
     // Close output file (if open), Windows cannot delete an open file
-    delete outfile;
-    outfile = nullptr;
+    outfile.reset();
 
     if (!params.write || Simulator::noOutput()) {
         return true;

@@ -65,7 +65,7 @@ PACCore::PACCore(
 }
 
 PACCore::~PACCore() {
-    delete outfile;
+    outfile.reset();
 }
 
 // The methods are called in the following order
@@ -144,7 +144,7 @@ bool PACCore::initializeOutputs(Id name, ErrorConsumer& errors) {
     }
     // Create output file if not created yet
     if (!outfile) {
-        outfile = new OutputRawfile(
+        outfile = std::make_unique<OutputRawfile>(
             name, outputSources,
             (circuit.simulatorOptions().core().rawfile==SimulatorOptions::rawfileBinary ? OutputRawfile::Flags::Binary : OutputRawfile::Flags::None) |
                 OutputRawfile::Flags::Padded | OutputRawfile::Flags::Complex);
@@ -161,8 +161,7 @@ bool PACCore::initializeOutputs(Id name, ErrorConsumer& errors) {
 bool PACCore::finalizeOutputs(ErrorConsumer& errors) {
     if (outfile) {
         bool ok = outfile->epilogue(errors);
-        delete outfile;
-        outfile = nullptr;
+        outfile.reset();
         if (!ok) {
             return false;
         }
@@ -172,8 +171,7 @@ bool PACCore::finalizeOutputs(ErrorConsumer& errors) {
 
 bool PACCore::deleteOutputs(Id name, ErrorConsumer& errors) {
     // Close output file (if open), Windows cannot delete an open file
-    delete outfile;
-    outfile = nullptr;
+    outfile.reset();
 
     if (!params.write || Simulator::noOutput()) {
         return true;

@@ -40,7 +40,7 @@ DCIncrementalCore::DCIncrementalCore(
 }
 
 DCIncrementalCore::~DCIncrementalCore() {
-    delete outfile;
+    outfile.reset();
 }
 
 bool DCIncrementalCore::resolveOutputDescriptors(bool strict, ErrorConsumer& errors) {
@@ -84,7 +84,7 @@ bool DCIncrementalCore::initializeOutputs(const std::string& name, ErrorConsumer
     }
     // Create output file if not created yet
     if (!outfile) {
-        outfile = new OutputRawfile(
+        outfile = std::make_unique<OutputRawfile>(
             name, outputSources,
             (circuit.simulatorOptions().core().rawfile==SimulatorOptions::rawfileBinary ? OutputRawfile::Flags::Binary : OutputRawfile::Flags::None) |
                 OutputRawfile::Flags::Padded);
@@ -101,8 +101,7 @@ bool DCIncrementalCore::initializeOutputs(const std::string& name, ErrorConsumer
 bool DCIncrementalCore::finalizeOutputs(ErrorConsumer& errors) {
     if (outfile) {
         bool ok = outfile->epilogue(errors);
-        delete outfile;
-        outfile = nullptr;
+        outfile.reset();
         if (!ok) {
             return false;
         }
@@ -112,8 +111,7 @@ bool DCIncrementalCore::finalizeOutputs(ErrorConsumer& errors) {
 
 bool DCIncrementalCore::deleteOutputs(Id name, ErrorConsumer& errors) {
     // Close output file (if open), Windows cannot delete an open file
-    delete outfile;
-    outfile = nullptr;
+    outfile.reset();
 
     if (!params.write || Simulator::noOutput()) {
         return true;

@@ -1,6 +1,7 @@
 #ifndef __ANCOREPNOISE_DEFINED
 #define __ANCOREPNOISE_DEFINED
 
+#include <memory>
 #include "circuit.h"
 #include "core.h"
 #include "corepss.h"
@@ -168,7 +169,7 @@ public:
     void dump(std::ostream& os) const;
 
     PssCore& pssCore_;
-    OutputRawfile* outfile;
+    std::unique_ptr<OutputRawfile> outfile;
 
 protected:
     // Construct omega vector with 2*pi*(f+h*f0), h=row-maxharm_, f0=1/T0

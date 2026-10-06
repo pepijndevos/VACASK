@@ -42,7 +42,7 @@ OperatingPointCore::OperatingPointCore(
 }
 
 OperatingPointCore::~OperatingPointCore() {
-    delete outfile;
+    outfile.reset();
 }
 
 bool OperatingPointCore::resolveOutputDescriptors(bool strict, ErrorConsumer& errors) {
@@ -89,7 +89,7 @@ bool OperatingPointCore::initializeOutputs(const std::string& name, ErrorConsume
     }
     // Create output file if not created yet
     if (!outfile) {
-        outfile = new OutputRawfile(
+        outfile = std::make_unique<OutputRawfile>(
             name, outputSources,
             (circuit.simulatorOptions().core().rawfile==SimulatorOptions::rawfileBinary ? OutputRawfile::Flags::Binary : OutputRawfile::Flags::None) |
                 OutputRawfile::Flags::Padded);
@@ -107,8 +107,7 @@ bool OperatingPointCore::finalizeOutputs(ErrorConsumer& errors) {
     bool ok = true;
     if (outfile) {
         ok = outfile->epilogue(errors);
-        delete outfile;
-        outfile = nullptr;
+        outfile.reset();
     }
 
     // Write DC solution to repository if analysis is OK
@@ -125,8 +124,7 @@ bool OperatingPointCore::finalizeOutputs(ErrorConsumer& errors) {
 
 bool OperatingPointCore::deleteOutputs(Id name, ErrorConsumer& errors) {
     // Close output file (if open), Windows cannot delete an open file
-    delete outfile;
-    outfile = nullptr;
+    outfile.reset();
 
     if (!params.write || Simulator::noOutput()) {
         return true;

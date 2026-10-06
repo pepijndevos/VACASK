@@ -1,6 +1,7 @@
 #ifndef __ANCOREPAC_DEFINED
 #define __ANCOREPAC_DEFINED
 
+#include <memory>
 #include "circuit.h"
 #include "core.h"
 #include "corepss.h"
@@ -196,7 +197,7 @@ public:
     void dump(std::ostream& os) const;
 
     PssCore& pssCore_;
-    OutputRawfile* outfile;
+    std::unique_ptr<OutputRawfile> outfile;
 
     // Shared implementations, public so unrelated cores (e.g. a future PAC
     // noise core) can call them without deriving from PACCore. Mirrors the

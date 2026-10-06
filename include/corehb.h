@@ -1,6 +1,7 @@
 #ifndef __COREHB_DEFINED
 #define __COREHB_DEFINED
 
+#include <memory>
 #include "densematrix.h"
 #include "cscblkmatrix.h"
 #include "spurs.h"
@@ -210,7 +211,7 @@ protected:
 
     CoreStateStorage* continueState;
 
-    OutputRawfile* outfile;
+    std::unique_ptr<OutputRawfile> outfile;
     
     bool converged_;
     

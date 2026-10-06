@@ -1,6 +1,7 @@
 #ifndef __ANCOREHBAC_DEFINED
 #define __ANCOREHBAC_DEFINED
 
+#include <memory>
 #include "circuit.h"
 #include "core.h"
 #include "corehb.h"
@@ -195,7 +196,7 @@ public:
     void dump(std::ostream& os) const;
 
     HBCore& hbCore_;
-    OutputRawfile* outfile;
+    std::unique_ptr<OutputRawfile> outfile;
 
     // Shared implementations of fillDenseBlock/fillMatrix, usable by other
     // HB small-signal cores (e.g. HBNoiseCore) that need the same matrix

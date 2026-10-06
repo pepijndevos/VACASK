@@ -2,6 +2,7 @@
 #define __ANCORETRAN_DEFINED
 
 #include <random>
+#include <memory>
 #include "circuit.h"
 #include "core.h"
 #include "cscmatrix.h"
@@ -204,7 +205,7 @@ protected:
     RealVector predictedSolution;
     RealVector scaledLte;
 
-    OutputRawfile* outfile;
+    std::unique_ptr<OutputRawfile> outfile;
 
     bool finished; 
 

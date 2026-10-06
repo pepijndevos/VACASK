@@ -1,6 +1,7 @@
 #ifndef __ANCOREHBNOISE_DEFINED
 #define __ANCOREHBNOISE_DEFINED
 
+#include <memory>
 #include "circuit.h"
 #include "core.h"
 #include "corehb.h"
@@ -164,7 +165,7 @@ public:
     void dump(std::ostream& os) const;
 
     HBCore& hbCore_;
-    OutputRawfile* outfile;
+    std::unique_ptr<OutputRawfile> outfile;
 
 protected:
     // Construct omega vector with 2*pi*(f+f_n)

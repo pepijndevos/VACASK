@@ -58,7 +58,7 @@ ACStbCore::ACStbCore(
 }
 
 ACStbCore::~ACStbCore() {
-    delete outfile;
+    outfile.reset();
 }
 
 // Converts an OutputDescriptor into an OutputSource. 
@@ -151,7 +151,7 @@ bool ACStbCore::initializeOutputs(const std::string& name, ErrorConsumer& errors
     }
     // Create output file if not created yet
     if (!outfile) {
-        outfile = new OutputRawfile(
+        outfile = std::make_unique<OutputRawfile>(
             name, outputSources,
             (circuit.simulatorOptions().core().rawfile==SimulatorOptions::rawfileBinary ? OutputRawfile::Flags::Binary : OutputRawfile::Flags::None) |
                 OutputRawfile::Flags::Padded | OutputRawfile::Flags::Complex);
@@ -168,8 +168,7 @@ bool ACStbCore::initializeOutputs(const std::string& name, ErrorConsumer& errors
 bool ACStbCore::finalizeOutputs(ErrorConsumer& errors) {
     if (outfile) {
         bool ok = outfile->epilogue(errors);
-        delete outfile;
-        outfile = nullptr;
+        outfile.reset();
         if (!ok) {
             return false;
         }
@@ -179,8 +178,7 @@ bool ACStbCore::finalizeOutputs(ErrorConsumer& errors) {
 
 bool ACStbCore::deleteOutputs(Id name, ErrorConsumer& errors) {
     // Close output file (if open), Windows cannot delete an open file
-    delete outfile;
-    outfile = nullptr;
+    outfile.reset();
 
     if (!params.write || Simulator::noOutput()) {
         return true;

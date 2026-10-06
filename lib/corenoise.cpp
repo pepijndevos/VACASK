@@ -63,7 +63,7 @@ NoiseCore::NoiseCore(
 }
 
 NoiseCore::~NoiseCore() {
-    delete outfile;
+    outfile.reset();
 }
 
 bool NoiseCore::resolveOutputDescriptors(bool strict, ErrorConsumer& errors) {
@@ -193,7 +193,7 @@ bool NoiseCore::initializeOutputs(const std::string& name, ErrorConsumer& errors
     }
     // Create output file if not created yet
     if (!outfile) {
-        outfile = new OutputRawfile(
+        outfile = std::make_unique<OutputRawfile>(
             name, outputSources,
             (circuit.simulatorOptions().core().rawfile==SimulatorOptions::rawfileBinary ? OutputRawfile::Flags::Binary : OutputRawfile::Flags::None) |
                 OutputRawfile::Flags::Padded);
@@ -210,8 +210,7 @@ bool NoiseCore::initializeOutputs(const std::string& name, ErrorConsumer& errors
 bool NoiseCore::finalizeOutputs(ErrorConsumer& errors) {
     if (outfile) {
         bool ok = outfile->epilogue(errors);
-        delete outfile;
-        outfile = nullptr;
+        outfile.reset();
         if (!ok) {
             return false;
         }
@@ -221,8 +220,7 @@ bool NoiseCore::finalizeOutputs(ErrorConsumer& errors) {
 
 bool NoiseCore::deleteOutputs(Id name, ErrorConsumer& errors) {
     // Close output file (if open), Windows cannot delete an open file
-    delete outfile;
-    outfile = nullptr;
+    outfile.reset();
 
     if (!params.write || Simulator::noOutput()) {
         return true;

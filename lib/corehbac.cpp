@@ -68,7 +68,7 @@ HBACCore::HBACCore(
 }
 
 HBACCore::~HBACCore() {
-    delete outfile;
+    outfile.reset();
 }
 
 bool HBACCore::resolveOutputDescriptors(bool strict, ErrorConsumer& errors) {
@@ -137,7 +137,7 @@ bool HBACCore::initializeOutputs(Id name, ErrorConsumer& errors) {
     }
     // Create output file if not created yet
     if (!outfile) {
-        outfile = new OutputRawfile(
+        outfile = std::make_unique<OutputRawfile>(
             name, outputSources,
             (circuit.simulatorOptions().core().rawfile==SimulatorOptions::rawfileBinary ? OutputRawfile::Flags::Binary : OutputRawfile::Flags::None) |
                 OutputRawfile::Flags::Padded | OutputRawfile::Flags::Complex);
@@ -154,8 +154,7 @@ bool HBACCore::initializeOutputs(Id name, ErrorConsumer& errors) {
 bool HBACCore::finalizeOutputs(ErrorConsumer& errors) {
     if (outfile) {
         bool ok = outfile->epilogue(errors);
-        delete outfile;
-        outfile = nullptr;
+        outfile.reset();
         if (!ok) {
             return false;
         }
@@ -165,8 +164,7 @@ bool HBACCore::finalizeOutputs(ErrorConsumer& errors) {
 
 bool HBACCore::deleteOutputs(Id name, ErrorConsumer& errors) {
     // Close output file (if open), Windows cannot delete an open file
-    delete outfile;
-    outfile = nullptr;
+    outfile.reset();
 
     if (!params.write || Simulator::noOutput()) {
         return true;

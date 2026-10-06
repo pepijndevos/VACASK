@@ -57,7 +57,7 @@ ACCore::ACCore(
 }
 
 ACCore::~ACCore() {
-    delete outfile;
+    outfile.reset();
 }
 
 bool ACCore::resolveOutputDescriptors(bool strict, ErrorConsumer& errors) {
@@ -117,7 +117,7 @@ bool ACCore::initializeOutputs(const std::string& name, ErrorConsumer& errors) {
     }
     // Create output file if not created yet
     if (!outfile) {
-        outfile = new OutputRawfile(
+        outfile = std::make_unique<OutputRawfile>(
             name, outputSources,
             (circuit.simulatorOptions().core().rawfile==SimulatorOptions::rawfileBinary ? OutputRawfile::Flags::Binary : OutputRawfile::Flags::None) |
                 OutputRawfile::Flags::Padded | OutputRawfile::Flags::Complex);
@@ -134,8 +134,7 @@ bool ACCore::initializeOutputs(const std::string& name, ErrorConsumer& errors) {
 bool ACCore::finalizeOutputs(ErrorConsumer& errors) {
     if (outfile) {
         bool ok = outfile->epilogue(errors);
-        delete outfile;
-        outfile = nullptr;
+        outfile.reset();
         if (!ok) {
             return false;
         }
@@ -145,8 +144,7 @@ bool ACCore::finalizeOutputs(ErrorConsumer& errors) {
 
 bool ACCore::deleteOutputs(Id name, ErrorConsumer& errors) {
     // Close output file (if open), Windows cannot delete an open file
-    delete outfile;
-    outfile = nullptr;
+    outfile.reset();
 
     if (!params.write || Simulator::noOutput()) {
         return true;
