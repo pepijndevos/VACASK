@@ -396,14 +396,16 @@ std::tuple<bool, bool> TranNRSolver::checkResidual() {
     // Assume residual is OK
     residualWithinTol = true;
     
-    // Get point maximum for each residual nature
-    zero(pointMaxResidualContribution_); 
-    for(decltype(n) i=1; i<=n; i++) {
-        double c = std::fabs(maxResidualContribution_[i]);
-        // Get residual nature index
-        auto ndx = commons.residual_natureIndex[i];
-        if (c>pointMaxResidualContribution_[ndx]) {
-            pointMaxResidualContribution_[ndx] = c;
+    // Get point maximum for each residual nature, only a point global reference reads it
+    if (globalResRef && !historicResRef) {
+        zero(pointMaxResidualContribution_);
+        for(decltype(n) i=1; i<=n; i++) {
+            double c = std::fabs(maxResidualContribution_[i]);
+            // Get residual nature index
+            auto ndx = commons.residual_natureIndex[i];
+            if (c>pointMaxResidualContribution_[ndx]) {
+                pointMaxResidualContribution_[ndx] = c;
+            }
         }
     }
     

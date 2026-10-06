@@ -918,14 +918,16 @@ std::tuple<bool, bool> OpNRSolver::checkResidual() {
     // Assume residual is OK
     residualWithinTol = true;
     
-    // Get point maximum for each residual nature
-    zero(pointMaxResidualContribution_); 
-    for(decltype(n) i=1; i<=n; i++) {
-        double c = std::fabs(maxResidualContribution_[i]);
-        // Get residual nature index
-        auto ndx = commons.residual_natureIndex[i];
-        if (c>pointMaxResidualContribution_[ndx]) {
-            pointMaxResidualContribution_[ndx] = c;
+    // Get point maximum for each residual nature, only a point global reference reads it
+    if (globalResRef && !historicResRef) {
+        zero(pointMaxResidualContribution_);
+        for(decltype(n) i=1; i<=n; i++) {
+            double c = std::fabs(maxResidualContribution_[i]);
+            // Get residual nature index
+            auto ndx = commons.residual_natureIndex[i];
+            if (c>pointMaxResidualContribution_[ndx]) {
+                pointMaxResidualContribution_[ndx] = c;
+            }
         }
     }
     
@@ -1030,15 +1032,17 @@ std::tuple<bool, bool> OpNRSolver::checkDelta() {
 
     double* xdelta = delta.data();
 
-    // Get point maximum for each solution nature
-    zero(pointMaxSolution_);
-    auto xold = solution.data();
-    for(decltype(n) i=1; i<=n; i++) {
-        double c = std::fabs(xold[i]);
-        // Get unknown nature index
-        auto ndx = commons.unknown_natureIndex[i];
-        if (c>pointMaxSolution_[ndx]) {
-            pointMaxSolution_[ndx] = c;
+    // Get point maximum for each solution nature, only a point global reference (here or in LTE) reads it
+    if ((globalSolRef && !historicSolRef) || options.relreflte==SimulatorOptions::relrefPointGlobal) {
+        zero(pointMaxSolution_);
+        auto xold = solution.data();
+        for(decltype(n) i=1; i<=n; i++) {
+            double c = std::fabs(xold[i]);
+            // Get unknown nature index
+            auto ndx = commons.unknown_natureIndex[i];
+            if (c>pointMaxSolution_[ndx]) {
+                pointMaxSolution_[ndx] = c;
+            }
         }
     }
 
