@@ -1554,8 +1554,7 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious, ErrorConsumer& errors) 
                 // Scale tolerance by lteratio>1
                 // Greater lteratio results in greater LTE tolerance and greater timestep
 
-                double tol;
-                double tolref;
+                double tolref = 0;
                 if (options.relreflte == SimulatorOptions::relrefGlobal) {
                     // Maximum over all unknowns, maximum over past timepoints
                     tolref = nrSolver.globalMaxSolution()[ndx];
@@ -1582,11 +1581,11 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious, ErrorConsumer& errors) 
                         errors.push(TranBadLteReference{});
                         co_yield CoreState::Aborted;
                     }
-                    tol = std::max(std::fabs(tolref*options.reltol), commons.unknown_abstol[i]);
                 } else {
                     errors.push(TranBadLteReference{});
                     co_yield CoreState::Aborted;
                 }
+                double tol = std::max(std::fabs(tolref*options.reltol), commons.unknown_abstol[i]);
 
                 // When performing transient noise, tol should never be below noise contribution
                 if (computeNoiseContribution) {
