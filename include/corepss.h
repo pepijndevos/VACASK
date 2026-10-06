@@ -156,6 +156,8 @@ SIMPLE_ERRORCLASS(PssAdjointDisabled, "Adjoint monodromy was not computed. Set a
 
 SIMPLE_ERRORCLASS(PssTooManyShootingPoints, "The required number of PSS evaluation points overflows.");
 
+SIMPLE_ERRORCLASS(PssFftPlanFailed, "Failed to create FFTW plan.");
+
 SIMPLE_ERRORCLASS(PssMaxFreqIndexTooLarge, "Insufficient harmonics computed. Increase maxacfreq and maxharm.");
 
 

@@ -6,9 +6,17 @@
 #include <cmath>
 #include <sstream>
 #include <iomanip>
+#include <limits>
+#include <memory>
+#include <type_traits>
 #include <fftw3.h>
 
 namespace NAMESPACE {
+
+struct FftwPlanDeleter {
+    void operator()(fftw_plan plan) const { fftw_destroy_plan(plan); }
+};
+using FftwPlan = std::unique_ptr<std::remove_pointer_t<fftw_plan>, FftwPlanDeleter>;
 
 // ----------------------------------------------------------------
 // PssParameters introspection
@@ -532,6 +540,12 @@ bool PssCore::getFrequencyDomainJacobians(CSCBlockSparseComplexMatrix& jacSpec, 
         return false;
     }
 
+    // FFTW takes the length as int
+    if (nPts > std::numeric_limits<int>::max()) {
+        errors.push(PssTooManyShootingPoints{});
+        return false;
+    }
+
     // Temporary arrays for FFTW. G and C samples/spectra sit back to back
     // (offset nPts / nPts/2+1) so a single fftw_plan_many_dft_r2c call
     // transforms both in one pass.
@@ -541,13 +555,17 @@ bool PssCore::getFrequencyDomainJacobians(CSCBlockSparseComplexMatrix& jacSpec, 
 
     // Plan FFT: 2 transforms of length nPts, consecutive in both arrays
     int fftLen[] = { static_cast<int>(nPts) };
-    auto fftPlan = fftw_plan_many_dft_r2c(
+    auto fftPlan = FftwPlan(fftw_plan_many_dft_r2c(
         1, // 1D
         fftLen, 2, // 2 vectors
-        tdSamples.data(), nullptr, 1, nPts, // straightforward array, stride within arrays, array distance, 
+        tdSamples.data(), nullptr, 1, nPts, // straightforward array, stride within arrays, array distance,
         reinterpret_cast<fftw_complex*>(fdSamples.data()), nullptr, 1, nFd, // same as for input arrays
         FFTW_ESTIMATE // fast planning
-    );
+    ));
+    if (!fftPlan) {
+        errors.push(PssFftPlanFailed{});
+        return false;
+    }
 
     // Noise modulation function spectra, one block of maxFreqIndex+1 components per slot
     if (noiseModulationSpec) {
@@ -559,25 +577,27 @@ bool PssCore::getFrequencyDomainJacobians(CSCBlockSparseComplexMatrix& jacSpec, 
 
         Vector<double> noiseTdSamples(nPts);
         Vector<Complex> noiseFdSamples(nFd);
-        auto noiseFftPlan = fftw_plan_dft_r2c_1d(
+        auto noiseFftPlan = FftwPlan(fftw_plan_dft_r2c_1d(
             static_cast<int>(nPts),
             noiseTdSamples.data(),
             reinterpret_cast<fftw_complex*>(noiseFdSamples.data()),
             FFTW_ESTIMATE
-        );
+        ));
+        if (!noiseFftPlan) {
+            errors.push(PssFftPlanFailed{});
+            return false;
+        }
 
         auto specStride = maxFreqIndex+1;
         for (decltype(nSlots) slot = 0; slot < nSlots; slot++) {
             for (decltype(nPts) t = 0; t < nPts; t++) {
                 noiseTdSamples[t] = tdNoiseMod[slot*nPts + t];
             }
-            fftw_execute(noiseFftPlan);
+            fftw_execute(noiseFftPlan.get());
             for (decltype(maxFreqIndex) k = 0; k <= maxFreqIndex; k++) {
                 (*noiseModulationSpec)[slot*specStride + k] = noiseFdSamples[k] / static_cast<double>(nPts);
             }
         }
-
-        fftw_destroy_plan(noiseFftPlan);
     }
 
     // Loop through jacSpec entries, compute FD Jacobians
@@ -599,7 +619,7 @@ bool PssCore::getFrequencyDomainJacobians(CSCBlockSparseComplexMatrix& jacSpec, 
             tdSamples[t] = jG[t*nnz + nzIndex];
             tdSamples[nPts + t] = jC[t*nnz + nzIndex];
         }
-        fftw_execute(fftPlan);
+        fftw_execute(fftPlan.get());
 
         // FFTW produces two-sided spectrum (we get only the right side) scaled by N
         // Normalize (FFTW's r2c is unnormalized) and store the 
@@ -610,7 +630,6 @@ bool PssCore::getFrequencyDomainJacobians(CSCBlockSparseComplexMatrix& jacSpec, 
         }
     }
 
-    fftw_destroy_plan(fftPlan);
 
     return true;
 }
