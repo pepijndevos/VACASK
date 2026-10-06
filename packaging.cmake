@@ -40,6 +40,22 @@ else()
     set(VACASK_BIN_DIR "bin")
 endif()
 
+if(SKBUILD)
+    set(VACASK_VERSION "${SKBUILD_PROJECT_VERSION}")
+
+    configure_file(
+        "${CMAKE_CURRENT_SOURCE_DIR}/python/src/vacask/_version.py.in"
+        "${CMAKE_CURRENT_BINARY_DIR}/vacask/_version.py"
+        @ONLY
+    )
+
+    install(
+        FILES "${CMAKE_CURRENT_BINARY_DIR}/vacask/_version.py"
+        DESTINATION vacask
+    )
+endif()
+
+
 string(TOLOWER "${SIM_PLATFORM}" lowercase_platform)
 
 # Executables

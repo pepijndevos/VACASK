@@ -4,7 +4,6 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "vacask"
-version = "0.1.0"
 authors = [
   { name="Arpad Buermen", email="arpad.burmen@fe.uni-lj.si" },
 ]
@@ -17,6 +16,7 @@ classifiers = [
 ]
 license = "AGPL-3.0-only"
 license-files = ["LICENSE"]
+dynamic = ["version"]
 
 [project.optional-dependencies]
 dev = [
@@ -33,3 +33,9 @@ testpaths = [
 
 [tool.scikit-build]
 wheel.packages = ["python/src/vacask"]
+
+[[tool.dynamic-metadata]]
+provider = "scikit_build_core.metadata.setuptools_scm"
+
+[tool.setuptools_scm]
+tag_regex = "^_(?P<version>.*)$"

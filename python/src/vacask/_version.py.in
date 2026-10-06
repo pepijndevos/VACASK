@@ -1,0 +1,3 @@
+# python/src/vacask/_version.py.in
+__version__ = "@VACASK_VERSION@"
+__full_version__ = "@GIT_DESCRIBE_VERSION@"
