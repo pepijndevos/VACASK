@@ -47,25 +47,25 @@ public:
     BuiltinDevice& operator=(const BuiltinDevice&)  = delete;
     BuiltinDevice& operator=(      BuiltinDevice&&) = default;
 
-    virtual bool operator==(const Device& other) const & { return dynamic_cast<const BuiltinDevice<ModelParams, InstanceParams, InstanceData>*>(&other)!=nullptr; };
-    virtual bool isHierarchical() const { return false; };
-    virtual std::tuple<bool, bool, bool> setup(Circuit& circuit, CommonData& commons, bool force, DeviceRequests* devReq, Status& s=Status::ignore);
-    virtual bool setStaticTolerances(Circuit& circuit, CommonData& commons, Status& s=Status::ignore);
-    virtual bool collapseNodes(Circuit& circuit, Status& s=Status::ignore);
-    virtual bool populateStructures(Circuit& circuit, Status& s=Status::ignore);
-    virtual bool preAnalysis(Circuit& circuit, Status& s=Status::ignore);
-    virtual bool bind(
+    bool operator==(const Device& other) const & override { return dynamic_cast<const BuiltinDevice<ModelParams, InstanceParams, InstanceData>*>(&other)!=nullptr; };
+    bool isHierarchical() const override { return false; };
+    std::tuple<bool, bool, bool> setup(Circuit& circuit, CommonData& commons, bool force, DeviceRequests* devReq, Status& s=Status::ignore) override;
+    bool setStaticTolerances(Circuit& circuit, CommonData& commons, Status& s=Status::ignore) override;
+    bool collapseNodes(Circuit& circuit, Status& s=Status::ignore) override;
+    bool populateStructures(Circuit& circuit, Status& s=Status::ignore) override;
+    bool preAnalysis(Circuit& circuit, Status& s=Status::ignore) override;
+    bool bind(
         Circuit& circuit, 
         CSCMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
         CSCMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
         DelayLines* delayLines, 
         ErrorConsumer& ec
-    );
+    ) override;
     virtual bool evalAndLoad(Circuit& circuit, CommonData& commons, EvalSetup* evalSetup, LoadSetup* loadSetup, ErrorConsumer& errors, Device::EvalPtr from=Device::EvalPtr::begin, Device::EvalPtr to=Device::EvalPtr::end) override;
-    virtual Model* createModel(Circuit& circuit, Instance* parentInstance, RpnEvaluator& evaluator, const PTModel& ptModel, Status& s=Status::ignore);
-    virtual bool isSource() const { return false; };
-    virtual bool isVoltageSource() const { return false; };
-    virtual void dump(int indent, std::ostream& os) const; 
+    Model* createModel(Circuit& circuit, Instance* parentInstance, RpnEvaluator& evaluator, const PTModel& ptModel, Status& s=Status::ignore) override;
+    bool isSource() const override { return false; };
+    bool isVoltageSource() const override { return false; };
+    void dump(int indent, std::ostream& os) const override; 
 
     // Extra flags set at construction
     static const Device::Flags extraFlags;
@@ -96,21 +96,21 @@ public:
     BuiltinModel& operator=(const BuiltinModel&)  = delete;
     BuiltinModel& operator=(      BuiltinModel&&) = default;
 
-    virtual ParameterIndex parameterCount() const { return params.parameterCount(); };
-    virtual std::tuple<ParameterIndex, bool> parameterIndex(Id name) const { return params.parameterIndex(name); };
-    virtual Id parameterName(ParameterIndex ndx) const { return params.parameterName(ndx); };
-    virtual std::tuple<Value::Type,bool> parameterType(ParameterIndex ndx, Status& s=Status::ignore) const { return params.parameterType(ndx, s); };
-    virtual bool getParameter(ParameterIndex ndx, Value& v, Status& s=Status::ignore) const { return params.getParameter(ndx, v, s); };
-    virtual std::tuple<bool,bool> setParameter(ParameterIndex ndx, const Value& v, Status& s=Status::ignore) { 
+    ParameterIndex parameterCount() const override { return params.parameterCount(); };
+    std::tuple<ParameterIndex, bool> parameterIndex(Id name) const override { return params.parameterIndex(name); };
+    Id parameterName(ParameterIndex ndx) const override { return params.parameterName(ndx); };
+    std::tuple<Value::Type,bool> parameterType(ParameterIndex ndx, Status& s=Status::ignore) const override { return params.parameterType(ndx, s); };
+    bool getParameter(ParameterIndex ndx, Value& v, Status& s=Status::ignore) const override { return params.getParameter(ndx, v, s); };
+    std::tuple<bool,bool> setParameter(ParameterIndex ndx, const Value& v, Status& s=Status::ignore) override { 
         auto [ok, changed] = params.setParameter(ndx, v, s); 
         if (changed) {
             setFlags(Flags::NeedsSetup);
         }
         return std::make_tuple(ok, changed);
     };
-    virtual std::tuple<bool, bool, bool> setup(Circuit& circuit, CommonData& commons, bool force, DeviceRequests* devReq, Status& s=Status::ignore);
-    virtual Instance* createInstance(Circuit& circuit, Instance* parentInstance, RpnEvaluator& evaluator, Context* externalContext, const PTInstance& parsedInstance, InstantiationData& idata, Status& s=Status::ignore);
-    virtual void dump(int indent, std::ostream& os) const;
+    std::tuple<bool, bool, bool> setup(Circuit& circuit, CommonData& commons, bool force, DeviceRequests* devReq, Status& s=Status::ignore) override;
+    Instance* createInstance(Circuit& circuit, Instance* parentInstance, RpnEvaluator& evaluator, Context* externalContext, const PTInstance& parsedInstance, InstantiationData& idata, Status& s=Status::ignore) override;
+    void dump(int indent, std::ostream& os) const override;
 
     // Device access (as DeviceType)
     DeviceType* device() { return reinterpret_cast<DeviceType*>(device_); };
@@ -146,22 +146,22 @@ public:
     BuiltinInstance& operator=(const BuiltinInstance&)  = delete;
     BuiltinInstance& operator=(      BuiltinInstance&&) = default;
 
-    virtual ParameterIndex parameterCount() const { return params.parameterCount(); };
-    virtual std::tuple<ParameterIndex, bool> parameterIndex(Id name) const { return params.parameterIndex(name); };
-    virtual Id parameterName(ParameterIndex ndx) const { return params.parameterName(ndx); };
-    virtual std::tuple<Value::Type,bool> parameterType(ParameterIndex ndx, Status& s=Status::ignore) const { return params.parameterType(ndx, s); };
-    virtual bool getParameter(ParameterIndex ndx, Value& v, Status& s=Status::ignore) const { return params.getParameter(ndx, v, s); };
-    virtual std::tuple<bool,bool> setParameter(ParameterIndex ndx, const Value& v, Status& s=Status::ignore) { 
+    ParameterIndex parameterCount() const override { return params.parameterCount(); };
+    std::tuple<ParameterIndex, bool> parameterIndex(Id name) const override { return params.parameterIndex(name); };
+    Id parameterName(ParameterIndex ndx) const override { return params.parameterName(ndx); };
+    std::tuple<Value::Type,bool> parameterType(ParameterIndex ndx, Status& s=Status::ignore) const override { return params.parameterType(ndx, s); };
+    bool getParameter(ParameterIndex ndx, Value& v, Status& s=Status::ignore) const override { return params.getParameter(ndx, v, s); };
+    std::tuple<bool,bool> setParameter(ParameterIndex ndx, const Value& v, Status& s=Status::ignore) override { 
         auto [ok, changed] = params.setParameter(ndx, v, s); 
         if (changed) {
             setFlags(Flags::ParamsChanged);
         }
         return std::make_tuple(ok, changed);
     };
-    virtual std::tuple<ParameterIndex, bool> principalParameterIndex() const { return std::make_tuple(0, false); };
-    virtual TerminalIndex staticNodeCount() const { return model()->device()->nodeIds.size(); };
-    virtual TerminalIndex terminalCount() const { return model()->device()->terminalCount; };
-    virtual std::tuple<TerminalIndex, bool> nodeIndex(Id name) const {
+    std::tuple<ParameterIndex, bool> principalParameterIndex() const override { return std::make_tuple(0, false); };
+    TerminalIndex staticNodeCount() const override { return model()->device()->nodeIds.size(); };
+    TerminalIndex terminalCount() const override { return model()->device()->terminalCount; };
+    std::tuple<TerminalIndex, bool> nodeIndex(Id name) const override {
         auto it = model()->device()->nodeNameMap.find(name);
         if (it!=model()->device()->nodeNameMap.end()) {
             return std::make_tuple(it->second, true);
@@ -169,35 +169,35 @@ public:
             return std::make_tuple(0, false);
         }
     };
-    virtual Id nodeName(TerminalIndex ndx) const { return model()->device()->nodeIds[ndx]; };
-    virtual bool bindNode(TerminalIndex n, Node* node, bool dangling=false, Status& s=Status::ignore);
-    virtual Node* terminal(TerminalIndex n, Status& s=Status::ignore) const;
-    virtual bool unbindTerminals(Circuit& circuit, Status& s=Status::ignore);
-    virtual bool unbindInternalNodes(Circuit& cir, Status& s=Status::ignore);
-    virtual std::tuple<bool, bool> subhierarchyChanged(Circuit& circuit, RpnEvaluator& evaluator, Status& s=Status::ignore) { return std::make_tuple(true, false); }; 
-    virtual bool propagateParameters(Circuit& circuit, RpnEvaluator& evaluator, Status& s=Status::ignore) { 
+    Id nodeName(TerminalIndex ndx) const override { return model()->device()->nodeIds[ndx]; };
+    bool bindNode(TerminalIndex n, Node* node, bool dangling=false, Status& s=Status::ignore) override;
+    Node* terminal(TerminalIndex n, Status& s=Status::ignore) const override;
+    bool unbindTerminals(Circuit& circuit, Status& s=Status::ignore) override;
+    bool unbindInternalNodes(Circuit& cir, Status& s=Status::ignore) override;
+    std::tuple<bool, bool> subhierarchyChanged(Circuit& circuit, RpnEvaluator& evaluator, Status& s=Status::ignore) override { return std::make_tuple(true, false); }; 
+    bool propagateParameters(Circuit& circuit, RpnEvaluator& evaluator, Status& s=Status::ignore) override { 
         if (checkFlags(Flags::ParamsChanged)) {
             clearFlags(Flags::ParamsChanged); 
             setFlags(Flags::NeedsSetup);
         }
         return true; 
     };
-    virtual bool deleteHierarchy(Circuit& circuit, Status& s=Status::ignore) { return true; }; 
-    virtual bool buildHierarchy(Circuit& circuit, RpnEvaluator& evaluator, InstantiationData& idata, Status& s=Status::ignore) { return true; };  
-    virtual std::tuple<EquationIndex,EquationIndex> sourceExcitation(Circuit& circuit) const { return std::make_tuple(0, 0); };
-    virtual std::tuple<UnknownIndex,UnknownIndex> sourceResponse(Circuit& circuit) const { return std::make_tuple(0, 0); };
-    virtual double scaledUnityExcitation() const { return 1.0; };
-    virtual double responseScalingFactor() const { return 1.0; };
-    virtual std::tuple<const ValueVector&, const RealVector&, const RealVector&> spur() const { return {dummyValueVector, dummyRealVector, dummyRealVector}; };
-    virtual ParameterIndex outvarCount() const { return data.parameterCount(); };
-    virtual std::tuple<ParameterIndex, bool> outvarIndex(Id name) const { return data.parameterIndex(name); };
-    virtual Id outvarName(ParameterIndex ndx) const { return data.parameterName(ndx); };
-    virtual std::tuple<Value::Type,bool> outvarType(ParameterIndex ndx, Status& s=Status::ignore) const { return data.parameterType(ndx, s); };
-    virtual bool getOutvar(ParameterIndex ndx, Value& v, Status& s=Status::ignore) const { return data.getParameter(ndx, v, s); };
-    virtual std::tuple<bool, OutputSource> outvarOutputSource(ParameterIndex ndx) const { return std::make_tuple(false, OutputSource()); };
+    bool deleteHierarchy(Circuit& circuit, Status& s=Status::ignore) override { return true; }; 
+    bool buildHierarchy(Circuit& circuit, RpnEvaluator& evaluator, InstantiationData& idata, Status& s=Status::ignore) override { return true; };  
+    std::tuple<EquationIndex,EquationIndex> sourceExcitation(Circuit& circuit) const override { return std::make_tuple(0, 0); };
+    std::tuple<UnknownIndex,UnknownIndex> sourceResponse(Circuit& circuit) const override { return std::make_tuple(0, 0); };
+    double scaledUnityExcitation() const override { return 1.0; };
+    double responseScalingFactor() const override { return 1.0; };
+    std::tuple<const ValueVector&, const RealVector&, const RealVector&> spur() const override { return {dummyValueVector, dummyRealVector, dummyRealVector}; };
+    ParameterIndex outvarCount() const override { return data.parameterCount(); };
+    std::tuple<ParameterIndex, bool> outvarIndex(Id name) const override { return data.parameterIndex(name); };
+    Id outvarName(ParameterIndex ndx) const override { return data.parameterName(ndx); };
+    std::tuple<Value::Type,bool> outvarType(ParameterIndex ndx, Status& s=Status::ignore) const override { return data.parameterType(ndx, s); };
+    bool getOutvar(ParameterIndex ndx, Value& v, Status& s=Status::ignore) const override { return data.getParameter(ndx, v, s); };
+    std::tuple<bool, OutputSource> outvarOutputSource(ParameterIndex ndx) const override { return std::make_tuple(false, OutputSource()); };
     virtual std::tuple<bool, bool, bool> setup(Circuit& circuit, CommonData& commons, bool force, DeviceRequests* devReq, Status& s=Status::ignore);
     virtual bool setStaticTolerances(Circuit& circuit, CommonData& commons, Status& s=Status::ignore);
-    virtual void dump(int indent, const Circuit& circuit, std::ostream& os) const;
+    void dump(int indent, const Circuit& circuit, std::ostream& os) const override;
 
     // Model access (as ModelType)
     ModelType* model() { return reinterpret_cast<ModelType*>(model_); };

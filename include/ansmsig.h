@@ -22,78 +22,78 @@ public:
     SmallSignal& operator=(const SmallSignal&)  = delete;
     SmallSignal& operator=(      SmallSignal&&) = delete;
 
-    virtual Parameterized& parameters() { return params; }; 
-    virtual const Parameterized& parameters() const { return params; }; 
+    Parameterized& parameters() override { return params; };
+    const Parameterized& parameters() const override { return params; };
 
     // Factory function for operating point analysis
     static Analysis* create(PTAnalysis& ptAnalysis, Circuit& circuit, Status& s=Status::ignore) {
         auto* an = new SmallSignal<CoreClass, DataMixin, complexSmsig>(ptAnalysis.name(), circuit, ptAnalysis);
         return an;
-    }; 
+    };
 
-    virtual void dump(std::ostream& os) const;
+    void dump(std::ostream& os) const override;
 
 protected:
-    // Add output descriptors common to all cores, no error message is returned 
-    virtual bool addCommonOutputDescriptor(const OutputDescriptor& desc);
+    // Add output descriptors common to all cores, no error message is returned
+    bool addCommonOutputDescriptor(const OutputDescriptor& desc) override;
 
     // Add core-specific output descriptors, no error message is returned
-    virtual bool addCoreOutputDescriptors(ErrorConsumer& errors);
+    bool addCoreOutputDescriptors(ErrorConsumer& errors) override;
 
     // Add operating point output descriptor(s) based on save, generates error message if verification is required
     // Returns ok, resolved
     std::tuple<bool, bool> resolveOpSave(const PTSave& save, bool verify, ErrorConsumer& errors);
 
     // Add operating point output descriptor(s) based on save, needs to be specialized
-    virtual bool resolveSave(const PTSave& save, bool verify, ErrorConsumer& errors) { return true; };
+    bool resolveSave(const PTSave& save, bool verify, ErrorConsumer& errors) override { return true; };
 
     // Add default output descriptors if no save is specified
     // No error message is returned
-    virtual bool addDefaultOutputDescriptors(ErrorConsumer& errors);
+    bool addDefaultOutputDescriptors(ErrorConsumer& errors) override;
 
     // Remove all output descriptors from all cores, transfer parameters from smsig to op
     // No error message is returned
-    virtual void clearOutputDescriptors();
+    void clearOutputDescriptors() override;
 
     // Resolve oputput descriptors into output sources across all cores
-    virtual bool resolveOutputDescriptors(bool strict, ErrorConsumer& errors);
+    bool resolveOutputDescriptors(bool strict, ErrorConsumer& errors) override;
 
     // Check if we need to add analysis-specific matrix entries or states
     // By default only op core needs this
-    virtual std::tuple<bool, bool> preMapping(ErrorConsumer& errors);
+    std::tuple<bool, bool> preMapping(ErrorConsumer& errors) override;
 
     // Add analysis-specific matrix entries and states
     // By default only op core needs this
-    virtual bool populateStructures(ErrorConsumer& errors);
+    bool populateStructures(ErrorConsumer& errors) override;
 
     // Rebuild cores
-    virtual bool rebuildCores(ErrorConsumer& errors);
+    bool rebuildCores(ErrorConsumer& errors) override;
 
     // Initialize outputs
-    virtual bool initializeOutputs(ErrorConsumer& errors);
+    bool initializeOutputs(ErrorConsumer& errors) override;
 
     // Analysis core
-    virtual AnalysisCore& analysisCore() { return smsigCore; };
+    AnalysisCore& analysisCore() override { return smsigCore; };
 
     // Create core coroutine
-    virtual CoreCoroutine coreCoroutine(bool continuePrevious, ErrorConsumer& errors) {
+    CoreCoroutine coreCoroutine(bool continuePrevious, ErrorConsumer& errors) override {
         return std::move(smsigCore.coroutine(continuePrevious, errors));
     };
-    
+
     // Finalize outputs
-    virtual bool finalizeOutputs(ErrorConsumer& errors);
+    bool finalizeOutputs(ErrorConsumer& errors) override;
 
     // Delete outputs
-    virtual bool deleteOutputs(ErrorConsumer& errors);
-    
+    bool deleteOutputs(ErrorConsumer& errors) override;
+
     // Analysis state storage for continuation in sweeps
     // Only op core has state storage
-    virtual size_t analysisStateStorageSize() const;
-    virtual size_t allocateAnalysisStateStorage(size_t n);
+    size_t analysisStateStorageSize() const override;
+    size_t allocateAnalysisStateStorage(size_t n) override;
     virtual void deallocateAnalysisStateStorage(size_t n=0);
-    virtual bool storeState(size_t ndx, bool storeDetails=true);
-    virtual bool restoreState(size_t ndx);
-    virtual void makeStateIncoherent(size_t ndx);
+    bool storeState(size_t ndx, bool storeDetails=true) override;
+    bool restoreState(size_t ndx) override;
+    void makeStateIncoherent(size_t ndx) override;
 
     IStruct<Parameters> params;
 

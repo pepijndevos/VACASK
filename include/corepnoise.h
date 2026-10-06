@@ -119,7 +119,7 @@ public:
 
     void setFreqCount(size_t n) { nf = n; };
 
-    virtual Id operator()(MatrixEntryIndex u) {
+    Id operator()(MatrixEntryIndex u) override {
         if (nf>0) {
             return circuit.reprNode(u/nf+1)->name();
         } else {

@@ -197,8 +197,8 @@ public:
     bool finalizeOutputs(ErrorConsumer& errors);
     bool deleteOutputs(Id name, ErrorConsumer& errors);
 
-    virtual bool storeState(size_t ndx, bool storeDetails=true);
-    virtual bool restoreState(size_t ndx);
+    bool storeState(size_t ndx, bool storeDetails=true) override;
+    bool restoreState(size_t ndx) override;
     
     void dump(std::ostream& os) const;
 

@@ -70,38 +70,38 @@ public:
     OsdiInstance& operator=(const OsdiInstance&)  = delete;
     OsdiInstance& operator=(      OsdiInstance&&) = default;
 
-    virtual ParameterIndex parameterCount() const;
-    virtual std::tuple<ParameterIndex, bool> parameterIndex(Id name) const;
-    virtual Id parameterName(ParameterIndex ndx) const;
-    virtual std::tuple<Value::Type,bool> parameterType(ParameterIndex ndx, Status& s=Status::ignore) const;
-    virtual bool getParameter(ParameterIndex ndx, Value& v, Status& s=Status::ignore) const;
-    virtual std::tuple<bool,bool> setParameter(ParameterIndex ndx, const Value& v, Status& s=Status::ignore);
+    ParameterIndex parameterCount() const override;
+    std::tuple<ParameterIndex, bool> parameterIndex(Id name) const override;
+    Id parameterName(ParameterIndex ndx) const override;
+    std::tuple<Value::Type,bool> parameterType(ParameterIndex ndx, Status& s=Status::ignore) const override;
+    bool getParameter(ParameterIndex ndx, Value& v, Status& s=Status::ignore) const override;
+    std::tuple<bool,bool> setParameter(ParameterIndex ndx, const Value& v, Status& s=Status::ignore) override;
     virtual std::tuple<bool,bool> parameterGiven(ParameterIndex ndx, Status& s=Status::ignore) const;
     
     // First parameter is $mfactor, second is principal parameter (if it exists)
-    virtual std::tuple<ParameterIndex, bool> principalParameterIndex() const { return std::make_tuple(1, parameterCount()>1); };
-    virtual TerminalIndex staticNodeCount() const;
-    virtual TerminalIndex terminalCount() const;
-    virtual std::tuple<TerminalIndex, bool> nodeIndex(Id name) const;
-    virtual Id nodeName(TerminalIndex ndx) const;
-    virtual bool bindNode(TerminalIndex n, Node* node, bool dangling=false, Status& s=Status::ignore);
-    virtual Node* terminal(TerminalIndex n, Status& s=Status::ignore) const;
-    virtual bool unbindTerminals(Circuit& circuit, Status& s=Status::ignore);
-    virtual bool unbindInternalNodes(Circuit& cir, Status& s=Status::ignore);
-    virtual bool propagateParameters(Circuit& circuit, RpnEvaluator& evaluator, Status& s=Status::ignore);
-    virtual bool deleteHierarchy(Circuit& circuit, Status& s=Status::ignore);
+    std::tuple<ParameterIndex, bool> principalParameterIndex() const override { return std::make_tuple(1, parameterCount()>1); };
+    TerminalIndex staticNodeCount() const override;
+    TerminalIndex terminalCount() const override;
+    std::tuple<TerminalIndex, bool> nodeIndex(Id name) const override;
+    Id nodeName(TerminalIndex ndx) const override;
+    bool bindNode(TerminalIndex n, Node* node, bool dangling=false, Status& s=Status::ignore) override;
+    Node* terminal(TerminalIndex n, Status& s=Status::ignore) const override;
+    bool unbindTerminals(Circuit& circuit, Status& s=Status::ignore) override;
+    bool unbindInternalNodes(Circuit& cir, Status& s=Status::ignore) override;
+    bool propagateParameters(Circuit& circuit, RpnEvaluator& evaluator, Status& s=Status::ignore) override;
+    bool deleteHierarchy(Circuit& circuit, Status& s=Status::ignore) override;
     virtual bool buildHierarchy(Circuit& circuit, RpnEvaluator& evaluator, Status& s=Status::ignore);
-    virtual std::tuple<EquationIndex,EquationIndex> sourceExcitation(Circuit& circuit) const;
-    virtual std::tuple<UnknownIndex,UnknownIndex> sourceResponse(Circuit& circuit) const;
-    virtual ParameterIndex outvarCount() const;
-    virtual std::tuple<ParameterIndex, bool> outvarIndex(Id name) const;
-    virtual Id outvarName(ParameterIndex ndx) const;
-    virtual std::tuple<Value::Type,bool> outvarType(ParameterIndex ndx, Status& s=Status::ignore) const;
-    virtual bool getOutvar(ParameterIndex ndx, Value& v, Status& s=Status::ignore) const; 
-    virtual std::tuple<bool, OutputSource> outvarOutputSource(ParameterIndex ndx) const;
+    std::tuple<EquationIndex,EquationIndex> sourceExcitation(Circuit& circuit) const override;
+    std::tuple<UnknownIndex,UnknownIndex> sourceResponse(Circuit& circuit) const override;
+    ParameterIndex outvarCount() const override;
+    std::tuple<ParameterIndex, bool> outvarIndex(Id name) const override;
+    Id outvarName(ParameterIndex ndx) const override;
+    std::tuple<Value::Type,bool> outvarType(ParameterIndex ndx, Status& s=Status::ignore) const override;
+    bool getOutvar(ParameterIndex ndx, Value& v, Status& s=Status::ignore) const override; 
+    std::tuple<bool, OutputSource> outvarOutputSource(ParameterIndex ndx) const override;
     virtual std::tuple<bool, bool, bool> setup(Circuit& circuit, CommonData& commons, bool force, DeviceRequests* devReq, Status& s=Status::ignore);
     virtual bool setStaticTolerances(Circuit& circuit, CommonData& commons, Status& s=Status::ignore);
-    virtual void dump(int indent, const Circuit& circuit, std::ostream& os) const;
+    void dump(int indent, const Circuit& circuit, std::ostream& os) const override;
 
     // Model access (as OsdiModel)
     OsdiModel* model() { return static_cast<OsdiModel*>(model_); };
@@ -112,16 +112,16 @@ public:
     const void* core() const { return core_; };
 
     // Noise API
-    virtual ParameterIndex noiseSourceCount() const { return model()->device()->noiseSourceCount(); };
-    virtual ParameterIndex uniqueNoiseSourceCount() const { return model()->device()->uniqueNoiseSourceCount(); };
-    virtual ParameterIndex modulatedNoiseSourceCount() const { return model()->device()->modulatedNoiseSourceCount(); };
-    virtual Id noiseSourceName(ParameterIndex ndx) const { return model()->device()->noiseSourceName(ndx); };
-    virtual std::tuple<ParameterIndex, bool> uniqueNoiseSourceIndex(Id name) const { return model()->device()->uniqueNoiseSourceIndex(name); }
-    virtual std::tuple<EquationIndex, EquationIndex> noiseExcitation(Circuit& cir, ParameterIndex ndx) const;
-    virtual bool loadNoise(Circuit& circuit, double freq, double* noiseDensity);
-    virtual NoiseType noiseSourceType(ParameterIndex ndx) const { return model()->device()->noiseSourceType(ndx); };
-    virtual GlobalStorageIndex noiseModulationBase() const { return offsNoiseModulation; };
-    virtual bool loadNoiseParameters(Circuit& circuit, double* power, double* exponent) { 
+    ParameterIndex noiseSourceCount() const override { return model()->device()->noiseSourceCount(); };
+    ParameterIndex uniqueNoiseSourceCount() const override { return model()->device()->uniqueNoiseSourceCount(); };
+    ParameterIndex modulatedNoiseSourceCount() const override { return model()->device()->modulatedNoiseSourceCount(); };
+    Id noiseSourceName(ParameterIndex ndx) const override { return model()->device()->noiseSourceName(ndx); };
+    std::tuple<ParameterIndex, bool> uniqueNoiseSourceIndex(Id name) const override { return model()->device()->uniqueNoiseSourceIndex(name); }
+    std::tuple<EquationIndex, EquationIndex> noiseExcitation(Circuit& cir, ParameterIndex ndx) const override;
+    bool loadNoise(Circuit& circuit, double freq, double* noiseDensity) override;
+    NoiseType noiseSourceType(ParameterIndex ndx) const override { return model()->device()->noiseSourceType(ndx); };
+    GlobalStorageIndex noiseModulationBase() const override { return offsNoiseModulation; };
+    bool loadNoiseParameters(Circuit& circuit, double* power, double* exponent) override { 
         model()->device()->descriptor()->load_noise_params(core(), model()->core(), power, exponent);
         return true;
     }; 

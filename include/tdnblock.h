@@ -110,7 +110,7 @@ public:
 protected:
     // Generate new random numbers, construct a sample
     // To be defined in derived classes
-    virtual void generate(URBG&) = 0;
+    virtual void generate(URBG&) override = 0;
 
     // ZOH generator support
     // Index of sample we are curretly at
@@ -147,7 +147,7 @@ public:
 protected: 
     // Generate random numbers
     // To be defined in derived classes
-    virtual void generate(URBG&) = 0;
+    virtual void generate(URBG&) override = 0;
 
     // Construct a sample
     // To be defined in derived classes

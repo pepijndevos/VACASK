@@ -25,14 +25,14 @@ public:
     HierarchicalDevice& operator=(const HierarchicalDevice&)  = delete;
     HierarchicalDevice& operator=(      HierarchicalDevice&&) = default;
 
-    virtual bool operator==(const Device& other) const &;
-    virtual bool isHierarchical() const { return true; }; 
+    bool operator==(const Device& other) const & override;
+    bool isHierarchical() const override { return true; }; 
     // Generic model creation is not allowed, constructor must be used
-    virtual Model* createModel(Circuit& circuit, Instance* parentInstance, RpnEvaluator& evaluator, const PTModel& parsedSubcircuit, Status& s=Status::ignore) {
+    Model* createModel(Circuit& circuit, Instance* parentInstance, RpnEvaluator& evaluator, const PTModel& parsedSubcircuit, Status& s=Status::ignore) override {
         DBGCHECK(true, "Internal error, requested generic model creation from hierarchical device.");
         return nullptr;
     }
-    virtual void dump(int indent, std::ostream& os) const;
+    void dump(int indent, std::ostream& os) const override;
 };
 
 
@@ -55,16 +55,16 @@ public:
     HierarchicalModel& operator=(const HierarchicalModel&)  = delete;
     HierarchicalModel& operator=(      HierarchicalModel&&) = default;
 
-    virtual ParameterIndex parameterCount() const { 
+    ParameterIndex parameterCount() const override { 
         return static_cast<const PTSubcircuitDefinition&>(parsedModel_).parameters().valueCount(); 
     };
-    virtual std::tuple<ParameterIndex, bool> parameterIndex(Id name) const;
-    virtual Id parameterName(ParameterIndex ndx) const;
-    virtual std::tuple<Value::Type,bool> parameterType(ParameterIndex ndx, Status& s=Status::ignore) const;
-    virtual bool getParameter(ParameterIndex ndx, Value& v, Status& s=Status::ignore) const;
-    virtual std::tuple<bool,bool> setParameter(ParameterIndex ndx, const Value& v, Status& s=Status::ignore);
-    virtual Instance* createInstance(Circuit& circuit, Instance* parentInstance, RpnEvaluator& evaluator, Context* externalContext, const PTInstance& ptInstance, InstantiationData& idata, Status& s=Status::ignore);
-    virtual void dump(int indent, std::ostream& os) const;
+    std::tuple<ParameterIndex, bool> parameterIndex(Id name) const override;
+    Id parameterName(ParameterIndex ndx) const override;
+    std::tuple<Value::Type,bool> parameterType(ParameterIndex ndx, Status& s=Status::ignore) const override;
+    bool getParameter(ParameterIndex ndx, Value& v, Status& s=Status::ignore) const override;
+    std::tuple<bool,bool> setParameter(ParameterIndex ndx, const Value& v, Status& s=Status::ignore) override;
+    Instance* createInstance(Circuit& circuit, Instance* parentInstance, RpnEvaluator& evaluator, Context* externalContext, const PTInstance& ptInstance, InstantiationData& idata, Status& s=Status::ignore) override;
+    void dump(int indent, std::ostream& os) const override;
 
     // Device access (as HierarchicalDevice)
     HierarchicalDevice* device() { return static_cast<HierarchicalDevice*>(device_); };
@@ -130,41 +130,41 @@ public:
     HierarchicalInstance& operator=(const HierarchicalInstance&)  = delete;
     HierarchicalInstance& operator=(      HierarchicalInstance&&) = default;
 
-    virtual ParameterIndex parameterCount() const { return model()->parameterCount(); };
-    virtual std::tuple<ParameterIndex, bool> parameterIndex(Id name) const;
-    virtual Id parameterName(ParameterIndex ndx) const;
-    virtual std::tuple<Value::Type,bool> parameterType(ParameterIndex ndx, Status& s=Status::ignore) const;
-    virtual bool getParameter(ParameterIndex ndx, Value& v, Status& s=Status::ignore) const;
-    virtual std::tuple<bool,bool> setParameter(ParameterIndex ndx, const Value& v, Status& s=Status::ignore) ;
+    ParameterIndex parameterCount() const override { return model()->parameterCount(); };
+    std::tuple<ParameterIndex, bool> parameterIndex(Id name) const override;
+    Id parameterName(ParameterIndex ndx) const override;
+    std::tuple<Value::Type,bool> parameterType(ParameterIndex ndx, Status& s=Status::ignore) const override;
+    bool getParameter(ParameterIndex ndx, Value& v, Status& s=Status::ignore) const override;
+    std::tuple<bool,bool> setParameter(ParameterIndex ndx, const Value& v, Status& s=Status::ignore) override;
     // Principal parameter is the first parameter if there are any parameters
-    virtual std::tuple<ParameterIndex, bool> principalParameterIndex() const { return std::make_tuple(0, parameterCount()>0);};
-    virtual TerminalIndex staticNodeCount() const { return model()->terminalCount(); };
-    virtual TerminalIndex terminalCount() const { return model()->terminalCount(); };
-    virtual std::tuple<TerminalIndex, bool> nodeIndex(Id name) const { return model()->terminalIndex(name); };
-    virtual Id nodeName(TerminalIndex ndx) const { return model()->terminalName(ndx); };
-    virtual bool bindNode(TerminalIndex n, Node* node, bool dangling=false, Status& s=Status::ignore);
-    virtual Node* terminal(TerminalIndex n, Status& s=Status::ignore) const;
-    virtual bool unbindTerminals(Circuit& circuit, Status& s=Status::ignore);
-    virtual bool unbindInternalNodes(Circuit& cir, Status& s=Status::ignore);
-    virtual std::vector<Instance*>* childInstances() { return &childInstances_; };
-    virtual std::vector<Model*>* childModels() { return &childModels_; };
-    virtual Id translateNode(Circuit& circuit, Id node);
-    virtual void dump(int indent, const Circuit& circuit, std::ostream& os) const;
+    std::tuple<ParameterIndex, bool> principalParameterIndex() const override { return std::make_tuple(0, parameterCount()>0);};
+    TerminalIndex staticNodeCount() const override { return model()->terminalCount(); };
+    TerminalIndex terminalCount() const override { return model()->terminalCount(); };
+    std::tuple<TerminalIndex, bool> nodeIndex(Id name) const override { return model()->terminalIndex(name); };
+    Id nodeName(TerminalIndex ndx) const override { return model()->terminalName(ndx); };
+    bool bindNode(TerminalIndex n, Node* node, bool dangling=false, Status& s=Status::ignore) override;
+    Node* terminal(TerminalIndex n, Status& s=Status::ignore) const override;
+    bool unbindTerminals(Circuit& circuit, Status& s=Status::ignore) override;
+    bool unbindInternalNodes(Circuit& cir, Status& s=Status::ignore) override;
+    std::vector<Instance*>* childInstances() override { return &childInstances_; };
+    std::vector<Model*>* childModels() override { return &childModels_; };
+    Id translateNode(Circuit& circuit, Id node) override;
+    void dump(int indent, const Circuit& circuit, std::ostream& os) const override;
 
     // Model access (as HierarchicalModel)
     HierarchicalModel* model() { return static_cast<HierarchicalModel*>(model_); };
     const HierarchicalModel* model() const { return static_cast<HierarchicalModel*>(model_); };
     
     // Add child instances and models
-    virtual void addChild(Instance* child);
-    virtual void addChild(Model* child);
+    void addChild(Instance* child) override;
+    void addChild(Model* child) override;
     
     // Context handling, parameter propagation, hierarchy building
-    virtual std::tuple<bool, size_t> enterContext(Circuit& circuit, Context* externalContext, bool addToPath, bool rebuild, Status& s=Status::ignore);
-    virtual bool propagateParameters(Circuit& circuit, RpnEvaluator& evaluator, Status& s=Status::ignore);
-    virtual bool deleteHierarchy(Circuit& circuit, Status& s=Status::ignore);
-    virtual bool buildHierarchy(Circuit& circuit, RpnEvaluator& evaluator, InstantiationData& idata, Status& s=Status::ignore);
-    virtual std::tuple<bool, bool> subhierarchyChanged(Circuit& circuit, RpnEvaluator& evaluator, Status& s=Status::ignore); 
+    std::tuple<bool, size_t> enterContext(Circuit& circuit, Context* externalContext, bool addToPath, bool rebuild, Status& s=Status::ignore) override;
+    bool propagateParameters(Circuit& circuit, RpnEvaluator& evaluator, Status& s=Status::ignore) override;
+    bool deleteHierarchy(Circuit& circuit, Status& s=Status::ignore) override;
+    bool buildHierarchy(Circuit& circuit, RpnEvaluator& evaluator, InstantiationData& idata, Status& s=Status::ignore) override;
+    std::tuple<bool, bool> subhierarchyChanged(Circuit& circuit, RpnEvaluator& evaluator, Status& s=Status::ignore) override; 
 
 protected:
     bool buildBlock(Circuit& circuit, RpnEvaluator& evaluator, InstantiationData& idata, const PTBlock& block, Build what=Build::Instances, Status& s=Status::ignore);

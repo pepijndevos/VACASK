@@ -80,27 +80,27 @@ public:
     // Set forces based on an annotated solution
     bool setForces(Int ndx, const AnnotatedSolution& solution, bool abortOnError, ErrorConsumer& errors);
     
-    virtual bool rebuild(size_t nSolComp, ErrorConsumer& errors);
-    virtual bool initialize(bool continuePrevious, ErrorConsumer& errors);
-    virtual bool preIteration(bool continuePrevious);
-    virtual bool postSolve(bool continuePrevious);
-    virtual bool postConvergenceCheck(bool continuePrevious);
-    virtual bool postIteration(bool continuePrevious);
-    virtual bool postRun(bool continuePrevious); 
-    
+    bool rebuild(size_t nSolComp, ErrorConsumer& errors) override;
+    bool initialize(bool continuePrevious, ErrorConsumer& errors) override;
+    bool preIteration(bool continuePrevious) override;
+    bool postSolve(bool continuePrevious) override;
+    bool postConvergenceCheck(bool continuePrevious) override;
+    bool postIteration(bool continuePrevious) override;
+    bool postRun(bool continuePrevious) override;
+
     bool evaluate(bool continuePrevious, ErrorConsumer& errors);
 
     // Convert the solution vector to a complex spectrum in solutionFD
     void updateSolutionFD();
 
-    virtual std::tuple<bool, bool> buildSystem(bool continuePrevious, ErrorConsumer& errors);
-    virtual std::tuple<bool, bool> checkResidual();
-    virtual std::tuple<bool, bool> checkDelta();
-    
+    std::tuple<bool, bool> buildSystem(bool continuePrevious, ErrorConsumer& errors) override;
+    std::tuple<bool, bool> checkResidual() override;
+    std::tuple<bool, bool> checkDelta() override;
+
     EvalSetup& evalSetup() { return evalSetup_; };
     LoadSetup& loadSetup() { return loadSetup_; };
 
-    virtual void dumpSolution(std::ostream& os, double* solution, const char* prefix="");
+    void dumpSolution(std::ostream& os, double* solution, const char* prefix="") override;
     
 protected:
     bool loadForces(bool loadJacobian=true); 

@@ -14,7 +14,7 @@ class AnalysisProgress : public ProgressReporter {
 public:
     AnalysisProgress(int indent, std::ostream& os, double dt=0.25);
     
-    virtual bool reporter();
+    bool reporter() override;
 
 private:
     std::string renderBar(double norm, double val);

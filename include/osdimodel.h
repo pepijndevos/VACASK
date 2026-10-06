@@ -32,17 +32,17 @@ public:
     OsdiModel& operator=(const OsdiModel&)  = delete;
     OsdiModel& operator=(      OsdiModel&&) = default;
 
-    virtual ParameterIndex parameterCount() const;
-    virtual std::tuple<ParameterIndex, bool> parameterIndex(Id name) const;
-    virtual Id parameterName(ParameterIndex ndx) const;
-    virtual std::tuple<Value::Type,bool> parameterType(ParameterIndex ndx, Status& s=Status::ignore) const;
-    virtual bool getParameter(ParameterIndex ndx, Value& v, Status& s=Status::ignore) const;
-    virtual std::tuple<bool, bool> setParameter(ParameterIndex ndx, const Value& v, Status& s=Status::ignore);
+    ParameterIndex parameterCount() const override;
+    std::tuple<ParameterIndex, bool> parameterIndex(Id name) const override;
+    Id parameterName(ParameterIndex ndx) const override;
+    std::tuple<Value::Type,bool> parameterType(ParameterIndex ndx, Status& s=Status::ignore) const override;
+    bool getParameter(ParameterIndex ndx, Value& v, Status& s=Status::ignore) const override;
+    std::tuple<bool, bool> setParameter(ParameterIndex ndx, const Value& v, Status& s=Status::ignore) override;
     virtual std::tuple<bool,bool> parameterGiven(ParameterIndex ndx, Status& s=Status::ignore) const;
 
-    virtual std::tuple<bool, bool, bool> setup(Circuit& circuit, CommonData& commons, bool force, DeviceRequests* devReq, Status& s=Status::ignore);
-    virtual Instance* createInstance(Circuit& circuit, Instance* parentInstance, RpnEvaluator& evaluator, Context* externalContext, const PTInstance& parsedInstance, InstantiationData& idata, Status& s=Status::ignore);
-    virtual void dump(int indent, std::ostream& os) const;
+    std::tuple<bool, bool, bool> setup(Circuit& circuit, CommonData& commons, bool force, DeviceRequests* devReq, Status& s=Status::ignore) override;
+    Instance* createInstance(Circuit& circuit, Instance* parentInstance, RpnEvaluator& evaluator, Context* externalContext, const PTInstance& parsedInstance, InstantiationData& idata, Status& s=Status::ignore) override;
+    void dump(int indent, std::ostream& os) const override;
 
     // Device access (as OsdiDevice)
     OsdiDevice* device() { return static_cast<OsdiDevice*>(device_); };

@@ -412,11 +412,11 @@ class CSCAtomicMatrix : public CSCMatrixCore<IndexType, ValueType>, public Matri
 public:
     // Matrix binding interface
     // Block element position is ignored
-    virtual double* valueArray();
-    virtual Complex* cxValueArray();
-    virtual std::tuple<IndexType, bool> valueIndex(const MatrixEntryPosition& mep, const std::optional<MatrixEntryPosition>& blockMep=std::nullopt) const;
-    virtual double* valuePtr(const MatrixEntryPosition& mep, Component comp=Component::Real, const std::optional<MatrixEntryPosition>& blockMep=std::nullopt);
-    virtual Complex* cxValuePtr(const MatrixEntryPosition& mep, const std::optional<MatrixEntryPosition>& blockMep=std::nullopt);
+    double* valueArray() override;
+    Complex* cxValueArray() override;
+    std::tuple<IndexType, bool> valueIndex(const MatrixEntryPosition& mep, const std::optional<MatrixEntryPosition>& blockMep=std::nullopt) const override;
+    double* valuePtr(const MatrixEntryPosition& mep, Component comp=Component::Real, const std::optional<MatrixEntryPosition>& blockMep=std::nullopt) override;
+    Complex* cxValuePtr(const MatrixEntryPosition& mep, const std::optional<MatrixEntryPosition>& blockMep=std::nullopt) override;
 };
 
 // CSC matrix classes (used as base for more advanced classes)

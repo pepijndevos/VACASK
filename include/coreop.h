@@ -132,17 +132,17 @@ public:
     bool finalizeOutputs(ErrorConsumer& errors);
     bool deleteOutputs(Id name, ErrorConsumer& errors);
 
-    virtual bool storeState(size_t ndx, bool storeDetails=true);
-    virtual bool restoreState(size_t ndx);
-    
-    virtual std::tuple<bool, bool> runSolver(bool continuePrevious, ErrorConsumer& errors);
+    bool storeState(size_t ndx, bool storeDetails=true) override;
+    bool restoreState(size_t ndx) override;
+
+    std::tuple<bool, bool> runSolver(bool continuePrevious, ErrorConsumer& errors) override;
 
     // Evaluate at current solution, or at the stored solution given by nodeset if atNodeset is true
     // Does not factor the Jacobian, called after rebuild()
     bool evaluate(bool atNodeset, ErrorConsumer& errors);
 
-    virtual Int iterations() const;
-    virtual Int iterationLimit(bool continuePrevious) const;
+    Int iterations() const override;
+    Int iterationLimit(bool continuePrevious) const override;
 
     // Get solver
     OpNRSolver& solver() { return nrSolver; }; 

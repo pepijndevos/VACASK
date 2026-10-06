@@ -167,7 +167,7 @@ class OptionsResolver : public Resolver {
 public:
     OptionsResolver(IStruct<SimulatorOptions>& opt);
 
-    virtual const Value* get(Id name);
+    const Value* get(Id name) override;
 
 private:
     IStruct<SimulatorOptions>& opt;
@@ -677,7 +677,7 @@ class UnknownNameResolver : public NameResolver {
 public:
     UnknownNameResolver(Circuit& circuit) : circuit(circuit) {};
 
-    virtual Id operator()(MatrixEntryIndex u);
+    Id operator()(MatrixEntryIndex u) override;
 
 private:
     Circuit& circuit;

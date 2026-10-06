@@ -28,10 +28,10 @@ public:
     OutputRawfile(const std::string& baseName, Output::SourcesList& sources, Flags f=Flags::Binary|Flags::Padded);
     ~OutputRawfile();
 
-    virtual bool prologue(Status& s=Status::ignore);
-    virtual bool addPoint(Status& s=Status::ignore);
-    virtual bool epilogue(Status& s=Status::ignore);
-    virtual bool remove(Status& s=Status::ignore);
+    bool prologue(Status& s=Status::ignore) override;
+    bool addPoint(Status& s=Status::ignore) override;
+    bool epilogue(Status& s=Status::ignore) override;
+    bool remove(Status& s=Status::ignore) override;
 
 private:
     std::streampos pointCountPos;

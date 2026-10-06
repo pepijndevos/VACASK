@@ -43,22 +43,22 @@ public:
     OsdiDevice& operator=(const OsdiDevice&)  = delete;
     OsdiDevice& operator=(      OsdiDevice&&) = default;
 
-    virtual bool operator==(const Device& other) const &; 
+    bool operator==(const Device& other) const & override; 
     Id name() const { return name_; };
-    virtual std::tuple<bool, bool, bool> setup(Circuit& circuit, CommonData& commons, bool force, DeviceRequests* devReq, Status& s=Status::ignore);
-    virtual bool setStaticTolerances(Circuit& circuit, CommonData& commons, Status& s=Status::ignore);
-    virtual bool collapseNodes(Circuit& circuit, Status& s=Status::ignore);
-    virtual bool populateStructures(Circuit& circuit, Status& s=Status::ignore);
-    virtual bool bind(
+    std::tuple<bool, bool, bool> setup(Circuit& circuit, CommonData& commons, bool force, DeviceRequests* devReq, Status& s=Status::ignore) override;
+    bool setStaticTolerances(Circuit& circuit, CommonData& commons, Status& s=Status::ignore) override;
+    bool collapseNodes(Circuit& circuit, Status& s=Status::ignore) override;
+    bool populateStructures(Circuit& circuit, Status& s=Status::ignore) override;
+    bool bind(
         Circuit& circuit, 
         CSCMatrixAccess* matResist, Component compResist, const std::optional<MatrixEntryPosition>& mepResist, 
         CSCMatrixAccess* matReact, Component compReact, const std::optional<MatrixEntryPosition>& mepReact, 
         DelayLines* delayLines, 
         ErrorConsumer& ec
-    );
+    ) override;
     virtual bool evalAndLoad(Circuit& circuit, CommonData& commons, EvalSetup* evalSetup, LoadSetup* loadSetup, ErrorConsumer& errors, Device::EvalPtr from=Device::EvalPtr::begin, Device::EvalPtr to=Device::EvalPtr::end) override;
-    virtual Model* createModel(Circuit& circuit, Instance* parentInstance, RpnEvaluator& evaluator, const PTModel& parsedModel, Status& s=Status::ignore);
-    virtual void dump(int indent, std::ostream& os) const;
+    Model* createModel(Circuit& circuit, Instance* parentInstance, RpnEvaluator& evaluator, const PTModel& parsedModel, Status& s=Status::ignore) override;
+    void dump(int indent, std::ostream& os) const override;
 
     // Osdi descriptor
     OsdiDescriptor* descriptor() { return descriptor_; };

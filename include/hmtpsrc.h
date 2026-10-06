@@ -16,9 +16,9 @@ public:
     SourceStepping& operator=(const SourceStepping&)  = delete;
     SourceStepping& operator=(      SourceStepping&&) = delete;
 
-    std::tuple<bool, bool> run(ErrorConsumer& errors);
+    std::tuple<bool, bool> run(ErrorConsumer& errors) override;
     
-    std::string formatProgress() const;
+    std::string formatProgress() const override;
 
 private:
     const std::vector<Id>& alternativeHomotopy;
@@ -35,9 +35,9 @@ public:
     Spice3SourceStepping& operator=(const Spice3SourceStepping&)  = delete;
     Spice3SourceStepping& operator=(      Spice3SourceStepping&&) = delete;
 
-    std::tuple<bool, bool> run(ErrorConsumer& errors);
+    std::tuple<bool, bool> run(ErrorConsumer& errors) override;
     
-    std::string formatProgress() const;
+    std::string formatProgress() const override;
 };
 
 }

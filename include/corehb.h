@@ -51,7 +51,7 @@ public:
 
     void setTimepointCount(size_t n) { nb = n; };
 
-    virtual Id operator()(MatrixEntryIndex u) {
+    Id operator()(MatrixEntryIndex u) override {
         if (nb>0) {
             return circuit.reprNode(u/nb+1)->name();
         } else {
@@ -162,12 +162,12 @@ public:
     bool buildColocation(ErrorConsumer& errors);
     bool buildAPFT(ErrorConsumer& errors);
 
-    virtual bool storeState(size_t ndx, bool storeDetails=true);
-    virtual bool restoreState(size_t ndx);
-    
-    virtual std::tuple<bool, bool> runSolver(bool continuePrevious, ErrorConsumer& errors);
-    virtual Int iterations() const;
-    virtual Int iterationLimit(bool continuePrevious) const;
+    bool storeState(size_t ndx, bool storeDetails=true) override;
+    bool restoreState(size_t ndx) override;
+
+    std::tuple<bool, bool> runSolver(bool continuePrevious, ErrorConsumer& errors) override;
+    Int iterations() const override;
+    Int iterationLimit(bool continuePrevious) const override;
 
     // Set stored solutiuon for evaluation, does not set up Jacobian to save memory
     // Bind circuit to jacColoc and evaluate at current solution

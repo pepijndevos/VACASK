@@ -75,19 +75,19 @@ public:
     IStruct& operator=(      IStruct&&) = default;
 
 
-    virtual ParameterIndex parameterCount() const;
-    virtual std::tuple<ParameterIndex, bool> parameterIndex(Id name) const;
-    virtual Id parameterName(ParameterIndex ndx) const;
+    ParameterIndex parameterCount() const override;
+    std::tuple<ParameterIndex, bool> parameterIndex(Id name) const override;
+    Id parameterName(ParameterIndex ndx) const override;
 
-    virtual std::tuple<Value::Type,bool> parameterType(ParameterIndex ndx, Status& s=Status::ignore) const;
+    std::tuple<Value::Type,bool> parameterType(ParameterIndex ndx, Status& s=Status::ignore) const override;
 
-    virtual bool getParameter(ParameterIndex ndx, Value& v, Status& s=Status::ignore) const;
-    virtual std::tuple<bool,bool> setParameter(ParameterIndex ndx, const Value& v, Status& s=Status::ignore);
-    virtual std::tuple<bool,bool> parameterGiven(ParameterIndex ndx, Status& s=Status::ignore);
+    bool getParameter(ParameterIndex ndx, Value& v, Status& s=Status::ignore) const override;
+    std::tuple<bool,bool> setParameter(ParameterIndex ndx, const Value& v, Status& s=Status::ignore) override;
+    std::tuple<bool,bool> parameterGiven(ParameterIndex ndx, Status& s=Status::ignore) override;
 
-    virtual bool getParameter(Id name, Value& v, Status& s=Status::ignore) const;
-    virtual std::tuple<bool,bool> setParameter(Id name, const Value& v, Status& s=Status::ignore); 
-    virtual std::tuple<bool,bool> parameterGiven(Id name, Status& s=Status::ignore);
+    bool getParameter(Id name, Value& v, Status& s=Status::ignore) const override;
+    std::tuple<bool,bool> setParameter(Id name, const Value& v, Status& s=Status::ignore) override; 
+    std::tuple<bool,bool> parameterGiven(Id name, Status& s=Status::ignore) override;
         
     const CoreT& core() const { return core_; };
     CoreT& core() { return core_; };

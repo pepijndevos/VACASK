@@ -76,7 +76,7 @@ template<typename T, bool doPlacement=true> class TypedPoolAllocator : public Po
 public:
     TypedPoolAllocator(size_t initialCount=1024, size_t growthFactor=2, size_t maxFailures=4);
     ~TypedPoolAllocator();
-    virtual void clear();
+    void clear() override;
     template<class... Args> T* allocate(Args&&... args);
     template<class... Args> T* allocate(size_t count, Args&&... args);
 };
@@ -143,7 +143,7 @@ template<typename T, bool doPlacement> template<class... Args> T* TypedPoolAlloc
 template<typename T, bool doPlacement=true> class RecyclingTypedPoolAllocator : private TypedPoolAllocator<T, doPlacement> {
 public:
     RecyclingTypedPoolAllocator(size_t initialCount=1024, size_t growthFactor=2, size_t maxFailures=4);
-    virtual void clear();
+    void clear() override;
     
     template<class... Args> T* allocate(Args&&... args);
     void free(T* ptr);
