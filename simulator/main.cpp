@@ -373,8 +373,17 @@ int main(int argc, char**argv) {
     interp.setRunPostprocess(runPostprocess);
     
     // Run iterpreter
-    if (interp.run(0, status)!=InterpreterExitStatus::EndReached) {
-        Simulator::err() << status.message() << "\n";
+    try {
+        if (interp.run(0, status)!=InterpreterExitStatus::EndReached) {
+            Simulator::err() << status.message() << "\n";
+            return 1;
+        }
+    } catch (std::exception& exc) {
+        // Outermost safety net, nothing may escape to std::terminate
+        Simulator::err() << std::string("Internal error: ")+exc.what() << "\n";
+        return 1;
+    } catch (...) {
+        Simulator::err() << "Internal error: unknown exception.\n";
         return 1;
     }
     

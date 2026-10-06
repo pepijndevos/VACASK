@@ -9,6 +9,7 @@
 #include "common.h"
 #include <type_traits>
 #include <filesystem>
+#include <memory>
 
 
 namespace NAMESPACE {
@@ -124,7 +125,7 @@ InterpreterExitStatus CommandInterpreter::run(size_t from, Status& s) {
                 Simulator::dbg() << "Running analysis '"+std::string(ptAn.name())+"'.\n";
             }
             Status tmps;
-            auto* an = Analysis::create(ptAn, circuit_, tmps);
+            std::unique_ptr<Analysis> an(Analysis::create(ptAn, circuit_, tmps));
             if (!an) {
                 if (!mustAbort(idAnalysis)) {
                     Simulator::err() << tmps.message() << "\n";
@@ -179,15 +180,12 @@ InterpreterExitStatus CommandInterpreter::run(size_t from, Status& s) {
             
             // Error reporting
             if (!ret) {
-                delete an;
                 if (!mustAbort(idAnalysis)) {
                     Simulator::err() << tmps.message() << "\n";
                 } else {
                     s.set(tmps);
                     return InterpreterExitStatus::Error;
                 }
-            } else {
-                delete an;
             }
         } else {
             auto& cmd = std::get<PTCommand>(entry);
