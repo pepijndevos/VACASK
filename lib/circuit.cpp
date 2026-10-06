@@ -1,5 +1,6 @@
 #include <filesystem>
 #include <limits>
+#include <numeric>
 #include <algorithm>
 #include "circuit.h"
 #include "osdifile.h"
@@ -467,8 +468,8 @@ void Circuit::clear() {
     // Node order
     nodeOrder.clear();
 
-    // Unknown to nodes mapping
-    unknownToNodes.clear();
+    // Node collapsing union-find
+    collapseParent.clear();
 
     // Unknown to representative node
     unknownToReprNode.clear();
@@ -1075,19 +1076,28 @@ bool Circuit::preAnalysis(Status& s) {
     return true;
 }
 
+// Find the root of the union-find tree the unknown belongs to (path halving)
+UnknownIndex Circuit::collapseFind(UnknownIndex u) {
+    while (collapseParent[u]!=u) {
+        collapseParent[u] = collapseParent[collapseParent[u]];
+        u = collapseParent[u];
+    }
+    return u;
+}
+
 // Driver function for collapsing two nodes, called by instances
 bool Circuit::collapseNodes(Node* n1, Node* n2, Status& s) {
     // Collapsing node to itself, nothing to do
     if (n1==n2) {
         return true;
     }
-    
-    // Get unknowns
-    auto u1 = n1->unknownIndex();
-    // Assume node2 is ground
-    decltype(u1) u2 = 0; 
+
+    // Get the roots of the unknowns
+    auto u1 = collapseFind(n1->unknownIndex());
+    // Assume node2 is ground (root 0)
+    decltype(u1) u2 = 0;
     if (n2) {
-        u2 = n2->unknownIndex();
+        u2 = collapseFind(n2->unknownIndex());
     }
 
     // If the two unknowns are the same we have nothing to do
@@ -1095,44 +1105,16 @@ bool Circuit::collapseNodes(Node* n1, Node* n2, Status& s) {
         return true;
     }
 
-    // Reorder so that u1<u2
+    // Reorder so that u1<u2, the smaller root wins
     if (u2<u1) {
         auto tmp = u1;
         u1 = u2;
         u2 = tmp;
     }
 
-    // std::cout << n1 << "<-" << n2 << " : " << u1 << "<-" << u2 << "\n";
+    // Join the two trees
+    collapseParent[u2] = u1;
 
-    // Relocate nodes corresponding to u2 to nodes corresponding to u1
-    auto range = unknownToNodes.equal_range(u2);
-    auto it = range.first;
-    do {
-        auto at = it;
-        ++it;
-        // Change node unknown to u1
-        nodeOrder[at->second]->setUnknownIndex(u1);
-        // Extract multimap node
-        auto h = unknownToNodes.extract(at);
-        // Change key (unknown) to u1
-        h.key() = u1;
-        // Reinsert
-        auto itIns = unknownToNodes.insert(std::move(h));
-    } while (it!=range.second);
-
-    /*
-    int lastu = -1;
-    bool first = true;
-    for(auto it=unknownToNodes.begin(); it!=unknownToNodes.end(); ++it) {
-        if (first || it->first!=lastu) {
-            lastu = it->first;
-            std::cout << "\n" << "  u" << it->first << " : ";
-            first = false;
-        }
-        std::cout << it->second << " ";
-    }
-    std::cout << "\n";
-    */
     return true;
 }
 
@@ -1261,24 +1243,28 @@ bool Circuit::mapUnknowns(Status& s) {
     }
     
     // Reset internal structures
-    auto nNodes = nodeOrder.size(); 
-    unknownToNodes.clear();
+    auto nNodes = nodeOrder.size();
+    collapseParent.clear();
 
     // Check number of nodes
     if (nodeMap.size()>std::numeric_limits<NodeIndex>::max()) {
         throw std::length_error("Too many nodes.");
     }
 
-    // Prepare unknownToNodes unordered_multimap
-    for(NodeIndex i=0; i<nNodes; i++) {
-        unknownToNodes.insert({nodeOrder[i]->unknownIndex(), i});
-    }
-    
-    // Do node collapsing (uses unknownToNodes unordered_multimap)
+    // Prepare the union-find forest, one entry per unknown
+    collapseParent.resize(nodeNumber);
+    std::iota(collapseParent.begin(), collapseParent.end(), 0);
+
+    // Do node collapsing
     for(auto& dev : devices) {
         if (!dev.get()->collapseNodes(*this, s)) {
             return false;
         }
+    }
+
+    // Relabel nodes with the root of their collapse component
+    for(auto* n : nodeOrder) {
+        n->setUnknownIndex(collapseFind(n->unknownIndex()));
     }
 
     // Create a vector of booleans indicating that an unknown number is present. 
@@ -1307,8 +1293,8 @@ bool Circuit::mapUnknowns(Status& s) {
         it.second->setUnknownIndex(newUnknownIndex[oldUnknownIndex]);
     }
 
-    // We don't need the map anymore
-    unknownToNodes.clear();
+    // We don't need the forest anymore
+    collapseParent.clear();
 
     // Set number of unknowns (do not count ground).
     // atUnknown includes the ground slot at index 0, so subtract it; guard the

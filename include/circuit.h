@@ -449,6 +449,8 @@ public:
     // Helpers 
     // Collapse two nodes, if second node is nullptr, the first node is collapsed to ground
     bool collapseNodes(Node* n1, Node* n2, Status& s=Status::ignore);
+    // Find the root of the union-find tree the unknown belongs to
+    UnknownIndex collapseFind(UnknownIndex u);
     // Allocate Jacobian entry at row and column corresponding to nodes ne and nu
     // Returns 
     // - pointer to integer where matrix entry index will be found 
@@ -599,11 +601,10 @@ private:
     // Node ordering
     std::vector<Node*> nodeOrder;
 
-    // Mapping from unknown index to Node index. 
-    // Each unknown can correspond tu multiple nodes. 
-    // Unknowns are ordered by their index. 
-    // Unknown=0 corresponds to ground node and is used as the RHS bucket. 
-    std::unordered_multimap<UnknownIndex,NodeIndex> unknownToNodes;
+    // Union-find over unknown indices used while collapsing nodes.
+    // collapseParent[u] is the parent of u in the forest; a root is its own parent.
+    // Index 0 is ground and is always a root.
+    std::vector<UnknownIndex> collapseParent;
     
     // Mapping from unknown to representative node
     std::vector<Node*> unknownToReprNode;
