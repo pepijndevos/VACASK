@@ -91,16 +91,21 @@ bool DCIncrementalCore::initializeOutputs(const std::string& name, ErrorConsumer
         outfile->setTitle(circuit.title());
         outfile->setPlotname("DC Incremental Response Analysis");
     }
-    outfile->prologue();
+    if (!outfile->prologue(errors)) {
+        return false;
+    }
 
     return true;
 }
 
 bool DCIncrementalCore::finalizeOutputs(ErrorConsumer& errors) {
     if (outfile) {
-        outfile->epilogue();
+        bool ok = outfile->epilogue(errors);
         delete outfile;
         outfile = nullptr;
+        if (!ok) {
+            return false;
+        }
     }
     return true;
 }
@@ -208,7 +213,9 @@ CoreCoroutine DCIncrementalCore::coroutine(bool continuePrevious, ErrorConsumer&
 
     // Dump solution
     if (params.write && !Simulator::noOutput() && outfile) {
-        outfile->addPoint();
+        if (!outfile->addPoint(errors)) {
+            co_yield CoreState::Aborted;
+        }
     }
     
     setProgress(1);

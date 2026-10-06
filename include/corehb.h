@@ -216,7 +216,7 @@ protected:
     
 private:
     // Write one output point per frequency from solutionFD
-    void writeOutputPoints();
+    bool writeOutputPoints(ErrorConsumer& errors);
 
     // Temporary structures for collecting the phasors at a single frequency
     // before they are dumped. This vector has a bucket so that the output

@@ -301,13 +301,13 @@ public:
     void setPlotname(std::string name) { plotname_= name; };
 
     // Open file
-    virtual bool prologue(Status& s=Status::ignore) = 0;
+    virtual bool prologue(ErrorConsumer& errors) = 0;
     
     // Add point
-    virtual bool addPoint(Status& s=Status::ignore) = 0;
+    virtual bool addPoint(ErrorConsumer& errors) = 0;
 
     // FInalize and close file
-    virtual bool epilogue(Status& s=Status::ignore) = 0;
+    virtual bool epilogue(ErrorConsumer& errors) = 0;
 
     // Remove file
     virtual bool remove(Status& s=Status::ignore) = 0;

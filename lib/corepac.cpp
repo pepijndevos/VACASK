@@ -151,16 +151,21 @@ bool PACCore::initializeOutputs(Id name, ErrorConsumer& errors) {
         outfile->setTitle(circuit.title());
         outfile->setPlotname("PAC Small Signal Analysis");
     }
-    outfile->prologue();
+    if (!outfile->prologue(errors)) {
+        return false;
+    }
 
     return true;
 }
 
 bool PACCore::finalizeOutputs(ErrorConsumer& errors) {
     if (outfile) {
-        outfile->epilogue();
+        bool ok = outfile->epilogue(errors);
         delete outfile;
         outfile = nullptr;
+        if (!ok) {
+            return false;
+        }
     }
     return true;
 }
@@ -655,7 +660,10 @@ CoreCoroutine PACCore::coroutine(bool continuePrevious, ErrorConsumer& errors) {
 
         // Dump solution point
         if (params.write && !Simulator::noOutput() && outfile) {
-            outfile->addPoint();
+            if (!outfile->addPoint(errors)) {
+                error = true;
+                break;
+            }
         }
 
         finished = sweeper.advance();

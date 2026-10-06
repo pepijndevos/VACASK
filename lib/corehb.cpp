@@ -135,14 +135,17 @@ bool HBCore::initializeOutputs(const std::string& name, ErrorConsumer& errors) {
         outfile->setTitle(circuit.title());
         outfile->setPlotname("Harmonic Balance Analysis");
     }
-    outfile->prologue();
+    if (!outfile->prologue(errors)) {
+        return false;
+    }
 
     return true;
 }
 
 bool HBCore::finalizeOutputs(ErrorConsumer& errors) {
+    bool ok = true;
     if (outfile) {
-        outfile->epilogue();
+        ok = outfile->epilogue(errors);
         delete outfile;
         outfile = nullptr;
     }
@@ -156,7 +159,7 @@ bool HBCore::finalizeOutputs(ErrorConsumer& errors) {
         sol.setSpurs(spurs_);
         sol.setAuxRealVector(timepoints);
     }
-    return true;
+    return ok;
 }
 
 bool HBCore::deleteOutputs(Id name, ErrorConsumer& errors) {
@@ -282,7 +285,7 @@ bool HBCore::buildGrid(ErrorConsumer& errors) {
     return true;
 }
 
-void HBCore::writeOutputPoints() {
+bool HBCore::writeOutputPoints(ErrorConsumer& errors) {
     auto n = circuit.unknownCount();
     auto nf = spurs_.spectrum().size();
 
@@ -299,8 +302,11 @@ void HBCore::writeOutputPoints() {
         VectorView solutionFDColView(solutionFD.data(), k, n, nf);
         outvecView = solutionFDColView;
         // Dump values at current frequency to output
-        outfile->addPoint();
+        if (!outfile->addPoint(errors)) {
+            return false;
+        }
     }
+    return true;
 }
 
 // Called after build
@@ -390,7 +396,7 @@ bool HBCore::evaluate(bool atNodeset, bool noiseModulation, ErrorConsumer& error
     // Evaluating instead of solving, write results at the stored solution
     if (isOk && atNodeset && outfile && params.write) {
         nrSolver.updateSolutionFD();
-        writeOutputPoints();
+        isOk = writeOutputPoints(errors);
     }
 
     // Remove noise modulation founction pointer from load setup
@@ -941,7 +947,9 @@ CoreCoroutine HBCore::coroutine(bool continuePrevious, ErrorConsumer& errors) {
         } else if (converged_) {
             // Tried and converged, write results
             if (outfile && params.write) {
-                writeOutputPoints();
+                if (!writeOutputPoints(errors)) {
+                    converged_ = false;
+                }
             }
         }
     } else {

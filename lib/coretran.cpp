@@ -518,14 +518,17 @@ bool TranCore::initializeOutputs(const std::string& name, ErrorConsumer& errors)
         outfile->setTitle(circuit.title());
         outfile->setPlotname("Transient Analysis");
     }
-    outfile->prologue();
+    if (!outfile->prologue(errors)) {
+        return false;
+    }
 
     return true;
 }
 
 bool TranCore::finalizeOutputs(ErrorConsumer& errors) {
+    bool ok = true;
     if (outfile) {
-        outfile->epilogue();
+        ok = outfile->epilogue(errors);
         delete outfile;
         outfile = nullptr;
     }
@@ -538,7 +541,7 @@ bool TranCore::finalizeOutputs(ErrorConsumer& errors) {
         sol.setValues(solution.vector());
     }
 
-    return true;
+    return ok;
 }
 
 bool TranCore::deleteOutputs(Id name, ErrorConsumer& errors) {
@@ -985,7 +988,9 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious, ErrorConsumer& errors) 
     // Write results at t=0, but only if tstart=0
     if (params.start<=0) {
         if (params.write && !Simulator::noOutput() && outfile) {
-            outfile->addPoint();
+            if (!outfile->addPoint(errors)) {
+                co_yield CoreState::Aborted;
+            }
         }
     }
 
@@ -1826,7 +1831,9 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious, ErrorConsumer& errors) 
             // Write results, starting at tSolve=params.start
             if (tSolve>=params.start-timeRelativeTolerance*tk) {
                 if (params.write && !Simulator::noOutput() && outfile) {
-                    outfile->addPoint();
+                    if (!outfile->addPoint(errors)) {
+                        co_yield CoreState::Aborted;
+                    }
                 }
             }
 

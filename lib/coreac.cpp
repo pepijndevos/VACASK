@@ -124,16 +124,21 @@ bool ACCore::initializeOutputs(const std::string& name, ErrorConsumer& errors) {
         outfile->setTitle(circuit.title());
         outfile->setPlotname("AC Small Signal Analysis");
     }
-    outfile->prologue();
+    if (!outfile->prologue(errors)) {
+        return false;
+    }
 
     return true;
 }
 
 bool ACCore::finalizeOutputs(ErrorConsumer& errors) {
     if (outfile) {
-        outfile->epilogue();
+        bool ok = outfile->epilogue(errors);
         delete outfile;
         outfile = nullptr;
+        if (!ok) {
+            return false;
+        }
     }
     return true;
 }
@@ -438,7 +443,10 @@ CoreCoroutine ACCore::coroutine(bool continuePrevious, ErrorConsumer& errors) {
         
         // Dump solution point
         if (params.write && !Simulator::noOutput() && outfile) {
-            outfile->addPoint();
+            if (!outfile->addPoint(errors)) {
+                error = true;
+                break;
+            }
         }
         
         finished = sweeper.advance();

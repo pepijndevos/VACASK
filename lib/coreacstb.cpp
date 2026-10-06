@@ -158,16 +158,21 @@ bool ACStbCore::initializeOutputs(const std::string& name, ErrorConsumer& errors
         outfile->setTitle(circuit.title());
         outfile->setPlotname("AC Stability Analysis");
     }
-    outfile->prologue();
+    if (!outfile->prologue(errors)) {
+        return false;
+    }
 
     return true;
 }
 
 bool ACStbCore::finalizeOutputs(ErrorConsumer& errors) {
     if (outfile) {
-        outfile->epilogue();
+        bool ok = outfile->epilogue(errors);
         delete outfile;
         outfile = nullptr;
+        if (!ok) {
+            return false;
+        }
     }
     return true;
 }
@@ -560,7 +565,10 @@ CoreCoroutine ACStbCore::coroutine(bool continuePrevious, ErrorConsumer& errors)
 
         // Dump solution point
         if (params.write && !Simulator::noOutput() && outfile) {
-            outfile->addPoint();
+            if (!outfile->addPoint(errors)) {
+                error = true;
+                break;
+            }
         }
         
         finished = sweeper.advance();

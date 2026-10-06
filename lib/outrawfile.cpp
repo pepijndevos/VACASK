@@ -22,11 +22,11 @@ OutputRawfile::~OutputRawfile() {
     outStream.close();
 }
 
-bool OutputRawfile::prologue(Status& s) {
+bool OutputRawfile::prologue(ErrorConsumer& errors) {
     outStream.open(fileName, std::ios::binary | std::ios::out | std::ios::trunc);
     outStream << "Title: " << title_ << "\n";
     if (outStream.fail()) {
-        s.set(Status::CreationFailed, "Failed to write file '"+fileName+"'.");
+        errors.push(OutputRawfileWriteFailed{fileName});
         return false;
     }
     
@@ -62,10 +62,15 @@ bool OutputRawfile::prologue(Status& s) {
 
     count=0;
 
+    if (outStream.fail()) {
+        errors.push(OutputRawfileWriteFailed{fileName});
+        return false;
+    }
+
     return true;
 }
 
-bool OutputRawfile::addPoint(Status& s) {
+bool OutputRawfile::addPoint(ErrorConsumer& errors) {
     if (checkFlags(Flags::Binary)) {
         if (checkFlags(Flags::Complex)) {
             for(size_t i=0; i<srcs.size(); i++) {
@@ -97,12 +102,16 @@ bool OutputRawfile::addPoint(Status& s) {
             }
         }
     }
+    if (outStream.fail()) {
+        errors.push(OutputRawfileWriteFailed{fileName});
+        return false;
+    }
     count++;
 
     return true;
 }
 
-bool OutputRawfile::epilogue(Status& s) {
+bool OutputRawfile::epilogue(ErrorConsumer& errors) {
     outStream.seekp(pointCountPos);
     outStream << count;
     outStream.seekp(0, std::ios_base::end);
@@ -110,7 +119,13 @@ bool OutputRawfile::epilogue(Status& s) {
     if (!checkFlags(Flags::Binary)) {
         outStream << "\n";
     }
+
+    // close() flushes the buffer, small files are only written here
     outStream.close();
+    if (outStream.fail()) {
+        errors.push(OutputRawfileWriteFailed{fileName});
+        return false;
+    }
 
     return true;
 }

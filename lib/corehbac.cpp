@@ -144,16 +144,21 @@ bool HBACCore::initializeOutputs(Id name, ErrorConsumer& errors) {
         outfile->setTitle(circuit.title());
         outfile->setPlotname("HBAC Small Signal Analysis");
     }
-    outfile->prologue();
+    if (!outfile->prologue(errors)) {
+        return false;
+    }
 
     return true;
 }
 
 bool HBACCore::finalizeOutputs(ErrorConsumer& errors) {
     if (outfile) {
-        outfile->epilogue();
+        bool ok = outfile->epilogue(errors);
         delete outfile;
         outfile = nullptr;
+        if (!ok) {
+            return false;
+        }
     }
     return true;
 }
@@ -683,7 +688,10 @@ CoreCoroutine HBACCore::coroutine(bool continuePrevious, ErrorConsumer& errors) 
         
         // Dump solution point
         if (params.write && !Simulator::noOutput() && outfile) {
-            outfile->addPoint();
+            if (!outfile->addPoint(errors)) {
+                error = true;
+                break;
+            }
         }
         
         finished = sweeper.advance();

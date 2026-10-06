@@ -212,16 +212,21 @@ bool HBNoiseCore::initializeOutputs(const std::string& name, ErrorConsumer& erro
         outfile->setTitle(circuit.title());
         outfile->setPlotname("HB Periodic Noise Analysis");
     }
-    outfile->prologue();
+    if (!outfile->prologue(errors)) {
+        return false;
+    }
 
     return true;
 }
 
 bool HBNoiseCore::finalizeOutputs(ErrorConsumer& errors) {
     if (outfile) {
-        outfile->epilogue();
+        bool ok = outfile->epilogue(errors);
         delete outfile;
         outfile = nullptr;
+        if (!ok) {
+            return false;
+        }
     }
     return true;
 }
@@ -747,7 +752,10 @@ CoreCoroutine HBNoiseCore::coroutine(bool continuePrevious, ErrorConsumer& error
 
         // Dump solution
         if (params.write && !Simulator::noOutput() && outfile) {
-            outfile->addPoint();
+            if (!outfile->addPoint(errors)) {
+                error = true;
+                break;
+            }
         }
 
         finished = sweeper.advance();

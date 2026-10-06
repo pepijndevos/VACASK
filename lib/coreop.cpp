@@ -96,14 +96,17 @@ bool OperatingPointCore::initializeOutputs(const std::string& name, ErrorConsume
         outfile->setTitle(circuit.title());
         outfile->setPlotname("Operating Point");
     }
-    outfile->prologue();
+    if (!outfile->prologue(errors)) {
+        return false;
+    }
 
     return true;
 }
 
 bool OperatingPointCore::finalizeOutputs(ErrorConsumer& errors) {
+    bool ok = true;
     if (outfile) {
-        outfile->epilogue();
+        ok = outfile->epilogue(errors);
         delete outfile;
         outfile = nullptr;
     }
@@ -117,7 +120,7 @@ bool OperatingPointCore::finalizeOutputs(ErrorConsumer& errors) {
         // Do not store states
     }
 
-    return true;
+    return ok;
 }
 
 bool OperatingPointCore::deleteOutputs(Id name, ErrorConsumer& errors) {
@@ -452,7 +455,9 @@ bool OperatingPointCore::evaluate(bool atNodeset, ErrorConsumer& errors) {
 
     // Write results at the evaluation point
     if (outfile && params.write) {
-        outfile->addPoint();
+        if (!outfile->addPoint(errors)) {
+            return false;
+        }
     }
     return true;
 }
@@ -603,7 +608,9 @@ CoreCoroutine OperatingPointCore::coroutine(bool continuePrevious, ErrorConsumer
         } else if (converged_) {
             // Tried and converged, write results
             if (outfile && params.write) {
-                outfile->addPoint();
+                if (!outfile->addPoint(errors)) {
+                    converged_ = false;
+                }
             }
         }
     } else {

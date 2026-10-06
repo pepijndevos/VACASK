@@ -722,7 +722,9 @@ bool PssTranCore::initializeOutputs(Id name, ErrorConsumer& errors) {
         }
         outfile->setPlotname("Periodic Steady State " + method);
     }
-    outfile->prologue();
+    if (!outfile->prologue(errors)) {
+        return false;
+    }
     return true;
 }
 
