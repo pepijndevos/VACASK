@@ -1,6 +1,7 @@
 #ifndef __OSDIDEVICE_DEFINED
 #define __OSDIDEVICE_DEFINED
 
+#include <iterator>
 #include <vector>
 #include <unordered_map>
 #include <type_traits>
@@ -198,7 +199,43 @@ public:
     // Return value: ok, parameter given
     std::tuple<bool, bool> parameterGiven(OsdiFile::OsdiParameterId osdiId, void* coreMod, void* coreInst, Status& s=Status::ignore) const;
 
-    static std::tuple<size_t, size_t> simParasSizes();
+    // Null-terminated $simparam name tables, callers size the value arrays from them
+    static constexpr const char* simParamNames[] = {
+        "iniLim",
+        "gmin", // minimum conductance to place in parallel with nonlinear branches (simulator gmin)
+        "gdev", // extra conductance in parallel with nonlinear branches during homotopy
+        "tnom",
+        "minr",
+        "scale",
+        "iteration",
+        "simulatorVersion",
+        "simulatorSubversion",
+        "sourceScaleFactor",
+        "reltol",
+        "vntol",
+        "abstol",
+        "chgtol",
+        "fluxtol",
+        nullptr
+        // TODO: According to VAMS LRM table 9-27 the following are missing
+        //   imax
+        //   imelt
+        //   shrink
+        //   timeUnit
+        //   timePrecision
+    };
+    static constexpr const char* simStrParamNames[] = {
+        "analysis_name",
+        "analysis_type",
+        "cwd",
+        nullptr
+        // TODO: According to VAMS LRM table 9-28 the following are missing
+        //   module
+        //   instance
+        //   path
+    };
+    static constexpr size_t numSimParas = std::size(simParamNames);
+    static constexpr size_t numSimStrParas = std::size(simStrParamNames);
     static void populateSimParas(OsdiSimParas& sp, const SimulatorOptions& opt, const CommonData& internals, double* dblArray, char** chrPtrArray);
     static void updateSimInfo(OsdiSimInfo& simInfo, EvalSetup& evalSetup);
     
@@ -213,9 +250,6 @@ public:
     std::tuple<NatureTolerance, NatureTolerance, NatureTolerance, NatureTolerance> tolerances(NodeIndex i) { return osdiFile->tolerances(index_, i); }; 
     
 private:
-    static const char* simParamNames[];
-    static const char* simStrParamNames[];
-
     OsdiFile* osdiFile;
     OsdiFile::OsdiDeviceIndex index_;
     OsdiDescriptor* descriptor_;

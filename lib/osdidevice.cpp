@@ -347,11 +347,10 @@ std::tuple<bool, bool, bool> OsdiDevice::setup(Circuit& circuit, CommonData& com
     bool sparsityChanged = false;
     const auto& opt = circuit.simulatorOptions().core();
     OsdiSimParas sp;
-    
+
     // Allocate tables on stack
-    auto [ndbl, nchrptr ] = simParasSizes();
-    double dblArray[ndbl];
-    char* chrPtrArray[nchrptr];
+    double dblArray[numSimParas];
+    char* chrPtrArray[numSimStrParas];
     
     populateSimParas(sp, opt, commons, dblArray, chrPtrArray);
     for(auto model : models()) {
@@ -436,11 +435,10 @@ bool OsdiDevice::evalAndLoad(Circuit& circuit, CommonData& commons, EvalSetup* e
     OsdiSimInfo simInfo;
 
     // Allocate tables on stack
-    // Need to do this in the top level block because otherwise 
-    // it gets freed as soon as we leave the block. 
-    auto [ndbl, nchrptr ] = simParasSizes();
-    double dblArray[ndbl];
-    char* chrPtrArray[nchrptr];
+    // Need to do this in the top level block because otherwise
+    // it gets freed as soon as we leave the block.
+    double dblArray[numSimParas];
+    char* chrPtrArray[numSimStrParas];
     
     if (evalSetup) {
         populateSimParas(simInfo.paras, opt, commons, dblArray, chrPtrArray);
@@ -554,54 +552,9 @@ bool OsdiDevice::evalAndLoad(Circuit& circuit, CommonData& commons, EvalSetup* e
     return true;
 }
 
-const char* OsdiDevice::simParamNames[] = {
-    "iniLim",  
-    "gmin", // minimum conductance to place in parallel with nonlinear branches (simulator gmin)
-    "gdev", // extra conductance in parallel with nonlinear branches during homotopy
-    "tnom", 
-    "minr", 
-    "scale", 
-    "iteration", 
-    "simulatorVersion", 
-    "simulatorSubversion", 
-    "sourceScaleFactor",
-    "reltol", 
-    "vntol", 
-    "abstol", 
-    "chgtol", 
-    "fluxtol", 
-    nullptr
-    // TODO: According to VAMS LRM table 9-27 the following are missing
-    //   imax
-    //   imelt
-    //   shrink
-    //   timeUnit
-    //   timePrecision
-};
-
-const char *OsdiDevice::simStrParamNames[] = { 
-    "analysis_name",
-    "analysis_type", 
-    "cwd", 
-    nullptr
-    // TODO: According to VAMS LRM table 9-28 the following are missing
-    //   module
-    //   instance
-    //   path
-};
-
-// Will allocate double and char* arrays on stack to make it faster
-// We need sizes for that
-std::tuple<size_t, size_t> OsdiDevice::simParasSizes() {
-    return std::make_tuple(
-        sizeof(OsdiDevice::simParamNames)/sizeof(char*), 
-        sizeof(OsdiDevice::simStrParamNames)/sizeof(char*)
-    );
-}
-
 void OsdiDevice::populateSimParas(OsdiSimParas& sp, const SimulatorOptions& opt, const CommonData& commons, double* dblArray, char** chrPtrArray) {
     // dblArray and chrPtrArray should be allocated on stack to save time
-    // simParasSizes() reports the reuired size of these two arrays
+    // and sized numSimParas/numSimStrParas
     double* simParamValues = dblArray; 
     
     simParamValues[0] = 0; // iniLim

@@ -1,6 +1,7 @@
 #include <cstring>
 #include <cstddef>
 #include <new>
+#include <vector>
 #include "osdiinstance.h"
 #include "circuit.h"
 #include "simulator.h"
@@ -286,9 +287,8 @@ std::tuple<bool, bool, bool> OsdiInstance::setup(Circuit& circuit, CommonData& c
     const auto& opt = circuit.simulatorOptions().core();
     
     // Allocate tables on stack
-    auto [ndbl, nchrptr ] = model()->device()->simParasSizes();
-    double dblArray[ndbl];
-    char* chrPtrArray[nchrptr];
+    double dblArray[OsdiDevice::numSimParas];
+    char* chrPtrArray[OsdiDevice::numSimStrParas];
     
     OsdiDevice::populateSimParas(sp, opt, commons, dblArray, chrPtrArray);
     // Verilog-A $temperature is in K, convert the value given by options (in C)
@@ -328,15 +328,15 @@ std::tuple<bool, bool, bool> OsdiInstance::setupWrapper(Circuit& circuit, OsdiSi
         if (canCheckUnknownsChange) {
             cpSize = collapsedNodesPatternSize();
         } else {
-            // We don't want to allocate stack memory for nothing
+            // We don't want to allocate memory for nothing
             cpSize=1;
         }
-        
+
         // Get collapsed nodes pattern array
         auto cpat = collapsedNodesPattern();
 
-        // Allocate storage for old pattern on stack
-        bool cpOldArray[cpSize];
+        // Size comes from the device, so it must live on the heap
+        std::vector<bool> cpOldArray(cpSize);
 
         // Copy pattern to storage so we can check for changes. 
         // Clear it as we go so that setup_instance() can rewrite it

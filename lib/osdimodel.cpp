@@ -175,9 +175,8 @@ std::tuple<bool, bool, bool> OsdiModel::setup(Circuit& circuit, CommonData& comm
     auto& opt = circuit.simulatorOptions().core();
     
     // Allocate tables on stack
-    auto [ndbl, nchrptr ] = device()->simParasSizes();
-    double dblArray[ndbl];
-    char* chrPtrArray[nchrptr];
+    double dblArray[OsdiDevice::numSimParas];
+    char* chrPtrArray[OsdiDevice::numSimStrParas];
     
     OsdiDevice::populateSimParas(sp, opt, commons, dblArray, chrPtrArray);
     // Verilog-A $temperature is in K, convert the value given by options (in C)
