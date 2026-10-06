@@ -93,6 +93,20 @@ bool Simulator::setup(
         // Autodetect CPU count, must be done before OpenBLAS CPU count is set
         ncpu_ = openmpCpuCount();
     } else {
+#ifndef OPENMP_ENABLED
+        // Without OpenMP there is no parallel evaluation and per-thread
+        // structures are sized for one thread, so anything above 1 would
+        // index them out of bounds
+        if (ncpu>1) {
+            // Report the clamp once, setup() can be called repeatedly
+            static bool clampReported = false;
+            if (!clampReported) {
+                wrn() << "Built without OpenMP, clamping CPU request of " << ncpu << " to 1.\n";
+                clampReported = true;
+            }
+            ncpu = 1;
+        }
+#endif
         ncpu_ = ncpu;
     }
 

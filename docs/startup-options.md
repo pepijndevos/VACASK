@@ -22,6 +22,10 @@ VACASK uses OpenMP threads in three places: device evaluation, the SuperLU
 sparse solver, and OpenBLAS dense operations. Everything else, including
 assembly of the Jacobian and the `klu` solver, runs on one thread.
 
+Builds without OpenMP have no parallel device evaluation or multithreaded
+SuperLU. There `--ncpu` values above `1` are clamped to `1` with a startup
+warning.
+
 There are two independent thread counts:
 
 - `--ncpu` (`-n`): threads used for device evaluation and by the SuperLU
