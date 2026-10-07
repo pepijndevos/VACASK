@@ -3,9 +3,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // 
 // SPICE flavour: ngspice
-// Version      : ngspice-47-157-gf8472b491
+// Version      : ngspice-47-159-g6476dc598
 // Origin       : https://sourceforge.net/u/arpadbuermen/ngspice/ci/vadng-pre-48/tree/
-// Date         : 2026-10-06 12:25:24 UTC
+// Date         : 2026-10-07 10:13:23 UTC
 // Module name  : sp_mos2
 // Model variant: sn
 // 
@@ -449,6 +449,7 @@ module sp_mos2(d, g, s, b);
   real dodvds = 0;
   real dxndvd = 0;
   real dxndvb = 0;
+  real d2gdvbvd = 0;
   real udenom = 0;
   real dudvgs = 0;
   real dudvds = 0;
@@ -528,6 +529,8 @@ module sp_mos2(d, g, s, b);
   integer jknt = 0;
   integer i = 0;
   integer j = 0;
+  real d2ss = 0;
+  real d2sd = 0;
   real sig1_0 = 1;
   real sig1_1 = -1;
   real sig1_2 = 1;
@@ -1182,6 +1185,7 @@ module sp_mos2(d, g, s, b);
     dodvds = 0.0;
     dxndvd = 0.0;
     dxndvb = 0.0;
+    d2gdvbvd = 0.0;
     xvalid = 0.0;
     bsarg = 0.0;
     dbsrdb = 0.0;
@@ -1248,6 +1252,10 @@ module sp_mos2(d, g, s, b);
         dasdb2 = -MOS2xd*(d2sdb2+dsrgdb*dsrgdb*MOS2xd/(xj*argxs))/(EffectiveLength*args);
         daddb2 = -MOS2xd*(d2bdb2+dbrgdb*dbrgdb*MOS2xd/(xj*argxd))/(EffectiveLength*argd);
         dgddb2 = -0.5*MOS2gamma*(dasdb2+daddb2);
+        d2ss = 0.5*MOS2xd/(EffectiveLength*args)*(d2sdb2-MOS2xd*dsrgdb*dsrgdb/(xj*argxs));
+        d2sd = 0.5*MOS2xd/(EffectiveLength*argd)*(d2bdb2-MOS2xd*dbrgdb*dbrgdb/(xj*argxd));
+        dgddb2 = -MOS2gamma*(d2ss+d2sd);
+        d2gdvbvd = MOS2gamma*d2sd;
       end
       dgddvb = -MOS2gamma*(dbargs+dbargd);
       if (xj>0) begin
@@ -1287,6 +1295,7 @@ module sp_mos2(d, g, s, b);
       body = barg*barg*barg-sarg3;
       gdbdv = 2.0*gammad*(barg*barg*dbrgdb-sarg1*sarg1*dsrgdb);
       dodvbs = -factor+dgdvbs*sarg1+gammad*dsrgdb;
+      dodvds = dgdvds*sarg1;
       if (nfs==0.0) begin
         goto_destination = line400;
       end
@@ -1295,9 +1304,9 @@ module sp_mos2(d, g, s, b);
           goto_destination = line410;
         end
         if (goto_destination<0) begin
-          dxndvb = 2.0*dgdvbs*dsrgdb+gammad*d2sdb2+dgddb2*sarg1;
+          dxndvb = -(2.0*dgdvbs*dsrgdb+gammad*d2sdb2+dgddb2*sarg1);
           dodvbs = dodvbs+load_vt*dxndvb;
-          dxndvd = dgdvds*dsrgdb;
+          dxndvd = -(dgdvds*dsrgdb+d2gdvbvd*sarg1);
           dodvds = dgdvds*sarg1+load_vt*dxndvd;
         end
       end
@@ -1317,7 +1326,7 @@ module sp_mos2(d, g, s, b);
           ufact = exp(uexp*ln(tmp/udenom));
           ueff = u0*1e-4*ufact;
           dudvgs = -ufact*uexp/udenom;
-          dudvds = 0.0;
+          dudvds = uexp*ufact*dodvds/vgst;
           dudvbs = uexp*ufact*dodvbs/vgst;
           goto_destination = line500;
         end
@@ -1883,7 +1892,7 @@ module sp_mos2(d, g, s, b);
         cdrain = beta1*((lvgs-vbin-eta*load_vdsat/2.0)*load_vdsat-gammad*bodys/1.5);
         load_arg1 = cdrain*(dudvgs/ufact-dldvgs/clfact);
         MOS2gm = load_arg1+beta1*load_vdsat+beta1*(lvgs-vbin-eta*load_vdsat-gammad*bsarg)*dsdvgs;
-        MOS2gds = -cdrain*dldvds/clfact-beta1*dgdvds*bodys/1.5;
+        MOS2gds = cdrain*(dudvds/ufact-dldvds/clfact)-beta1*dgdvds*bodys/1.5;
         load_arg1 = cdrain*(dudvbs/ufact-dldvbs/clfact);
         MOS2gmbs = load_arg1-beta1*(gdbdvs+dgdvbs*bodys/1.5-factor*load_vdsat)+beta1*(lvgs-vbin-eta*load_vdsat-gammad*bsarg)*dsdvbs;
       end

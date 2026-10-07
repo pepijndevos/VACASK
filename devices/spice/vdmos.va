@@ -3,9 +3,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // 
 // SPICE flavour: ngspice
-// Version      : ngspice-47-157-gf8472b491
+// Version      : ngspice-47-159-g6476dc598
 // Origin       : https://sourceforge.net/u/arpadbuermen/ngspice/ci/vadng-pre-48/tree/
-// Date         : 2026-10-06 12:23:34 UTC
+// Date         : 2026-10-07 10:11:37 UTC
 // Module name  : sp_vdmos
 // Model variant: default
 // 
@@ -249,6 +249,7 @@ module sp_vdmos(d, g, s, t, tc);
   real VDMOSdIth_dVrd = 0;
   real VDMOSdIth_dVrs = 0;
   real VDMOSdIth_dTres = 0;
+  real VDMOSgdq = 0;
   real VDIOqpGainScaled = 0;
   real VDIOcurFactor = 0;
   integer VDMOSmode = 0;
@@ -479,7 +480,10 @@ module sp_vdmos(d, g, s, t, tc);
   real vdsn = 0;
   real load_rd = 0;
   real drd_dT = 0;
+  real vqs = 0;
+  real drd_dvdsn = 0;
   real Vrd = 0;
+  real load1_Vrd = 0;
   real Vrs = 0;
   real dIth_dVrd = 0;
   real dIth_dVrs = 0;
@@ -1294,15 +1298,23 @@ module sp_vdmos(d, g, s, t, tc);
       load_rd = rd0T+rd1T*(vdsn/(vdsn+abs(vq)));
       drd_dT = drd0T_dT+drd1T_dT*(vdsn/(vdsn+abs(vq)));
       if (load_rd>0) begin
+        vqs = vdsn+abs(vq);
+        drd_dvdsn = rd1T*abs(vq)/(vqs*vqs);
+        Vrd = V(d, d_int);
         VDMOSdrainConductance = 1/load_rd+lc_gmin/$mfactor;
         dgdrain_dT = -drd_dT/(load_rd*load_rd);
+        VDMOSgdq = -VDMOStype*Vrd*drd_dvdsn/(load_rd*load_rd);
       end else begin
         VDMOSdrainConductance = 1/rd0T;
         dgdrain_dT = -drd0T_dT/(rd0T*rd0T);
+        VDMOSgdq = 0.0;
       end
-    end else if (rd0T>0) begin
-      VDMOSdrainConductance = 1/rd0T;
-      dgdrain_dT = -drd0T_dT/(rd0T*rd0T);
+    end else begin
+      VDMOSgdq = 0.0;
+      if (rd0T>0) begin
+        VDMOSdrainConductance = 1/rd0T;
+        dgdrain_dT = -drd0T_dT/(rd0T*rd0T);
+      end
     end
     if (selfheat) begin
       GmT = dIds_dT;
@@ -1316,11 +1328,11 @@ module sp_vdmos(d, g, s, t, tc);
       VDMOSgtempT = GmT*Vds;
       VDMOSgtempd = VDMOStype*(VDMOSgds*Vds+cdrain);
       VDMOScth = cdrain*Vds;
-      Vrd = V(d, d_int);
-      dIth_dVrd = VDMOSdrainConductance*2*Vrd;
-      dIrd_dgdrain = Vrd;
+      load1_Vrd = V(d, d_int);
+      dIth_dVrd = VDMOSdrainConductance*2*load1_Vrd;
+      dIrd_dgdrain = load1_Vrd;
       dIrd_dT = dIrd_dgdrain*dgdrain_dT;
-      VDMOScth = VDMOScth + (VDMOSdrainConductance*Vrd*Vrd);
+      VDMOScth = VDMOScth + (VDMOSdrainConductance*load1_Vrd*load1_Vrd);
       Vrs = V(s, s_int);
       dIth_dVrs = VDMOSsourceConductance*2*Vrs;
       dIrs_dgsource = Vrs;
@@ -1330,7 +1342,7 @@ module sp_vdmos(d, g, s, t, tc);
       VDMOSdIrs_dT = dIrs_dT;
       VDMOSdIth_dVrd = dIth_dVrd;
       VDMOSdIth_dVrs = dIth_dVrs;
-      VDMOSdIth_dTres = dIrd_dT*Vrd+dIrs_dT*Vrs;
+      VDMOSdIth_dTres = dIrd_dT*load1_Vrd+dIrs_dT*Vrs;
     end else begin
       VDMOSdIrd_dT = 0.0;
       VDMOSdIrs_dT = 0.0;
