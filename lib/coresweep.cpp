@@ -50,7 +50,7 @@ bool ScalarSweep::setupSteppedSweep(Real from_, Real to_, Real step_, ErrorConsu
     if (from<=to && step>0) {
         // Increasing
         double nStepsF = (to - from) / step;
-        if (nStepsF-1>std::numeric_limits<Int>::max()) {
+        if (nStepsF>std::numeric_limits<Int>::max()) {
             errors.push(SweepStepTooSmall{});
             return false;
         }
@@ -59,13 +59,13 @@ bool ScalarSweep::setupSteppedSweep(Real from_, Real to_, Real step_, ErrorConsu
         if (end<=0) {
             end = 1;
         }
-        if (from+end*step <= to) {
+        if (end<std::numeric_limits<Int>::max() && from+end*step <= to) {
             end += 1;
         }
     } else if (from>to && step<0) {
         // Decreasing
         double nStepsF = (to - from) / step;
-        if (nStepsF-1>std::numeric_limits<Int>::max()) {
+        if (nStepsF>std::numeric_limits<Int>::max()) {
             errors.push(SweepStepTooSmall{});
             return false;
         }
@@ -74,7 +74,7 @@ bool ScalarSweep::setupSteppedSweep(Real from_, Real to_, Real step_, ErrorConsu
         if (end<=0) {
             end = 1;
         }
-        if (from+end*step >= to) {
+        if (end<std::numeric_limits<Int>::max() && from+end*step >= to) {
             end += 1;
         }
     } else {
