@@ -24,19 +24,17 @@ set(install_permissions_file
 set(install_permissions_directory ${install_permissions_executable})
 
 # Set platform-dependent variables
-if(${SIM_PLATFORM} STREQUAL "Windows")
+if (SKBUILD)
+    set(source_directory "vacask/src")
+    set(docs_directory "vacask/")
+    set(VACASK_BIN_DIR "vacask/bin")  
+elseif(${SIM_PLATFORM} STREQUAL "Windows")
     set(source_directory "src")
     set(docs_directory "doc")
+    set(VACASK_BIN_DIR "bin")
 else()
     set(source_directory "src/${PROGRAM_NAME}")
     set(docs_directory "share/doc/${PROGRAM_NAME}")
-endif()
-
-if(SKBUILD)
-    set(source_directory "vacask/src")
-    set(docs_directory "vacask/doc")
-    set(VACASK_BIN_DIR "vacask/bin")
-else()
     set(VACASK_BIN_DIR "bin")
 endif()
 
@@ -72,11 +70,13 @@ install(FILES ${OPENVAF_COMPILER}
 )
 
 # Device sources
+if(NOT SKBUILD)
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/devices" DESTINATION "${source_directory}"
 	FILE_PERMISSIONS ${install_permissions_file}
 	DIRECTORY_PERMISSIONS ${install_permissions_directory}
     PATTERN "CMakeLists.txt" EXCLUDE
 )
+endif()
 
 # Library: compiled devices
 foreach(item IN ITEMS ${OSDI_FILES})
@@ -96,11 +96,13 @@ if (NOT SKBUILD)
 endif()
 
 # Library: simulator includes
+if (NOT SKBUILD)
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/inc" DESTINATION "${PROGRAM_LIB_DIR}"
 	FILE_PERMISSIONS ${install_permissions_file}
 	DIRECTORY_PERMISSIONS ${install_permissions_directory}
     FILES_MATCHING PATTERN "*.inc"
 )
+endif()
 
 if (NOT SKBUILD)
 # Library: python files
@@ -118,11 +120,13 @@ install(FILES "LICENSE" DESTINATION "${docs_directory}"
 )
 
 # Documentation
+if (NOT SKBUILD)
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/docs" DESTINATION "${docs_directory}"
 	FILE_PERMISSIONS ${install_permissions_file}
 	DIRECTORY_PERMISSIONS ${install_permissions_directory}
     FILES_MATCHING PATTERN "*.md"
 )
+endif()
 
 if (NOT SKBUILD)
     # Demo files
