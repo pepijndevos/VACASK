@@ -166,7 +166,7 @@ OsdiFile::OsdiFile(void* handle_, std::string file_, Status& s)
     // Logger
     void** funcPtr = ((void**)dynamicLibrarySymbol(handle, "osdi_log"));
     if (funcPtr) {
-        *funcPtr = (void *)osdiLogMessage;
+        *funcPtr = reinterpret_cast<void*>(osdiLogMessage);
     }
 
     // Prepare descriptors vector - we need this because the OSDI version used by

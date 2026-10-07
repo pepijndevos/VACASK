@@ -140,12 +140,12 @@ double osdiLimitlog(
 
 // OsdiLimitFunction *OsdiFile::limitFunctionTable
 const OsdiLimitFunction OsdiFile::limitFunctionTable[] = {
-    { "pnjlim", 2, (void *)osdiPnjlim }, 
-    { "typedpnjlim", 3, (void *)osdiTypedpnjlim }, 
-    { "limvds", 0, (void *)osdiLimvds }, 
-    { "fetlim", 1, (void *)osdiFetlim }, 
-    { "limitlog", 1, (void *)osdiLimitlog }, 
-    { NULL, 0, NULL }
+    { "pnjlim", 2, reinterpret_cast<void*>(osdiPnjlim) },
+    { "typedpnjlim", 3, reinterpret_cast<void*>(osdiTypedpnjlim) },
+    { "limvds", 0, reinterpret_cast<void*>(osdiLimvds) },
+    { "fetlim", 1, reinterpret_cast<void*>(osdiFetlim) },
+    { "limitlog", 1, reinterpret_cast<void*>(osdiLimitlog) },
+    { nullptr, 0, nullptr }
 }; 
 
 }

@@ -196,7 +196,7 @@ std::tuple<bool, bool, bool> OsdiModel::setupWrapper(Circuit& circuit, OsdiSimPa
     // Do we need to set up all instances? 
     bool forceAllInstances = false;
     if (force || checkFlags(Flags::NeedsSetup)) {
-        device()->descriptor()->setup_model((void*)&handle, core(), &sp, &initInfo);
+        device()->descriptor()->setup_model(static_cast<void*>(&handle), core(), &sp, &initInfo);
         if (!device()->processInitInfo(circuit, initInfo, "Model", name(), devReq, s)) {
             // The problem is big enough to abort simulation
             return std::make_tuple(false, false, false);

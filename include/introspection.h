@@ -322,12 +322,12 @@ template<typename T> void Introspection<T>::registerMember_(Id name, StructMembe
 
 template<typename T> template<typename Tsub> Tsub& Introspection<T>::memberRef(T& st, size_t ndx) {
     auto offs = members[ndx].offset;
-    return *reinterpret_cast<Tsub*>((char*)(&st)+offs);
+    return *reinterpret_cast<Tsub*>(reinterpret_cast<char*>(&st)+offs);
 }
     
 template<typename T> template<typename Tsub> const Tsub& Introspection<T>::memberRef(const T& st, size_t ndx) {
     auto offs = members[ndx].offset;
-    return *reinterpret_cast<const Tsub*>((char*)(&st)+offs);
+    return *reinterpret_cast<const Tsub*>(reinterpret_cast<const char*>(&st)+offs);
 }
 
 template<typename T> bool Introspection<T>::memberEqual(const T& st1, const T& st2, size_t ndx) {

@@ -232,7 +232,7 @@ std::tuple<bool,bool> OsdiDevice::writeParameter(OsdiFile::OsdiParameterId osdiI
             if (wasGiven) {
                 free(*ptr);
             }
-            *ptr = (char*)malloc(src.size()+1);
+            *ptr = static_cast<char*>(malloc(src.size()+1));
             // Out of memory: fail loudly rather than dereferencing nullptr below.
             if (!*ptr) {
                 throw std::bad_alloc();

@@ -348,7 +348,7 @@ std::tuple<bool, bool, bool> OsdiInstance::setupWrapper(Circuit& circuit, OsdiSi
         }
         
         // Call setup_instance(), interpret status
-        model()->device()->descriptor()->setup_instance((void*)&handle, core(), model()->core(), temp, connectedTerminalCount, &sp, &initInfo);
+        model()->device()->descriptor()->setup_instance(static_cast<void*>(&handle), core(), model()->core(), temp, connectedTerminalCount, &sp, &initInfo);
         auto setupOk = model()->device()->processInitInfo(circuit, initInfo, "Instance", name(), devReq, s);
         if (!setupOk) {
             // The problem is big enough to abort simulation

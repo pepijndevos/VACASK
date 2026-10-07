@@ -15,7 +15,7 @@
 namespace NAMESPACE {
 
 template<class T> T getDataPtr(void *objPtr, size_t offset) {
-    return reinterpret_cast<T>( ((char*)objPtr)+offset);
+    return reinterpret_cast<T>( static_cast<char*>(objPtr)+offset);
 }
 
 class Circuit;
