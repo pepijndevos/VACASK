@@ -519,6 +519,31 @@ ctest --output-on-failure --label-exclude requires_ihp_pdk
 ```
 This is what the CI scripts in [`ci`](ci) do when they build and test VACASK.
 
+## Python bindings (EXPERIMENTAL)
+VACASK now has experimental python bindings using pybind11. These can be installed via pip as such:
+```
+    git clone https://codeberg.org/arpadbuermen/VACASK.git
+    cd VACASK 
+    python -m venv venv
+    source venv/bin/activate
+    CMAKE_ARGS="-DCMAKE_BUILD_TYPE=Release \
+    -DOPENVAF_DIR=<directory holding the openvaf-r binary> \
+    -DBoost_USE_STATIC_LIBS=ON \
+    -DBLA_VENDOR=OpenBLAS \
+    -DCMAKE_PREFIX_PATH=$(brew --prefix openblas) \
+    -DSuperluMT_DIR=<directory_where_you_unpacked_superlu_sources> \
+    -DCADNIP_PARSERS=ON" pip install .[dev]
+```
+Test the installation by running `pytest`. Demos/tests are located in `test/test_demo.py`.
+
+The biding can also be installed directly from git, e.g.:
+```
+CMAKE_ARGS="-DCMAKE_BUILD_TYPE=Release -DOPENVAF_DIR=.../openvaf/bin -DBoost_DIR=.../Boost-1.88.0" pip install git+https://https://codeberg.org/arpadbuermen/VACASK.git
+```
+
+Note that Boost must be build with position independent code enabled. 
+
+
 # Visual Studio Code project for developers
 A [Visual Studio Code](https://code.visualstudio.com/) setup is available in the [`.vscode`](.vscode) subdirectory of the sources. Files [`settings-linux.json`](.vscode/settings-linux.json) and [`settings-windows.json`](.vscode/settings-windows.json) are the settings templates for Linux and Windows. Depending on your platform copy one of these two to `settings.json` and edit it to reflect your configuration. File `settings.json` is not tracked by git so editing it won't result in any changes that need committing. 
 
