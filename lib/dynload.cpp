@@ -22,25 +22,25 @@ bool closeDynamicLibrary(void* handle) {
 }
 
 void* dynamicLibrarySymbol(void* handle, const char* name) {
-    return (void*)GetProcAddress((HMODULE)handle, name); 
+    return reinterpret_cast<void*>(GetProcAddress((HMODULE)handle, name));
 }
 
 std::string dynamicLibraryError() {
     DWORD errCode = GetLastError();
-    
+
     LPVOID lpMsgBuf = nullptr;
-    DWORD retval = FormatMessage(
-        FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, 
-        NULL, errCode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-        (LPTSTR)&lpMsgBuf, 0, NULL
+    // The A variant keeps the buffer char regardless of UNICODE
+    DWORD retval = FormatMessageA(
+        FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+        nullptr, errCode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+        (LPSTR)&lpMsgBuf, 0, nullptr
     );
 
     std::string errMsg;
-    if (retval == 0) { 
+    if (retval == 0) {
         errMsg = std::string("Failed to format error message with code ")+std::to_string(errCode)+".";
     } else {
-        // TODO: maybe convert from wchar_t* to utf8
-        errMsg = std::string(static_cast<char*>(lpMsgBuf)); 
+        errMsg = std::string(static_cast<char*>(lpMsgBuf));
     }
     if (lpMsgBuf) {
         LocalFree(lpMsgBuf);
