@@ -8,9 +8,9 @@
 import sys, os, platform, subprocess, shutil, re
 from pathlib import Path
 from pprint import pprint
-from ng2vclib.converter import Converter
-from ng2vclib.dfl import default_config
-import xschem2vc
+from .ng2vclib.converter import Converter
+from .ng2vclib.dfl import default_config
+from . import xschem2vc
 
 # Default destination relative to original file
 tech_dest_dir = "../../vacask/models"
@@ -401,13 +401,17 @@ module_path_prefix = [ "$(PDK_ROOT)/$(PDK)/libs.tech/vacask/osdi" ]
     openvaf = None
     candidates = [ openvafdir ] if openvafdir is not None else []
     candidates += [
-        # <rootdir>/VACASK/python (VS Code build system)
-        os.path.join("..", "..", "build.VACASK", "Release", "simulator"), 
-        os.path.join("..", "..", "build.VACASK", "Debug", "simulator"), 
-        # <rootdir>/lib/vacask/python (Linux)
-        os.path.join("..", "..", "..", "bin"), 
-        # <rootdir>/lib/python (Windows)
-        os.path.join("..", "..", "bin"), 
+        # <rootdir>/VACASK/python/src/vacask (VS Code build system)
+        os.path.join("..", "..", "..", "..", "build.VACASK", "Release", "simulator"),
+        os.path.join("..", "..", "..", "..", "build.VACASK", "Debug", "simulator"),
+        # <builddir>/lib/vacask/python/vacask (staged in build directory)
+        os.path.join("..", "..", "..", "..", "simulator"),
+        # <rootdir>/lib/vacask/python/vacask (Linux)
+        os.path.join("..", "..", "..", "..", "bin"),
+        # <rootdir>/lib/python/vacask (Windows)
+        os.path.join("..", "..", "..", "bin"),
+        # <site-packages>/vacask (scikit-build)
+        "bin",
     ]
 
     print("Looking for OpenVAF-Reloaded candidate")

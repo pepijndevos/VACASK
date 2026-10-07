@@ -36,7 +36,7 @@ control
 endc
 
 embed "runme.py" <<<FILE
-from rawfile import rawread
+from vacask.rawfile import rawread
 import matplotlib.pyplot as plt
 
 tran1 = rawread('tran1.raw').get()

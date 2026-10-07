@@ -45,7 +45,7 @@ endmodule
 >>>FILE
 
 embed "runme.py" <<<FILE
-from rawfile import rawread
+from vacask.rawfile import rawread
 import numpy as np
 import matplotlib.pyplot as plt
 

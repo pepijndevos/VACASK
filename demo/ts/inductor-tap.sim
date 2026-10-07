@@ -30,7 +30,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import skrf as rf
-from rawfile import rawread
+from vacask.rawfile import rawread
 
 # The Touchstone file sits next to this netlist, not necessarily in the
 # simulator's working directory, so locate it via SIM_PARENT_FILE_DIR.

@@ -63,7 +63,7 @@ int main() {
         )
         // Embedded Python postprocessing script
         .add(PTEmbed("runme.py", R"script(
-from rawfile import rawread
+from vacask.rawfile import rawread
 import numpy as np
 import matplotlib.pyplot as plt 
 import sys

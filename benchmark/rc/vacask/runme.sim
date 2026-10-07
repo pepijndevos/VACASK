@@ -27,8 +27,8 @@ endc
 
 
 embed "runme.py" <<<FILE
-from rawfile import rawread
-from runtest import *
+from vacask.rawfile import rawread
+from vacask.runtest import *
 import numpy as np
 import sys
 

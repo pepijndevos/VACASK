@@ -21,7 +21,7 @@ At startup a program must still be able to find OSDI device modules and, if it u
 #include "simulator.h"
 
 std::string modulePath = "../../lib/vacask/mod";        // staged .osdi files
-std::string pythonLibraryPath = "../../lib/vacask/python"; // staged rawfile.py etc.
+std::string pythonLibraryPath = "../../lib/vacask/python"; // staged vacask Python package
 std::string pythonBinary = findPythonExecutable();
 
 Simulator::setup();
@@ -218,7 +218,7 @@ if (!tab.processBehaviorals(0, s)) { /* ... */ }   // debug level, status
 
 ```cpp
 tab.add(PTEmbed("runme.py", R"script(
-from rawfile import rawread
+from vacask.rawfile import rawread
 plot = rawread('tran1.raw').get()
 print(plot.names)
 )script"));
@@ -396,7 +396,7 @@ bool finish(Status& s=Status::ignore);  // tear down cleanly
 runProcess(pythonBinary, {"runme.py"}, &pythonLibraryPath, nullptr, false, false);
 ```
 
-`runProcess()` (`processutils.h`) launches an external program (typically the Python interpreter found by `findPythonExecutable()`) with the given arguments, prepending `pythonLibraryPath` to `PYTHONPATH` so an embedded script can `import rawfile` (see [Python Helpers](python-overview.md)) without further setup. Run it after the analyses that produce the files a script reads have finished.
+`runProcess()` (`processutils.h`) launches an external program (typically the Python interpreter found by `findPythonExecutable()`) with the given arguments, prepending `pythonLibraryPath` to `PYTHONPATH` so an embedded script can `import vacask.rawfile` (see [Python Helpers](python-overview.md)) without further setup. Run it after the analyses that produce the files a script reads have finished.
 
 ## Demo programs
 

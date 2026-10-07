@@ -125,7 +125,7 @@ model q2n2222 sp_bjt ( type=1
 )
 
 embed \\"runme.py\\" <<<FILE
-from rawfile import rawread
+from vacask.rawfile import rawread
 import numpy as np
 import matplotlib.pyplot as plt
 

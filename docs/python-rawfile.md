@@ -1,9 +1,9 @@
-# rawfile.py - Reading Raw Files
+# vacask.rawfile - Reading Raw Files
 
-`rawfile` reads SPICE binary raw files produced by VACASK. The only public entry point is `rawread`.
+`vacask.rawfile` reads SPICE binary raw files produced by VACASK. The only public entry point is `rawread`.
 
 ```python
-from rawfile import rawread
+from vacask.rawfile import rawread
 ```
 
 ## rawread
@@ -67,7 +67,7 @@ Returns a dictionary of `{name: value}` for the sweep parameters at the given sw
 ## Example
 
 ```python
-from rawfile import rawread
+from vacask.rawfile import rawread
 import matplotlib.pyplot as plt
 import numpy as np
 

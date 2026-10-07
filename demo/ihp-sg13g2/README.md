@@ -14,10 +14,10 @@ Update submodules
 git submodule update --init --recursive
 ```
 
-If conversion fails or the converted PDK does not work, you can try again with commit 4b7b0faaa37badacfc5d234393f191c899433a8a from the development branch by typing (immediately after clone)
+If conversion fails or the converted PDK does not work, you can try again with commit e8fba183eb8f40bbbb7319eecab7d68d040da51d from the development branch by typing (immediately after clone)
 ```
 cd IHP-Open-PDK
-git checkout 4b7b0faaa37badacfc5d234393f191c899433a8a
+git checkout e8fba183eb8f40bbbb7319eecab7d68d040da51d
 git submodule update --init --recursive
 ```
 
@@ -31,11 +31,11 @@ vacask -dp
 ```
 and look for "Python path addition". Suppose the python path addition is `/usr/local/lib/vacask/python`. Type
 ```
-PYTHONPATH=/usr/local/lib/vacask/python python3 -m sg13g2tovc
+PYTHONPATH=/usr/local/lib/vacask/python python3 -m vacask.sg13g2tovc
 ```
 Additional options can be passed to the OpenVAF-Reloaded Verilog-A compiler with `--openvaf-options`. All arguments that follow this flag are forwarded to OpenVAF. For example, to build generic models that run on any x86-64 CPU
 ```
-PYTHONPATH=/usr/local/lib/vacask/python python3 -m sg13g2tovc --openvaf-options --target_cpu generic
+PYTHONPATH=/usr/local/lib/vacask/python python3 -m vacask.sg13g2tovc --openvaf-options --target_cpu generic
 ```
 
 The converter will process the Ngspice models and 

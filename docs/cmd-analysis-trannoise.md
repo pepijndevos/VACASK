@@ -87,7 +87,7 @@ embed "plot.py" <<<FILE
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import welch
-from rawfile import rawread
+from vacask.rawfile import rawread
 
 fmin = 0.1
 fmax = 100.0

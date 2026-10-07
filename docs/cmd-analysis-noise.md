@@ -134,7 +134,7 @@ endc
 embed "plot.py" <<<FILE
 import numpy as np
 import matplotlib.pyplot as plt
-from rawfile import rawread
+from vacask.rawfile import rawread
 
 noise1 = rawread('noise1.raw').get()
 f = noise1['frequency'].real

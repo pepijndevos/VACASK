@@ -26,7 +26,7 @@ simulation results.
 
 ```text
 embed "postprocess.py" <<<PYEOF
-from rawfile import rawread
+from vacask.rawfile import rawread
 import matplotlib.pyplot as plt
 
 data = rawread("results.raw").get()

@@ -106,7 +106,7 @@ endc
 
 embed "plot.py" <<<FILE
 import matplotlib.pyplot as plt
-from rawfile import rawread
+from vacask.rawfile import rawread
 
 plot = rawread('tran1.raw').get()
 

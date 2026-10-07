@@ -165,7 +165,7 @@ endc
 embed "plot.py" <<<FILE
 import numpy as np
 import matplotlib.pyplot as plt
-from rawfile import rawread
+from vacask.rawfile import rawread
 
 ac1 = rawread('ac1.raw').get()
 f = ac1['frequency']

@@ -29,8 +29,8 @@ control
 endc
 
 embed "runme.py" <<<FILE
-from rawfile import rawread
-from runtest import absDiff, relDiff
+from vacask.rawfile import rawread
+from vacask.runtest import absDiff, relDiff
 import numpy as np
 import sys
 

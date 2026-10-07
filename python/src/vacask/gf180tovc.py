@@ -7,8 +7,8 @@
  
 import sys, os, shutil, re
 from pathlib import Path
-from ng2vclib.converter import Converter
-from ng2vclib.dfl import default_config
+from .ng2vclib.converter import Converter
+from .ng2vclib.dfl import default_config
  
 CONVERT_XSCHEM_SYMBOLS = False
 

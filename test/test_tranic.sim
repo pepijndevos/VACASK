@@ -32,8 +32,8 @@ c2 (2 3) capacitor c=1u
 r2 (3 0) resistor r=1k
 
 embed "runme.py" <<<FILE
-from rawfile import rawread
-from runtest import *
+from vacask.rawfile import rawread
+from vacask.runtest import *
 import numpy as np
 import sys
 

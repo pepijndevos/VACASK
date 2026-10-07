@@ -130,7 +130,7 @@ endc
 embed "plot.py" <<<FILE
 import numpy as np
 import matplotlib.pyplot as plt
-from rawfile import rawread
+from vacask.rawfile import rawread
 
 stb1 = rawread('stb1.raw').get()
 f = np.real(stb1['frequency'])

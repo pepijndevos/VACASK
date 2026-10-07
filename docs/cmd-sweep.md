@@ -160,7 +160,7 @@ endc
 
 embed "plot.py" <<<FILE
 import matplotlib.pyplot as plt
-from rawfile import rawread
+from vacask.rawfile import rawread
 
 # The outermost sweep (sweeps=1) is used for breaking up 
 # the results into parameterized traces. 

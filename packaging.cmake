@@ -104,10 +104,11 @@ install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/inc" DESTINATION "${PROGRAM_LIB_D
 
 if (NOT SKBUILD)
 # Library: python files
-install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/python" DESTINATION "${PROGRAM_LIB_DIR}"
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/python/src/vacask" DESTINATION "${PROGRAM_LIB_DIR}/python"
 	FILE_PERMISSIONS ${install_permissions_file}
 	DIRECTORY_PERMISSIONS ${install_permissions_directory}
     FILES_MATCHING PATTERN "*.py" PATTERN "*.tcl"
+    PATTERN "__pycache__" EXCLUDE
 )
 endif()
 

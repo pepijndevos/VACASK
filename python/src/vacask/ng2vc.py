@@ -1,17 +1,16 @@
 #!/usr/bin/python3
 
 # Ngspice to VACASK netlist converter
-# Use as module, i.e. python3 -m ng2vc ...
-# or edit hashbang line and make it executable. 
+# Use as module, i.e. python3 -m vacask.ng2vc ...
 
 import sys
 from pprint import pprint
-from ng2vclib.converter import Converter
-from ng2vclib import dfl
+from .ng2vclib.converter import Converter
+from .ng2vclib import dfl
 
 if __name__ == "__main__":
     help="""Ngspice to VACASK netlist converter.
-Usage: python3 -m ng2vc [<args>] <input file> [<output file>]
+Usage: python3 -m vacask.ng2vc [<args>] <input file> [<output file>]
 
 If no output file is provided, the converted netlist is printed to 
 the standard output. 

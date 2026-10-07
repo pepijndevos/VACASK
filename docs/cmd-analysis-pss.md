@@ -157,7 +157,7 @@ endmodule
 embed "plot.py" <<<FILE
 import numpy as np
 import matplotlib.pyplot as plt
-from rawfile import rawread
+from vacask.rawfile import rawread
 
 pss1 = rawread('pss1.raw').get()
 t = np.real(pss1['time'])

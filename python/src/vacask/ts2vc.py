@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 # Touchstone to VACASK netlist converter
-# Use as module, i.e. python3 -m ts2vc ...
+# Use as module, i.e. python3 -m vacask.ts2vc ...
 # or edit hashbang line and make it executable.
 #
 # Fits the S-parameters of a touchstone file with scikit-rf's vector
@@ -315,7 +315,7 @@ def write_vacask_subcircuit_s(vf, qualif, f, fitted_model_name="s_equivalent", c
 
 if __name__ == "__main__":
     help="""Touchstone to VACASK netlist converter.
-Usage: python3 -m ts2vc [<args>] <input file> [<output file>]
+Usage: python3 -m vacask.ts2vc [<args>] <input file> [<output file>]
 
 Reads a Touchstone (.sNp) file holding S, Y, Z, H, or G parameters,
 converts it to S-parameters, fits them with scikit-rf's vector fitting,

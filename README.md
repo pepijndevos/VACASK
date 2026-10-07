@@ -92,7 +92,7 @@ Yes we do. It is bundled with the binary packages. [The user's manual](docs/inde
 - a growing [library of Verilog-A models](devices/) (diode, BSIM3, BSIM4, BSIMBULK, ...)
 - simulator library that can be linked to 3rd party software (see API demo in  [demo/api](demo/api))
 - netlist parser with Spectre-like syntax
-- Ngspice netlist converter (under development, see [python/ng2vc.py](python/ng2vc.py))
+- Ngspice netlist converter (under development, see [python/src/vacask/ng2vc.py](python/src/vacask/ng2vc.py))
 - [Xschem](https://xschem.sourceforge.io/stefan/index.html) schematic entry, analysis setup, and results display (use the latest development release). See [demo/xschem](demo/xschem) for more information. 
 - [IHP Open PDK](https://github.com/IHP-GmbH/IHP-Open-PDK) support for the sg13g2 and sg13cmos5l technologies. See [demo/ihp-sg13g2](demo/ihp-sg13g2) and [demo/ihp-sg13cmos5l](demo/ihp-sg13cmos5l) for more information. 
 - Global Foundries GF180 PDK support. See [demo/gf180mcu](demo/gf180mcu) for more information. 
@@ -244,7 +244,7 @@ vacask -dp
 
 If you specify the `-df` option VACASK will print the paths to the files it is loading, dumping, or compiling. 
 
-VACASK detects the Python 3 interpreter and sets the `PYTHON` circuit variable to the interpreter's full path. This variable can then be used in the netlist for launching Python to postprocess the simulation results without having to specify its full path. For VACASK to find the Python interpreter the interpreter's binary directory must be in the system path. VACASK supplements the `PYTHONPATH` variable with the directory holding the supplied Python scripts (`<vacask library directory>/python`). These scripts can be used for loading binary .raw files. They depend on the [NumPy library](https://numpy.org/). 
+VACASK detects the Python 3 interpreter and sets the `PYTHON` circuit variable to the interpreter's full path. This variable can then be used in the netlist for launching Python to postprocess the simulation results without having to specify its full path. For VACASK to find the Python interpreter the interpreter's binary directory must be in the system path. VACASK supplements the `PYTHONPATH` variable with the directory holding the supplied `vacask` Python package (`<vacask library directory>/python`). The package can be used for loading binary .raw files (`from vacask.rawfile import rawread`). They depend on the [NumPy library](https://numpy.org/). 
 
 When a file is included with the `include` netlist directive and the given path is absolute VACASK loads it based on the given absolute path. If the path is relative VACASK first looks for the file in the directory where the netlist that invoked the `include` directive resides, then in the current working directory, and finally in the include files path. The include files path is by default set to`<vacask library directory>/inc`. You can override it by setting the `SIM_INCLUDE_PATH` environmental variable. The directories in the list must be separated by colons (in Windows they must be separated by semicolons). 
 
@@ -300,15 +300,16 @@ Unfortunately you will have to build your own Boost. We had problems with system
 cd tools/build
 ./bootstrap.sh gcc
 cd ../..
-tools/build/b2 --with-filesystem --with-process --with-asio link=static toolset=gcc
+tools/build/b2 --with-filesystem --with-process --with-asio link=static toolset=gcc cxxflags=-fPIC cflags=-fPIC
 ```
-Now Boost libraries are installed under `boost_1_88_0/stage` while the include files are in `boost_1_88_0`. 
+Now Boost libraries are installed under `boost_1_88_0/stage` while the include files are in `boost_1_88_0`. The `-fPIC` flags are needed only if you want to build the Python package (scikit-build) because static libraries that are linked into the Python module must be compiled as position independent code. 
 
-You will also have to build SuperLU_MT from the sources. Do not use SuperLU_dist, it won't work well. You can download the original package from [https://portal.nersc.gov/project/sparse/superlu/](https://portal.nersc.gov/project/sparse/superlu/), but you will have to edit the `Makefile` and create the `lib` directory manually. Make sure you build the OpenMP version. To save you the trouble, we prepared a version of the sources where everything is ready for compiling [https://fides.fe.uni-lj.si/vacask/superlu_mt-4.0.0.tar.gz](https://fides.fe.uni-lj.si/vacask/superlu_mt-4.0.0.tar.gz). 
+You will also have to build SuperLU_MT from the sources. Do not use SuperLU_dist, it won't work well. You can download the original package from [https://portal.nersc.gov/project/sparse/superlu/](https://portal.nersc.gov/project/sparse/superlu/), but you will have to edit the `Makefile` and create the `lib` directory manually. Make sure you build the OpenMP version. Add the `-fPIC` compiler option. To save you the trouble, we prepared a version of the sources where everything is ready for compiling [https://fides.fe.uni-lj.si/vacask/superlu_mt-4.0.0.tar.gz](https://fides.fe.uni-lj.si/vacask/superlu_mt-4.0.0.tar.gz). 
 Unpack the sources and run
 ```
 make
 ```
+If you want to build the Python package, add `-fPIC` to `CFLAGS` and `NOOPTS` in `make.inc` before running `make`. 
 
 ### Building the simulator
 Create a `build` directory and create the build system

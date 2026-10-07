@@ -75,7 +75,7 @@ int main() {
         )
         // Embedded Python postprocessing script
         .add(PTEmbed("runme.py", R"script(
-from rawfile import rawread
+from vacask.rawfile import rawread
 import matplotlib.pyplot as plt
 
 tran1 = rawread('tran1.raw').get()

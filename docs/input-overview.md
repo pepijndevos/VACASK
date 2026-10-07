@@ -50,7 +50,7 @@ endc
 
 // Embedded Python script (dumped before simulation starts)
 embed "runme.py" <<<FILE
-from rawfile import rawread
+from vacask.rawfile import rawread
 
 # Print operating point
 op1 = rawread('op1.raw').get()

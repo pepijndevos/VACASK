@@ -132,7 +132,7 @@ endmodule
 embed "plot.py" <<<FILE
 import numpy as np
 import matplotlib.pyplot as plt
-from rawfile import rawread
+from vacask.rawfile import rawread
 
 hb1 = rawread('hb1.raw').get()
 f = hb1['frequency'].real

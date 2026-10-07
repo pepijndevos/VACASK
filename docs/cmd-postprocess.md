@@ -28,10 +28,10 @@ VACASK automatically defines the circuit variable `PYTHON` as the path to the Py
 postprocess(PYTHON, "plot.py")
 ```
 
-The VACASK library directory's `python/` subdirectory is automatically prepended to `PYTHONPATH` when a postprocess command runs. This makes the bundled Python helpers - including `rawfile` - importable without any path configuration:
+The VACASK library directory's `python/` subdirectory is automatically prepended to `PYTHONPATH` when a postprocess command runs. This makes the bundled `vacask` Python package - including `vacask.rawfile` - importable without any path configuration:
 
 ```text
-from rawfile import rawread
+from vacask.rawfile import rawread
 ```
 
 ## Example
@@ -57,7 +57,7 @@ endc
 
 embed "plot.py" <<<FILE
 import matplotlib.pyplot as plt
-from rawfile import rawread
+from vacask.rawfile import rawread
 
 plot = rawread('op1.raw').get()
 

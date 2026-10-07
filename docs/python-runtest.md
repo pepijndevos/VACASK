@@ -1,9 +1,9 @@
-# runtest.py
+# vacask.runtest - Test Helpers
 
-`runtest` provides small helpers for writing postprocessing scripts that double as automated tests. The same script can produce plots during interactive use and perform pass/fail checks when run by a test harness.
+`vacask.runtest` provides small helpers for writing postprocessing scripts that double as automated tests. The same script can produce plots during interactive use and perform pass/fail checks when run by a test harness.
 
 ```python
-from runtest import *
+from vacask.runtest import *
 ```
 
 ## isTest
@@ -55,8 +55,8 @@ status = absDiff(v, exact).max() < 1e-3
 ## Example
 
 ```python
-from rawfile import rawread
-from runtest import *
+from vacask.rawfile import rawread
+from vacask.runtest import *
 import sys
 
 op = rawread('op1.raw').get()

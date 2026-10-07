@@ -2,6 +2,8 @@
 
 SG13CMOS5L is SG13G2's little cousin. When you clone the development branch of the PDK you also get SG13CMOS5L. See [../ihp-sg13g2/README.md](../ihp-sg13g2/README.md) for details. 
 
+SG13CMOS5L uses some of the Verilog-A models compiled for SG13G2. Convert SG13G2 first (see [../ihp-sg13g2/README.md](../ihp-sg13g2/README.md)), then convert SG13CMOS5L. 
+
 Set environmental variables
 * `PDK_ROOT` to the directory where you downloaded the PDK (e.g. `/home/myname/IHP-Open-PDK`) and
 * `PDK` to `ihp-sg13cmos5l`. 
@@ -12,11 +14,11 @@ vacask -dp
 ```
 and look for "Python path addition". Suppose the python path addition is `/usr/local/lib/vacask/python`. Type
 ```
-PYTHONPATH=/usr/local/lib/vacask/python python3 -m sg13cmos5ltovc
+PYTHONPATH=/usr/local/lib/vacask/python python3 -m vacask.sg13cmos5ltovc
 ```
 Additional options can be passed to the OpenVAF-Reloaded Verilog-A compiler with `--openvaf-options`. All arguments that follow this flag are forwarded to OpenVAF. For example, to build generic models that run on any x86-64 CPU
 ```
-PYTHONPATH=/usr/local/lib/vacask/python python3 -m sg13g2tovc --openvaf-options --target_cpu generic
+PYTHONPATH=/usr/local/lib/vacask/python python3 -m vacask.sg13cmos5ltovc --openvaf-options --target_cpu generic
 ```
 
 A [.vacaskrc.toml](.vacaskrc.toml) configuration file is available in this directory. Make sure you set the `PDK_ROOT` and the `PDK` environmental variables. The [.vacaskrc.toml](.vacaskrc.toml) file must be copied either to the user's home directory or to the directory where VACASK is started. 

@@ -9,7 +9,7 @@
 - `benchmark/`: benchmarking system and netlists
 - `demo/`: usage examples
 - `devices/`: source code of devices (Verilog-A)
-- `python/`: Python helper scripts, Ngspice, Xschem, and IHP PDK converters
+- `python/`: Python bindings and the `vacask` package (`python/src/vacask`) with helper scripts, Ngspice, Xschem, and PDK converters
 - `inc/`: supplied netlist include files
 - `docs/`: documentation
 
