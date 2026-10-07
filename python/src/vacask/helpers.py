@@ -56,5 +56,5 @@ def OpenvafCompilerBuiltin() -> OpenvafCompiler:
     """
     this_file = os.path.abspath(__file__)
     this_dir  = os.path.dirname(this_file)
-    _def_openvaf_path = os.path.normpath(os.path.join(this_dir, "..", "bin", "openvaf-r"))
+    _def_openvaf_path = os.path.normpath(os.path.join(this_dir, "bin", "openvaf-r"))
     return OpenvafCompiler(_def_openvaf_path)
