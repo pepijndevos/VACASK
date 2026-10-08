@@ -3,7 +3,7 @@
 This file lists everyone who has contributed to VACASK, based on the git
 history of the `main` branch. Contributors are grouped where they have
 committed under more than one name or email address, and ordered by number
-of lines of code contributed. Contributions that exceed smaller bugfixes 
+of lines of code contributed. Contributions that exceed small bugfixes 
 are listed for each contributor. If you feel your contribution deserves 
 a mention, send me an email. 
 
