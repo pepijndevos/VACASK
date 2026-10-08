@@ -22,11 +22,12 @@ a mention, send me an email.
   macOS support, CI/CD, foreign (Cadnip) parsers. 
 - Alfonso Cortés Neira &lt;alfonso.2.7@hotmail.com&gt;  
   Binning support in ngspice converter, conversion of GF180 PDK. 
+- Niko Savola &lt;niko.savola@aalto.fi&gt;  
+  Code modernization (override, RAII FFTW plans, named casts). 
 - Rob Taylor &lt;rob.taylor@chipflow.io&gt;  
   macOS support, CI/CD. 
 - Simon Dorrer &lt;simon.dorrer@jku.at&gt;
 - Torleif Skår &lt;torleif.skaar@gmail.com&gt;
-- Niko Savola &lt;niko.savola@aalto.fi&gt;
 - Harald Pretl &lt;harald.pretl@jku.at&gt;
 - Filip Maksimovic &lt;fil@eecs.berkeley.edu&gt;
 - Clyde Laforge &lt;clyde.laforge@cern.ch&gt;

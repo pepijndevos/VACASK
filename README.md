@@ -10,7 +10,7 @@ VACASK is not SPICE (although one could write a SPICE-compatible netlist parser 
 
 # Wait... is it any good? 
 
-The following benchmark results were obtained on the [C6288 16x16 multiplier circuit](benchmark/c6288) multiplying 0xFFFF with itself (simulated as an analog circuit). This is a medium size circuit with 10112 transistors and 25380 nodes. The transistors were modelled with the PSP103.4 model. Ngspice and Xyce tolerances were set so that the number of output timepoints is roughly equal to that of VACASK. OpenMP support was disabled to make the comparison fair. All simulators used KLU as the linear solver. Results output was disabled so that the impact of disk operations was minimized. The benchmark was run on a computer with an AMD Threadripper 7970 processor. 
+The following benchmark results were obtained on the [C6288 16x16 multiplier circuit](benchmark/c6288) multiplying 0xFFFF with itself (simulated as an analog circuit). This is a medium size circuit with 10112 transistors and 25380 nodes. The transistors were modelled with the PSP103.4 model. Ngspice and Xyce tolerances were set so that the number of output timepoints is roughly equal to that of VACASK. OpenMP support was disabled to make the comparison fair. All simulators used KLU as the linear solver. Results output was disabled so that the impact of disk operationbinds was minimized. The benchmark was run on a computer with an AMD Threadripper 7970 processor. 
 
 |Simulator  |Time (s)        |Timepoints |Rejected |Iterations |
 |-----------|----------------|-----------|---------|-----------|
@@ -101,7 +101,7 @@ Yes we do. It is bundled with the binary packages. [The user's manual](docs/inde
 - Touchstone file to VACASK lumped model converter based on scikit-rf (see [demo/ts](demo/ts)). 
 - [Foreign language parsers](docs/input-include.md#foreign-format-includes-spice--spectre) (experimental), supporting ngspice, HSPICE, PSPICE, Xyce, and Spectre. 
 - [Parallel](docs/startup-options.md#parallelism) device evaluation and solver support - see the `--ncpu` and the `--blas-ncpu` options. For best performance also set `OMP_PROC_BIND=close` and `OMP_PLACES=cores` in the environment (see [OpenMP environment](docs/startup-options.md#openmp-environment)).
-- [Python bindings via pybind11](#python-bindings-experimental). If you find bugs, address them to Jure Vreča (@jurevreca12 on codeberg). 
+- [Python bindings via pybind11](#python-bindings-experimental). 
  
 VACASK is being developed by Árpád Bűrmen at the EDA Laboratory, University of Ljubljana, Slovenia. Several people have contributed to VACASK. See [contributors.md](contributors.md) for details. 
 
@@ -219,7 +219,7 @@ an error asking you to rebuild with it enabled.
 
 The foreign parsers are an experimental feature and are still maturing. Expect
 rough edges and incomplete dialect coverage. Bug reports should be raised as
-issues and addressed to Pepijn de Vos.
+issues and addressed to Pepijn de Vos (@pepijndevos on Codeberg).
 
 # Installation from pre-built packages
 [Pre-built packages](https://codeberg.org/arpadbuermen/VACASK/releases) for Linux (based on the stable version of Debian) and Windows are available. The OpenVAF-Reloaded compiler is included in all binary packages. Linux users can choose between a .tgz archive and a .deb package. The Windows package is a .zip file that you can unpack wherever you want. It is recommended to add the `bin` directory to the system path. 
@@ -544,6 +544,7 @@ CMAKE_ARGS="-DCMAKE_BUILD_TYPE=Release -DOPENVAF_DIR=.../openvaf/bin -DBoost_DIR
 
 Note that Boost and all other linked libraries must be build with position independent code enabled. 
 
+Bug reports should be raised as issues and addressed to Jure Vreča (@jurevreca12 on Codeberg).
 
 # Visual Studio Code project for developers
 A [Visual Studio Code](https://code.visualstudio.com/) setup is available in the [`.vscode`](.vscode) subdirectory of the sources. Files [`settings-linux.json`](.vscode/settings-linux.json) and [`settings-windows.json`](.vscode/settings-windows.json) are the settings templates for Linux and Windows. Depending on your platform copy one of these two to `settings.json` and edit it to reflect your configuration. File `settings.json` is not tracked by git so editing it won't result in any changes that need committing. 

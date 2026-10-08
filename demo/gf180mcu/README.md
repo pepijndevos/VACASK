@@ -35,3 +35,5 @@ The converter will process the Ngspice models and
 * create an include file `gf180mcuD/libs.tech/vacask/models/gf180_vacask_common.lib`. Always include this file along with all other PDK files
 
 An example and a [.vacaskrc.toml](.vacaskrc.toml) configuration file are available in this directory. Just set the `PDK_ROOT` and the `PDK` environmental variables and run the example with VACASK. The [.vacaskrc.toml](.vacaskrc.toml) file must be copied either to the user's home directory or to the directory where VACASK is started. 
+
+Bug reports should be raised as issues and addressed to Alfonso Cortés Neira (@AlfonsoCortesN on Codeberg).
