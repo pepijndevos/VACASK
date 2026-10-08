@@ -42,6 +42,11 @@ Id SimulatorOptions::unknownparamIgnore = Id::createStatic("ignore"); // drop it
 Id SimulatorOptions::rawfileAscii = Id::createStatic("ascii");
 Id SimulatorOptions::rawfileBinary = Id::createStatic("binary");
 
+// OMP scheduling
+Id SimulatorOptions::ompStatic = Id::createStatic("static");
+Id SimulatorOptions::ompDynamic = Id::createStatic("dynamic");
+Id SimulatorOptions::ompGuided = Id::createStatic("guided");
+
 // Default options
 // TODO: options validation
 SimulatorOptions::SimulatorOptions() { 
@@ -214,6 +219,10 @@ SimulatorOptions::SimulatorOptions() {
     pss_itl      = 50;   // >0, max outer NR iterations for PSS shooting loop
     pss_debug    = 0;    // >0 = enables debugging
 
+    omp_evbatches = 10;      // Number of batches per CPU
+    omp_evchunk = 1;         // Chunksize used with scheduling setting
+    omp_evsched = ompGuided; // static, dynamic, guided
+
     unknownparam = unknownparamError; // error, warn, or ignore
                                       // how to handle a model/instance parameter the master does not declare
     rawfile = "binary"; // ascii or binary
@@ -335,6 +344,10 @@ template<> int Introspection<SimulatorOptions>::setup() {
     registerMember(pss_tolscale);
     registerMember(pss_itl);
     registerMember(pss_debug);
+
+    registerMember(omp_evbatches);
+    registerMember(omp_evchunk);
+    registerMember(omp_evsched);
     
     registerMember(unknownparam);
 

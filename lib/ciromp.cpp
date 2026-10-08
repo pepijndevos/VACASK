@@ -1,3 +1,4 @@
+#include <omp.h>
 #include <algorithm>
 #include <atomic>
 #include <stdexcept>
@@ -105,7 +106,18 @@ bool Circuit::evalPartitions(CommonData& commons, EvalSetup* evalSetup, bool usi
     // Use -n threads (per-thread structures are sized for this count).
     // Not set globally via omp_set_num_threads(), that one is reserved for OpenBLAS (-b).
     int nThreads = Simulator::nCpu();
-    #pragma omp parallel for schedule(dynamic, 1) num_threads(nThreads)
+
+    // Set up OpenMP scheduling
+    auto ompSched = simOptions.core().omp_evsched;
+    if (ompSched==SimulatorOptions::ompDynamic) {
+        omp_set_schedule(omp_sched_dynamic, simOptions.core().omp_evchunk); 
+    } else if (ompSched==SimulatorOptions::ompGuided) {
+        omp_set_schedule(omp_sched_guided, simOptions.core().omp_evchunk); 
+    } else {
+        omp_set_schedule(omp_sched_static, simOptions.core().omp_evchunk); 
+    }
+
+    #pragma omp parallel for schedule(runtime) num_threads(nThreads)
     for(decltype(nPart) i=0; i<nPart; i++) {
         // After a failure skip remaining batches (no break allowed in omp for)
         if (failed.load(std::memory_order_relaxed)) {

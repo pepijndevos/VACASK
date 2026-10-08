@@ -1513,17 +1513,17 @@ bool Circuit::evalAndLoadParallel(CommonData& commons, EvalSetup* evalSetup, Loa
     }
 
     // Compute number of batches
-    size_t oversubscribe = 5;
-    size_t nBatches = Simulator::nCpu()*oversubscribe;
+    size_t batchesPerCpu = simOptions.core().omp_evbatches;
+    size_t nBatches = Simulator::nCpu()*batchesPerCpu;
 
     // Too many batches, reduce oversubscribe, minimum is 1
     if (nBatches>primitiveInstanceCount()) {
         // Decrease oversubscribe
-        auto newOversubscribe = primitiveInstanceCount()/Simulator::nCpu();
-        if (newOversubscribe<1) {
-            newOversubscribe = 1;
+        auto newBatchesPerCpu = primitiveInstanceCount()/Simulator::nCpu();
+        if (newBatchesPerCpu<1) {
+            newBatchesPerCpu = 1;
         }
-        nBatches = Simulator::nCpu()*newOversubscribe;
+        nBatches = Simulator::nCpu()*newBatchesPerCpu;
         // If we have more CPUs than batches, just leave some CPUs without work. 
     }
 

@@ -100,6 +100,9 @@ typedef struct SimulatorOptions  {
     Real pss_tolscale;
     Int pss_itl;
     Int pss_debug;
+    Int omp_evbatches;
+    Int omp_evchunk;
+    Id omp_evsched;
     Id unknownparam;
     Id rawfile;
     Int strictoutput;
@@ -133,6 +136,10 @@ typedef struct SimulatorOptions  {
 
     static Id rawfileAscii;
     static Id rawfileBinary;
+
+    static Id ompDynamic;
+    static Id ompGuided;
+    static Id ompStatic;
 
     // Translate the unknownparam option into the policy Parameterized understands
     Parameterized::UnknownParam unknownParameterPolicy() const;
