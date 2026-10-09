@@ -18,10 +18,11 @@ a mention, send me an email.
   Implementation of the PSS solver. 
 - Jure Vreča &lt;jure.vreca@ijs.si&gt;  
   Python bindings. 
+- Niko Savola &lt;niko.savola@aalto.fi&gt;  
+  Code modernization (override, RAII FFTW plans, named casts, smart-pointer 
+  ownership), error handling. 
 - Pepijn de Vos &lt;pepijndevos@gmail.com&gt; (also &lt;pepijn@gdsfactory.com&gt;)  
   macOS support, CI/CD, foreign (Cadnip) parsers. 
-- Niko Savola &lt;niko.savola@aalto.fi&gt;  
-  Code modernization (override, RAII FFTW plans, named casts), error handling. 
 - Alfonso Cortés Neira &lt;alfonso.2.7@hotmail.com&gt;  
   Binning support in ngspice converter, conversion of GF180 PDK. 
 - Rob Taylor &lt;rob.taylor@chipflow.io&gt;  
