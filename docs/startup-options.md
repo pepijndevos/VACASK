@@ -36,7 +36,9 @@ There are two independent thread counts:
 ### Device evaluation
 
 With `--ncpu` greater than `1` the device instances are split into batches
-(about five per thread) that are evaluated in parallel. The results are then
+(ten per thread by default) that are evaluated in parallel. The number of
+batches and the way they are scheduled among threads are set by the
+[parallel evaluation options](cmd-options-omp.md). The results are then
 loaded into the Jacobian and the residual on a single thread. Device evaluation
 runs in every analysis, regardless of the selected solver.
 
