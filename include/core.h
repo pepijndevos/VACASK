@@ -113,6 +113,32 @@ public:
 };
 
 
+// Flattened per-instance noise source data for small-signal noise loops
+struct NoiseSourceEntry {
+    EquationIndex e1;
+    EquationIndex e2;
+    // Offset in results vector, noSlot if not saved
+    size_t slot;
+    NoiseType type;
+};
+
+struct NoiseInstanceEntry {
+    Instance* inst;
+    ParameterIndex nSources;
+    // Index of first source in NoiseTable::sources
+    size_t firstSource;
+    // Offset of total instance contribution in results vector, noSlot if not saved
+    size_t totalSlot;
+    GlobalStorageIndex noiseModBase;
+};
+
+struct NoiseTable {
+    static constexpr size_t noSlot = SIZE_MAX;
+    std::vector<NoiseInstanceEntry> instances;
+    std::vector<NoiseSourceEntry> sources;
+    ParameterIndex maxSources {0};
+};
+
 // Analysis core, one analysis can have multiple analysis cores (i.e. op, tran, ...)
 class AnalysisCore : public ProgressTracker {
 public:
@@ -236,6 +262,8 @@ protected:
 
     std::tuple<bool, UnknownIndex, UnknownIndex> getDiffNodePair(Value& v, ErrorConsumer& errors);
     std::tuple<bool, Instance*> getExcitation(Id name, ErrorConsumer& errors);
+    // Must be rebuilt whenever contribution offsets or unknown indices change
+    void buildNoiseTable(const std::unordered_map<std::pair<Id, Id>, size_t>& contributionOffset, NoiseTable& table);
     OutputDescriptorResolver& parentResolver;
     Circuit& circuit;
     Output::DescriptorList outputDescriptors;

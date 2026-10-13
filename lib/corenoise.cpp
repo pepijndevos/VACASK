@@ -372,6 +372,9 @@ CoreCoroutine NoiseCore::coroutine(bool continuePrevious, ErrorConsumer& errors)
     }
     initProgress(sweeper.count(), 0);
     
+    buildNoiseTable(contributionOffset, noiseTable_);
+    Vector<double> noiseDensity(noiseTable_.maxSources);
+
     // Frequency sweep
     sweeper.reset();
     bool finished = false;
@@ -538,123 +541,78 @@ CoreCoroutine NoiseCore::coroutine(bool continuePrevious, ErrorConsumer& errors)
         powerGain = std::abs(tf);
         powerGain *= powerGain;
 
-        Vector<double> noiseDensity;
-        
         // Set total output noise to 0
         outputNoise = 0.0;
 
         // Zero results vector
         zero(results);
 
-        // Go through all instances
-        auto ndev = circuit.deviceCount();
-        for(decltype(ndev) idev=0; idev<ndev; idev++) {
-            auto dev = circuit.device(idev);
-            auto nmod = dev->modelCount();
-            for(decltype(nmod) imod=0; imod<nmod; imod++) {
-                auto mod = dev->model(imod);
-                auto ninst = mod->instanceCount();
-                for(decltype(ninst) iinst=0; iinst<ninst; iinst++) {
-                    auto inst = mod->instance(iinst);
+        // Go through all instances with noise sources
+        for(auto& entry : noiseTable_.instances) {
+            auto inst = entry.inst;
+            auto nSources = entry.nSources;
 
-                    // Skip instances without noise sources
-                    auto nSources = inst->noiseSourceCount(); 
-                    if (nSources<=0) {
-                        continue;
-                    }
-
-                    // Instance name
-                    auto name = inst->name();
-
-                    if (debug>1) {
-                        Simulator::dbg() << "  instance '" << std::string(name) << "'\n";
-                    }
-
-                    // Collect noise excitations
-                    noiseDensity.resize(nSources);
-                    if (!inst->loadNoise(circuit, frequency, noiseDensity.data())) {
-                        errors.push(NoisePsdFailed{});
-                        if (debug>0) {
-                            Simulator::dbg() << "Failed to compute noise.\n";
-                        }
-                        error = true;
-                        break;
-                    }
-
-                    // Go through all noise sources
-                    double sourceContribution = 0.0;
-                    double totalInstanceContribution = 0.0;
-                    for(decltype(nSources) ndx=0; ndx<nSources; ndx++) {
-                        auto contrib = inst->noiseSourceName(ndx);
-                        
-                        auto it = contributionOffset.find({name, contrib});
-                        if (debug>1) {
-                            Simulator::dbg() << "    contribution '" << std::string(contrib) 
-                                             << "' psd=" << noiseDensity[ndx];
-                            if (it!=contributionOffset.end()) {
-                                Simulator::dbg() << " ndx=" << it->second;
-                            }
-                            Simulator::dbg() << "\n";
-                        }
-
-                        // Gain from noise source to output, from the adjoint solution
-                        auto [e1, e2] = inst->noiseExcitation(circuit, ndx);
-                        auto tf = acSolution[e1] - acSolution[e2];
-                        auto gain = std::abs(tf);
-                        gain *= gain;
-                        
-                        // Contribution - take absolute value of noise power spectral density (it may be negative). 2
-                        // See Coram et. al., Flicker Noise Formulations in Compact Models, IEEE TCAD, vol 39, 2020. 
-                        sourceContribution = gain * std::abs(noiseDensity[ndx]);
-                        totalInstanceContribution += sourceContribution;
-                        // Simulator::dbg() << "       src=" << sourceContribution << "  inst=" << totalInstanceContribution << "\n";
-
-                        // std::cout << "gain = " << gain << "\n";
-                        // std::cout << "src  = " << noiseDensity[ndx] << "\n";
-                        // std::cout << "out  = " << instanceContribution << "\n";
-
-                        // Add to source contribution
-                        if (it!=contributionOffset.end()) {
-                            // std::cout << "store: " << it->second << "\n";
-                            results[it->second] += sourceContribution;
-                            if (debug>1) {
-                                Simulator::dbg() << "      gain=" << gain << " total=" << results[it->second] << "\n";
-                            }
-                        }
-                    }
-                    // End of noise sources loop
-
-                    // Store total instance contribution
-                    auto it = contributionOffset.find({name, Id()});
-                    if (it!=contributionOffset.end()) {
-                        // std::cout << "store: " << it->second << "\n";
-                        results[it->second] = totalInstanceContribution;
-                        if (debug>1) {
-                            Simulator::dbg() << "    instance total=" << results[it->second] << "\n";
-                        }
-                    }
-
-                    // Add to output noise
-                    outputNoise += totalInstanceContribution;
-                    // std::cout << "total = " << outputNoise << "\n";
-
-                    if (error) {
-                        break;
-                    }
-                }
-                // End of instances loop
-
-                if (error) {
-                    break;
-                }
+            if (debug>1) {
+                Simulator::dbg() << "  instance '" << std::string(inst->name()) << "'\n";
             }
-            // End of models loop
 
-            if (error) {
+            // Collect noise excitations
+            if (!inst->loadNoise(circuit, frequency, noiseDensity.data())) {
+                errors.push(NoisePsdFailed{});
+                if (debug>0) {
+                    Simulator::dbg() << "Failed to compute noise.\n";
+                }
+                error = true;
                 break;
             }
+
+            // Go through all noise sources
+            auto sources = noiseTable_.sources.data() + entry.firstSource;
+            double sourceContribution = 0.0;
+            double totalInstanceContribution = 0.0;
+            for(decltype(nSources) ndx=0; ndx<nSources; ndx++) {
+                auto& src = sources[ndx];
+                if (debug>1) {
+                    Simulator::dbg() << "    contribution '" << std::string(inst->noiseSourceName(ndx)) 
+                                     << "' psd=" << noiseDensity[ndx];
+                    if (src.slot!=NoiseTable::noSlot) {
+                        Simulator::dbg() << " ndx=" << src.slot;
+                    }
+                    Simulator::dbg() << "\n";
+                }
+
+                // Gain from noise source to output, from the adjoint solution
+                auto tf = acSolution[src.e1] - acSolution[src.e2];
+                auto gain = std::abs(tf);
+                gain *= gain;
+                
+                // Contribution - take absolute value of noise power spectral density (it may be negative). 2
+                // See Coram et. al., Flicker Noise Formulations in Compact Models, IEEE TCAD, vol 39, 2020. 
+                sourceContribution = gain * std::abs(noiseDensity[ndx]);
+                totalInstanceContribution += sourceContribution;
+
+                // Add to source contribution
+                if (src.slot!=NoiseTable::noSlot) {
+                    results[src.slot] += sourceContribution;
+                    if (debug>1) {
+                        Simulator::dbg() << "      gain=" << gain << " total=" << results[src.slot] << "\n";
+                    }
+                }
+            }
+            // End of noise sources loop
+
+            // Store total instance contribution
+            if (entry.totalSlot!=NoiseTable::noSlot) {
+                results[entry.totalSlot] = totalInstanceContribution;
+                if (debug>1) {
+                    Simulator::dbg() << "    instance total=" << results[entry.totalSlot] << "\n";
+                }
+            }
+
+            // Add to output noise
+            outputNoise += totalInstanceContribution;
         }
-        // End of devices loop
+        // End of instances loop
         
         if (error) {
             break;

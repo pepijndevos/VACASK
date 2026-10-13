@@ -208,6 +208,7 @@ protected:
 
 private:
     HBNoiseUnknownNameResolver resolver_;
+    NoiseTable noiseTable_;
 
     ComplexSparseSolver* cxSolver_;
 };

@@ -214,6 +214,7 @@ protected:
 
 private:
     PNoiseUnknownNameResolver resolver_;
+    NoiseTable noiseTable_;
 
     ComplexSparseSolver* cxSolver_;
 };

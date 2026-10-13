@@ -279,6 +279,39 @@ bool AnalysisCore::addAllNoiseContribInst(const PTSave& save, bool details, Erro
     return true;
 }
 
+void AnalysisCore::buildNoiseTable(const std::unordered_map<std::pair<Id, Id>, size_t>& contributionOffset, NoiseTable& table) {
+    table.instances.clear();
+    table.sources.clear();
+    table.maxSources = 0;
+    auto lookup = [&](Id name, Id contrib) {
+        auto it = contributionOffset.find({name, contrib});
+        return it!=contributionOffset.end() ? it->second : NoiseTable::noSlot;
+    };
+    auto ndev = circuit.deviceCount();
+    for(decltype(ndev) idev=0; idev<ndev; idev++) {
+        auto dev = circuit.device(idev);
+        auto nmod = dev->modelCount();
+        for(decltype(nmod) imod=0; imod<nmod; imod++) {
+            auto mod = dev->model(imod);
+            auto ninst = mod->instanceCount();
+            for(decltype(ninst) iinst=0; iinst<ninst; iinst++) {
+                auto inst = mod->instance(iinst);
+                auto nSources = inst->noiseSourceCount();
+                if (nSources<=0) {
+                    continue;
+                }
+                auto name = inst->name();
+                table.instances.push_back({inst, nSources, table.sources.size(), lookup(name, Id()), inst->noiseModulationBase()});
+                for(decltype(nSources) ndx=0; ndx<nSources; ndx++) {
+                    auto [e1, e2] = inst->noiseExcitation(circuit, ndx);
+                    table.sources.push_back({e1, e2, lookup(name, inst->noiseSourceName(ndx)), inst->noiseSourceType(ndx)});
+                }
+                table.maxSources = std::max(table.maxSources, nSources);
+            }
+        }
+    }
+}
+
 bool AnalysisCore::addNoiseContribInst(const PTSave& save, bool details, ErrorConsumer& errors) {
     if (details) {
         // Expect only one argument (nc(a))

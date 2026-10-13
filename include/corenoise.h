@@ -182,6 +182,7 @@ protected:
 
 private:
     UnknownNameResolver resolver_;
+    NoiseTable noiseTable_;
 
     ComplexSparseSolver* cxSolver_;
 };

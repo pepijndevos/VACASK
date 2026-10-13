@@ -400,6 +400,8 @@ CoreCoroutine HBNoiseCore::coroutine(bool continuePrevious, ErrorConsumer& error
     }
     initProgress(sweeper.count(), 0);
 
+    buildNoiseTable(contributionOffset, noiseTable_);
+
     // Frequency sweep
     sweeper.reset();
     bool finished = false;
@@ -407,7 +409,7 @@ CoreCoroutine HBNoiseCore::coroutine(bool continuePrevious, ErrorConsumer& error
     std::stringstream ss;
     ss << std::scientific << std::setprecision(4);
     bool error = false;
-    Vector<double> noiseDensity;
+    Vector<double> noiseDensity(noiseTable_.maxSources*nf);
     Vector<Complex> zr(nf);
     Vector<Complex> wr(nf);
     do {
@@ -549,195 +551,160 @@ CoreCoroutine HBNoiseCore::coroutine(bool continuePrevious, ErrorConsumer& error
         auto& fundamentals = spurs_.fundamentals();
         auto minFundamental = *std::min_element(fundamentals.begin(), fundamentals.end());
 
-        // Go through all instances
-        auto ndev = circuit.deviceCount();
-        for(decltype(ndev) idev=0; idev<ndev; idev++) {
-            auto dev = circuit.device(idev);
-            auto nmod = dev->modelCount();
-            for(decltype(nmod) imod=0; imod<nmod; imod++) {
-                auto mod = dev->model(imod);
-                auto ninst = mod->instanceCount();
-                for(decltype(ninst) iinst=0; iinst<ninst; iinst++) {
-                    auto inst = mod->instance(iinst);
+        // Go through all instances with noise sources
+        for(auto& entry : noiseTable_.instances) {
+            auto inst = entry.inst;
+            auto nSources = entry.nSources;
+            auto sources = noiseTable_.sources.data() + entry.firstSource;
 
-                    // Skip instances without noise sources
-                    auto nSources = inst->noiseSourceCount();
-                    if (nSources<=0) {
-                        continue;
+            if (debug>1) {
+                Simulator::dbg() << "  instance '" << std::string(inst->name()) << "'\n";
+            }
+
+            // Base slot of this instance's modulated noise sources
+            auto noiseModBase = entry.noiseModBase;
+
+            // Loop through all frequencies, evaluate noise at each frequency
+            // Store in a vector with nf slots, one slot per one frequency.
+            // slot size equals number of noise sources.
+            auto& smsigFreq = spurs_.smsigFreq();
+            for (decltype(nf) i=0; i<nf; i++) {
+                auto freqAtSpur = std::abs(frequency + smsigFreq[i]);
+                // TODO: per noise source load in OSDI, compute only table noise
+                if (!inst->loadNoise(circuit, freqAtSpur, noiseDensity.data()+i*nSources)) {
+                    errors.push(HbNoisePsdFailed{});
+                    if (debug>0) {
+                        Simulator::dbg() << "Failed to compute noise.\n";
                     }
-
-                    // Instance name
-                    auto name = inst->name();
-
-                    if (debug>1) {
-                        Simulator::dbg() << "  instance '" << std::string(name) << "'\n";
-                    }
-
-                    // Base slot of this instance's modulated noise sources
-                    auto noiseModBase = inst->noiseModulationBase();
-
-                    // Loop through all frequencies, evaluate noise at each frequency
-                    // Store in a vector with nf slots, one slot per one frequency.
-                    // slot size equals number of noise sources.
-                    noiseDensity.resize(nSources*nf);
-                    auto& smsigFreq = spurs_.smsigFreq();
-                    for (decltype(nf) i=0; i<nf; i++) {
-                        auto freqAtSpur = std::abs(frequency + smsigFreq[i]);
-                        // TODO: per noise source load in OSDI, compute only table noise
-                        if (!inst->loadNoise(circuit, freqAtSpur, noiseDensity.data()+i*nSources)) {
-                            errors.push(HbNoisePsdFailed{});
-                            if (debug>0) {
-                                Simulator::dbg() << "Failed to compute noise.\n";
-                            }
-                            error = true;
-                            break;
-                        }
-                        // White/flicker noise is A/f^alpha. We absorbed A into the modulation function. 
-                        // All computations work with two-sided PSD. 
-                        // The fact that OSDI returns one-sided PSD was compensated in the 
-                        // modulation function when we absorbed A (see corehb.cpp). 
-                        // Overwrite white noise with 1 and flicker noise with 1/f^alpha
-                        auto modulatedNoiseSlot = noiseModBase;
-                        for (decltype(nSources) ndx=0; ndx<nSources; ndx++) {
-                            switch (inst->noiseSourceType(ndx)) {
-                                case NoiseType::White:
-                                    noiseDensity[i*nSources+ndx] = 1;
-                                    modulatedNoiseSlot++;
-                                    break;
-                                case NoiseType::Flicker:
-                                    // 1/f blows up (or overflows) where a spur lands on
-                                    // or near DC, i.e. the offset frequency equals or
-                                    // nearly equals a pump harmonic. Leave that spur out
-                                    // and warn below instead of propagating inf/nan.
-                                    if (freqAtSpur>freqTol*std::max(minFundamental, std::fabs(smsigFreq[i]))) {
-                                        auto ef = noiseExp[modulatedNoiseSlot];
-                                        noiseDensity[i*nSources+ndx] = std::pow(freqAtSpur, -ef);
-                                    } else {
-                                        noiseDensity[i*nSources+ndx] = 0;
-                                        flickerAtDc = true;
-                                    }
-                                    modulatedNoiseSlot++;
-                                    break;
-                                case NoiseType::Table:
-                                    // For table noise the modulation function is ma(t) = 1.
-                                    // We need to take into account that the returned PSD 
-                                    // is one-sided by dividing it with 2. 
-                                    noiseDensity[i*nSources+ndx] /= 2;
-                                    break;
-                                default:
-                                    break;
-                            }
-                        }
-                    }
-                    if (error) {
-                        break;
-                    }
-
-                    // Go through all noise sources
-                    double sourceContribution = 0.0;
-                    double totalInstanceContribution = 0.0;
-                    // Base slot of this instance's modulated noise sources;
-                    // modulatedNoiseSlot counts non-Table sources seen so far
-                    // (matches the order slots were allocated in, see setup())
-                    auto modulatedNoiseBase = inst->noiseModulationBase();
-                    GlobalStorageIndex modulatedNoiseSlot = 0;
-                    for(decltype(nSources) ndx=0; ndx<nSources; ndx++) {
-                        // Compute gain from noise source to output
-                        // We have the adjoint solution yr with n*nf components + bucket
-                        // Compute gain from noise source to output spur (zr) with nf components,
-                        // one per noise source spur.
-                        auto [e1, e2] = inst->noiseExcitation(circuit, ndx);
-                        VectorView<Complex> e1Spurs(acSolution, e1*nf, nf, 1);
-                        VectorView<Complex> e2Spurs(acSolution, e2*nf, nf, 1);
-                        VectorView<Complex> zrView(zr);
-                        zrView.vectorPlusScaledVector(e1Spurs, e2Spurs, -1);
-
-                        // Compute wr = M^H zr^conj with nf components, without assembling M
-                        bool isTable = inst->noiseSourceType(ndx)==NoiseType::Table;
-                        if (!isTable && modulatedNoiseBase!=SIM_SIZE_T_MAX) {
-                            // Slots of size nf, stride 1
-                            auto mSlotBase = (modulatedNoiseBase+modulatedNoiseSlot)*nf;
-                            VectorView sourceModulationSpectrum(noiseModulationSpec, mSlotBase, nf, 1);
-                            applyModulationAdjoint(spurs_, sourceModulationSpectrum, zr, wr);
-                        } else {
-                            // No modulation function (Table-type source): M = I
-                            for (decltype(nf) m=0; m<nf; m++) {
-                                wr[m] = std::conj(zr[m]);
-                            }
-                        }
-                        if (!isTable) {
-                            modulatedNoiseSlot++;
-                        }
-
-                        // Compute sum_i |wr_i|^2 RN_{ii}
-                        // RN is a diagonal matrix holding PSDs at spur frequencies
-                        // We never form it. We get its diagonal from noiseDensity.
-                        sourceContribution = 0.0;
-                        // Offset is noise source index, length is nf, stride is nSources 
-                        VectorView psdAtSpur(noiseDensity, ndx, nf, nSources);
-                        for (decltype(nf) i=0; i<nf; i++) {
-                            auto w = std::abs(wr[i]);
-                            sourceContribution += w*w*psdAtSpur[i];
-                        }
-
-                        // We just computed two-sided PSD. We need to return the one-sided PSD. 
-                        sourceContribution *= 2;
-
-                        // Find slot to which we store the contribution of this noise source
-                        auto contrib = inst->noiseSourceName(ndx);
-                        auto it = contributionOffset.find({name, contrib});
-                        if (it!=contributionOffset.end()) {
-                            // Store contribution
-                            results[it->second] += sourceContribution;
-                        }
-                        if (debug>1) {
-                            // Name and output PSD, index, if saved
-                            Simulator::dbg() << "    contribution '" << std::string(contrib) 
-                                             << "' output psd=" << sourceContribution;
-                            if (it!=contributionOffset.end()) {
-                                Simulator::dbg() << " ndx=" << it->second;
-                            }
-                            Simulator::dbg() << "\n";
-                            if (it!=contributionOffset.end()) {
-                                // Running sum over contributions with same name
-                                Simulator::dbg() << "      total=" << results[it->second] << "\n";
-                            }
-                        }
-
-                        // Add to instance contribution
-                        totalInstanceContribution += sourceContribution;
-                    }
-                    // End of noise sources loop
-
-                    // Store total instance contribution
-                    auto it = contributionOffset.find({name, Id()});
-                    if (it!=contributionOffset.end()) {
-                        results[it->second] = totalInstanceContribution;
-                        if (debug>1) {
-                            Simulator::dbg() << "    instance total=" << results[it->second] << "\n";
-                        }
-                    }
-
-                    // Add to output noise
-                    outputNoise += totalInstanceContribution;
-
-                    if (error) {
-                        break;
-                    }
-                }
-                // End of instances loop
-
-                if (error) {
+                    error = true;
                     break;
                 }
+                // White/flicker noise is A/f^alpha. We absorbed A into the modulation function. 
+                // All computations work with two-sided PSD. 
+                // The fact that OSDI returns one-sided PSD was compensated in the 
+                // modulation function when we absorbed A (see corehb.cpp). 
+                // Overwrite white noise with 1 and flicker noise with 1/f^alpha
+                auto modulatedNoiseSlot = noiseModBase;
+                for (decltype(nSources) ndx=0; ndx<nSources; ndx++) {
+                    switch (sources[ndx].type) {
+                        case NoiseType::White:
+                            noiseDensity[i*nSources+ndx] = 1;
+                            modulatedNoiseSlot++;
+                            break;
+                        case NoiseType::Flicker:
+                            // 1/f blows up (or overflows) where a spur lands on
+                            // or near DC, i.e. the offset frequency equals or
+                            // nearly equals a pump harmonic. Leave that spur out
+                            // and warn below instead of propagating inf/nan.
+                            if (freqAtSpur>freqTol*std::max(minFundamental, std::fabs(smsigFreq[i]))) {
+                                auto ef = noiseExp[modulatedNoiseSlot];
+                                noiseDensity[i*nSources+ndx] = std::pow(freqAtSpur, -ef);
+                            } else {
+                                noiseDensity[i*nSources+ndx] = 0;
+                                flickerAtDc = true;
+                            }
+                            modulatedNoiseSlot++;
+                            break;
+                        case NoiseType::Table:
+                            // For table noise the modulation function is ma(t) = 1.
+                            // We need to take into account that the returned PSD 
+                            // is one-sided by dividing it with 2. 
+                            noiseDensity[i*nSources+ndx] /= 2;
+                            break;
+                        default:
+                            break;
+                    }
+                }
             }
-            // End of models loop
-
             if (error) {
                 break;
             }
+
+            // Go through all noise sources
+            double sourceContribution = 0.0;
+            double totalInstanceContribution = 0.0;
+            // Base slot of this instance's modulated noise sources;
+            // modulatedNoiseSlot counts non-Table sources seen so far
+            // (matches the order slots were allocated in, see setup())
+            auto modulatedNoiseBase = entry.noiseModBase;
+            GlobalStorageIndex modulatedNoiseSlot = 0;
+            for(decltype(nSources) ndx=0; ndx<nSources; ndx++) {
+                // Compute gain from noise source to output
+                // We have the adjoint solution yr with n*nf components + bucket
+                // Compute gain from noise source to output spur (zr) with nf components,
+                // one per noise source spur.
+                auto& src = sources[ndx];
+                VectorView<Complex> e1Spurs(acSolution, src.e1*nf, nf, 1);
+                VectorView<Complex> e2Spurs(acSolution, src.e2*nf, nf, 1);
+                VectorView<Complex> zrView(zr);
+                zrView.vectorPlusScaledVector(e1Spurs, e2Spurs, -1);
+
+                // Compute wr = M^H zr^conj with nf components, without assembling M
+                bool isTable = src.type==NoiseType::Table;
+                if (!isTable && modulatedNoiseBase!=SIM_SIZE_T_MAX) {
+                    // Slots of size nf, stride 1
+                    auto mSlotBase = (modulatedNoiseBase+modulatedNoiseSlot)*nf;
+                    VectorView sourceModulationSpectrum(noiseModulationSpec, mSlotBase, nf, 1);
+                    applyModulationAdjoint(spurs_, sourceModulationSpectrum, zr, wr);
+                } else {
+                    // No modulation function (Table-type source): M = I
+                    for (decltype(nf) m=0; m<nf; m++) {
+                        wr[m] = std::conj(zr[m]);
+                    }
+                }
+                if (!isTable) {
+                    modulatedNoiseSlot++;
+                }
+
+                // Compute sum_i |wr_i|^2 RN_{ii}
+                // RN is a diagonal matrix holding PSDs at spur frequencies
+                // We never form it. We get its diagonal from noiseDensity.
+                sourceContribution = 0.0;
+                // Offset is noise source index, length is nf, stride is nSources 
+                VectorView psdAtSpur(noiseDensity, ndx, nf, nSources);
+                for (decltype(nf) i=0; i<nf; i++) {
+                    auto w = std::abs(wr[i]);
+                    sourceContribution += w*w*psdAtSpur[i];
+                }
+
+                // We just computed two-sided PSD. We need to return the one-sided PSD. 
+                sourceContribution *= 2;
+
+                if (src.slot!=NoiseTable::noSlot) {
+                    // Store contribution
+                    results[src.slot] += sourceContribution;
+                }
+                if (debug>1) {
+                    // Name and output PSD, index, if saved
+                    Simulator::dbg() << "    contribution '" << std::string(inst->noiseSourceName(ndx)) 
+                                     << "' output psd=" << sourceContribution;
+                    if (src.slot!=NoiseTable::noSlot) {
+                        Simulator::dbg() << " ndx=" << src.slot;
+                    }
+                    Simulator::dbg() << "\n";
+                    if (src.slot!=NoiseTable::noSlot) {
+                        // Running sum over contributions with same name
+                        Simulator::dbg() << "      total=" << results[src.slot] << "\n";
+                    }
+                }
+
+                // Add to instance contribution
+                totalInstanceContribution += sourceContribution;
+            }
+            // End of noise sources loop
+
+            // Store total instance contribution
+            if (entry.totalSlot!=NoiseTable::noSlot) {
+                results[entry.totalSlot] = totalInstanceContribution;
+                if (debug>1) {
+                    Simulator::dbg() << "    instance total=" << results[entry.totalSlot] << "\n";
+                }
+            }
+
+            // Add to output noise
+            outputNoise += totalInstanceContribution;
         }
-        // End of devices loop
+        // End of instances loop
 
         if (error) {
             break;
