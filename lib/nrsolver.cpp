@@ -179,7 +179,12 @@ bool NRSolver::run(bool continuePrevious, ErrorConsumer& errors) {
         }
         if (bucketSize_>0) {
             // Set RHS bucket to 0
-            VectorView(delta, bucketSize_) = 0.0;
+            // HB carries one bucket entry per timepoint, BLAS pays off there
+            if (bucketSize_==1) {
+                delta[0] = 0.0;
+            } else {
+                VectorView(delta, bucketSize_) = 0.0;
+            }
         }
 
         // Check if system is finite
@@ -305,8 +310,13 @@ bool NRSolver::run(bool continuePrevious, ErrorConsumer& errors) {
         
         // Set solution delta and new solution bucket to 0. 
         if (bucketSize_>0) {
-            VectorView(delta, bucketSize_) = 0.0;
-            VectorView(solution.futureVector(), bucketSize_) = 0.0;
+            if (bucketSize_==1) {
+                delta[0] = 0.0;
+                solution.futureVector()[0] = 0.0;
+            } else {
+                VectorView(delta, bucketSize_) = 0.0;
+                VectorView(solution.futureVector(), bucketSize_) = 0.0;
+            }
         }
 
         // std::cout << "Negative solution delta at iteration " << iteration << "\n";
