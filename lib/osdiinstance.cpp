@@ -1355,16 +1355,16 @@ bool OsdiInstance::evalCore(Circuit& circuit, CommonData& commons, OsdiSimInfo& 
             clearFlags(Flags::LimitingApplied);
         }
 
-        if (evalFlags & EVAL_RET_FLAG_FATAL) {
+        if (evalFlags & EVAL_RET_FLAG_FATAL) [[unlikely]] {
             // Fatal error occurred, must abort simulation. 
             evalSetup.threadData().requests.abort = true;
         } 
-        if (evalFlags & EVAL_RET_FLAG_FINISH) {
+        if (evalFlags & EVAL_RET_FLAG_FINISH) [[unlikely]] {
             // $finish was called asking the simulator to finish simulation 
             // (exit gracefully) if the current iteration converged. 
             evalSetup.threadData().requests.finish = true;
         } 
-        if (evalFlags & EVAL_RET_FLAG_STOP) {
+        if (evalFlags & EVAL_RET_FLAG_STOP) [[unlikely]] {
             // $stop was called asking the simulator to pause the simulation
             // if the current iteration converged. 
             evalSetup.threadData().requests.stop = true;
