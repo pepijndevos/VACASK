@@ -20,7 +20,8 @@ a mention, send me an email.
   Python bindings. 
 - Niko Savola &lt;niko.savola@aalto.fi&gt;  
   Code modernization (override, RAII FFTW plans, named casts, smart-pointer 
-  ownership), error handling. 
+  ownership), error handling, performance optimizations (NR loop, OSDI 
+  evaluation and loading). 
 - Pepijn de Vos &lt;pepijndevos@gmail.com&gt; (also &lt;pepijn@gdsfactory.com&gt;)  
   macOS support, CI/CD, foreign (Cadnip) parsers. 
 - Alfonso Cortés Neira &lt;alfonso.2.7@hotmail.com&gt;  
