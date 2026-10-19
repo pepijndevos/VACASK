@@ -141,7 +141,7 @@ public:
     enum class StbResult {
         Wf=0, Wr, W, y11, y12, y21, y22, COUNT
     };
-    static constexpr int to_int(StbResult res) { return static_cast<int>(res); };
+    static SIM_CONSTEVAL int to_int(StbResult res) { return static_cast<int>(res); };
        
     ACStbCore(
         OutputDescriptorResolver& parentResolver, ACStbParameters& params, OperatingPointCore& opCore, Circuit& circuit,

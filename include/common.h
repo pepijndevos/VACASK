@@ -11,6 +11,19 @@
 #include <xmmintrin.h>
 #endif
 
+// consteval and constinit, with fallbacks for toolchains that lack them in C++20 mode
+#if defined(__cpp_consteval)
+#define SIM_CONSTEVAL consteval
+#else
+#define SIM_CONSTEVAL constexpr
+#endif
+
+#if defined(__cpp_constinit)
+#define SIM_CONSTINIT constinit
+#else
+#define SIM_CONSTINIT
+#endif
+
 
 namespace NAMESPACE {
 

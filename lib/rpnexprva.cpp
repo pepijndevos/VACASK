@@ -53,7 +53,7 @@ typedef std::tuple<bool, std::string> (*VAFuncTranslator)(SStack& stack, size_t 
 template<std::size_t N>
 struct FixedString {
     char value[N] = {};
-    constexpr FixedString(const char (&str)[N]) {
+    SIM_CONSTEVAL FixedString(const char (&str)[N]) {
         for (std::size_t i=0; i<N; i++) {
             value[i] = str[i];
         }

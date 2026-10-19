@@ -217,7 +217,7 @@ public:
     std::string typeName() { return typeCodeToName(type_); };
 
     // Type code from type
-    template<typename T> static Type typeCode();
+    template<typename T> static SIM_CONSTEVAL Type typeCode();
 
     // Type code to name
     static std::string typeCodeToName(Type t);
@@ -282,15 +282,15 @@ template<> inline const StringVector& Value::val<const StringVector>() const { r
 template<> inline const ValueVector& Value::val<const ValueVector>() const { return *vVec; }
 
 // Conversion of type to type code
-template<> inline Value::Type Value::typeCode<Int>() { return Value::Type::Int; }
-template<> inline Value::Type Value::typeCode<Real>() { return Value::Type::Real; }
-template<> inline Value::Type Value::typeCode<String>() { return Value::Type::String; }
-template<> inline Value::Type Value::typeCode<IntVector>() { return Value::Type::IntVec; }
-template<> inline Value::Type Value::typeCode<RealVector>() { return Value::Type::RealVec; }
-template<> inline Value::Type Value::typeCode<StringVector>() { return Value::Type::StringVec; }
+template<> SIM_CONSTEVAL Value::Type Value::typeCode<Int>() { return Value::Type::Int; }
+template<> SIM_CONSTEVAL Value::Type Value::typeCode<Real>() { return Value::Type::Real; }
+template<> SIM_CONSTEVAL Value::Type Value::typeCode<String>() { return Value::Type::String; }
+template<> SIM_CONSTEVAL Value::Type Value::typeCode<IntVector>() { return Value::Type::IntVec; }
+template<> SIM_CONSTEVAL Value::Type Value::typeCode<RealVector>() { return Value::Type::RealVec; }
+template<> SIM_CONSTEVAL Value::Type Value::typeCode<StringVector>() { return Value::Type::StringVec; }
 
-template<> inline Value::Type Value::typeCode<Value>() { return Value::Type::Value; }
-template<> inline Value::Type Value::typeCode<ValueVector>() { return Value::Type::ValueVec; }
+template<> SIM_CONSTEVAL Value::Type Value::typeCode<Value>() { return Value::Type::Value; }
+template<> SIM_CONSTEVAL Value::Type Value::typeCode<ValueVector>() { return Value::Type::ValueVec; }
 
 // Conversion of type code to type
 // Specialize Value::TypeTag_ for all available types

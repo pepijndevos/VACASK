@@ -226,8 +226,8 @@ private:
 struct OutputDescriptor {
     using Type = uint8_t;
     using NdxType = uint32_t;
-    static constexpr Type CommonMask() { return 2<<6; };
-    static constexpr Type CustomMask() { return 1<<6; }; 
+    static SIM_CONSTEVAL Type CommonMask() { return 2<<6; };
+    static SIM_CONSTEVAL Type CustomMask() { return 1<<6; }; 
 
     OutputDescriptor(Type t, Id outputName);
     OutputDescriptor(Type t, Id outputName, size_t n);

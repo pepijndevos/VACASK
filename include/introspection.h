@@ -22,20 +22,20 @@ typedef struct StructMember {
     
     StructMember(Id n, Type t, size_t o) : name(n), type(t), offset(o) {};
 
-    template<typename T> static Type typeCode() { return Type::Int; };
+    template<typename T> static SIM_CONSTEVAL Type typeCode() { return Type::Int; };
     static Value::Type valueType(Type t);
 } StructMember;
 
-template<> inline StructMember::Type StructMember::typeCode<Int>() { return StructMember::Type::Int; }; 
-template<> inline StructMember::Type StructMember::typeCode<Real>() { return StructMember::Type::Real; }; 
-template<> inline StructMember::Type StructMember::typeCode<String>() { return StructMember::Type::String; }; 
-template<> inline StructMember::Type StructMember::typeCode<Id>() { return StructMember::Type::Id; }; 
-template<> inline StructMember::Type StructMember::typeCode<IntVector>() { return StructMember::Type::IntVec; }; 
-template<> inline StructMember::Type StructMember::typeCode<RealVector>() { return StructMember::Type::RealVec; }; 
-template<> inline StructMember::Type StructMember::typeCode<StringVector>() { return StructMember::Type::StringVec; }; 
-template<> inline StructMember::Type StructMember::typeCode<std::vector<Id>>() { return StructMember::Type::IdVec; }; 
-template<> inline StructMember::Type StructMember::typeCode<Value>() { return StructMember::Type::Value; }; 
-template<> inline StructMember::Type StructMember::typeCode<ValueVector>() { return StructMember::Type::ValueVec; }; 
+template<> SIM_CONSTEVAL StructMember::Type StructMember::typeCode<Int>() { return StructMember::Type::Int; }; 
+template<> SIM_CONSTEVAL StructMember::Type StructMember::typeCode<Real>() { return StructMember::Type::Real; }; 
+template<> SIM_CONSTEVAL StructMember::Type StructMember::typeCode<String>() { return StructMember::Type::String; }; 
+template<> SIM_CONSTEVAL StructMember::Type StructMember::typeCode<Id>() { return StructMember::Type::Id; }; 
+template<> SIM_CONSTEVAL StructMember::Type StructMember::typeCode<IntVector>() { return StructMember::Type::IntVec; }; 
+template<> SIM_CONSTEVAL StructMember::Type StructMember::typeCode<RealVector>() { return StructMember::Type::RealVec; }; 
+template<> SIM_CONSTEVAL StructMember::Type StructMember::typeCode<StringVector>() { return StructMember::Type::StringVec; }; 
+template<> SIM_CONSTEVAL StructMember::Type StructMember::typeCode<std::vector<Id>>() { return StructMember::Type::IdVec; }; 
+template<> SIM_CONSTEVAL StructMember::Type StructMember::typeCode<Value>() { return StructMember::Type::Value; }; 
+template<> SIM_CONSTEVAL StructMember::Type StructMember::typeCode<ValueVector>() { return StructMember::Type::ValueVec; }; 
 
 
 template<typename T> class Introspection {
