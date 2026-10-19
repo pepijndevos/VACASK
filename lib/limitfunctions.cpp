@@ -10,7 +10,7 @@ namespace NAMESPACE {
 #define MAX(a,b) (((a)>(b))?(a):(b))
 #define MIN(a,b) (((a)<(b))?(a):(b))
 
-double voltagelimit_option;	// For voltage limiting.
+SIM_CONSTINIT double voltagelimit_option;	// For voltage limiting.
 
 // Function limits the value to voltagelimit option value. Voltage limiting is
 // performed only is voltagelimit is greater than zero.
@@ -221,7 +221,7 @@ double DEVfetlim(double vnew, double vold, double vto) {
  * Logarithmic damping the per-iteration change of deltemp beyond LIM_TOL.
  */
 double DEVlimitlog(double deltemp, double deltemp_old, double LIM_TOL, int *check) {
-    static int shown = 0;
+    static SIM_CONSTINIT int shown = 0;
     *check = 0;
     if (!shown && (isnan (deltemp) || isnan (deltemp_old))) {
         Simulator::wrn() << "\n\nThe temperature limiting function received NaN.\n";

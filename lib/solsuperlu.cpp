@@ -27,9 +27,9 @@ void IEnvData::setBlockSize(UnknownIndex blockSize) {
     maxSize = ((200 + blockSize - 1) / blockSize) * blockSize;
 };
 
-static IEnvData defaultData;
+static SIM_CONSTINIT IEnvData defaultData;
 
-IEnvData* IEnvData::activeData = &defaultData;
+SIM_CONSTINIT IEnvData* IEnvData::activeData = &defaultData;
 
 }
 

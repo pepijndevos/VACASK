@@ -20,7 +20,7 @@ extern std::ostream *osdiErrStreamPtr;
 extern const OsdiLimitFunction* osdiLimitFunctionTable;
 
 std::unordered_map<void*,std::unique_ptr<OsdiFile>> OsdiFile::registry;
-std::vector<OsdiFile*>OsdiFile::fileOrder;
+SIM_CONSTINIT std::vector<OsdiFile*> OsdiFile::fileOrder;
 std::unordered_map<std::string,OsdiFile*> OsdiFile::nameToFile;
 
 static void toLowercase(std::string& s) { 

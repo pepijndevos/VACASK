@@ -302,7 +302,7 @@ void Instance::HierarchicalIterator::stopDescent() {
     forcePeer = true;
 }
 
-ValueVector Instance::dummyValueVector = ValueVector({});
-RealVector Instance::dummyRealVector = RealVector({});
+SIM_CONSTINIT ValueVector Instance::dummyValueVector;
+SIM_CONSTINIT RealVector Instance::dummyRealVector;
 
 }

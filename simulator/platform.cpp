@@ -15,9 +15,9 @@
 
 namespace NAMESPACE {
 
-std::string Platform::openVaf_;
-std::vector<std::string> Platform::openVafArgs_;
-std::string Platform::pythonExecutable_;
+SIM_CONSTINIT std::string Platform::openVaf_;
+SIM_CONSTINIT std::vector<std::string> Platform::openVafArgs_;
+SIM_CONSTINIT std::string Platform::pythonExecutable_;
 
 void Platform::setup() {
     // Default OpenVAF

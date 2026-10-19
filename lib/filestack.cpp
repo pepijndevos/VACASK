@@ -8,8 +8,8 @@
 namespace NAMESPACE {
 
 std::unordered_map<FileStackIndex,FileStack*> FileStack::idToFs;
-FileStackIndex FileStack::at = 1;    // Skip badFileStackId
-FileStackIndex FileStack::count = 0;
+SIM_CONSTINIT FileStackIndex FileStack::at = 1;    // Skip badFileStackId
+SIM_CONSTINIT FileStackIndex FileStack::count = 0;
 
 const FileStackFileIndex FileStack::badFileId = std::numeric_limits<FileStackFileIndex>::max();
 

@@ -6,9 +6,7 @@
 
 namespace NAMESPACE {
 
-using namespace std::complex_literals;
-
-Complex OutputSource::defaultBad = 0.0 + 0.0i; 
+SIM_CONSTINIT Complex OutputSource::defaultBad = Complex(0.0, 0.0);
 
 OutputDescriptor::OutputDescriptor(Type t, Id outputName) : type(t), name(outputName) {
 }

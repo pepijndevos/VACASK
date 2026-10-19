@@ -38,22 +38,22 @@ public:
 static NullBuffer nullBuff; 
 std::ostream Simulator::nullStream(&nullBuff);
 
-std::string Simulator::startupPath_;
-std::ostream* Simulator::out_ = &std::cout;
-std::ostream* Simulator::err_ = &std::cout;
-std::ostream* Simulator::dbg_ = &std::cout;
-std::ostream* Simulator::wrn_ = &std::cout;
+SIM_CONSTINIT std::string Simulator::startupPath_;
+SIM_CONSTINIT std::ostream* Simulator::out_ = &std::cout;
+SIM_CONSTINIT std::ostream* Simulator::err_ = &std::cout;
+SIM_CONSTINIT std::ostream* Simulator::dbg_ = &std::cout;
+SIM_CONSTINIT std::ostream* Simulator::wrn_ = &std::cout;
 
-std::vector<std::string> Simulator::modulePath_;
-std::vector<std::string> Simulator::includePath_;
+SIM_CONSTINIT std::vector<std::string> Simulator::modulePath_;
+SIM_CONSTINIT std::vector<std::string> Simulator::includePath_;
 
-bool Simulator::fileDebug_ = false;
-bool Simulator::noOutput_ = false;
+SIM_CONSTINIT bool Simulator::fileDebug_ = false;
+SIM_CONSTINIT bool Simulator::noOutput_ = false;
 
-bool Simulator::setupDone_ = false;
-bool Simulator::setupOk_ = false;
+SIM_CONSTINIT bool Simulator::setupDone_ = false;
+SIM_CONSTINIT bool Simulator::setupOk_ = false;
 
-int Simulator::ncpu_ = 1;
+SIM_CONSTINIT int Simulator::ncpu_ = 1;
 
 void Simulator::setStreams(std::ostream& output, std::ostream& error, std::ostream& debug) {
     Simulator::out_ = &output;
@@ -99,7 +99,7 @@ bool Simulator::setup(
         // index them out of bounds
         if (ncpu>1) {
             // Report the clamp once, setup() can be called repeatedly
-            static bool clampReported = false;
+            static SIM_CONSTINIT bool clampReported = false;
             if (!clampReported) {
                 wrn() << "Built without OpenMP, clamping CPU request of " << ncpu << " to 1.\n";
                 clampReported = true;
