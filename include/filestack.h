@@ -52,7 +52,7 @@ public:
     static const FileStackIndex maxFileStackId = std::numeric_limits<FileStackIndex>::max();
     static const FileStackIndex badFileStackId = 0;
     static const FileStackFileIndex maxFileId = (std::numeric_limits<FileStackFileIndex>::max()-1)/2;
-    static const FileStackFileIndex badFileId;
+    static const FileStackFileIndex badFileId = std::numeric_limits<FileStackFileIndex>::max();
     
     FileStack();
     ~FileStack();

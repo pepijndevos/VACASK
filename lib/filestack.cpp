@@ -11,7 +11,7 @@ std::unordered_map<FileStackIndex,FileStack*> FileStack::idToFs;
 SIM_CONSTINIT FileStackIndex FileStack::at = 1;    // Skip badFileStackId
 SIM_CONSTINIT FileStackIndex FileStack::count = 0;
 
-const FileStackFileIndex FileStack::badFileId = std::numeric_limits<FileStackFileIndex>::max();
+const FileStackFileIndex FileStack::badFileId;
 
 const std::string FileStack::blankString = "";
 

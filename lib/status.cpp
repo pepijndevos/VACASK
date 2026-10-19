@@ -7,7 +7,7 @@
 
 namespace NAMESPACE {
 
-Status Status::ignore = Status(true);
+SIM_CONSTINIT Status Status::ignore = Status(true);
 
 void Status::set(Code c, const std::string& msg) { 
     if (!ignoreFlag) {

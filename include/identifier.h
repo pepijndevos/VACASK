@@ -41,10 +41,10 @@ struct CstrLess {
 class Id {
 public:
     // Construct id from integer
-    explicit inline Id(IdentifierIndex n) : id_(n) {};
+    explicit constexpr Id(IdentifierIndex n) : id_(n) {};
 
     // Default constructor constructs none identifier
-    inline Id() : Id(bad) {};
+    constexpr Id() : Id(bad) {};
 
     // Construct an id from string, copy string
     Id(const std::string& s);
@@ -120,7 +120,7 @@ private:
     static IdentifierIndex nextStatic;
 
 #ifdef SIMDEBUG
-    const char* str; 
+    const char* str {};
 #endif
 };
 

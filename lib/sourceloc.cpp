@@ -8,11 +8,7 @@
 
 namespace NAMESPACE {
 
-const Loc Loc::bad = Loc();
-
-Loc::Loc() 
-    : entry(Entry(FileStack::badFileStackId, FileStack::badFileId, 0, 0)) {
-}
+SIM_CONSTINIT const Loc Loc::bad = Loc();
 
 void Loc::addEntry(FileStackIndex fs, FileStackFileIndex file, SourceLineNumber l, SourceColumnNumber o) {
     entry = Entry(fs, file, l, o);

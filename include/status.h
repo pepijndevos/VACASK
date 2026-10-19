@@ -40,7 +40,7 @@ public:
         InternalError
     };
 
-    inline Status(bool ignoreFlag=false) : ignoreFlag(ignoreFlag), error(false) {};
+    constexpr Status(bool ignoreFlag=false) : ignoreFlag(ignoreFlag), error(false) {};
     
     Status           (const Status&)  = delete;
     Status           (      Status&&) = default;

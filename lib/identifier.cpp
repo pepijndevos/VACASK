@@ -117,7 +117,7 @@ Id Id::createStatic(const char* s) {
     return id;
 }
 
-const Id Id::none = Id();
+SIM_CONSTINIT const Id Id::none = Id();
 
 std::ostream& operator<<(std::ostream& os, const Id& id) {
     os << std::string(id);

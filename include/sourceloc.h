@@ -27,8 +27,8 @@ public:
         FileStackFileIndex fileId_;
         SourceLineNumber line_;
         SourceColumnNumber offset_;
-        Entry() : fileStackId_(FileStack::badFileStackId), fileId_(FileStack::badFileId), line_(0), offset_(0) {};
-        Entry(FileStackIndex fileStackId, FileStackFileIndex fileId, SourceLineNumber line, SourceColumnNumber offset) 
+        constexpr Entry() : fileStackId_(FileStack::badFileStackId), fileId_(FileStack::badFileId), line_(0), offset_(0) {};
+        constexpr Entry(FileStackIndex fileStackId, FileStackFileIndex fileId, SourceLineNumber line, SourceColumnNumber offset) 
             : fileStackId_(fileStackId), fileId_(fileId), line_(line), offset_(offset) {};
     } Entry;
 
@@ -38,7 +38,7 @@ public:
     Loc& operator=(      Loc&&) = default;
 
     // Default constructor creates a bad location object
-    Loc();
+    constexpr Loc() : entry() {};
 
     // Constructs a Loc object from FileStack id, file id, line, and column
     Loc(FileStackIndex fs, FileStackFileIndex file, SourceLineNumber l, SourceColumnNumber offset);

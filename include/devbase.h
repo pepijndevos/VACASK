@@ -60,7 +60,7 @@ public:
         size_t model;
         size_t instance;
 
-        EvalPtr(size_t model, size_t instance) : model(model), instance(instance) {};
+        constexpr EvalPtr(size_t model, size_t instance) : model(model), instance(instance) {};
         
         static const EvalPtr begin;
         static const EvalPtr end;

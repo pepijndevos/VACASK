@@ -65,10 +65,10 @@ bool Simulator::setup(int ncpu, int blasNcpu, Status& s) {
     return setup("", "", ncpu, blasNcpu, s);
 }
 
-Id Simulator::defaultTdSolverId = Id();
-Id Simulator::defaultSmsigSolverId = Id();
-Id Simulator::defaultHbSolverId = Id();
-Id Simulator::defaultQpsmsigSolverId = Id();
+SIM_CONSTINIT Id Simulator::defaultTdSolverId = Id();
+SIM_CONSTINIT Id Simulator::defaultSmsigSolverId = Id();
+SIM_CONSTINIT Id Simulator::defaultHbSolverId = Id();
+SIM_CONSTINIT Id Simulator::defaultQpsmsigSolverId = Id();
 
 bool Simulator::setup(
     const std::string& moduleFilePathString, 
