@@ -68,7 +68,7 @@ private:
     static int isRegistered;
 };
 
-template<typename T> std::vector<StructMember> Introspection<T>::members;
+template<typename T> SIM_CONSTINIT std::vector<StructMember> Introspection<T>::members;
 template<typename T> std::unordered_map<Id,size_t> Introspection<T>::memberIndex;
 
 // Macro for registering a struct member

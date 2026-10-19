@@ -32,8 +32,8 @@ std::deque<const char*>& Id::staticIndexToName() {
     return internal;
 }
 
-IdentifierIndex Id::nextOrdinary = 1;
-IdentifierIndex Id::nextStatic = Id::maxValidIdentifierIndex; 
+SIM_CONSTINIT IdentifierIndex Id::nextOrdinary = 1;
+SIM_CONSTINIT IdentifierIndex Id::nextStatic = Id::maxValidIdentifierIndex; 
 
 void Id::constructorHelper(const char *s, size_t n, bool makeStatic) {
     // An empty name is the bad (none) identifier. This keeps Id("") == Id() and

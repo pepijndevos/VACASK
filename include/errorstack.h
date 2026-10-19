@@ -48,15 +48,15 @@ struct ErrorInfo {
 };
 
 // The registry and the running maxima over all registered error types.
-inline std::vector<ErrorInfo>& error_registry() { static std::vector<ErrorInfo> r; return r; }
-inline std::size_t& max_size()  { static std::size_t s = 0; return s; }
-inline std::size_t& max_align() { static std::size_t a = 0; return a; }
+inline std::vector<ErrorInfo>& error_registry() { static SIM_CONSTINIT std::vector<ErrorInfo> r; return r; }
+inline std::size_t& max_size()  { static SIM_CONSTINIT std::size_t s = 0; return s; }
+inline std::size_t& max_align() { static SIM_CONSTINIT std::size_t a = 0; return a; }
 
 // Base class of every error type. Carries the sentinel code: -1 until the type
 // is registered, then its registry index.
 template <typename T>
 struct RegisteredError {
-    static inline int code = -1;
+    static inline SIM_CONSTINIT int code = -1;
 };
 
 // Register error type T. Idempotent: safe to call more than once.
