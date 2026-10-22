@@ -449,8 +449,6 @@ public:
     // Helpers 
     // Collapse two nodes, if second node is nullptr, the first node is collapsed to ground
     bool collapseNodes(Node* n1, Node* n2, Status& s=Status::ignore);
-    // Find the root of the union-find tree the unknown belongs to
-    UnknownIndex collapseFind(UnknownIndex u);
     // Allocate Jacobian entry at row and column corresponding to nodes ne and nu
     // Returns 
     // - pointer to integer where matrix entry index will be found 
@@ -539,6 +537,9 @@ private:
     // Remove node from map and delete it regardless of its ref count
     bool remove(Node* node, Status& s=Status::ignore);
 
+    // Find the root of the union-find tree the unknown belongs to
+    UnknownIndex collapseFind(UnknownIndex u);
+    
     // Check if new options values require us to check if hierarchy changed
     bool hierarchyAffectingOptionsChanged(SimulatorOptions& opt);
 
