@@ -388,7 +388,11 @@ std::tuple<bool, bool> TranNRSolver::checkResidual() {
     maxNormResidual = 0.0;
     l2normResidual2 = 0.0;
     maxResidualNode = nullptr;
-    
+
+    // From here on maxResidual/maxResidualNode hold well-defined values, so
+    // the convergence report can safely include them.
+    residualCheckValid = true;
+
     // Assume residual is OK
     residualWithinTol = true;
     
