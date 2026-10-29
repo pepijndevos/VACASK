@@ -1,4 +1,5 @@
 #include "rpnbuiltin.h"
+#include "fileread.h"
 #include <algorithm>
 #include <cmath>
 #include <functional>
@@ -211,6 +212,32 @@ bool vectorRandUnif(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContex
     Value res = std::move(vec);
 
     swap(*(args[0]), res);
+
+    // Nothing to pop, we replaced the argument with the result
+
+    return true;
+}
+
+// readfile(name): real vector holding numbers read from file name.
+// Relative paths are relative to the current directory.
+bool vectorReadFile(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContext& ctx, Status& s) {
+    DBGCHECK(stack.size()<argc, "Internal error. Attempt to get value from empty stack.");
+    Value* arg = stack.get(0);
+
+    // Check argument
+    if (arg->type()!=Value::Type::String) {
+        s.set(Status::BadArguments, std::string("Argument must be a string."));
+        return false;
+    }
+
+    // Read file
+    RealVector vec;
+    if (!readNumbers(arg->val<String>(), vec, s)) {
+        return false;
+    }
+    Value res = std::move(vec);
+
+    swap(*arg, res);
 
     // Nothing to pop, we replaced the argument with the result
 

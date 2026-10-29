@@ -116,6 +116,7 @@ ContextStack::Builtins ContextStack::builtins = {
     { Id::createStatic("unif"),     { 2, 2, false, mcGenerator<FwUnif, 2> } },
     
     { Id::createStatic("randunif"),   { 1, 1, false, vectorRandUnif } }, // length   type=real
+    { Id::createStatic("readfile"),   { 1, 1, false, vectorReadFile } }, // file name   type=real
     { Id::createStatic("interleave"), { 2, Rpn::manyArgs, true, vectorInterleave } }, // vec1, vec2, ..., vecn   type=maxtype(vec1, .. vecn)
     { Id::createStatic("separate"),   { 3, 3, true, vectorSeparate } }, // vec, n, i
     { Id::createStatic("sort"),       { 1, 2, true, vectorSort } }, // vec[, order]   order>=0 ascending (default), order<0 descending

@@ -95,6 +95,7 @@ These functions operate on vectors. `min` and `max` also accept two scalar or ve
 | `range(from, to)` | Integer vector `[from, from+1, ..., to-1]` |
 | `range(from, to, step)` | Vector from `from` to `to` (exclusive) with increment `step` |
 | `randunif(n)` | Real vector of length `n` filled with uniformly distributed random numbers from `[0, 1)` |
+| `readfile(name)` | Real vector holding the numbers read from file `name`. A relative path is relative to the current directory. The file format is the same as for the `file` parameter of [pwl sources](dev-builtin-src.md#waveform-file). The file is read every time the expression is evaluated. |
 | `interleave(v1, v2, ..., vn)` | Interleave `n` numeric vectors of equal length into `[v1[0], v2[0], ..., vn[0], v1[1], v2[1], ...]`. The result length is `n` times the input length; the element type is `real` if any input is `real`, otherwise `integer`. |
 | `sort(v[, order])` | Sort the numeric or string vector `v`. The optional integer `order` is >=0 for ascending order and <0 for descending order. If `order` is omitted the vector is sorted in ascending order. The result type matches `v`. Strings are compared lexicographically (bytewise, case sensitive). NaN is not allowed in real vectors. |
 | `separate(v, n, i)` | Extract the elements of vector `v` at indices `i, i+n, i+2n, ...` (every `n`-th element starting at offset `i`). Requires `n >= 1` and `0 <= i < n`. The result type matches `v`. |

@@ -490,6 +490,9 @@ bool vectorRange(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContext& 
 // Construct a vector holding uniformly distributed random numbers from [0,1)
 bool vectorRandUnif(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContext& ctx, Status& s);
 
+// Construct a real vector holding numbers read from a file
+bool vectorReadFile(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContext& ctx, Status& s);
+
 // Construct a vector by interleaving argument vectors with matching lengths
 bool vectorInterleave(RpnStack& stack, Rpn::Arity argc, RpnEvaluationNetlistContext& ctx, Status& s);
 
