@@ -160,7 +160,7 @@ $$v(t) = \text{scale} \cdot \text{interp}(\tau) + \text{offset}$$
 
 where $\text{interp}(\tau)$ linearly interpolates between consecutive $(x_i, y_i)$ pairs. For $\tau < x_1$ the value is held at $y_1$; for $\tau \ge x_N$ the value is held at $y_N$.
 
-For a periodic waveform ($\text{period} > 0$), $\tau$ is wrapped into $[0, \text{period})$ before interpolation, after shifting by the initial phase $\text{tdphase}/360 \cdot \text{period}$.
+For a periodic waveform ($\text{period} > 0$), $\tau$ is wrapped into $[0, \text{period})$ before interpolation, after shifting by the initial phase $\text{tdphase}/360 \cdot \text{period}$. If $x_N < \text{period}$, the value between $x_N$ and the end of the period is linearly interpolated from $y_N$ to $y_1$.
 
 Constraints on `wave`:
 
@@ -173,6 +173,7 @@ Constraints on `wave`:
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `wave` | real vector | (empty) | Flat list of $(x_i, y_i)$ pairs: `[x1, y1, x2, y2, ...]`. |
+| `file` | string | `""` | File holding the $(x_i, y_i)$ pairs. When given, its contents replace `wave`. See [Waveform file](#waveform-file). |
 | `scale` | real | 1 | Vertical scaling factor applied to the interpolated value. |
 | `offset` | real | 0 | Vertical offset added to the interpolated value after scaling. |
 | `stretch` | real | 1 | Horizontal stretch factor. Must be greater than 0. The full $x$-axis is multiplied by `stretch`. |
@@ -184,6 +185,30 @@ Constraints on `wave`:
 | `slopeglob` | real | 0.01 | Global relative slope-change tolerance for `break="auto"`. Compared against $\text{max slope across the waveform} \cdot \text{slopeglob}$. Must be $\ge 0$. |
 
 For `break="auto"` a breakpoint is inserted at point $i$ when $|\text{slope}_{i+1} - \text{slope}_i|$ exceeds the largest of the three tolerances. Aperiodic waveforms always have breakpoints at the first and last points regardless of slope.
+
+#### Waveform file
+
+Long waveforms are easier to maintain outside the netlist. The `file` parameter names a text file with the waveform points. Its values are read in order and stored in `wave` as $x_1, y_1, x_2, y_2, \ldots$, so the same constraints apply.
+
+File format:
+
+- A line starting with optional spaces or tabs followed by `//` is a comment and is ignored. Comments after numbers on the same line are not allowed.
+- Numbers are separated by whitespace, `,`, or `;`. Line breaks have no meaning, so a pair can span two lines.
+- A number is an integer or floating point literal with an optional sign and an optional SI prefix (`1m`, `2.5u`, `-500m`, `1e-3`). The prefixes are the same as in the netlist (see [numbers](input-numbers.md)). Units after the prefix (e.g. `1ms`) are not allowed.
+
+```text
+// time  value
+0     0
+1m    1
+3m, 1;  3.2m, 1.5;  3.4m, 1
+7m    -500m
+```
+
+An absolute path is used as given. A relative path is looked up first in the directory of the netlist file where the source is defined, then in the current directory. 
+
+The file is read when the source is set up for the first time. Later setups (e.g. after an [alter](cmd-alter.md)) re-read it only if it was modified since the last read. A file that is not found or contains a malformed number causes an error.
+
+A complete example is in `demo/sources/pwlfile.sim`.
 
 ---
 
