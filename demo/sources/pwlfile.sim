@@ -1,0 +1,55 @@
+Piecewise-linear sources with waveform read from a file
+
+// The file parameter names a file holding the (time, value) pairs of a
+// pwl waveform. It replaces the wave parameter. A relative path is
+// first looked up in the directory of the netlist, then in the current
+// directory. The file is read when the source is set up for the first
+// time and re-read whenever it changes on disk.
+//
+// v1 uses the waveform as an aperiodic signal. After the last point
+// the value stays at -0.5V.
+//
+// v2 uses the same waveform with period=8m. Between the last point
+// (7ms) and the end of the period the value ramps back to the value
+// of the first point.
+
+ground 0
+
+model vsrc vsource
+
+v1 (a 0) vsrc type="pwl" file="wave.dat"
+v2 (p 0) vsrc type="pwl" file="wave.dat" period=8m
+
+control
+  analysis tran1 tran stop=20m step=10u
+
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "runme.py" <<<FILE
+from vacask.rawfile import rawread
+import numpy as np
+import matplotlib.pyplot as plt
+
+tran1 = rawread('tran1.raw').get()
+t = tran1['time']*1e3
+
+# Points from wave.dat (time in ms)
+wave = np.array([0, 0,  1, 1,  3, 1,  3.2, 1.5,  3.4, 1,  5, 1,  7, -0.5])
+
+fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
+fig.suptitle('Piecewise-linear sources, waveform from file')
+ax1.plot(t, tran1['a'], label='v1, aperiodic')
+ax1.plot(wave[0::2], wave[1::2], 'o', label='wave.dat points')
+ax1.set_ylabel('[V]')
+ax1.legend(loc='upper right')
+ax1.grid(True)
+ax2.plot(t, tran1['p'], label='v2, period=8ms')
+ax2.plot(wave[0::2], wave[1::2], 'o', label='wave.dat points')
+ax2.set_xlabel('time [ms]')
+ax2.set_ylabel('[V]')
+ax2.legend(loc='upper right')
+ax2.grid(True)
+fig.tight_layout()
+plt.show()
+>>>FILE

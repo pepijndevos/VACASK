@@ -1,7 +1,10 @@
 #include <numbers>
 #include <algorithm>
 #include <optional>
+#include <filesystem>
 #include "devvisrc.h"
+#include "filesystem.h"
+#include "fileread.h"
 #include "simulator.h"
 #include "common.h"
 
@@ -46,6 +49,7 @@ template<> int Introspection<DevSourceInstanceParams>::setup() {
     registerMember(tau2);
     
     registerMember(wave);
+    registerMember(file);
     registerMember(offset);
     registerMember(scale);
     registerMember(stretch);
@@ -117,6 +121,7 @@ DevSourceInstanceParams::DevSourceInstanceParams() {
 
     // type="pwl"
     wave = RealVector();
+    file = "";
     offset = 0.0;
     scale = 1.0;
     stretch = 1.0;
@@ -200,6 +205,60 @@ std::tuple<bool, bool, bool> sourceSetup(InstanceParams& params, InstanceData& d
         }
     } else if (p.type == typePwl) {
         d.typeCode = IndependentSourceType::Pwl;
+
+        // Read waveform from file
+        if (p.file.size()>0) {
+            // Find file on first read, force read
+            bool mustRead = d.filePath.size()==0;
+            if (mustRead) {
+                bool found = false;
+                if (std::filesystem::path(p.file).is_absolute()) {
+                    // Absolute path given
+                    found = findFile(p.file, d.filePath);
+                } else {
+                    // Try the directory of the file where the source is defined
+                    auto [fs, pos, line, offset] = loc.data();
+                    auto definitionPath = fs && pos!=FileStack::badFileId ? fs->canonicalName(pos) : "";
+                    if (definitionPath.size()>0) {
+                        auto directory = std::filesystem::path(definitionPath).parent_path().string();
+                        found = findFile(p.file, d.filePath, directory);
+                    }
+                    // Try current directory
+                    if (!found) {
+                        found = findFile(p.file, d.filePath, std::string(""));
+                    }
+                }
+                if (!found) {
+                    d.filePath.clear();
+                    s.set(Status::NotFound, std::string("Waveform file '")+p.file+"' not found.");
+                    s.extend(loc);
+                    return std::make_tuple(false, false, false);
+                }
+            } else {
+                // Read if file changed since last read
+                std::error_code ec;
+                auto modTime = std::filesystem::last_write_time(d.filePath, ec);
+                if (ec) {
+                    s.set(Status::NotFound, std::string("Cannot access waveform file '")+d.filePath+"'.");
+                    s.extend(loc);
+                    return std::make_tuple(false, false, false);
+                }
+                mustRead = modTime>d.fileTime;
+            }
+
+            if (mustRead) {
+                auto readTime = std::filesystem::file_time_type::clock::now();
+                p.wave.clear();
+                if (!readNumbers(d.filePath, p.wave, s)) {
+                    // Force search and read next time
+                    d.filePath.clear();
+                    s.extend(loc);
+                    return std::make_tuple(false, false, false);
+                }
+                d.fileTime = readTime;
+            }
+        }
+
         // Not enough points .. error
         if (p.wave.size()<4) {
             s.set(Status::BadArguments, "Pwl waveform needs at least two points.");
@@ -330,7 +389,7 @@ std::tuple<bool, bool, bool> sourceSetup(InstanceParams& params, InstanceData& d
                 return std::make_tuple(false, false, false);
             }
             // Slope
-            auto slope = (oldY - p.wave[1])/dx;
+            auto slope = (p.wave[1] - oldY)/dx;
             d.slopes.back() = slope;
         } else {
             // Not periodic, last slope (beyond last point) is 0

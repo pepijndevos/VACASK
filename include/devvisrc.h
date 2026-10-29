@@ -1,6 +1,7 @@
 #ifndef __DEVVISRC_DEFINED
 #define __DEVVISRC_DEFINED
 
+#include <filesystem>
 #include "value.h"
 #include "devbuiltin.h"
 #include "common.h"
@@ -52,6 +53,7 @@ struct DevSourceInstanceParams {
     
     // Pwl
     RealVector wave; // waveform given as pairs of (x,y) points
+    String file;     // file holding waveform points
     Real offset;  // offset added to waveform
     Real scale;   // vertical scaling factor
     Real stretch; // horizontal stretch factor
@@ -109,6 +111,9 @@ struct DevVSourceInstanceData {
     size_t npts;
     size_t lastPointIndex; // Helps find waveform points faster
 
+    std::string filePath;                       // Canonical path to waveform file
+    std::filesystem::file_time_type fileTime;   // Time of last waveform file read
+
     DevVSourceInstanceData();
 };
 
@@ -128,6 +133,9 @@ struct DevISourceInstanceData {
     std::vector<size_t> nextBreakIndex;
     size_t npts;
     size_t lastPointIndex;
+
+    std::string filePath;                       // Canonical path to waveform file
+    std::filesystem::file_time_type fileTime;   // Time of last waveform file read
 
     DevISourceInstanceData();
 };
