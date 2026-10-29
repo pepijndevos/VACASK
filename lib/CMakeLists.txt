@@ -42,6 +42,7 @@ add_library(simlib STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/parser.h
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/processutils.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/filesystem.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include/fileread.h
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/filestack.h 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/sourceloc.h
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/pool.h 
@@ -147,6 +148,7 @@ add_library(simlib STATIC
     parseroutput.cpp
     processutils.cpp
     filesystem.cpp
+    fileread.cpp
     filestack.cpp
     sourceloc.cpp
     pool.cpp
