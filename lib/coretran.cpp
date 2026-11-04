@@ -1050,10 +1050,11 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious, ErrorConsumer& errors) 
     }
 
     // Call onTimeStepAccepted for point at t=0
-    if (!onTimestepAccepted(0.0, 0.0, 1, errors)) {
+    auto [onTsAcceptOk0, stepBound0] = onTimestepAccepted(0.0, 0.0, 1, errors);
+    if (!onTsAcceptOk0) {
         co_yield CoreState::Aborted;
     }
-
+    
     // First buildNoiseResidual() call just prepares flicker noise coefficients
     // Noise samples are all 0 so the generated residual contribution would also be 0. 
     if (noisefmax) {
@@ -1135,6 +1136,10 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious, ErrorConsumer& errors) 
     // Maybe get rid of this
     if (options.tran_ffmax>0 && esInit.data.maxFreq>0) { 
         h0 = std::min(h0, options.tran_ffmax/(2*esInit.data.maxFreq));
+    }
+    // Limit by onTimestepAccepted() bound
+    if (stepBound0>0) {
+        h0 = std::min(h0, stepBound0);
     }
 
     // Need to store last accepted point's hmax value
@@ -1436,8 +1441,10 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious, ErrorConsumer& errors) 
         updateBreakPoint(nextBreakPoint, params.start, tSolve);
 
         // Call the injectBreakpoint() function
-        auto tInjected = injectBreakpoint(tSolve);
-        updateBreakPoint(nextBreakPoint, tInjected, tSolve);
+        auto [tInjected, injectDiscontinuity] = injectBreakpoint(tSolve);
+        if (injectDiscontinuity) {
+            updateBreakPoint(nextBreakPoint, tInjected, tSolve);
+        }
 
         // Inject noise breakpoint
         if (params.noisefmax && params.noisebreak) {
@@ -1701,7 +1708,7 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious, ErrorConsumer& errors) 
             }
             // Update maximal timestep due to break points
             hmax = std::min(hmax, options.tran_fbr*(breakPoints.at(0)-breakPoints.at(1))); 
-
+            
             // Store last accepted boundStep and hmax value
             acceptedBoundStep = boundStep;
             acceptedHmax = hmax;
@@ -1725,10 +1732,10 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious, ErrorConsumer& errors) 
             }
             // Update maximal timestep due to break points
             hmax = std::min(acceptedHmax, options.tran_fbr*(breakPoints.at(0)-breakPoints.at(1))); 
-
+            
             // Use boundStep of last accepted point
             boundStep = acceptedBoundStep;
-
+            
             // Timestep cutting origin is tk
             cutOrigin = tk;
         }
@@ -1740,6 +1747,14 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious, ErrorConsumer& errors) 
                 Simulator::dbg() << "  Instance(s) limit timestep to dt="+ss.str()+".\n";
             }
             hkNew = std::min(hkNew, boundStep);
+        }
+
+        // Injected breakpoint without discontinuity
+        if (!injectDiscontinuity && tInjected>0) {
+            auto injectedStep = tInjected-cutOrigin;
+            if (injectedStep>0 && injectedStep>timeRelativeTolerance*std::max(tInjected, cutOrigin)) {
+                hkNew = std::min(hkNew, tInjected-cutOrigin); 
+            }
         }
 
         // Limit timestep due to hmax
@@ -1854,10 +1869,21 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious, ErrorConsumer& errors) 
             // subclass reading getIntegCoeffs()/getPastTimesteps() here sees
             // exactly the state compute() used for this step - not a buffer
             // that has already been advanced past it.
-            if (!onTimestepAccepted(tSolve, hk, order, errors)) {
+            auto [onTsAcceptOk, stepBound] = onTimestepAccepted(tSolve, hk, order, errors);
+            if (!onTsAcceptOk) {
                 co_yield CoreState::Aborted;
             }
-
+            // Step bounding requested by onTimestepAccepted()
+            if (stepBound>0) {
+                if (stepBound<hkNew) {
+                    if (debug>1) {
+                        Simulator::dbg() << "  onTimeStepAccept() reduced step to " << stepBound << ".\n";
+                    }
+                    hkNew = stepBound;
+                    tSolveNew = tSolve + hkNew;
+                }
+            }
+            
             // Store timestep
             pastTimesteps.add(hk);
 

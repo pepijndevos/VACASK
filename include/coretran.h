@@ -216,11 +216,12 @@ protected:
     const CircularBuffer<double>& getPastTimesteps() const { return pastTimesteps; }
 
     // Called after NR solver finishes to inject a custom breakpoint
-    virtual double injectBreakpoint(double tSolve) { return 0; };
+    // Return value: breakpoint time, discontinuity
+    virtual std::tuple<double, bool> injectBreakpoint(double tSolve) { return std::make_tuple(0, false); };
 
     // Called at every accepted timestep before pastTimesteps and tk are updated
-    // Return false to abort the analysis.
-    virtual bool onTimestepAccepted(double tSolve, double hk, Int order, ErrorConsumer& errors) { return true; }
+    // Returns ok, step bound. If ok is false abort the analysis.
+    virtual std::tuple<bool, double> onTimestepAccepted(double tSolve, double hk, Int order, ErrorConsumer& errors) { return std::make_tuple(true, 0); }
 
 protected:
     TranParameters& params;

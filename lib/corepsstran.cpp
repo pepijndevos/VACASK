@@ -200,21 +200,9 @@ bool PssTranCore::clearTrajectory(ErrorConsumer& errors) {
 
 
 // ----------------------------------------------------------------
-// injectBreakpoint
-// ----------------------------------------------------------------
-double PssTranCore::injectBreakpoint(double tSolve) {
-    // Force the shoot to land exactly on the next time-domain Jacobian sample time
-    if (!jacSamplesCollectionEnabled || tdJacPos>=tdJacPoints) {
-        // Inject breakpoint at t=0 (will be ignored)
-        return 0;
-    }
-    return tdJacTime;
-}
-
-// ----------------------------------------------------------------
 // onTimestepAccepted — inline Phi advancement
 // ----------------------------------------------------------------
-bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order, ErrorConsumer& errors) {
+std::tuple<bool, double> PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order, ErrorConsumer& errors) {
     // Monodromy computation, performed for timepoints t>0
     if (tSolve>0) {
         // Read-only for the whole function - every use below (leadingCoeff(),
@@ -250,7 +238,7 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order, ErrorC
             if (!lastAlrSolver_->factor(errors)) {
                 // Failed, give up. lastAlrSolver_->factor() has pushed the error.
                 errors.push(PssTranAlrFactorizationFailed{tSolve});
-                return false;
+                return std::make_tuple(false, 0);
             }
             // Full factorization recovered, drop the non-fatal refactor error
             if (forceFullFactorization) {
@@ -287,7 +275,7 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order, ErrorC
 
         if (!circuit.evalAndLoad(commons, &es, &ls, nullptr, errors)) {
             errors.push(PssTranEvalCFailed{tSolve});
-            return false;
+            return std::make_tuple(false, 0);
         }
         // Snapshot current C_k directly into cHistData_'s future slot - no
         // separate temporary (plain std::copy, not an accumulating load target).
@@ -339,7 +327,7 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order, ErrorC
                 auto rhs_col = phiFuture.column(j);
                 if (!scratchC_.product(Phi_kmi.column(j), rhs_colbuf, errors)) {
                     errors.push(PssTranCPhiProductFailed{tSolve, j});
-                    return false;
+                    return std::make_tuple(false, 0);
                 }
                 rhs_col.addScaled(rhsColBufView, gammaC_[p]);
             }
@@ -351,7 +339,7 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order, ErrorC
                     auto rhs_col = phiFuture.column(j);
                     if (!scratchC_.product(Phi_kmi.column(j), rhs_colbuf, errors)) {
                         errors.push(PssTranGPhiProductFailed{tSolve, j});
-                        return false;
+                        return std::make_tuple(false, 0);
                     }
                     rhs_col.addScaled(rhsColBufView, gammaG_[p]);
                 }
@@ -362,7 +350,7 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order, ErrorC
         // Alr * Phi_k = sum_{i=1}^order (gamma_i * C_k-i * Phi_k-i)
         if (!lastAlrSolver_->solve(phiFuture.data().data(), static_cast<MatrixEntryIndex>(n), errors)) {
             errors.push(PssTranBlockAlrSolveFailed{tSolve});
-            return false;
+            return std::make_tuple(false, 0);
         }
         phiHist_.advance();   // phiHist_.at(0) now holds PhiT at this step
 
@@ -422,7 +410,7 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order, ErrorC
         ls.reactiveJacobianFactor = 1.0;
         if (!circuit.evalAndLoad(commons, nullptr, &ls, nullptr, errors)) {
             errors.push(PssTranLoadCFailed{tSolve});
-            return false;
+            return std::make_tuple(false, 0);
         }
         std::copy(jacobian.axData(), jacobian.axData() + nnz, tdJacC.data() + nnz*tdJacPos);
 
@@ -432,7 +420,7 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order, ErrorC
         ls.loadResistiveJacobian = true;
         if (!circuit.evalAndLoad(commons, nullptr, &ls, nullptr, errors)) {
             errors.push(PssTranLoadGFailed{tSolve});
-            return false;
+            return std::make_tuple(false, 0);
         }
         std::copy(jacobian.axData(), jacobian.axData() + nnz, tdJacG.data() + nnz*tdJacPos);
 
@@ -445,7 +433,7 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order, ErrorC
             noiseLs.jacobianLoadOffset      = tdJacPos;
             if (!circuit.evalAndLoad(commons, nullptr, &noiseLs, nullptr, errors)) {
                 errors.push(PssTranLoadNoiseFailed{tSolve});
-                return false;
+                return std::make_tuple(false, 0);
             }
         }
 
@@ -462,7 +450,11 @@ bool PssTranCore::onTimestepAccepted(double tSolve, double hk, Int order, ErrorC
             tdJacTime = tdJacPeriod/tdJacPoints*tdJacPos;
         }
     }
-    return true;
+    if (jacSamplesCollectionEnabled) {
+        return std::make_tuple(true, tdJacTime-tSolve);
+    } else {
+        return std::make_tuple(true, 0);
+    }
 }
 
 // ----------------------------------------------------------------

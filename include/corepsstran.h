@@ -276,14 +276,11 @@ public:
     bool integrateAdjointMonodromy(DenseMatrix<double>& Omega, ErrorConsumer& errors);
 
 protected:
-    // Inject breakpoints where we want to collect time-domain Jacobians
-    virtual double injectBreakpoint(double tSolve) override;
-
     // Called by TranCore at every accepted timestep with jacobian holding
     // the factored Alr_k = G_k + alpha_k * C_k from the NR solve.
     // Evaluates C_k, advances Phi through one BDF LMS step using a block
     // solve directly into phiHist_'s future slot, then advance()s it.
-    virtual bool onTimestepAccepted(double tSolve, double hk, Int order, ErrorConsumer& errors) override;
+    virtual std::tuple<bool, double> onTimestepAccepted(double tSolve, double hk, Int order, ErrorConsumer& errors) override;
 
 private:
     // Record of data needed for backward adjoint integration at each accepted step
