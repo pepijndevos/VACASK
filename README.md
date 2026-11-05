@@ -10,7 +10,7 @@ VACASK is not SPICE (although one could write a SPICE-compatible netlist parser 
 
 # Wait... is it any good? 
 
-The following benchmark results were obtained on the [C6288 16x16 multiplier circuit](benchmark/c6288) multiplying 0xFFFF with itself (simulated as an analog circuit). This is a medium size circuit with 10112 transistors and 25380 nodes. The transistors were modelled with the PSP103.4 model. Ngspice and Xyce tolerances were set so that the number of output timepoints is roughly equal to that of VACASK. OpenMP support was disabled to make the comparison fair. All simulators used KLU as the linear solver. Results output was disabled so that the impact of disk operationbinds was minimized. The benchmark was run on a computer with an AMD Threadripper 7970 processor. 
+The following benchmark results were obtained on the [C6288 16x16 multiplier circuit](benchmark/c6288) multiplying 0xFFFF with itself (simulated as an analog circuit). This is a medium size circuit with 10112 transistors and 25380 nodes. The transistors were modelled with the PSP103.4 model. Ngspice and Xyce tolerances were set so that the number of output timepoints is roughly equal to that of VACASK. OpenMP support was disabled to make the comparison fair. All simulators used KLU as the linear solver. Results output was disabled so that the impact of disk operations was minimized. The benchmark was run on a computer with an AMD Threadripper 7970 processor. 
 
 |Simulator  |Time (s)        |Timepoints |Rejected |Iterations |
 |-----------|----------------|-----------|---------|-----------|
@@ -555,12 +555,19 @@ code .
 ```
 
 In Windows select the MinGW64 toolchain. In Linux select GCC. Configure the project with Ctrl+Shift+P 'CMake: Delete Cache and Reconfigure', followed by building with Ctrl+Shift+P 'CMake: Build'. A full debugging setup is available in [`launch.json`](.vscode/launch.json). System tests are located in [`test`](test) and can be run via CMake/CTest. The path to the built debug version (relative to the sources) is `../build.VACASK/Debug`. The release version is built under `../build.VACASK/Release`. 
+ 
+# AGPL interpretation
+All components of VACASK, including its Python modules and C++ libraries, are licensed under the AGPLv3. We consider importing its Python modules or linking against its C++ libraries to create a combined work, to which the AGPLv3 applies as a whole.
+
+VACASK can be used with non-GPL software when it runs as a separate program, invoked from the command line or communicating via stdio or other forms of inter-process communication (IPC). A wrapper or application that communicates with VACASK this way does not become subject to the AGPLv3 and may be licensed under any terms.
+
+VACASK itself, however, remains under the AGPLv3 in all cases. If you distribute VACASK, modified or not, you must comply with the AGPLv3, including making the corresponding source code available to recipients. If you modify VACASK and users interact with the modified version over a network, you must offer those users its source code. We consider any such interaction to be covered, whether users access VACASK directly or indirectly through a wrapper, frontend, or other intermediary program.
 
 # Use of generative AI
-
 Development of VACASK relies on generative AI (GenAI) primarily for mathematical background preparation, bug audits, debugging, testing, build system management, and documentation. Contributors using GenAI should thoroughly review the code they contribute. All contributions will be subject to strict human review before merging into the core simulator. Low quality, vibe-coded, and bloated contributions will be rejected. 
 
 # Publications mentioning VACASK
+
 * Á. Bűrmen, ["VACASK: a Verilog-A Circuit Analysis Kernel"](https://wiki.f-si.org/index.php?title=VACASK:_a_Verilog-A_Circuit_Analysis_Kernel), Free Silicon Conference 2024, Paris, June 2024.
 * Á. Bűrmen, ["OpenVAF - status update, ecosystem, and a roadmap"](https://zenodo.org/records/14622027), 17th International MOS-AK Workshop, Silicon Valley, December 2024."
 * Á. Bűrmen, et. al. ["Free software support for compact modelling with Verilog-A"](https://doi.org/10.33180/InfMIDEM2024.404), Informacije MIDEM - Journal of Microelectronics, Electronic Components and Materials, 54 (2024), no. 4: 271-281.
