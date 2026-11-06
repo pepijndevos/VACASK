@@ -351,6 +351,14 @@ bool PNoiseCore::rebuild(ErrorConsumer& errors) {
 CoreCoroutine PNoiseCore::coroutine(bool continuePrevious, ErrorConsumer& errors) {
     acMatrix.setAccounting(circuit.tables().accounting());
 
+    // Output a warning if we were started with oscillator=1
+    // For any other nonzero value skip the warning
+    if (params.pssParams.oscillator==1) {
+        Simulator::wrn() << "Warning. PNOISE with oscillator=1 does not compute oscillator phase noise.\n"
+                         << "It compues output noise using the algorithm for driven circuits.\n"
+                         << "Use transient noise for computing phase noise.\n";
+    }
+
     auto& options = circuit.simulatorOptions().core();
     Int debug = options.smsig_debug;
 

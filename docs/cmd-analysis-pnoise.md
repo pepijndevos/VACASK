@@ -102,6 +102,16 @@ defaults:
 Jacobian and modulation functions are resolved; the PSS's own `maxharm` (shooting
 timestep resolution, see above) must be at least `truncharm`, exactly as in `pac`.
 
+### Oscillators
+
+`pnoise` does not compute oscillator phase noise. Any nonzero `oscillator` value makes
+the PSS solve for the period, but the noise computation still uses the algorithm for
+driven circuits. This plain linearization rises as $1/\Delta f^2$ and diverges very close
+to the carrier, where the true spectrum does not, so `oscillator=1` produces a warning.
+
+If you still want this analysis, set `oscillator` to a nonzero value other than 1, for
+example `oscillator=2`. The analysis then runs the same way, but without the warning.
+
 ## Save directives
 
 The following noise save directives are supported:
