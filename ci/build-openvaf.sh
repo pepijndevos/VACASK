@@ -21,23 +21,8 @@ esac
 
 echo "==> Building OpenVAF-Reloaded"
 
-# Install/upgrade Rust if missing or too old (need >= 1.85)
-NEED_RUST=false
-if ! command -v cargo &>/dev/null; then
-  NEED_RUST=true
-elif [ "$(rustc --version | awk '{print $2}')" \< "1.85.0" ]; then
-  echo "==> Rust $(rustc --version | awk '{print $2}') is too old, upgrading..."
-  NEED_RUST=true
-fi
-if [ "$NEED_RUST" = true ]; then
-  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
-  # shellcheck source=/dev/null
-  if [ -f "$HOME/.cargo/env" ]; then
-    source "$HOME/.cargo/env"
-  else
-    export PATH="$HOME/.cargo/bin:$PATH"
-  fi
-fi
+# shellcheck source=ci/install-rust.sh
+. "$SCRIPT_DIR/install-rust.sh"
 
 OPENVAF_SRC="/tmp/openvaf-src"
 rm -rf "$OPENVAF_SRC"

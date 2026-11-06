@@ -25,6 +25,11 @@ done
 OS="$(uname -s)"
 NPROC=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
 
+# CADNIP_PARSERS below needs cargo, and rustup only puts it on PATH for the
+# shell that installed it, so check again here.
+# shellcheck source=ci/install-rust.sh
+. "$SCRIPT_DIR/install-rust.sh"
+
 # ── Configure ────────────────────────────────────────────────────────────
 echo "==> Configuring VACASK"
 CMAKE_ARGS=(-G Ninja -S "$SOURCE_DIR" -B "$BUILD_DIR" -DCMAKE_BUILD_TYPE=Release)

@@ -25,6 +25,7 @@ case "$OS" in
         cmake ninja-build \
         bison flex flex-devel \
         suitesparse-devel \
+        fftw-devel \
         openblas-devel lapack-devel \
         llvm-devel clang clang-devel
       # The simulator spawns "python3" from PATH at runtime (see libplatform.cpp)
@@ -43,8 +44,9 @@ case "$OS" in
         cmake ninja-build \
         bison flex libfl-dev \
         libsuitesparse-dev \
+        libfftw3-dev \
         libopenblas-dev liblapack-dev \
-        llvm-dev libclang-dev clang \
+        llvm-dev libclang-dev clang libomp-dev \
         python3 python3-numpy python3-scipy python3-matplotlib
       BOOST_TOOLSET=clang
     fi
@@ -77,7 +79,7 @@ case "$OS" in
     brew install \
       llvm@18 cmake ninja \
       bison flex \
-      suite-sparse openblas boost tomlplusplus \
+      suite-sparse openblas boost tomlplusplus fftw \
       numpy scipy
     python3 -m pip install --user --break-system-packages matplotlib
     ;;
@@ -88,6 +90,7 @@ case "$OS" in
       git bison flex \
       mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja \
       mingw-w64-x86_64-boost mingw-w64-x86_64-suitesparse \
+      mingw-w64-x86_64-fftw \
       mingw-w64-x86_64-tomlplusplus mingw-w64-x86_64-llvm mingw-w64-x86_64-clang \
       mingw-w64-x86_64-lld mingw-w64-x86_64-rust mingw-w64-x86_64-dlfcn \
       mingw-w64-x86_64-python mingw-w64-x86_64-python-numpy \
