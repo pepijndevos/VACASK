@@ -1,0 +1,23 @@
+# Skip the long build when a change only touches documentation.
+when:
+  - event: pull_request
+    path: &paths
+      exclude: ['*.md', 'docs/**']
+  - event: push
+    branch: main
+    path: *paths
+
+# Woodpecker only offers linux/amd64. macOS, Windows and aarch64 stay on the
+# other CIs.
+labels:
+  platform: linux/amd64
+
+steps:
+  - name: build-and-test
+    image: ubuntu:24.04
+    # One step, because build-vacask.sh looks for Boost under /tmp and each
+    # step runs in its own container.
+    commands:
+      - ci/install-deps.sh
+      - ci/build-openvaf.sh "$CI_WORKSPACE/openvaf-cache"
+      - ci/build-vacask.sh --openvaf-dir "$CI_WORKSPACE/openvaf-cache"
