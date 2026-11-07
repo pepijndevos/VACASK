@@ -22,9 +22,11 @@ r1 (2 0) resistor r=200k
 control
   abort always
   options pss_debug=1
-  options pss_itl=50
-  options pss_tolscale=1e-3
-  analysis pss1 pss tper=2m tstab=20m writestab=1 maxacfreq=1.975M
+  options pss_itl=50 
+  // Trapezoidal integrator rings and by reducing the timestep 
+  // we reduce ringing which helps pss convergence. 
+  options pss_minpts=5000
+  analysis pss1 pss tper=1m tstab=20m writestab=1 maxacfreq=1.975M
   
   postprocess(PYTHON, "runme.py")
 endc

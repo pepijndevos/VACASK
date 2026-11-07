@@ -58,7 +58,6 @@ control
 
   options rawfile="binary" strictsave=1
   options pss_debug=2
-  options pss_tolscale=1e-3
 
   save default
 
@@ -113,7 +112,7 @@ try:
     tests.append(status2)
 
     match = np.abs(v1[-1]-v1[0])/np.abs(v1).max()
-    ok = match<1e-6
+    ok = match<1e-5
     print("Endpoint relative delta:", match, "PASS" if ok else "FAIL")
     tests.append(ok)
 

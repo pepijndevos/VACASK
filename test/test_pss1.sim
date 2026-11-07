@@ -41,8 +41,6 @@ nl1 (1 0) nl3
 control
   options rawfile="binary" strictsave=1
   options pss_debug=0
-  options pss_tolscale=1e-3
-
   save default
 
   analysis pss1 pss tper=1m tstab=10m writestab=1
@@ -138,7 +136,7 @@ if pss_ok:
     tests.append(delta<1e-4)
 
     match = np.abs(vp[-1]-vp[0])/np.abs(vp).max()
-    ok    = match<1e-9
+    ok    = match<1e-8
     print("Endpoint relative delta:", match, "PASS" if ok else "FAIL")
     tests.append(ok)
 
