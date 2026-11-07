@@ -100,6 +100,7 @@ void PssTranCore::setShootIC(const Vector<double>& x0) {
     // UIC branch (setForces -> unknownValue_ -> solution) starts the shoot
     // from x0.  setForces zeros unknownValue_ before applying forces, so we
     // must supply ALL unknowns here — not just the user-visible IC nodes.
+    usePreprocessedIc = true;
     preprocessedIc.clear();
     auto nNodes = circuit.nodeCount();
     for (NodeIndex i = 0; i < nNodes; i++) {

@@ -41,33 +41,33 @@ namespace NAMESPACE {
 
 typedef struct TranParameters {
     OperatingPointParameters opParams;
-    Real step {0.0};          // Initial timestep, if 0 a default is used
-    Real stop {0.0};          // Time up to which the circuit is to be simulated
-    Real start {0.0};         // Time at which the results start being recorded
-    Real maxstep {0.0};       // Maximal timestep (optional)
-    Id icmode {Id()};         // op=op with ic forces, uic=spice uic
-    Value ic {Value("")};     // String specifying stored solution slot or
-                              // list specifying initial conditions
-                              // for transient analysis
-    Int noiseseed {0};        // seed for noise generators
-    Real noisescale {1.0};    // scaling factor for noise generators
-    Real noisefmax {0};       // maximum frequency for transient noise 
-                              // 0 = disable transient noise
-    Real noisefmin {0};       // minimum frequency for transient noise
-                              // If noisefmin=0 uses noisefmax/1e3. 
-                              // If noisefmax!=0 should be <noisefmax.
-    Id noisemode {};          // Noise mode (ZOH by default)
-    Int oversample {6};       // oversampling factor, 6 by default
-                              // The timestep is limited to 0.5/(oversample*noisefmax).
-    Real rampfrac {0.1};      // ZOH noise sample transition time as a fraction of the sample time
-                              // 0 .. abrupt step, 1 .. linear interpolation between samples
-    Int noisebreak {0};       // Gate noise breakpoint injection in ZOH mode, off by default
-    String store {""};        // name of stored solution slot to write transient solution to
+    Real step {0.0};        // Initial timestep, if 0 a default is used
+    Real stop {0.0};        // Time up to which the circuit is to be simulated
+    Real start {0.0};       // Time at which the results start being recorded
+    Real maxstep {0.0};     // Maximal timestep (optional)
+    Id icmode {Id()};       // op=op with ic forces, uic=spice uic
+    Value ic {Value("")};   // String specifying stored solution slot or
+                            // list specifying initial conditions
+                            // for transient analysis
+    Int noiseseed {0};      // seed for noise generators
+    Real noisescale {1.0};  // scaling factor for noise generators
+    Real noisefmax {0};     // maximum frequency for transient noise 
+                            // 0 = disable transient noise
+    Real noisefmin {0};     // minimum frequency for transient noise
+                            // If noisefmin=0 uses noisefmax/1e3. 
+                            // If noisefmax!=0 should be <noisefmax.
+    Id noisemode {};        // Noise mode (ZOH by default)
+    Int oversample {6};     // oversampling factor, 6 by default
+                            // The timestep is limited to 0.5/(oversample*noisefmax).
+    Real rampfrac {0.1};    // ZOH noise sample transition time as a fraction of the sample time
+                            // 0 .. abrupt step, 1 .. linear interpolation between samples
+    Int noisebreak {0};     // Gate noise breakpoint injection in ZOH mode, off by default
+    String store {""};      // name of stored solution slot to write transient solution to
     // Nodeset parameter of the operating point core is also exposed. 
 
-    Int write {1};            // Write the results to a file
+    Int write {1};          // Write the results to a file
     
-    Int evalnoise {0};        // Internal, not exposed to the user
+    Int evalnoise {0};      // Internal, not exposed to the user
     
     TranParameters();
 } TranParameters;
@@ -225,6 +225,13 @@ protected:
 
 protected:
     TranParameters& params;
+
+    // Use preprocessedIc prepared by a derived class. 
+    // Behaves as icmode=uic with ic=<value vector>, except that
+    // a derived class fills the preprocessedIc structure, 
+    // instead of it being built from ic=<value vector>. 
+    // Used by PSS. Off by default. 
+    bool usePreprocessedIc {false}; 
 
 private:
     std::tuple<bool, size_t, size_t, size_t> countNoiseSources(ErrorConsumer& errors) const;

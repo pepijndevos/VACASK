@@ -1,0 +1,59 @@
+PSS first step, MOS gate capacitors on a bias network
+
+// The circuit sits at its DC solution, so the shoot must start with a residual
+// near 0. If the first Newton iteration starts from zero instead of x0, Newton
+// diverges, the timestep shrinks to 0 and the analysis aborts.
+
+include "sg13g2_vacask_common.lib"
+include "cornerMOSlv.lib" section=mos_tt
+
+load "resistor.osdi"
+
+model resistor resistor
+model vsource vsource
+model isource isource
+
+ground 0
+
+Vdd (vdd 0) vsource dc=1.5
+Ibias (vdd ib) isource dc=100u
+Mdiode (ib ib 0 0) sg13_lv_nmos w=2.5u l=0.5u
+Rf (g ib) resistor r=95k
+Rtie (d 0) resistor r=1k
+Mc1 (d g 0 0) sg13_lv_nmos w=8u l=10u
+Mc2 (d g 0 0) sg13_lv_nmos w=8u l=10u
+
+control
+  abort always
+  analysis a1 pss tper=50p tstab=0
+
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "runme.py" <<<FILE
+from vacask.rawfile import rawread
+from vacask.runtest import *
+import numpy as np
+import sys
+
+tests = []
+
+plot = rawread('a1.raw').get()
+
+# The waveforms must stay at the DC solution
+for name in ['ib', 'g', 'd']:
+    v = plot[name]
+    drift = np.abs(v-v[0]).max()
+    status = drift<1e-6
+    tests.append(status)
+    print(f"{name}: start={v[0]} max drift={drift}: {status}")
+
+# Rf carries only the gate leakage
+diff = np.abs(plot['g'][0]-plot['ib'][0])
+status = diff<1e-3
+tests.append(status)
+print(f"v(g)-v(ib)={diff}: {status}")
+
+if isTest():
+    sys.exit(not all(tests))
+>>>FILE

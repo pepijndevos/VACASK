@@ -1,0 +1,68 @@
+Swept transient response of an RC circuit in UIC mode
+
+// A swept transient in UIC mode runs no OP. Every sweep point must complete and
+// start from its own initial condition, not from the previous point's solution.
+
+ground 0
+
+load "resistor.osdi"
+load "capacitor.osdi"
+
+model resistor resistor
+model capacitor capacitor
+model isource isource
+
+i1 (0 1) isource dc=1m
+r1 (1 0) resistor r=1k
+c1 (1 0) capacitor c=1u
+
+control
+  abort always
+
+  var tend=1m
+  sweep tend variable="tend" values=[1m, 2m, 3m]
+    analysis tranzero tran stop=tend step=1u icmode="uic"
+
+  sweep tend variable="tend" values=[1m, 2m, 3m]
+    analysis tranlist tran stop=tend step=1u icmode="uic" ic={"1", 2.0}
+
+  postprocess(PYTHON, "runme.py")
+endc
+
+embed "runme.py" <<<FILE
+from vacask.rawfile import rawread
+from vacask.runtest import *
+import numpy as np
+import sys
+
+tests = []
+
+# Final value 1V, time constant 1ms
+for name, v0 in [('tranzero', 0.0), ('tranlist', 2.0)]:
+    plot = rawread(name+'.raw').get(sweeps=1)
+
+    status = plot.sweepGroups==3
+    tests.append(status)
+    print(f"{name} sweep points={plot.sweepGroups}: {status}")
+
+    for ii in range(plot.sweepGroups):
+        t = plot[ii, 'time']
+        v = plot[ii, '1']
+
+        status = v[0]==v0
+        tests.append(status)
+        print(f"{name} point {ii} v(t=0)={v[0]} expected {v0}: {status}")
+
+        status = t.max()==plot.sweepData(ii)['tend']
+        tests.append(status)
+        print(f"{name} point {ii} tmax={t.max()}: {status}")
+
+        exact = 1+(v0-1)*np.exp(-t/1e-3)
+        diff = absDiff(v, exact).max()
+        status = diff<1e-2
+        tests.append(status)
+        print(f"{name} point {ii} max err={diff}: {status}")
+
+if isTest():
+    sys.exit(not all(tests))
+>>>FILE

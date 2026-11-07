@@ -915,7 +915,7 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious, ErrorConsumer& errors) 
         solution.vector() = opSolution.vector();
     } else if (params.icmode==icmodeUic) {
         // UIC mode does not invoke OP analysis
-        // It justs sets forcres wint uicMode=true and collects the initial solution
+        // It justs sets forces with uicMode=true and collects the initial solution
         // from node forces. Forces slot 2 in transient core's solver is disabled by 
         // default. 
         if (debug>0) {
@@ -933,8 +933,21 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious, ErrorConsumer& errors) 
         
         // First, build the RHS values using force mechanism
         auto& icParam = params.ic;
-        if (icParam.type()==Value::Type::String) {
+        if (icParam.type()==Value::Type::ValueVec || usePreprocessedIc) {
+            // IC is given as a list of user-defined ICs or 
+            // via a pre-built preprocessedIc structure
+            if (!nrSolver.setForces(2, preprocessedIc, uicMode, strictforce, errors)) {
+                // Abort on error if strictforce is set
+                if (strictforce) {
+                    errors.push(TranNrSolverFailed{});
+                    co_yield CoreState::Aborted;
+                }
+                Simulator::wrn() << "Warning, setting IC forces failed.\n";
+                nrSolver.forces(2).clear();
+            }
+        } else if (icParam.type()==Value::Type::String) {
             // IC is given as a stored solution
+            nrSolver.forces(2).clear();
             String& solutionName = icParam.val<String>();
             if (solutionName.length()>0) {
                 // Get solution from repository
@@ -951,24 +964,19 @@ CoreCoroutine TranCore::coroutine(bool continuePrevious, ErrorConsumer& errors) 
                     }
                 }
             }
-        } else if (icParam.type()==Value::Type::ValueVec) {
-            // IC is given as a list of user-defined ICs
-            if (!nrSolver.setForces(2, preprocessedIc, uicMode, strictforce, errors)) {
-                // Abort on error if strictforce is set
-                if (strictforce) {
-                    errors.push(TranNrSolverFailed{});
-                    co_yield CoreState::Aborted;
-                }
-                Simulator::wrn() << "Warning, setting IC forces failed.\n";
-                nrSolver.forces(2).clear();
-            }
         } else {
             // Zero initial condition
             nrSolver.forces(2).clear();
         }
         
         // Copy node forces from transient core's solver slot 2 to solution vector
-        solution.vector() = nrSolver.forces(2).unknownValue_;
+        auto& iv = nrSolver.forces(2).unknownValue_;
+        if (iv.empty()) {
+            // Empty forces slot, set to 0
+            solution.vector().assign(n+1, 0.0);
+        } else {
+            solution.vector() = iv;
+        }
     } else {
         errors.push(TranIcModeUnknown{});
         co_yield CoreState::Aborted;

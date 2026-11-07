@@ -185,6 +185,10 @@ void Tran::deallocateAnalysisStateStorage(size_t n) {
 }
 
 bool Tran::storeState(size_t ndx, bool storeDetails) {
+    // UIC runs no OP, nothing to store
+    if (params.core().icmode==TranCore::icmodeUic) {
+        return true;
+    }
     // Only op core has storage
     return opCore.storeState(ndx, storeDetails);
 }
