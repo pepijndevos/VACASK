@@ -19,7 +19,7 @@ jobs:
           install: git bison flex
           pacboy: >-
             gcc:p cmake:p ninja:p boost:p suitesparse:p fftw:p
-            tomlplusplus:p dlfcn:p
+            tomlplusplus:p dlfcn:p llvm:p clang:p lld:p
 
       - name: Restore OpenVAF-Reloaded build
         uses: actions/cache/restore@v5
