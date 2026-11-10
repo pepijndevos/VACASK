@@ -7,6 +7,12 @@ on:
   pull_request:
     branches: [main]
 
+# A newer push to the same branch/PR supersedes older runs. Tag (release) runs
+# are never cancelled.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
 jobs:
   build:
     strategy:
