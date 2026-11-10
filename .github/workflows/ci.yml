@@ -19,7 +19,7 @@ jobs:
           - os: ubuntu-24.04-arm
             container: quay.io/pypa/manylinux_2_34_aarch64
             name: Linux aarch64
-          - os: macos-14
+          - os: macos-15
             name: macOS
           - os: windows-latest
             name: Windows
@@ -127,7 +127,7 @@ jobs:
             name: Linux x86_64
           - os: ubuntu-24.04-arm
             name: Linux aarch64
-          - os: macos-14
+          - os: macos-15
             name: macOS
 
     name: Wheels (${{ matrix.name }})
@@ -212,7 +212,7 @@ jobs:
           tar czf "../vacask_${VERSION}_linux-aarch64.tar.gz" -C vacask-ubuntu-24.04-arm .
 
           # macOS tar.gz
-          tar czf "../vacask_${VERSION}_darwin-arm64.tar.gz" -C vacask-macos-14 .
+          tar czf "../vacask_${VERSION}_darwin-arm64.tar.gz" -C vacask-macos-15 .
 
           # Windows zip
           cd vacask-windows-latest
