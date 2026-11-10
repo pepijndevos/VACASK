@@ -163,7 +163,7 @@ jobs:
         env:
           CIBW_BEFORE_ALL_MACOS: ci/install-deps.sh
           CIBW_ENVIRONMENT_MACOS: >-
-            MACOSX_DEPLOYMENT_TARGET=14.0
+            MACOSX_DEPLOYMENT_TARGET=15.0
             CMAKE_ARGS="-DOPENVAF_DIR=$GITHUB_WORKSPACE/openvaf-cache
             -DFLEX_INCLUDE_DIR=$(brew --prefix)/opt/flex/include
             -DBoost_USE_STATIC_LIBS=ON -DBLA_VENDOR=OpenBLAS

@@ -34,7 +34,7 @@ PLATFORMS = {
     },
     'darwin-arm64': {
         'ext': 'tar.gz',
-        'wheel_tag': 'macosx_14_0_arm64',
+        'wheel_tag': 'macosx_15_0_arm64',
         'exe_suffix': '',
     },
     'windows-x86_64': {

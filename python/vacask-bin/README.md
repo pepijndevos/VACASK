@@ -14,7 +14,7 @@ pip install vacask-bin
 ## Supported platforms
 
 - Linux x86_64 and aarch64 (glibc >= 2.34)
-- macOS arm64 (macOS 14+)
+- macOS arm64 (macOS 15+)
 - Windows x86_64
 
 ## Usage
