@@ -38,6 +38,7 @@ jobs:
         uses: pypa/cibuildwheel@v3.2.1
         env:
           CIBW_BUILD: cp313-*
+          CIBW_ARCHS_WINDOWS: AMD64
           SETUPTOOLS_SCM_PRETEND_VERSION: 0.0.0.dev0
           CIBW_ENVIRONMENT_WINDOWS: >-
             CMAKE_GENERATOR=Ninja
