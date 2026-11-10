@@ -220,7 +220,7 @@ message(STATUS "Staged library directory: ${STAGED_LIBRARY_DIRECTORY}")
 
 # Find Python. For vacask get dev version, for others it is needed for tests.
 if (SKBUILD)
-    find_package(Python 3 REQUIRED COMPONENTS Interpreter Development)
+    find_package(Python 3 REQUIRED COMPONENTS Interpreter Development.Module)
 else()
     find_package(Python 3 COMPONENTS Interpreter)
 endif()
