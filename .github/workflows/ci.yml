@@ -50,9 +50,6 @@ jobs:
         uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
-          # Migrating to UCRT64/CLANG64 changes every /mingw64 path and package
-          # name in ci/ and CMake; tracked separately.
-          suppress-deprecation-warnings: msystem-mingw64
           install: git bison flex
           pacboy: >-
             gcc:p cmake:p ninja:p boost:p suitesparse:p fftw:p
