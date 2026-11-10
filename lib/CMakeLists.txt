@@ -260,9 +260,14 @@ endif()
 # of simlib is built without it. libplatform.cpp needs the flag for
 # omp_get_max_threads() / omp_set_num_threads(), ciromp.cpp for the parallel
 # instance evaluation loop.
+# OpenMP_CXX_FLAGS is a single string; AppleClang gives "-Xclang -fopenmp",
+# which must reach the compiler as separate arguments. omp.h may live outside
+# the default include path (Homebrew libomp is keg-only).
 if (OpenMP_CXX_FOUND)
+    separate_arguments(SIM_OPENMP_FLAGS UNIX_COMMAND "${OpenMP_CXX_FLAGS}")
     set_source_files_properties(libplatform.cpp ciromp.cpp PROPERTIES
-        COMPILE_OPTIONS "${OpenMP_CXX_FLAGS}"
+        COMPILE_OPTIONS "${SIM_OPENMP_FLAGS}"
+        INCLUDE_DIRECTORIES "${OpenMP_CXX_INCLUDE_DIRS}"
     )
 endif()
 
@@ -280,8 +285,8 @@ if (SIM_HAVE_SUPERLU)
         solsuperlu_complex.cpp
     )
     set_source_files_properties(solsuperlu_real.cpp solsuperlu_complex.cpp PROPERTIES
-        INCLUDE_DIRECTORIES "${SIM_SUPERLU_INCLUDE}"
-        COMPILE_OPTIONS "${OpenMP_CXX_FLAGS}"
+        INCLUDE_DIRECTORIES "${SIM_SUPERLU_INCLUDE};${OpenMP_CXX_INCLUDE_DIRS}"
+        COMPILE_OPTIONS "${SIM_OPENMP_FLAGS}"
         COMPILE_DEFINITIONS "__OPENMP"
     )
 endif()
