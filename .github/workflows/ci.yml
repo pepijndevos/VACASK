@@ -52,7 +52,7 @@ jobs:
           msystem: MINGW64
           install: git bison flex
           pacboy: >-
-            gcc:p cmake:p ninja:p boost:p suitesparse:p
+            gcc:p cmake:p ninja:p boost:p suitesparse:p fftw:p
             tomlplusplus:p llvm:p clang:p lld:p rust:p python:p
             python-numpy:p python-scipy:p python-matplotlib:p dlfcn:p
 
