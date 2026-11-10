@@ -115,9 +115,80 @@ jobs:
             build/lib/
           if-no-files-found: warn
 
+  wheels:
+    # Python extension (vacask package, scikit-build-core + pybind11).
+    # Runs after the build job so that the openvaf-r binary is in the cache.
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            name: Linux x86_64
+          - os: ubuntu-24.04-arm
+            name: Linux aarch64
+          - os: macos-14
+            name: macOS
+
+    name: Wheels (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Restore OpenVAF-Reloaded build
+        uses: actions/cache/restore@v5
+        with:
+          path: openvaf-cache
+          key: openvaf-${{ matrix.os }}-${{ runner.arch }}-osdi-0.5-v1
+
+      - name: Determine version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/_* ]]; then
+            V="${GITHUB_REF_NAME#_}"; V="${V//-/.}"
+          else
+            V="0.0.0.dev0+g${GITHUB_SHA::8}"
+          fi
+          echo "SETUPTOOLS_SCM_PRETEND_VERSION=$V" >> "$GITHUB_ENV"
+
+      - name: Setup Rust (macOS)
+        if: runner.os == 'macOS'
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v3.2.1
+        env:
+          CIBW_BEFORE_ALL_MACOS: ci/install-deps.sh
+          CIBW_ENVIRONMENT_MACOS: >-
+            MACOSX_DEPLOYMENT_TARGET=14.0
+            CMAKE_ARGS="-DOPENVAF_DIR=$GITHUB_WORKSPACE/openvaf-cache
+            -DFLEX_INCLUDE_DIR=$(brew --prefix)/opt/flex/include
+            -DBoost_USE_STATIC_LIBS=ON -DBLA_VENDOR=OpenBLAS
+            -DCMAKE_PREFIX_PATH=$(brew --prefix openblas)
+            -DOPENBLAS_DIR=$(brew --prefix openblas)"
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@v6
+        with:
+          name: wheels-${{ matrix.os }}
+          path: wheelhouse/*.whl
+
+  vacask-bin-tests:
+    name: Test vacask-bin packaging
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.x"
+      - run: python -m pip install pytest && python -m pytest python/vacask-bin
+
   release:
     if: startsWith(github.ref, 'refs/tags/_')
-    needs: build
+    needs: [build, wheels, vacask-bin-tests]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -127,6 +198,7 @@ jobs:
         uses: actions/download-artifact@v6
         with:
           path: artifacts
+          pattern: vacask-*
 
       - name: Package release archives
         run: |
@@ -147,6 +219,30 @@ jobs:
           zip -r "../../vacask_${VERSION}_windows-x86_64.zip" .
           cd ..
 
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.x"
+
+      - name: Build vacask-bin wheels from the archives above
+        run: |
+          python python/vacask-bin/build_wheels.py \
+            --release-tag "$GITHUB_REF_NAME" --cache-dir . --output-dir dist-bin
+
+      - name: Download extension wheels
+        uses: actions/download-artifact@v6
+        with:
+          pattern: wheels-*
+          merge-multiple: true
+          path: dist-ext
+
+      - name: Keep wheels for PyPI upload
+        uses: actions/upload-artifact@v6
+        with:
+          name: pypi-dists
+          path: |
+            dist-bin/
+            dist-ext/
+
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
@@ -156,3 +252,45 @@ jobs:
           files: |
             vacask_*.tar.gz
             vacask_*.zip
+            dist-bin/*.whl
+            dist-ext/*.whl
+
+  # PyPI trusted publishing: each project must list this repository, workflow
+  # file (ci.yml) and environment (pypi) as a trusted publisher on pypi.org.
+  pypi-vacask-bin:
+    needs: release
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/vacask-bin
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v6
+        with:
+          name: pypi-dists
+          path: all
+      - name: Publish vacask-bin
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: all/dist-bin
+          skip-existing: true
+
+  pypi-vacask:
+    needs: release
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/vacask
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v6
+        with:
+          name: pypi-dists
+          path: all
+      - name: Publish vacask
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: all/dist-ext
+          skip-existing: true
