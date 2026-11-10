@@ -91,11 +91,12 @@ jobs:
           echo "OPENVAF_DIR=$(cygpath -u "$GITHUB_WORKSPACE")/openvaf-cache" >> "$GITHUB_ENV"
 
       - name: Keep OpenVAF-Reloaded for the wheels job
-        if: runner.os != 'Windows'
         uses: actions/upload-artifact@v6
         with:
           name: openvaf-${{ matrix.os }}
-          path: openvaf-cache/openvaf-r
+          path: |
+            openvaf-cache/openvaf-r
+            openvaf-cache/openvaf-r.exe
           if-no-files-found: error
 
       - name: Build and test (Unix)
@@ -143,6 +144,8 @@ jobs:
             name: Linux aarch64
           - os: macos-15
             name: macOS
+          - os: windows-latest
+            name: Windows
 
     name: Wheels (${{ matrix.name }})
     runs-on: ${{ matrix.os }}
@@ -161,9 +164,33 @@ jobs:
           name: openvaf-${{ matrix.os }}
           path: openvaf-cache
 
-      - run: chmod +x openvaf-cache/openvaf-r
+      - name: Make openvaf-r executable
+        if: runner.os != 'Windows'
+        run: chmod +x openvaf-cache/openvaf-r
+
+      # Windows: the extension is built with the same MSYS2 MinGW toolchain as the
+      # simulator, against the (MSVC-built) python.org CPython, and the MinGW
+      # runtime DLLs are bundled with delvewheel (see pyproject.toml).
+      - name: Setup MSYS2 (Windows)
+        id: msys
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          install: git bison flex
+          pacboy: >-
+            gcc:p cmake:p ninja:p boost:p suitesparse:p fftw:p
+            tomlplusplus:p dlfcn:p llvm:p clang:p lld:p
+
+      - name: Compute forward-slash paths (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          echo "MSYS_ROOT=$(cygpath -m '${{ steps.msys.outputs.msys2-location }}')" >> "$GITHUB_ENV"
+          echo "WS=$(cygpath -m "$GITHUB_WORKSPACE")" >> "$GITHUB_ENV"
 
       - name: Determine version
+        shell: bash
         run: |
           if [[ "$GITHUB_REF" == refs/tags/_* ]]; then
             V="${GITHUB_REF_NAME#_}"; V="${V//-/.}"
@@ -180,6 +207,19 @@ jobs:
         uses: pypa/cibuildwheel@v3.2.1
         env:
           CIBW_BEFORE_ALL_MACOS: ci/install-deps.sh
+          CIBW_ENVIRONMENT_WINDOWS: >-
+            CMAKE_GENERATOR=Ninja
+            CC=gcc
+            CXX=g++
+            PATH="$MSYS_ROOT/mingw64/bin;$PATH;$MSYS_ROOT/usr/bin"
+            CMAKE_ARGS="-DOPENVAF_DIR=$WS/openvaf-cache
+            -DSuiteSparse_DIR=$MSYS_ROOT/mingw64
+            -DTOMLPP_DIR=$MSYS_ROOT/mingw64
+            -DBoost_ROOT=$MSYS_ROOT/mingw64
+            -DOPENBLAS_DIR=$MSYS_ROOT/mingw64
+            -DBISON_EXECUTABLE=$MSYS_ROOT/usr/bin/bison.exe
+            -DFLEX_EXECUTABLE=$MSYS_ROOT/usr/bin/flex.exe
+            -DFLEX_INCLUDE_DIR=$MSYS_ROOT/usr/include"
           CIBW_ENVIRONMENT_MACOS: >-
             MACOSX_DEPLOYMENT_TARGET=15.0
             CMAKE_PREFIX_PATH="$(brew --prefix openblas):$(brew --prefix libomp)"

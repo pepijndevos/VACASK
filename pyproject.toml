@@ -56,3 +56,11 @@ manylinux-aarch64-image = "manylinux_2_34"
 # cache into the project directory, so build-openvaf.sh normally does nothing.
 before-all = "ci/install-deps.sh && ci/build-openvaf.sh /project/openvaf-cache"
 environment = { CMAKE_ARGS = "-DOPENVAF_DIR=/project/openvaf-cache -DBoost_ROOT=/tmp/boost_1_88_0/stage -DSuiteSparse_DIR=/usr -DTOMLPP_DIR=/usr/local" }
+
+[tool.cibuildwheel.windows]
+archs = ["AMD64"]
+# cibuildwheel has no default repair step on Windows. The extension is built
+# with MinGW, so bundle libstdc++/libgcc/winpthread/libgomp and the numeric
+# libraries, which delvewheel finds on PATH (<msys2>/mingw64/bin, set in CI).
+before-build = "pip install delvewheel"
+repair-wheel-command = "delvewheel repair -w {dest_dir} {wheel}"
