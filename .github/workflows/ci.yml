@@ -212,6 +212,9 @@ jobs:
       contents: write
 
     steps:
+      # First: checkout cleans the workspace. Needed for python/vacask-bin.
+      - uses: actions/checkout@v6
+
       - name: Download all artifacts
         uses: actions/download-artifact@v6
         with:
