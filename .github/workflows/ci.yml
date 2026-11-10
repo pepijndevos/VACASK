@@ -90,6 +90,14 @@ jobs:
         run: |
           echo "OPENVAF_DIR=$(cygpath -u "$GITHUB_WORKSPACE")/openvaf-cache" >> "$GITHUB_ENV"
 
+      - name: Keep OpenVAF-Reloaded for the wheels job
+        if: runner.os != 'Windows'
+        uses: actions/upload-artifact@v6
+        with:
+          name: openvaf-${{ matrix.os }}
+          path: openvaf-cache/openvaf-r
+          if-no-files-found: error
+
       - name: Build and test (Unix)
         if: runner.os != 'Windows'
         run: ci/build-vacask.sh --openvaf-dir "$OPENVAF_DIR"
@@ -123,7 +131,7 @@ jobs:
 
   wheels:
     # Python extension (vacask package, scikit-build-core + pybind11).
-    # Runs after the build job so that the openvaf-r binary is in the cache.
+    # Runs after the build job, which provides the openvaf-r binary.
     needs: build
     strategy:
       fail-fast: false
@@ -145,11 +153,15 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Restore OpenVAF-Reloaded build
-        uses: actions/cache/restore@v5
+      # Passed as an artifact: the Linux cache entry is written from inside the
+      # manylinux container and is not necessarily restorable on the host.
+      - name: Fetch OpenVAF-Reloaded
+        uses: actions/download-artifact@v6
         with:
+          name: openvaf-${{ matrix.os }}
           path: openvaf-cache
-          key: openvaf-${{ matrix.os }}-${{ runner.arch }}-osdi-0.5-v1
+
+      - run: chmod +x openvaf-cache/openvaf-r
 
       - name: Determine version
         run: |
@@ -170,10 +182,10 @@ jobs:
           CIBW_BEFORE_ALL_MACOS: ci/install-deps.sh
           CIBW_ENVIRONMENT_MACOS: >-
             MACOSX_DEPLOYMENT_TARGET=15.0
+            CMAKE_PREFIX_PATH="$(brew --prefix openblas):$(brew --prefix libomp)"
             CMAKE_ARGS="-DOPENVAF_DIR=$GITHUB_WORKSPACE/openvaf-cache
             -DFLEX_INCLUDE_DIR=$(brew --prefix)/opt/flex/include
             -DBoost_USE_STATIC_LIBS=ON -DBLA_VENDOR=OpenBLAS
-            -DCMAKE_PREFIX_PATH=$(brew --prefix openblas);$(brew --prefix libomp)
             -DOPENBLAS_DIR=$(brew --prefix openblas)"
 
       - name: Upload wheels

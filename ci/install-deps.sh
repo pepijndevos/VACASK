@@ -70,8 +70,9 @@ case "$OS" in
     cd tools/build
     ./bootstrap.sh "$BOOST_TOOLSET"
     cd ../..
+    # -fPIC: the static libs are also linked into the Python extension (a shared object)
     tools/build/b2 -j"$(nproc)" --with-filesystem --with-process --with-asio \
-      link=static "toolset=$BOOST_TOOLSET"
+      link=static cxxflags=-fPIC "toolset=$BOOST_TOOLSET"
     ;;
 
   Darwin)
