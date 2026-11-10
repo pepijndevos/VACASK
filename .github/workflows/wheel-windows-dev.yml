@@ -40,6 +40,11 @@ jobs:
           CIBW_BUILD: cp313-*
           CIBW_ARCHS_WINDOWS: AMD64
           SETUPTOOLS_SCM_PRETEND_VERSION: 0.0.0.dev0
+          # cibuildwheel has no default repair step on Windows. The extension is
+          # built with MinGW, so bundle libstdc++/libgcc/winpthread/libgomp and
+          # the numeric libraries found on PATH (mingw64/bin).
+          CIBW_BEFORE_BUILD_WINDOWS: pip install delvewheel
+          CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: delvewheel repair -v -w {dest_dir} {wheel}
           CIBW_ENVIRONMENT_WINDOWS: >-
             CMAKE_GENERATOR=Ninja
             CC=gcc
