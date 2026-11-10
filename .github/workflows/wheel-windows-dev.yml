@@ -1,0 +1,59 @@
+name: Windows wheel (dev)
+on:
+  push:
+    branches: [wheel-windows]
+
+jobs:
+  wheel:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup MSYS2
+        id: msys
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          install: git bison flex
+          pacboy: >-
+            gcc:p cmake:p ninja:p boost:p suitesparse:p fftw:p
+            tomlplusplus:p dlfcn:p
+
+      - name: Restore OpenVAF-Reloaded build
+        uses: actions/cache/restore@v5
+        with:
+          path: openvaf-cache
+          key: openvaf-windows-latest-X64-osdi-0.5-v1
+          fail-on-cache-miss: true
+
+      - name: Build wheel
+        uses: pypa/cibuildwheel@v3.2.1
+        env:
+          CIBW_BUILD: cp313-*
+          SETUPTOOLS_SCM_PRETEND_VERSION: 0.0.0.dev0
+          MSYS_ROOT: ${{ replace(steps.msys.outputs.msys2-location, '\', '/') }}
+          WS: ${{ replace(github.workspace, '\', '/') }}
+          CIBW_ENVIRONMENT_WINDOWS: >-
+            CMAKE_GENERATOR=Ninja
+            CC=gcc
+            CXX=g++
+            PATH="$MSYS_ROOT/mingw64/bin;$PATH;$MSYS_ROOT/usr/bin"
+            CMAKE_ARGS="-DOPENVAF_DIR=$WS/openvaf-cache
+            -DSuiteSparse_DIR=$MSYS_ROOT/mingw64
+            -DTOMLPP_DIR=$MSYS_ROOT/mingw64
+            -DBoost_ROOT=$MSYS_ROOT/mingw64
+            -DOPENBLAS_DIR=$MSYS_ROOT/mingw64
+            -DBISON_EXECUTABLE=$MSYS_ROOT/usr/bin/bison.exe
+            -DFLEX_EXECUTABLE=$MSYS_ROOT/usr/bin/flex.exe
+            -DFLEX_INCLUDE_DIR=$MSYS_ROOT/usr/include"
+          # Nothing to repair: the extension links statically.
+          CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: ""
+
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: wheel-windows-dev
+          path: wheelhouse/*.whl
+          if-no-files-found: warn
