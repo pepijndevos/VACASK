@@ -79,7 +79,7 @@ case "$OS" in
     brew install \
       llvm@18 cmake ninja \
       bison flex \
-      suite-sparse openblas boost tomlplusplus fftw \
+      suite-sparse openblas boost tomlplusplus fftw libomp \
       numpy scipy
     python3 -m pip install --user --break-system-packages matplotlib
     ;;

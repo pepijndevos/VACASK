@@ -50,7 +50,8 @@ case "$OS" in
     CMAKE_ARGS+=("-DFLEX_INCLUDE_DIR=$BREW_PREFIX/opt/flex/include")
     CMAKE_ARGS+=("-DBoost_USE_STATIC_LIBS=ON")
     CMAKE_ARGS+=("-DBLA_VENDOR=OpenBLAS")
-    CMAKE_ARGS+=("-DCMAKE_PREFIX_PATH=$OPENBLAS_PREFIX")
+    # libomp is keg-only: point FindOpenMP at it (ciromp.cpp needs omp.h)
+    CMAKE_ARGS+=("-DCMAKE_PREFIX_PATH=$OPENBLAS_PREFIX;$(brew --prefix libomp)")
     CMAKE_ARGS+=("-DOPENBLAS_DIR=$OPENBLAS_PREFIX")
     ;;
   MINGW*|MSYS*)

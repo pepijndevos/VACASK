@@ -167,7 +167,7 @@ jobs:
             CMAKE_ARGS="-DOPENVAF_DIR=$GITHUB_WORKSPACE/openvaf-cache
             -DFLEX_INCLUDE_DIR=$(brew --prefix)/opt/flex/include
             -DBoost_USE_STATIC_LIBS=ON -DBLA_VENDOR=OpenBLAS
-            -DCMAKE_PREFIX_PATH=$(brew --prefix openblas)
+            -DCMAKE_PREFIX_PATH=$(brew --prefix openblas);$(brew --prefix libomp)
             -DOPENBLAS_DIR=$(brew --prefix openblas)"
 
       - name: Upload wheels
