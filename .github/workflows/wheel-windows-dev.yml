@@ -53,8 +53,6 @@ jobs:
             -DBISON_EXECUTABLE=$MSYS_ROOT/usr/bin/bison.exe
             -DFLEX_EXECUTABLE=$MSYS_ROOT/usr/bin/flex.exe
             -DFLEX_INCLUDE_DIR=$MSYS_ROOT/usr/include"
-          # Nothing to repair: the extension links statically.
-          CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: ""
 
       - uses: actions/upload-artifact@v6
         if: always()
