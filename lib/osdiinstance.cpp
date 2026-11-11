@@ -16,7 +16,9 @@ namespace NAMESPACE {
 
 OsdiInstance::OsdiInstance(OsdiModel* model, Id name, Instance* parentInstance, const PTInstance& parsedInstance, Status &s) 
     : Instance(model, name, parentInstance, parsedInstance), core_(nullptr), connectedTerminalCount(0) {
-    core_ = alignedAlloc(sizeof(::max_align_t), model->device()->descriptor()->instance_size);
+    // Alignment of the most strictly aligned scalar type (not its size, which
+    // need not be a power of 2: 24 on wasm32, where aligned_alloc() then fails).
+    core_ = alignedAlloc(alignof(std::max_align_t), model->device()->descriptor()->instance_size);
     // Out of memory: fail loudly rather than memset()-ing a nullptr.
     if (!core_) {
         throw std::bad_alloc();

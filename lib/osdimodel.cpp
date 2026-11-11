@@ -1,4 +1,5 @@
 #include <cstring>
+#include <cstddef>
 #include <cstdlib>
 #include <new>
 #include "osdimodel.h"
@@ -12,7 +13,9 @@ namespace NAMESPACE {
 
 OsdiModel::OsdiModel(OsdiDevice *device, Id name, Instance* parentInstance, const PTModel& parsedModel, Status& s) 
     : Model(device, name, parentInstance, parsedModel), core_(nullptr) {
-    core_ = alignedAlloc(sizeof(::max_align_t), device->descriptor()->model_size);
+    // Alignment of the most strictly aligned scalar type (not its size, which
+    // need not be a power of 2: 24 on wasm32, where aligned_alloc() then fails).
+    core_ = alignedAlloc(alignof(std::max_align_t), device->descriptor()->model_size);
     // Out of memory: fail loudly rather than memset()-ing a nullptr.
     if (!core_) {
         throw std::bad_alloc();
