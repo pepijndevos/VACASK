@@ -260,7 +260,7 @@ jobs:
           fetch-depth: 0
 
       - name: Install host tools
-        run: sudo apt-get update && sudo apt-get install -y bison flex ninja-build
+        run: sudo apt-get update && sudo apt-get install -y bison flex libfl-dev ninja-build
 
       # Built in the manylinux container of the build job, against its LLVM 21
       # shared library, which the runner gets from apt.llvm.org.
