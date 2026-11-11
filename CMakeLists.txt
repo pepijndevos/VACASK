@@ -246,12 +246,41 @@ if (DEFINED OPENVAF_DIR)
 else()
   find_program(OPENVAF_COMPILER openvaf-r)
 endif()
-if (OPENVAF_COMPILER STREQUAL "OPENVAF_COMPILER-NOTFOUND" AND SIM_PLATFORM STREQUAL "Emscripten")
-    message(STATUS "  not found (not needed, device models are not built for WebAssembly)")
-elseif (OPENVAF_COMPILER STREQUAL "OPENVAF_COMPILER-NOTFOUND")
+if (OPENVAF_COMPILER STREQUAL "OPENVAF_COMPILER-NOTFOUND")
     message(FATAL_ERROR "  not found")
 else()
     message(STATUS "  found ${OPENVAF_COMPILER}") 
+endif()
+
+# Extra arguments of OpenVAF for the target platform, and a launcher that runs
+# it (empty: run it directly)
+set(OPENVAF_TARGET_OPTIONS "")
+set(OPENVAF_LAUNCHER "")
+if (SIM_PLATFORM STREQUAL "Emscripten")
+    # Device models are WebAssembly side modules, loaded with dlopen like on
+    # the other platforms. OpenVAF-reloaded compiles them for the
+    # wasm32-unknown-emscripten target and links them with the wasm-ld of the
+    # Emscripten SDK that builds the extension.
+    execute_process(
+        COMMAND "${OPENVAF_COMPILER}" --supported-targets
+        OUTPUT_VARIABLE tmp
+        RESULT_VARIABLE res
+    )
+    if (NOT res EQUAL 0 OR NOT tmp MATCHES "wasm32-unknown-emscripten")
+        message(FATAL_ERROR "${OPENVAF_COMPILER} cannot compile for WebAssembly "
+            "(no wasm32-unknown-emscripten target)")
+    endif()
+    get_filename_component(tmp "${CMAKE_C_COMPILER}" DIRECTORY)
+    find_program(WASM_LD wasm-ld
+        HINTS "${EMSCRIPTEN_ROOT_PATH}/../bin" "$ENV{EMSDK}/upstream/bin" "${tmp}/../bin"
+        NO_CMAKE_FIND_ROOT_PATH
+    )
+    if (WASM_LD STREQUAL "WASM_LD-NOTFOUND")
+        message(FATAL_ERROR "wasm-ld of the Emscripten SDK not found")
+    endif()
+    message(STATUS "WebAssembly linker for device models: ${WASM_LD}")
+    set(OPENVAF_TARGET_OPTIONS "--target;wasm32-unknown-emscripten")
+    set(OPENVAF_LAUNCHER "${CMAKE_COMMAND};-E;env;OPENVAF_WASM_LD=${WASM_LD}")
 endif()
 
 #find_package(SWIG 4.0 COMPONENTS python)
@@ -666,21 +695,21 @@ endif()
 
 add_subdirectory(lib)
 if (NOT SIM_PLATFORM STREQUAL "Emscripten")
-    # WebAssembly builds only the library and the Python extension: there is no
-    # standalone simulator, and device models (OSDI) need a wasm-targeting
-    # OpenVAF, so tests and demos have nothing to run against.
+    # WebAssembly builds only the library, the device models and the Python
+    # extension: there is no standalone simulator (the netlist tests and demos
+    # run it).
     add_subdirectory(simulator)
-    add_subdirectory(devices)
 endif()
+add_subdirectory(devices)
 add_subdirectory(inc)
 add_subdirectory(python)
 if (NOT SIM_PLATFORM STREQUAL "Emscripten")
     add_subdirectory(test)
 
     add_subdirectory(demo/api)
-
-    include("packaging.cmake")
 endif()
+
+include("packaging.cmake")
 
 if (SKBUILD)
 # PyBIND11

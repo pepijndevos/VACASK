@@ -67,7 +67,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: openvaf-cache
-          key: openvaf-${{ matrix.os }}-${{ runner.arch }}-osdi-0.5-v1
+          key: openvaf-${{ matrix.os }}-${{ runner.arch }}-osdi-0.5-wasm-v1
 
       - name: Build OpenVAF-Reloaded (Unix)
         if: steps.cache-openvaf.outputs.cache-hit != 'true' && runner.os != 'Windows'
@@ -235,14 +235,16 @@ jobs:
           path: wheelhouse/*.whl
 
   wheels-pyodide:
-    # Python extension for Pyodide (WebAssembly), experimental: there are no
-    # wasm device models (OSDI) yet, so only circuits made of builtin devices
-    # can be simulated (python/tests/test_builtin_devices.py runs in the wheel
-    # test step). Not part of the release: the artifact is named
-    # "pyodide-wheels" so the release job's "wheels-*" download does not pick it
-    # up. The native libraries are built from source (ci/build-wasm-deps.sh):
-    # Pyodide's own library packages cannot be depended on from a PyPI wheel.
+    # Python extension for Pyodide (WebAssembly), experimental. Not part of the
+    # release: the artifact is named "pyodide-wheels" so the release job's
+    # "wheels-*" download does not pick it up. The native libraries are built
+    # from source (ci/build-wasm-deps.sh): Pyodide's own library packages cannot
+    # be depended on from a PyPI wheel. The device models are compiled to
+    # WebAssembly side modules by the openvaf-r of the Linux x86_64 build job
+    # (wasm32-unknown-emscripten target) and bundled in the wheel; the wheel
+    # test step simulates circuits with them (python/tests/test_models.py).
     name: Wheels (Pyodide)
+    needs: build
     runs-on: ubuntu-24.04
     env:
       # Must match the Emscripten of the Pyodide platform that is built:
@@ -259,6 +261,23 @@ jobs:
 
       - name: Install host tools
         run: sudo apt-get update && sudo apt-get install -y bison flex ninja-build
+
+      # Built in the manylinux container of the build job, against its LLVM 21
+      # shared library, which the runner gets from apt.llvm.org.
+      - name: Fetch OpenVAF-Reloaded
+        uses: actions/download-artifact@v6
+        with:
+          name: openvaf-ubuntu-24.04
+          path: openvaf-cache
+
+      - name: Install the LLVM library of OpenVAF-Reloaded
+        run: |
+          chmod +x openvaf-cache/openvaf-r
+          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc > /dev/null
+          echo "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-21 main" | sudo tee /etc/apt/sources.list.d/llvm-21.list
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends libllvm21
+          openvaf-cache/openvaf-r --supported-targets | grep wasm32-unknown-emscripten
+          echo "OPENVAF_DIR=$GITHUB_WORKSPACE/openvaf-cache" >> "$GITHUB_ENV"
 
       - name: Setup Emscripten
         uses: mymindstorm/setup-emsdk@v14

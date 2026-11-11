@@ -56,18 +56,21 @@ endif()
 
 string(TOLOWER "${SIM_PLATFORM}" lowercase_platform)
 
-# Executables
-if (NOT SKBUILD)
+# Executables (there is no simulator executable on WebAssembly)
+if (NOT SKBUILD AND NOT SIM_PLATFORM STREQUAL "Emscripten")
 install(TARGETS sim
 	DESTINATION "bin"
 	PERMISSIONS ${install_permissions_executable}
 )
 endif()
 
+# The compiler is a native program, of no use on WebAssembly
+if (NOT SIM_PLATFORM STREQUAL "Emscripten")
 install(FILES ${OPENVAF_COMPILER}
 	DESTINATION ${VACASK_BIN_DIR}
 	PERMISSIONS ${install_permissions_executable}
 )
+endif()
 
 # Device sources
 if(NOT SKBUILD)
@@ -144,7 +147,10 @@ if (NOT SKBUILD)
     )
 endif()
 
-if(${SIM_PLATFORM} STREQUAL "Windows")
+if(${SIM_PLATFORM} STREQUAL "Emscripten")
+    # Only the Python wheel is built for WebAssembly, no CPack packages
+    return()
+elseif(${SIM_PLATFORM} STREQUAL "Windows")
     set(CPACK_GENERATOR "ZIP")
 else()
     set(CPACK_DEBIAN_PACKAGE_NAME "${PROGRAM_NAME}")

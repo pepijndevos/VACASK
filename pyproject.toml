@@ -69,8 +69,9 @@ repair-wheel-command = "delvewheel repair -w {dest_dir} {wheel}"
 # WebAssembly (Pyodide/Emscripten). The native libraries are not taken from
 # Pyodide (its packages cannot be depended on from a PyPI wheel); build them
 # first with the matching Emscripten (ci/build-wasm-deps.sh <prefix>) and point
-# WASM_DEPS_DIR at the prefix.
-environment = { CMAKE_ARGS = "-DWASM_DEPS_DIR=$WASM_DEPS_DIR", SKBUILD_INSTALL_STRIP = "false" }
-# There are no wasm device models (OSDI), so the test uses builtin devices only.
+# WASM_DEPS_DIR at the prefix. The device models are compiled to WebAssembly
+# side modules by an OpenVAF-Reloaded with the wasm32-unknown-emscripten target
+# (ci/build-openvaf.sh) in OPENVAF_DIR.
+environment = { CMAKE_ARGS = "-DWASM_DEPS_DIR=$WASM_DEPS_DIR -DOPENVAF_DIR=$OPENVAF_DIR", SKBUILD_INSTALL_STRIP = "false" }
 test-requires = ["numpy"]
-test-command = "python {project}/python/tests/test_builtin_devices.py"
+test-command = "python {project}/python/tests/test_builtin_devices.py && python {project}/python/tests/test_models.py"

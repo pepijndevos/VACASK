@@ -117,7 +117,7 @@ while(i LESS ${list_len})
         DEPENDS "${inputfile}"
         DEPENDS "${OPENVAF_COMPILER}"
         MAIN_DEPENDENCY "${inputfile}"
-        COMMAND "${OPENVAF_COMPILER}" ARGS "${extra_options_list}" "${options_list}" "--allow" "variant_const_simparam" "-I${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/${source}" -o "${outputfile}"
+        COMMAND ${OPENVAF_LAUNCHER} "${OPENVAF_COMPILER}" ARGS ${OPENVAF_TARGET_OPTIONS} "${extra_options_list}" "${options_list}" "--allow" "variant_const_simparam" "-I${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/${source}" -o "${outputfile}"
         COMMAND ${CMAKE_COMMAND} ARGS -E copy "${outputfile}" "${built_file}"
         COMMAND ${CMAKE_COMMAND} ARGS -E rm -f "${outputfile}"
         COMMAND_EXPAND_LISTS 
