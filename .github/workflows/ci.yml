@@ -234,6 +234,70 @@ jobs:
           name: wheels-${{ matrix.os }}
           path: wheelhouse/*.whl
 
+  wheels-pyodide:
+    # Python extension for Pyodide (WebAssembly), experimental: there are no
+    # wasm device models (OSDI) yet, so only circuits made of builtin devices
+    # can be simulated (python/tests/test_builtin_devices.py runs in the wheel
+    # test step). Not part of the release: the artifact is named
+    # "pyodide-wheels" so the release job's "wheels-*" download does not pick it
+    # up. The native libraries are built from source (ci/build-wasm-deps.sh):
+    # Pyodide's own library packages cannot be depended on from a PyPI wheel.
+    name: Wheels (Pyodide)
+    runs-on: ubuntu-24.04
+    env:
+      # Must match the Emscripten of the Pyodide platform that is built:
+      # pyemscripten_2025_0 (Python 3.13) uses Emscripten 4.0.9. Other Python
+      # versions need other Emscripten versions, hence their own dependency build.
+      EMSCRIPTEN_VERSION: 4.0.9
+      PYODIDE_BUILD: cp313-pyodide_wasm32
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Install host tools
+        run: sudo apt-get update && sudo apt-get install -y bison flex ninja-build
+
+      - name: Setup Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: ${{ env.EMSCRIPTEN_VERSION }}
+
+      - name: Cache wasm dependencies
+        id: wasm-deps-cache
+        uses: actions/cache@v5
+        with:
+          path: ${{ runner.temp }}/wasm-deps
+          key: wasm-deps-${{ env.EMSCRIPTEN_VERSION }}-${{ hashFiles('ci/build-wasm-deps.sh') }}
+
+      - name: Build wasm dependencies
+        if: steps.wasm-deps-cache.outputs.cache-hit != 'true'
+        run: ci/build-wasm-deps.sh "$RUNNER_TEMP/wasm-deps" "$RUNNER_TEMP/wasm-deps-work"
+
+      - name: Determine version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/_* ]]; then
+            V="${GITHUB_REF_NAME#_}"; V="${V//-/.}"
+          else
+            V="0.0.0.dev0+g${GITHUB_SHA::8}"
+          fi
+          echo "SETUPTOOLS_SCM_PRETEND_VERSION=$V" >> "$GITHUB_ENV"
+
+      - name: Build wheel
+        uses: pypa/cibuildwheel@v3.2.1
+        env:
+          CIBW_PLATFORM: pyodide
+          CIBW_BUILD: ${{ env.PYODIDE_BUILD }}
+          WASM_DEPS_DIR: ${{ runner.temp }}/wasm-deps
+
+      - name: Upload wheel
+        uses: actions/upload-artifact@v6
+        with:
+          name: pyodide-wheels
+          path: wheelhouse/*.whl
+
   vacask-bin-tests:
     name: Test vacask-bin packaging
     runs-on: ubuntu-latest

@@ -64,3 +64,13 @@ archs = ["AMD64"]
 # libraries, which delvewheel finds on PATH (<msys2>/mingw64/bin, set in CI).
 before-build = "pip install delvewheel"
 repair-wheel-command = "delvewheel repair -w {dest_dir} {wheel}"
+
+[tool.cibuildwheel.pyodide]
+# WebAssembly (Pyodide/Emscripten). The native libraries are not taken from
+# Pyodide (its packages cannot be depended on from a PyPI wheel); build them
+# first with the matching Emscripten (ci/build-wasm-deps.sh <prefix>) and point
+# WASM_DEPS_DIR at the prefix.
+environment = { CMAKE_ARGS = "-DWASM_DEPS_DIR=$WASM_DEPS_DIR", SKBUILD_INSTALL_STRIP = "false" }
+# There are no wasm device models (OSDI), so the test uses builtin devices only.
+test-requires = ["numpy"]
+test-command = "python {project}/python/tests/test_builtin_devices.py"

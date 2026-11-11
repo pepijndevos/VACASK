@@ -64,12 +64,20 @@ public:
 
 private:
     static std::vector<StructMember> members;
-    static std::unordered_map<Id,size_t> memberIndex;
+    // Function-local static: setup() runs from a static initializer in another
+    // translation unit, and the initialization order of a template's static data
+    // member relative to it is unspecified. A not yet constructed unordered_map
+    // is all zeros (max_load_factor 0), so the first insert would throw
+    // std::overflow_error ("__next_prime overflow") on WebAssembly.
+    static std::unordered_map<Id,size_t>& memberIndexMap();
     static int isRegistered;
 };
 
 template<typename T> SIM_CONSTINIT std::vector<StructMember> Introspection<T>::members;
-template<typename T> std::unordered_map<Id,size_t> Introspection<T>::memberIndex;
+template<typename T> std::unordered_map<Id,size_t>& Introspection<T>::memberIndexMap() {
+    static std::unordered_map<Id,size_t> map;
+    return map;
+}
 
 // Macro for registering a struct member
 #define registerMember(m) \
@@ -90,6 +98,7 @@ template<typename T> size_t Introspection<T>::count() {
 }
 
 template<typename T> std::tuple<size_t, bool> Introspection<T>::index(Id name) {
+    auto& memberIndex = memberIndexMap();
     auto it = memberIndex.find(name);
     if (it==memberIndex.end()) {
         return std::make_tuple(0, false);
@@ -317,7 +326,7 @@ template<typename T> std::tuple<bool,bool> Introspection<T>::given(const T& st, 
 
 template<typename T> void Introspection<T>::registerMember_(Id name, StructMember::Type t, size_t offset) {
     members.push_back(std::move(StructMember(name, t, offset)));
-    memberIndex.insert({name, members.size()-1});
+    memberIndexMap().insert({name, members.size()-1});
 }
 
 template<typename T> template<typename Tsub> Tsub& Introspection<T>::memberRef(T& st, size_t ndx) {

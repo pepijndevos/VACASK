@@ -131,7 +131,8 @@ const char* defaultOpenVafBinaryName() {
     return binary;
 }
 
-#ifndef SIMMACOS
+// macOS and Emscripten's libc++ lack the time zone database (zoned_time)
+#if !defined(SIMMACOS) && !defined(__EMSCRIPTEN__)
 std::string formattedTimestamp() {
     auto now = std::chrono::floor<std::chrono::seconds>(std::chrono::system_clock::now());
     auto localTime = std::chrono::zoned_time{std::chrono::current_zone(), now};

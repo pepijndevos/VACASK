@@ -2,6 +2,9 @@
 #define _WIN32_WINNT 0x0601
 #endif
 
+// WebAssembly (Emscripten/Pyodide) cannot spawn processes and has no Boost
+// dependency: runProcess() always fails there and executableFile() is empty.
+#ifndef __EMSCRIPTEN__
 #include <boost/version.hpp>
 #include <boost/asio.hpp>
 #include <boost/asio/io_context.hpp>
@@ -11,6 +14,7 @@
 #include <boost/process/v2/environment.hpp>
 #include <boost/process/v2/stdio.hpp>
 #include <boost/dll.hpp>
+#endif
 
 #include <exception>
 #include <filesystem>
@@ -22,7 +26,9 @@
 #include "simulator.h"
 #include "status.h"
 
+#ifndef __EMSCRIPTEN__
 namespace bp2 = boost::process::v2;
+#endif
 
 namespace NAMESPACE {
 
@@ -58,13 +64,29 @@ bool findProgram(const std::string& prog, std::string& pathToProg) {
     return false;
 }
 
-// TODO: replace this with something better
+#ifdef __EMSCRIPTEN__
 std::tuple<bool, std::string, std::string> runProcess(
-    const std::string& prog, const std::vector<std::string>& args, 
-    const std::string* pythonPath, const std::string* parentFilePath, 
+    const std::string& prog, const std::vector<std::string>& args,
+    const std::string* pythonPath, const std::string* parentFilePath,
     bool collect, bool debugFiles, Status& s
 ) {
-    
+    s.set(Status::Process, "Cannot run '"+prog+"': starting processes is not supported on WebAssembly.");
+    return std::make_tuple(false, "", "");
+}
+
+std::string executableFile() {
+    return "";
+}
+
+}
+#else
+// TODO: replace this with something better
+std::tuple<bool, std::string, std::string> runProcess(
+    const std::string& prog, const std::vector<std::string>& args,
+    const std::string* pythonPath, const std::string* parentFilePath,
+    bool collect, bool debugFiles, Status& s
+) {
+
     bool ok;
     std::string path;
 
@@ -183,3 +205,4 @@ std::string executableFile() {
 }
 
 }
+#endif

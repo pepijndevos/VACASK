@@ -1,4 +1,6 @@
+#ifdef OPENMP_ENABLED
 #include <omp.h>
+#endif
 #include <algorithm>
 #include <atomic>
 #include <stdexcept>
@@ -107,15 +109,18 @@ bool Circuit::evalPartitions(CommonData& commons, EvalSetup* evalSetup, bool usi
     // Not set globally via omp_set_num_threads(), that one is reserved for OpenBLAS (-b).
     int nThreads = Simulator::nCpu();
 
-    // Set up OpenMP scheduling
+    // Set up OpenMP scheduling. Without OpenMP (e.g. WebAssembly) the pragma
+    // below is ignored and the partitions are evaluated serially.
+#ifdef OPENMP_ENABLED
     auto ompSched = simOptions.core().omp_evsched;
     if (ompSched==SimulatorOptions::ompDynamic) {
-        omp_set_schedule(omp_sched_dynamic, simOptions.core().omp_evchunk); 
+        omp_set_schedule(omp_sched_dynamic, simOptions.core().omp_evchunk);
     } else if (ompSched==SimulatorOptions::ompGuided) {
-        omp_set_schedule(omp_sched_guided, simOptions.core().omp_evchunk); 
+        omp_set_schedule(omp_sched_guided, simOptions.core().omp_evchunk);
     } else {
-        omp_set_schedule(omp_sched_static, simOptions.core().omp_evchunk); 
+        omp_set_schedule(omp_sched_static, simOptions.core().omp_evchunk);
     }
+#endif
 
     #pragma omp parallel for schedule(runtime) num_threads(nThreads)
     for(decltype(nPart) i=0; i<nPart; i++) {
