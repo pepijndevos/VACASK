@@ -235,9 +235,9 @@ jobs:
           path: wheelhouse/*.whl
 
   wheels-pyodide:
-    # Python extension for Pyodide (WebAssembly), experimental. Not part of the
-    # release: the artifact is named "pyodide-wheels" so the release job's
-    # "wheels-*" download does not pick it up. The native libraries are built
+    # Python extension for Pyodide (WebAssembly), experimental. Released to PyPI
+    # with the native wheels: the "wheels-pyodide" artifact matches the release
+    # job's "wheels-*" download. The native libraries are built
     # from source (ci/build-wasm-deps.sh): Pyodide's own library packages cannot
     # be depended on from a PyPI wheel. The device models are compiled to
     # WebAssembly side modules by the openvaf-r of the Linux x86_64 build job
@@ -304,17 +304,28 @@ jobs:
           fi
           echo "SETUPTOOLS_SCM_PRETEND_VERSION=$V" >> "$GITHUB_ENV"
 
+      # cibuildwheel 4 tags the wheel with the PEP 783 platform tag
+      # (pyemscripten_2025_0_wasm32), the only spelling PyPI accepts; 3.x wrote
+      # pyodide_2025_0_wasm32. Python 3.13 (Pyodide 0.29) is an end-of-life
+      # Pyodide since 314.0, hence pyodide-eol.
       - name: Build wheel
-        uses: pypa/cibuildwheel@v3.2.1
+        uses: pypa/cibuildwheel@v4.3.5
         env:
           CIBW_PLATFORM: pyodide
           CIBW_BUILD: ${{ env.PYODIDE_BUILD }}
+          CIBW_ENABLE: pyodide-eol
           WASM_DEPS_DIR: ${{ runner.temp }}/wasm-deps
+
+      # A wheel PyPI would reject must fail here, not halfway through a release.
+      - name: Check the platform tag
+        run: |
+          ls wheelhouse
+          ls wheelhouse/*-cp313-cp313-pyemscripten_2025_0_wasm32.whl
 
       - name: Upload wheel
         uses: actions/upload-artifact@v6
         with:
-          name: pyodide-wheels
+          name: wheels-pyodide
           path: wheelhouse/*.whl
 
   vacask-bin-tests:
@@ -329,7 +340,7 @@ jobs:
 
   release:
     if: startsWith(github.ref, 'refs/tags/_')
-    needs: [build, wheels, vacask-bin-tests]
+    needs: [build, wheels, wheels-pyodide, vacask-bin-tests]
     runs-on: ubuntu-latest
     permissions:
       contents: write
