@@ -254,7 +254,12 @@ endif()
 
 # Extra arguments of OpenVAF for the target platform, and a launcher that runs
 # it (empty: run it directly)
-set(OPENVAF_TARGET_OPTIONS "")
+# openvaf-r compiles for --target_cpu native by default, so device models built on
+# one machine (e.g. a release runner) can die with "Illegal instruction" on another
+# CPU. Packaged models must run anywhere; use -DOPENVAF_TARGET_CPU=native for a
+# local build tuned to this machine.
+set(OPENVAF_TARGET_CPU "generic" CACHE STRING "CPU the device models are compiled for (openvaf-r --target_cpu)")
+set(OPENVAF_TARGET_OPTIONS "--target_cpu;${OPENVAF_TARGET_CPU}")
 set(OPENVAF_LAUNCHER "")
 if (SIM_PLATFORM STREQUAL "Emscripten")
     # Device models are WebAssembly side modules, loaded with dlopen like on
