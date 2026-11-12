@@ -248,10 +248,11 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       # Must match the Emscripten of the Pyodide platform that is built:
-      # pyemscripten_2025_0 (Python 3.13) uses Emscripten 4.0.9. Other Python
-      # versions need other Emscripten versions, hence their own dependency build.
-      EMSCRIPTEN_VERSION: 4.0.9
-      PYODIDE_BUILD: cp313-pyodide_wasm32
+      # pyemscripten_2026_0 (Python 3.14, Pyodide 314, the one marimo ships)
+      # uses Emscripten 5.0.3. Other Python versions need other Emscripten
+      # versions, hence their own dependency build.
+      EMSCRIPTEN_VERSION: 5.0.3
+      PYODIDE_BUILD: cp314-pyodide_wasm32
 
     steps:
       - name: Checkout
@@ -305,22 +306,20 @@ jobs:
           echo "SETUPTOOLS_SCM_PRETEND_VERSION=$V" >> "$GITHUB_ENV"
 
       # cibuildwheel 4 tags the wheel with the PEP 783 platform tag
-      # (pyemscripten_2025_0_wasm32), the only spelling PyPI accepts; 3.x wrote
-      # pyodide_2025_0_wasm32. Python 3.13 (Pyodide 0.29) is an end-of-life
-      # Pyodide since 314.0, hence pyodide-eol.
+      # (pyemscripten_2026_0_wasm32), the only spelling PyPI accepts; 3.x wrote
+      # pyodide_* tags.
       - name: Build wheel
         uses: pypa/cibuildwheel@v4.3.5
         env:
           CIBW_PLATFORM: pyodide
           CIBW_BUILD: ${{ env.PYODIDE_BUILD }}
-          CIBW_ENABLE: pyodide-eol
           WASM_DEPS_DIR: ${{ runner.temp }}/wasm-deps
 
       # A wheel PyPI would reject must fail here, not halfway through a release.
       - name: Check the platform tag
         run: |
           ls wheelhouse
-          ls wheelhouse/*-cp313-cp313-pyemscripten_2025_0_wasm32.whl
+          ls wheelhouse/*-cp314-cp314-pyemscripten_2026_0_wasm32.whl
 
       - name: Upload wheel
         uses: actions/upload-artifact@v6
