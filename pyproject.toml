@@ -44,7 +44,8 @@ tag_regex = "^_(?P<version>.*)$"
 [tool.cibuildwheel]
 build = "cp310-* cp311-* cp312-* cp313-* cp314-*"
 skip = "*-musllinux_* *_i686"
-test-command = "python -c \"import vacask; print(vacask.simulator)\""
+test-command = "python -c \"import vacask; print(vacask.simulator)\" && python {project}/python/tests/test_keep_alive.py"
+test-requires = ["numpy"]
 # The tag is _X.Y.Z[-devN]; setuptools_scm cannot derive a version with commit
 # distance from it, so CI passes the version in explicitly.
 environment-pass = ["SETUPTOOLS_SCM_PRETEND_VERSION"]
@@ -74,4 +75,4 @@ repair-wheel-command = "delvewheel repair -w {dest_dir} {wheel}"
 # (ci/build-openvaf.sh) in OPENVAF_DIR.
 environment = { CMAKE_ARGS = "-DWASM_DEPS_DIR=$WASM_DEPS_DIR -DOPENVAF_DIR=$OPENVAF_DIR", SKBUILD_INSTALL_STRIP = "false" }
 test-requires = ["numpy"]
-test-command = "python {project}/python/tests/test_builtin_devices.py && python {project}/python/tests/test_models.py"
+test-command = "python {project}/python/tests/test_builtin_devices.py && python {project}/python/tests/test_models.py && python {project}/python/tests/test_keep_alive.py"

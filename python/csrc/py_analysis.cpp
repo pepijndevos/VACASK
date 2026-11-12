@@ -49,7 +49,11 @@ void InitAnalysisModule(py::module &m) {
             py::arg("pt_analysis"),
             py::arg("circuit"),
             py::arg("status"),
-            py::return_value_policy::take_ownership
+            py::return_value_policy::take_ownership,
+            // The analysis stores references to its description and to the
+            // circuit: keep both alive while the analysis lives.
+            py::keep_alive<0, 1>(),
+            py::keep_alive<0, 2>()
         )
         .def("start", &sim::Analysis::start)
         .def("is_running", &sim::Analysis::isRunning)

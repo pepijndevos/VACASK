@@ -17,7 +17,11 @@ void InitCircuitModule(py::module &m) {
             py::arg("tables"),
             py::arg("compiler") = nullptr,
             py::arg("status"),
-            py::return_value_policy::reference_internal)
+            py::return_value_policy::reference_internal,
+            // The circuit stores a reference to the tables and uses the
+            // compiler: keep both alive while the circuit lives.
+            py::keep_alive<1, 2>(),
+            py::keep_alive<1, 3>())
         .def("isValid", &sim::Circuit::isValid)
         .def("needsElaboration", &sim::Circuit::needsElaboration)
         .def("clear", &sim::Circuit::clear)
