@@ -165,6 +165,21 @@ elseif (${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
     find_package(Boost REQUIRED COMPONENTS filesystem)
     include_directories("${Boost_INCLUDE_DIRS}")
     message(STATUS "Boost include: ${Boost_INCLUDE_DIRS}")
+elseif (${CMAKE_SYSTEM_NAME} STREQUAL "Emscripten")
+    # WebAssembly (Pyodide). Only the Python extension is built: no simulator
+    # executable, no Boost (no process spawning), no OpenMP/threads. The native
+    # dependencies come from ci/build-wasm-deps.sh, installed in WASM_DEPS_DIR.
+    set(SIM_PLATFORM "Emscripten")
+    set(SIM_ARCH "wasm32")
+    set(PROGRAM_LIB_DIR "lib/${PROGRAM_NAME}")
+    add_compile_definitions("SIMLINUX")
+    if (NOT DEFINED WASM_DEPS_DIR)
+        message(FATAL_ERROR "Pass -DWASM_DEPS_DIR=<prefix from ci/build-wasm-deps.sh>")
+    endif()
+    set(SuiteSparse_DIR "${WASM_DEPS_DIR}")
+    set(FFTW3_DIR "${WASM_DEPS_DIR}")
+    set(OPENBLAS_DIR "${WASM_DEPS_DIR}")
+    set(TOMLPP_DIR "${WASM_DEPS_DIR}")
 else()
     # Linux
     set(SIM_PLATFORM "Linux")
@@ -187,9 +202,9 @@ if (DEFINED MSVC_VERSION)
 	# Need this for MSVC to correctly define __cplusplus,
 	# needed by Flex lexers and Bison parsers
 	add_compile_options("/Zc:__cplusplus")
-elseif (CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
-    # Apple Clang (macOS)
-    message(STATUS "Using AppleClang toolchain")
+elseif (CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR (SIM_PLATFORM STREQUAL "Emscripten" AND CMAKE_CXX_COMPILER_ID STREQUAL "Clang"))
+    # Apple Clang (macOS), Emscripten's clang (no -fcoroutines flag)
+    message(STATUS "Using AppleClang/Emscripten toolchain")
     add_compile_options("-fno-signaling-nans" "-fno-trapping-math")
 else()
 	# GCC/MINGW
@@ -237,6 +252,37 @@ else()
     message(STATUS "  found ${OPENVAF_COMPILER}") 
 endif()
 
+# Extra arguments of OpenVAF for the target platform, and a launcher that runs
+# it (empty: run it directly)
+set(OPENVAF_TARGET_OPTIONS "")
+set(OPENVAF_LAUNCHER "")
+if (SIM_PLATFORM STREQUAL "Emscripten")
+    # Device models are WebAssembly side modules, loaded with dlopen like on
+    # the other platforms. OpenVAF-reloaded compiles them for the
+    # wasm32-unknown-emscripten target and links them with the wasm-ld of the
+    # Emscripten SDK that builds the extension.
+    execute_process(
+        COMMAND "${OPENVAF_COMPILER}" --supported-targets
+        OUTPUT_VARIABLE tmp
+        RESULT_VARIABLE res
+    )
+    if (NOT res EQUAL 0 OR NOT tmp MATCHES "wasm32-unknown-emscripten")
+        message(FATAL_ERROR "${OPENVAF_COMPILER} cannot compile for WebAssembly "
+            "(no wasm32-unknown-emscripten target)")
+    endif()
+    get_filename_component(tmp "${CMAKE_C_COMPILER}" DIRECTORY)
+    find_program(WASM_LD wasm-ld
+        HINTS "${EMSCRIPTEN_ROOT_PATH}/../bin" "$ENV{EMSDK}/upstream/bin" "${tmp}/../bin"
+        NO_CMAKE_FIND_ROOT_PATH
+    )
+    if (WASM_LD STREQUAL "WASM_LD-NOTFOUND")
+        message(FATAL_ERROR "wasm-ld of the Emscripten SDK not found")
+    endif()
+    message(STATUS "WebAssembly linker for device models: ${WASM_LD}")
+    set(OPENVAF_TARGET_OPTIONS "--target;wasm32-unknown-emscripten")
+    set(OPENVAF_LAUNCHER "${CMAKE_COMMAND};-E;env;OPENVAF_WASM_LD=${WASM_LD}")
+endif()
+
 #find_package(SWIG 4.0 COMPONENTS python)
 #if(SWIG_FOUND)
 #  include(UseSWIG)
@@ -253,6 +299,10 @@ if (${SIM_PLATFORM} STREQUAL "Windows")
     include_directories("${Boost_INCLUDE_DIRS}")
     link_directories("${Boost_LIBRARY_DIRS}")
     message(STATUS "Boost include: ${Boost_INCLUDE_DIRS}")
+    include_directories("${TOMLPP_DIR}/include")
+    message(STATUS "TOMLPP include: ${TOMLPP_DIR}/include")
+elseif (${SIM_PLATFORM} STREQUAL "Emscripten")
+    # No Boost on WebAssembly (it is only used for spawning processes)
     include_directories("${TOMLPP_DIR}/include")
     message(STATUS "TOMLPP include: ${TOMLPP_DIR}/include")
 elseif (${SIM_PLATFORM} STREQUAL "Darwin")
@@ -301,6 +351,8 @@ elseif (${SIM_PLATFORM} STREQUAL "Darwin")
     include_directories("${OPENBLAS_DIR}/include")
 elseif (${SIM_PLATFORM} STREQUAL "Linux")
     include_directories("/usr/include/openblas")
+elseif (${SIM_PLATFORM} STREQUAL "Emscripten")
+    include_directories("${OPENBLAS_DIR}/include")
 endif()
 
 # FFTW3 (used unconditionally by lib/corepss.cpp for PSS's time-domain <->
@@ -338,6 +390,22 @@ include_directories("${SIM_FFTW3_INCLUDE}")
 # lib/dfllexer.l (extended patterns landed in the 2.6 series; 2.6.4 is verified).
 find_package(BISON 3.3 REQUIRED)
 find_package(FLEX 2.6.4 REQUIRED)
+
+if (SIM_PLATFORM STREQUAL "Emscripten")
+    # Flex/Bison are host tools; the Emscripten toolchain file restricts
+    # find_path() to the target sysroot, so FindFLEX cannot find FlexLexer.h.
+    # Take it from the host flex installation instead. Only that one header is
+    # copied: putting the host's /usr/include on the include path would shadow
+    # the C library headers of the Emscripten sysroot.
+    get_filename_component(tmp "${FLEX_EXECUTABLE}" DIRECTORY)
+    get_filename_component(tmp "${tmp}/../include/FlexLexer.h" ABSOLUTE)
+    if (NOT EXISTS "${tmp}")
+        message(FATAL_ERROR "FlexLexer.h not found next to ${FLEX_EXECUTABLE}")
+    endif()
+    set(FLEX_INCLUDE_DIRS "${CMAKE_CURRENT_BINARY_DIR}/flex-include")
+    file(COPY "${tmp}" DESTINATION "${FLEX_INCLUDE_DIRS}")
+    message(STATUS "Flex include dir: ${FLEX_INCLUDE_DIRS}")
+endif()
 
 # This is for circumventing a bug in mingw cmake 3.28 that causes it to incorrectly set two variables
 if (${SIM_PLATFORM} STREQUAL "Windows")
@@ -484,7 +552,24 @@ if (${SIM_PLATFORM} STREQUAL "Linux" OR ${SIM_PLATFORM} STREQUAL "Darwin")
 endif()
 
 # What to link with the object files to produce an executable
-if (${SIM_PLATFORM} STREQUAL "Windows")
+if (${SIM_PLATFORM} STREQUAL "Emscripten")
+    # Static, position-independent libraries from ci/build-wasm-deps.sh. OpenBLAS
+    # (slim archive with just the routines VACASK calls, see build-wasm-deps.sh).
+    set(SIM_EXE_LIBRARIES
+            ${WASM_DEPS_DIR}/lib/libklu.a
+            ${WASM_DEPS_DIR}/lib/libcholmod.a
+            ${WASM_DEPS_DIR}/lib/libamd.a
+            ${WASM_DEPS_DIR}/lib/libcamd.a
+            ${WASM_DEPS_DIR}/lib/libcolamd.a
+            ${WASM_DEPS_DIR}/lib/libccolamd.a
+            ${WASM_DEPS_DIR}/lib/libbtf.a
+            ${WASM_DEPS_DIR}/lib/libsuitesparseconfig.a
+            ${WASM_DEPS_DIR}/lib/libvacask_blas.a
+            ${SIM_FFTW3_LIBRARY}
+        CACHE STRING "External libraries for creating an executable."
+        FORCE
+    )
+elseif (${SIM_PLATFORM} STREQUAL "Windows")
     link_directories(${SuiteSparse_DIR}/lib)
     link_directories(${OPENBLAS_DIR}/lib)
     set(SIM_EXE_LIBRARIES
@@ -609,13 +694,20 @@ endif()
 
 
 add_subdirectory(lib)
-add_subdirectory(simulator)
+if (NOT SIM_PLATFORM STREQUAL "Emscripten")
+    # WebAssembly builds only the library, the device models and the Python
+    # extension: there is no standalone simulator (the netlist tests and demos
+    # run it).
+    add_subdirectory(simulator)
+endif()
 add_subdirectory(devices)
 add_subdirectory(inc)
 add_subdirectory(python)
-add_subdirectory(test)
+if (NOT SIM_PLATFORM STREQUAL "Emscripten")
+    add_subdirectory(test)
 
-add_subdirectory(demo/api)
+    add_subdirectory(demo/api)
+endif()
 
 include("packaging.cmake")
 
@@ -623,7 +715,14 @@ if (SKBUILD)
 # PyBIND11
 set(PYBIND11_FINDPYTHON ON)
 find_package(pybind11 CONFIG REQUIRED)
-pybind11_add_module(_vacask
+# pybind11 strips the module after linking (with the host's strip, CMAKE_STRIP),
+# which removes the dylink.0 section a WebAssembly side module needs to be
+# loadable. NO_EXTRAS turns off that strip (and LTO, which is of no use there).
+set(SIM_PYBIND_EXTRAS "")
+if (SIM_PLATFORM STREQUAL "Emscripten")
+    set(SIM_PYBIND_EXTRAS NO_EXTRAS)
+endif()
+pybind11_add_module(_vacask ${SIM_PYBIND_EXTRAS}
     python/csrc/py_module.cpp
     python/csrc/py_analysis.cpp
     python/csrc/py_circuit.cpp

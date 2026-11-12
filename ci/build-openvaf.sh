@@ -4,6 +4,9 @@
 #
 # Usage: ci/build-openvaf.sh [output_dir]
 #   output_dir: where to place openvaf-r binary (default: ./openvaf-cache)
+# Environment:
+#   OPENVAF_REPO, OPENVAF_BRANCH: the OpenVAF-Reloaded repository and branch
+#   to build (default: see below)
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -24,10 +27,15 @@ echo "==> Building OpenVAF-Reloaded"
 # shellcheck source=ci/install-rust.sh
 . "$SCRIPT_DIR/install-rust.sh"
 
+# mb-experimental (OSDI 0.5) plus the wasm32-unknown-emscripten target that
+# the Pyodide wheel needs for its device models, until that is merged into
+# arpadbuermen/OpenVAF mb-experimental.
+OPENVAF_REPO="${OPENVAF_REPO:-https://github.com/pepijndevos/OpenVAF.git}"
+OPENVAF_BRANCH="${OPENVAF_BRANCH:-wasm32-emscripten-target}"
+
 OPENVAF_SRC="/tmp/openvaf-src"
 rm -rf "$OPENVAF_SRC"
-git clone --branch mb-experimental --single-branch \
-  https://github.com/arpadbuermen/OpenVAF.git "$OPENVAF_SRC"
+git clone --branch "$OPENVAF_BRANCH" --single-branch "$OPENVAF_REPO" "$OPENVAF_SRC"
 cd "$OPENVAF_SRC"
 
 case "$OS" in

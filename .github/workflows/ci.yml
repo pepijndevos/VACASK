@@ -67,7 +67,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: openvaf-cache
-          key: openvaf-${{ matrix.os }}-${{ runner.arch }}-osdi-0.5-v1
+          key: openvaf-${{ matrix.os }}-${{ runner.arch }}-osdi-0.5-wasm-v1
 
       - name: Build OpenVAF-Reloaded (Unix)
         if: steps.cache-openvaf.outputs.cache-hit != 'true' && runner.os != 'Windows'
@@ -234,6 +234,99 @@ jobs:
           name: wheels-${{ matrix.os }}
           path: wheelhouse/*.whl
 
+  wheels-pyodide:
+    # Python extension for Pyodide (WebAssembly), experimental. Released to PyPI
+    # with the native wheels: the "wheels-pyodide" artifact matches the release
+    # job's "wheels-*" download. The native libraries are built
+    # from source (ci/build-wasm-deps.sh): Pyodide's own library packages cannot
+    # be depended on from a PyPI wheel. The device models are compiled to
+    # WebAssembly side modules by the openvaf-r of the Linux x86_64 build job
+    # (wasm32-unknown-emscripten target) and bundled in the wheel; the wheel
+    # test step simulates circuits with them (python/tests/test_models.py).
+    name: Wheels (Pyodide)
+    needs: build
+    runs-on: ubuntu-24.04
+    env:
+      # Must match the Emscripten of the Pyodide platform that is built:
+      # pyemscripten_2026_0 (Python 3.14, Pyodide 314, the one marimo ships)
+      # uses Emscripten 5.0.3. Other Python versions need other Emscripten
+      # versions, hence their own dependency build.
+      EMSCRIPTEN_VERSION: 5.0.3
+      PYODIDE_BUILD: cp314-pyodide_wasm32
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Install host tools
+        run: sudo apt-get update && sudo apt-get install -y bison flex libfl-dev ninja-build
+
+      # Built in the manylinux container of the build job, against its LLVM 21
+      # shared library, which the runner gets from apt.llvm.org.
+      - name: Fetch OpenVAF-Reloaded
+        uses: actions/download-artifact@v6
+        with:
+          name: openvaf-ubuntu-24.04
+          path: openvaf-cache
+
+      - name: Install the LLVM library of OpenVAF-Reloaded
+        run: |
+          chmod +x openvaf-cache/openvaf-r
+          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc > /dev/null
+          echo "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-21 main" | sudo tee /etc/apt/sources.list.d/llvm-21.list
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends libllvm21
+          openvaf-cache/openvaf-r --supported-targets | grep wasm32-unknown-emscripten
+          echo "OPENVAF_DIR=$GITHUB_WORKSPACE/openvaf-cache" >> "$GITHUB_ENV"
+
+      - name: Setup Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: ${{ env.EMSCRIPTEN_VERSION }}
+
+      - name: Cache wasm dependencies
+        id: wasm-deps-cache
+        uses: actions/cache@v5
+        with:
+          path: ${{ runner.temp }}/wasm-deps
+          key: wasm-deps-${{ env.EMSCRIPTEN_VERSION }}-${{ hashFiles('ci/build-wasm-deps.sh') }}
+
+      - name: Build wasm dependencies
+        if: steps.wasm-deps-cache.outputs.cache-hit != 'true'
+        run: ci/build-wasm-deps.sh "$RUNNER_TEMP/wasm-deps" "$RUNNER_TEMP/wasm-deps-work"
+
+      - name: Determine version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/_* ]]; then
+            V="${GITHUB_REF_NAME#_}"; V="${V//-/.}"
+          else
+            V="0.0.0.dev0+g${GITHUB_SHA::8}"
+          fi
+          echo "SETUPTOOLS_SCM_PRETEND_VERSION=$V" >> "$GITHUB_ENV"
+
+      # cibuildwheel 4 tags the wheel with the PEP 783 platform tag
+      # (pyemscripten_2026_0_wasm32), the only spelling PyPI accepts; 3.x wrote
+      # pyodide_* tags.
+      - name: Build wheel
+        uses: pypa/cibuildwheel@v4.3.5
+        env:
+          CIBW_PLATFORM: pyodide
+          CIBW_BUILD: ${{ env.PYODIDE_BUILD }}
+          WASM_DEPS_DIR: ${{ runner.temp }}/wasm-deps
+
+      # A wheel PyPI would reject must fail here, not halfway through a release.
+      - name: Check the platform tag
+        run: |
+          ls wheelhouse
+          ls wheelhouse/*-cp314-cp314-pyemscripten_2026_0_wasm32.whl
+
+      - name: Upload wheel
+        uses: actions/upload-artifact@v6
+        with:
+          name: wheels-pyodide
+          path: wheelhouse/*.whl
+
   vacask-bin-tests:
     name: Test vacask-bin packaging
     runs-on: ubuntu-latest
@@ -246,7 +339,7 @@ jobs:
 
   release:
     if: startsWith(github.ref, 'refs/tags/_')
-    needs: [build, wheels, vacask-bin-tests]
+    needs: [build, wheels, wheels-pyodide, vacask-bin-tests]
     runs-on: ubuntu-latest
     permissions:
       contents: write
