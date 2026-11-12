@@ -207,7 +207,7 @@ protected:
 
     std::unique_ptr<OutputRawfile> outfile;
 
-    bool finished; 
+    bool finished {false}; 
 
     PreprocessedUserForces preprocessedIc;
     // Forces uicForces;
